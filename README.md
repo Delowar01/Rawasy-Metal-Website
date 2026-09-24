@@ -6,7 +6,8 @@ fabrication, laser engraving and scaffolding in Riyadh.
 
 **Status: stages 1A (foundation) and 1B (homepage) are approved. Stage 1C (core inner pages:
 about, services overview, industries, clients, certificates, contact / quote, privacy, terms) is
-built and awaiting design approval.** The remaining routes (service and project detail pages,
+built, and Stage 1C-V (a global visual enhancement pass over the homepage below the hero and those
+eight pages) has been applied. Both await visual approval.** The remaining routes (service and project detail pages,
 capabilities, projects) are set up and localized, and show an "in development" page until their
 stage is built and approved (see the approval gate in the Phase 1 brief).
 
@@ -53,7 +54,9 @@ src/
     inner/                 Inner-page system: hero variants, breadcrumbs, editorial section, media frame, CTA
     about/ services/ industries/ clients/ certificates/ contact/ legal/
                            Page-specific components for the stage 1C pages
-    motion/                Loader, reveal observer, custom cursor, page transition
+    visual/                Visual system: technical frame, backdrops and scan line, section rule,
+                           pointer light, nameplate
+    motion/                Loader, reveal and live observers, custom cursor, page transition
     ui/                    Button, section header, image, icons
   lib/                     SEO helpers, inner-page metadata, theme engine, boot script, GSAP setup
 e2e/                       Playwright browser tests (site shell + homepage, stage 1C pages)
@@ -61,7 +64,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-09-24, stage 1C core inner pages)
+docs/reports/                Stage reports (latest: 2026-09-24, stage 1C-V visual enhancement)
 ```
 
 ### Languages and RTL
@@ -97,6 +100,24 @@ per theme. An inline boot script applies the stored or OS theme before first pai
 choice persists in `localStorage`, and the page keeps following the OS until the visitor picks a
 theme. Where supported, switching themes reveals the new theme with a circular wipe.
 
+### Visual system
+
+The look is precision engineering, metal fabrication and architectural detail: layered metal sheets,
+not floating cards. Surfaces come in standard, elevated, recessed, raised (`.panel-raised`) and brushed
+metal (`.panel-metal`) versions, with semantic depth tokens (`--shadow-low`, `--shadow-medium`,
+`--shadow-metal`, `--shadow-inset`). Reusable pieces in `src/components/visual/`:
+
+- `TechnicalFrame` / `FrameMarks`: 1px rules that draw in, corner marks, an accent edge on hover,
+  focus or `data-active`, and a marker that runs the top edge.
+- `Backdrop` (engineering grid, fine grid, perforated field; optionally drifting) and `ScanLine`.
+- `SectionRule` (architectural hairline above section headers), `PointerLight` (a soft light that
+  follows the mouse on desktop), `Nameplate` (riveted plate with the registered names).
+- `MediaFrame` (in `inner/`) is the image frame: crop and registration marks, numbered captions,
+  hover zoom, a subtle parallax and never wider than the source image.
+
+Decoration is always `aria-hidden`. Ambient motion runs only while on screen and never with reduced
+motion; it animates transform and opacity only.
+
 ### Motion
 
 - **Hero:** a brushed steel plate that the laser cuts in sequence (bolt holes, an eight-point
@@ -107,8 +128,13 @@ theme. Where supported, switching themes reveals the new theme with a circular w
 - Line-mask headline reveals, curtain image reveals, structural line drawing, a production-line
   progress rail, a direction-aware machinery stage with a scan sweep, count-up metrics, and a
   slow client marquee.
-- **Reduced motion:** the intro, parallax, cursor tracking, page transitions and continuous motion are
-  turned off, leaving simple fades. Without JavaScript, all content is visible.
+- Visual system motion: frames draw in (horizontal, then vertical) with a marker running the top edge,
+  image masks wipe in the reading direction, section rules draw, active rows light their edge, the
+  services explorer runs a cutting line with its wipe, grids drift and scan lines pass slowly while
+  on screen, and a pointer light follows the mouse on selected plates.
+- **Reduced motion:** the intro, parallax, cursor tracking, page transitions and continuous motion
+  (grid drift, scan lines, pointer light, travelling markers) are turned off, leaving simple fades
+  and fully drawn frames. Without JavaScript, all content is visible.
 
 ### SEO
 
@@ -152,7 +178,9 @@ proxy, prefix it with `NODE_USE_ENV_PROXY=1`.
 (loader, theme, language switching, mobile menu, explorers, transitions, reduced motion, no-JS,
 internal links); `stage-1c.spec.ts` covers the inner pages (routes, language and direction, SEO and
 the noindex gate, breadcrumbs, clients, certificate dialog, quote form, legal pages, 404, overflow at
-360/390/834 px, keyboard, reduced motion, no-JS). In a cloud session Chromium is preinstalled at
+360/390/834 px, keyboard, reduced motion, no-JS); `visual-system.spec.ts` covers the visual system
+(ambient motion only on screen, reduced motion and touch, active rows and contents, focus frames,
+decoration hidden from assistive technology). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages
