@@ -11,7 +11,7 @@ for approval.** Stage 1A stays approved. Stage 1C and all inner-page design work
 | | |
 | --- | --- |
 | Correction commit | `4b2d6ab73c09091eb44d2324690c0714050ab49b`, "Refine homepage Arabic typography and visual hierarchy" (one focused commit) |
-| Report commit | Docs only (this file, `CLAUDE.md` and the README report pointer), made separately so the correction commit stays focused |
+| Report commits | Docs only (this file, `CLAUDE.md` and the README report pointer), made after it so the correction commit stays focused |
 
 ## 2. Files changed (22)
 
@@ -247,7 +247,10 @@ The tokens follow the brief's pattern:
 
 ## 12. Stage 1C
 
-**Not started.** No inner-page design work was done. The only inner-page edit is the weight fix in item 11.1. That fix was needed because a font weight was removed.
+**Not started.** No inner-page design work was done.
+
+- The inner-page placeholders and the 404 pick up the new global fonts and type scale automatically, with no layout changes.
+- The only inner-page edit is the weight fix in item 11.1. That fix was needed because a font weight was removed.
 
 ## Notes for your review
 
@@ -259,8 +262,8 @@ The tokens follow the brief's pattern:
   Recommended for 1J: a root layout per language, so each language preloads only its own fonts.
 - **Arabic line-height.** 1.75–1.95 is applied to paragraphs and leads (1.85). Headings use 1.36–1.6, because 1.75 or more on 40–66 px Kufi breaks the headline into separate floating lines. Please confirm.
 - **English display on phones.** On phones the English display is 37–38 px rather than the 48 px minimum in the brief's example clamp. At 48 px, "POSSIBILITY." does not fit on 360–390 px screens.
-- **Single-word last lines remain only at sentence boundaries:**
-  - "One accountable / partner." (EN, 390/360)
-  - "Registered. Licensed. / Accountable." (EN, 1280 and phones)
-  - "مسجّلون ومرخّصون… / وملتزمون." (AR, phones)
+- **Single-word last lines that remain:**
+  - "Registered. Licensed. / Accountable." (EN, 1280 and phones) breaks at a sentence boundary.
+  - "مسجّلون ومرخّصون… / وملتزمون." (AR, phones) breaks at the "…" pause.
+  - "Six service lines. / One accountable / partner." (EN, 390/360): "One accountable partner." is wider than a phone column.
 - **Unchanged and unrelated:** `/favicon.ico` serves Next's default 404. The same happens on `dd35d86`.
