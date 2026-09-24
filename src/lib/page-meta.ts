@@ -1,22 +1,33 @@
 import type { RouteKey } from "@/i18n/routes";
 
 /**
- * Publication state per route. Pages are routed and localized from day one,
- * but only published pages are indexed and listed in the sitemap. Flip a
- * route to `true` when its full design ships (approval gate, Phase 1 plan).
+ * Publication state per route — the approval gate of the Phase 1 plan.
+ *
+ * - `planned`   routed and localized; shows the in-development page (noindex)
+ * - `review`    fully built and awaiting the user's approval (noindex, not in the sitemap)
+ * - `published` approved: indexed and listed in the sitemap
+ *
+ * A stage's routes move from `review` to `published` only once the user
+ * approves that stage.
  */
-export const published: Record<RouteKey, boolean> = {
-  home: true,
-  about: false,
-  services: false,
-  service: false,
-  capabilities: false,
-  projects: false,
-  project: false,
-  industries: false,
-  clients: false,
-  certificates: false,
-  contact: false,
-  privacy: false,
-  terms: false,
+export type PageStatus = "planned" | "review" | "published";
+
+export const pageStatus: Record<RouteKey, PageStatus> = {
+  home: "published",
+  about: "review",
+  services: "review",
+  service: "planned",
+  capabilities: "planned",
+  projects: "planned",
+  project: "planned",
+  industries: "review",
+  clients: "review",
+  certificates: "review",
+  contact: "review",
+  privacy: "review",
+  terms: "review",
 };
+
+export function isPublished(key: RouteKey) {
+  return pageStatus[key] === "published";
+}

@@ -33,6 +33,10 @@ export const services: Service[] = [
       en: "Fibre-laser cutting head throwing sparks over sheet metal",
       ar: "رأس قص ليزر فايبر يتطاير منه الشرر فوق لوح صاج",
     },
+    supporting: {
+      media: "projects/clock-tower-1",
+      alt: { en: "Clock tower with laser-cut façade panels", ar: "برج ساعة بواجهات مقصوصة بالليزر" },
+    },
     gallery: [
       "site/laser-head",
       "projects/canopy-tree-1",
@@ -76,6 +80,10 @@ export const services: Service[] = [
       en: "Sheet metal being formed on a CNC press brake",
       ar: "تشكيل لوح صاج على مكبس ثني CNC",
     },
+    supporting: {
+      media: "services/cnc-bending-2",
+      alt: { en: "Formed sheet-metal parts from a CNC press brake", ar: "قطع صاج مُشكّلة على مكبس ثني CNC" },
+    },
     gallery: ["services/cnc-bending-2", "services/cnc-bending-3"],
     machines: ["cnc-press-brake"],
     projects: ["perforated-metal-seating", "stainless-steel-handrails"],
@@ -111,6 +119,10 @@ export const services: Service[] = [
     coverAlt: {
       en: "Fabricated steel beams and columns in a steel-structure hall",
       ar: "كمرات وأعمدة حديدية مصنّعة داخل هنجر للهياكل الحديدية",
+    },
+    supporting: {
+      media: "site/steel-frame-dusk",
+      alt: { en: "Steel portal frames of a building under construction at dusk", ar: "إطارات حديدية لمبنى قيد الإنشاء وقت الغروب" },
     },
     gallery: [
       "services/steel-structures-1",
@@ -154,6 +166,10 @@ export const services: Service[] = [
       en: "Laser-cut lanterns and a lattice tower under fabrication in the RAWASY workshop",
       ar: "فوانيس مقصوصة بالليزر وبرج شبكي أثناء التصنيع في ورشة رواسي",
     },
+    supporting: {
+      media: "services/fabrication-welding",
+      alt: { en: "Welder joining steel parts on a workbench", ar: "لحّام يصل قطعًا حديدية على طاولة العمل" },
+    },
     gallery: [
       "services/fabrication-grinding",
       "services/fabrication-welding",
@@ -196,6 +212,10 @@ export const services: Service[] = [
       en: "Laser-engraved metal identification plates",
       ar: "لوحات تعريفية معدنية محفورة بالليزر",
     },
+    supporting: {
+      media: "services/engraving-wood",
+      alt: { en: "Detailed laser engraving on wood", ar: "حفر دقيق بالليزر على الخشب" },
+    },
     gallery: ["services/engraving-wood", "services/engraving-rotary"],
     machines: [],
     projects: ["calligraphic-sculptures", "heritage-cannon-replicas"],
@@ -231,6 +251,10 @@ export const services: Service[] = [
     coverAlt: {
       en: "Workers on a scaffolding system at a construction site",
       ar: "عمّال على منظومة سقالات في موقع إنشاء",
+    },
+    supporting: {
+      media: "services/scaffolding-props",
+      alt: { en: "Steel props and scaffolding components", ar: "دعامات حديدية ومكوّنات سقالات" },
     },
     gallery: [
       "services/scaffolding-1",

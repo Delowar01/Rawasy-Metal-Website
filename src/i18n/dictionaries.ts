@@ -41,6 +41,7 @@ const en = {
     whatsapp: "WhatsApp",
     address: "Address",
     phone: "Phone",
+    figure: "Fig.",
   },
   footer: {
     statement: "Shaping metal. Building possibilities.",
@@ -110,6 +111,7 @@ const ar: Dictionary = {
     whatsapp: "واتساب",
     address: "العنوان",
     phone: "الهاتف",
+    figure: "شكل",
   },
   footer: {
     statement: "نُشكّل المعدن… ونبني الممكن.",

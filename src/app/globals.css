@@ -1468,6 +1468,189 @@
 }
 
 /* ==========================================================================
+   Inner pages (stage 1C)
+   ========================================================================== */
+@layer components {
+  /* Measured rule: a tick every 22px, fading downwards. */
+  .ruler-ticks {
+    background: repeating-linear-gradient(90deg, var(--border-strong) 0 1px, transparent 1px 22px);
+    mask-image: linear-gradient(to bottom, black, transparent);
+    opacity: 0.7;
+  }
+
+  /* Horizontal rule with small ticks along it. */
+  .ruler-line {
+    background:
+      linear-gradient(var(--border-strong), var(--border-strong)) 0 50% / 100% 1px no-repeat,
+      repeating-linear-gradient(90deg, var(--border-strong) 0 1px, transparent 1px 22px) 0 50% / 100% 7px no-repeat;
+  }
+
+  /* A plate with one laser-cut corner, like the buttons and the logo. */
+  .plate-sheet {
+    clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%);
+  }
+
+  [dir="rtl"] .plate-sheet {
+    clip-path: polygon(0 26px, 26px 0, 100% 0, 100% 100%, 0 100%);
+  }
+
+  /* Client logo sheet: logo size steps with the cell size. */
+  .client-grid {
+    --logo-scale: 0.6;
+  }
+
+  @media (min-width: 40rem) {
+    .client-grid {
+      --logo-scale: 0.78;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .client-grid {
+      --logo-scale: 0.72;
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .client-grid {
+      --logo-scale: 0.86;
+    }
+  }
+
+  /* Offset outline behind a framed photograph (MediaFrame). */
+  .media-offset {
+    inset-block: 14px -14px;
+    inset-inline: 14px -14px;
+  }
+
+  /* Form fields: square, ruled, calm; invalid fields get an accent edge. */
+  .form-control {
+    display: block;
+    width: 100%;
+    min-height: 3.1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    background: var(--surface-elevated);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.45;
+    transition:
+      border-color 0.25s ease,
+      background-color 0.25s ease;
+  }
+
+  .form-control::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.75;
+  }
+
+  .form-control:hover {
+    border-color: var(--text-tertiary);
+  }
+
+  .form-control:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-color: var(--text-primary);
+  }
+
+  .form-control[aria-invalid="true"] {
+    border-color: var(--accent-text);
+    border-inline-start-width: 3px;
+  }
+
+  textarea.form-control {
+    min-height: 9.5rem;
+    resize: vertical;
+  }
+
+  select.form-control {
+    appearance: none;
+    padding-inline-end: 2.75rem;
+    cursor: pointer;
+  }
+
+  /* Decorative outlined numerals. Drawn from data-n so they stay out of the text
+     (and accessibility) tree; the list order already carries the numbering. */
+  .outline-num::before {
+    content: attr(data-n);
+    color: transparent;
+    -webkit-text-stroke: 1px var(--border-strong);
+  }
+
+  /* File drop area, hatched like a cutting table. */
+  .dropzone {
+    border: 1px dashed var(--border-strong);
+    background:
+      repeating-linear-gradient(135deg, transparent 0 11px, var(--grid-line) 11px 12px),
+      var(--surface);
+    transition:
+      border-color 0.25s ease,
+      background-color 0.25s ease;
+  }
+
+  .dropzone[data-drag] {
+    border-color: var(--accent);
+    background-color: var(--accent-soft);
+  }
+
+  .dropzone:hover {
+    border-color: var(--text-tertiary);
+  }
+
+  .dropzone:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+
+  /* Legal documents: readable measure, ruled bullets. */
+  .legal-prose > * + * {
+    margin-top: 1rem;
+  }
+
+  .legal-prose ul {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .legal-prose li {
+    position: relative;
+    padding-inline-start: 1.5rem;
+  }
+
+  .legal-prose li::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0.8em;
+    width: 0.6rem;
+    height: 1px;
+    background: var(--accent);
+  }
+}
+
+/* Controls that only work with JavaScript (the boot script adds .js). Unlayered
+   so it wins over display utilities such as .grid. */
+html:not(.js) .js-only {
+  display: none;
+}
+
+/* SVG line work that draws itself when revealed (inner pages). */
+.js .line-draw [pathLength] {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1.8s var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+
+.js .line-draw[data-revealed] [pathLength] {
+  stroke-dashoffset: 0;
+}
+
+/* ==========================================================================
    Reduced motion: keep simple fades, drop movement.
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
@@ -1519,6 +1702,11 @@
 
   .machine-sweep {
     display: none;
+  }
+
+  .js .line-draw [pathLength] {
+    stroke-dashoffset: 0 !important;
+    transition: none !important;
   }
 
   .marquee {

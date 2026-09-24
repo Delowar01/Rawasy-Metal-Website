@@ -124,3 +124,64 @@ export function FacebookIcon({ size = 18, ...props }: IconProps) {
     </svg>
   );
 }
+
+/** Points in the reading direction — mirror with `rtl:-scale-x-100`. */
+export function ChevronIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m9.5 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 16V4.5M7 9.5 12 4.5l5 5M4.5 15v4.5h15V15" />
+    </svg>
+  );
+}
+
+export function FileIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M13.5 3.5H6v17h12V8Z" />
+      <path d="M13.5 3.5V8H18" />
+    </svg>
+  );
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 9h10.5v10.5H9Z" />
+      <path d="M15 9V4.5H4.5V15H9" />
+    </svg>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+export function AlertIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3.5 21.5 20h-19Z" />
+      <path d="M12 10v4.5M12 17v.5" />
+    </svg>
+  );
+}
+
+export function BuildingIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 20.5h18M5 20.5V4.5h9v16M14 9.5h5v11" />
+      <path d="M8 8h3M8 11.5h3M8 15h3M16.5 13h.01M16.5 16.5h.01" />
+    </svg>
+  );
+}

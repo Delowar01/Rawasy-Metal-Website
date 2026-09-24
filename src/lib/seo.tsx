@@ -101,6 +101,34 @@ export function organizationJsonLd(locale: Locale) {
   };
 }
 
+/** WebPage node (or a subtype such as AboutPage / ContactPage) tied to the site's organization. */
+export function webPageJsonLd({
+  locale,
+  pathname,
+  name,
+  description,
+  type = "WebPage",
+}: {
+  locale: Locale;
+  pathname: string;
+  name: string;
+  description: string;
+  type?: "WebPage" | "AboutPage" | "ContactPage" | "CollectionPage";
+}) {
+  const url = localizedUrl(locale, pathname);
+  return {
+    "@context": "https://schema.org",
+    "@type": type,
+    "@id": `${url}#webpage`,
+    url,
+    name,
+    description,
+    inLanguage: localeConfig[locale].htmlLang,
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    about: { "@id": `${SITE_URL}/#organization` },
+  };
+}
+
 export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
   return {
     "@context": "https://schema.org",

@@ -5,7 +5,7 @@ import { seo } from "@/content/seo";
 import { isLocale, type Locale } from "@/i18n/config";
 import { path, routeStage, type RouteKey } from "@/i18n/routes";
 import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
-import { published } from "./page-meta";
+import { isPublished } from "./page-meta";
 import { buildMetadata } from "./seo";
 
 type StaticRoute = Exclude<RouteKey, "home" | "service" | "project">;
@@ -24,7 +24,7 @@ export function createPlaceholderRoute(key: StaticRoute, extra?: (locale: Locale
       pathname: path(key),
       title: seo[key].title[locale],
       description: seo[key].description[locale],
-      noindex: !published[key],
+      noindex: !isPublished(key),
     });
   }
 

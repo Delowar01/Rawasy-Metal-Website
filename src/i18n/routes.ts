@@ -33,9 +33,9 @@ export const routeStage: Record<RouteKey, string> = {
   projects: "1F",
   project: "1F",
   industries: "1C",
-  clients: "1G",
-  certificates: "1G",
-  contact: "1G",
+  clients: "1C",
+  certificates: "1C",
+  contact: "1C",
   privacy: "1C",
   terms: "1C",
 };

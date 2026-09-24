@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { company } from "@/content/company";
+import { routeLabels } from "@/content/navigation";
 import { getServiceBySlug } from "@/content/repository";
-import { seo } from "@/content/seo";
 import { services } from "@/content/services";
 import { isLocale, locales } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { href, path, routeStage } from "@/i18n/routes";
-import { published } from "@/lib/page-meta";
+import { isPublished } from "@/lib/page-meta";
 import { breadcrumbJsonLd, buildMetadata, JsonLd, localizedUrl, SITE_URL } from "@/lib/seo";
 import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/services
     pathname: path("service", { slug }),
     title: service.name[locale],
     description: service.summary[locale],
-    noindex: !published.service,
+    noindex: !isPublished("service"),
   });
 }
 
@@ -38,7 +38,7 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
   const dict = getDictionary(locale);
   const crumbs = [
     { href: href(locale, "home"), label: dict.common.home },
-    { href: href(locale, "services"), label: seo.services.title[locale] },
+    { href: href(locale, "services"), label: routeLabels.services[locale] },
     { href: href(locale, "service", { slug }), label: service.name[locale] },
   ];
   return (

@@ -14,6 +14,7 @@ export const industries: Industry[] = [
       ar: "هياكل حديدية ومكوّنات مصنّعة ودعم بالسقالات لمقاولي البناء.",
     },
     media: "site/site-engineers",
+    services: ["steel-structures", "fabrication", "scaffolding"],
     source: { basis: "profile", pages: [2, 5] },
   },
   {
@@ -24,6 +25,8 @@ export const industries: Industry[] = [
       ar: "حلول معدنية ودعم ميداني لأعمال البنية التحتية.",
     },
     media: "projects/gateway-signs-3",
+    feature: "services/scaffolding-1",
+    services: ["steel-structures", "fabrication", "scaffolding"],
     source: { basis: "profile", pages: [2] },
   },
   {
@@ -34,6 +37,7 @@ export const industries: Industry[] = [
       ar: "قطع مقصوصة ومشكّلة وملحومة، وهياكل حديدية للمنشآت الصناعية.",
     },
     media: "site/steel-beams-hall",
+    services: ["laser-cutting", "cnc-bending", "fabrication", "steel-structures"],
     source: { basis: "profile", pages: [3, 5] },
   },
   {
@@ -44,6 +48,7 @@ export const industries: Industry[] = [
       ar: "هياكل حديدية وأعمال معدنية خاصة للمباني التجارية.",
     },
     media: "services/steel-structures-1",
+    services: ["steel-structures", "fabrication"],
     source: { basis: "profile", pages: [3, 4] },
   },
   {
@@ -54,6 +59,7 @@ export const industries: Industry[] = [
       ar: "سواتر مقصوصة بالليزر، ومظلات، وألواح مثقّبة، ودرابزين.",
     },
     media: "projects/perforated-canopy-1",
+    services: ["laser-cutting", "fabrication"],
     source: { basis: "inferred", note: "From work gallery #16, #25, #30, #31." },
   },
   {
@@ -64,6 +70,7 @@ export const industries: Industry[] = [
       ar: "مجسمات الدوارات والأبراج والمعالم المضيئة.",
     },
     media: "projects/tulip-roundabout-1",
+    services: ["fabrication", "laser-cutting"],
     source: { basis: "inferred", note: "From work gallery #04, #05, #06, #20." },
   },
   {
@@ -74,6 +81,7 @@ export const industries: Industry[] = [
       ar: "مظلات ومقاعد وشبكات حماية الأشجار وخدمات الأماكن العامة.",
     },
     media: "projects/palm-canopies-1",
+    services: ["steel-structures", "fabrication", "laser-cutting"],
     source: { basis: "inferred", note: "From work gallery #18, #19, #22, #24." },
   },
   {
@@ -84,6 +92,7 @@ export const industries: Industry[] = [
       ar: "لوحات المداخل وهياكل اللوحات ودعاماتها الحديدية.",
     },
     media: "projects/gateway-signs-1",
+    services: ["steel-structures", "fabrication"],
     source: { basis: "inferred", note: "From work gallery #10." },
   },
 ];

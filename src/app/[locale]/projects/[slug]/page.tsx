@@ -3,11 +3,11 @@ import { notFound } from "next/navigation";
 import { getMedia } from "@/content/media";
 import { getProjectBySlug } from "@/content/repository";
 import { projects } from "@/content/projects";
-import { seo } from "@/content/seo";
+import { routeLabels } from "@/content/navigation";
 import { isLocale, locales } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { href, path, routeStage } from "@/i18n/routes";
-import { published } from "@/lib/page-meta";
+import { isPublished } from "@/lib/page-meta";
 import { breadcrumbJsonLd, buildMetadata, JsonLd, SITE_URL } from "@/lib/seo";
 import { PagePlaceholder } from "@/components/layout/PagePlaceholder";
 import { MediaImage } from "@/components/ui/MediaImage";
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/projects
     pathname: path("project", { slug }),
     title: project.title[locale],
     description: project.summary[locale],
-    noindex: !published.project,
+    noindex: !isPublished("project"),
   });
 }
 
@@ -39,7 +39,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/proje
   const dict = getDictionary(locale);
   const crumbs = [
     { href: href(locale, "home"), label: dict.common.home },
-    { href: href(locale, "projects"), label: seo.projects.title[locale] },
+    { href: href(locale, "projects"), label: routeLabels.projects[locale] },
     { href: href(locale, "project", { slug }), label: project.title[locale] },
   ];
   const cover = getMedia(project.media[0]);

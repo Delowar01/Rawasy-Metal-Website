@@ -7,6 +7,7 @@
  * values to fill them.
  */
 import type { Locale } from "@/i18n/config";
+import type { RouteKey } from "@/i18n/routes";
 import type { MediaId } from "./media.generated";
 
 export type { MediaId };
@@ -41,6 +42,8 @@ export interface Service {
   highlights: Localized<string[]>;
   cover: MediaId;
   coverAlt: Localized;
+  /** Second image for the services overview page. */
+  supporting: { media: MediaId; alt: Localized };
   gallery: MediaId[];
   machines: MachineSlug[];
   projects: ProjectSlug[];
@@ -119,6 +122,10 @@ export interface Industry {
   name: Localized;
   description: Localized;
   media: MediaId;
+  /** Larger image for the industries page when `media` is too small to show well. */
+  feature?: MediaId;
+  /** Service lines that apply to the sector (from the description above). */
+  services: ServiceSlug[];
   source: SourceRef;
 }
 
@@ -197,4 +204,215 @@ export interface CompanyInfo {
 export interface SeoEntry {
   title: Localized;
   description: Localized;
+}
+
+/* ---------- Inner pages (stage 1C) ---------- */
+
+/** Opening copy shared by every inner-page hero. */
+export interface PageHero {
+  eyebrow: Localized;
+  title: Localized;
+  intro: Localized;
+}
+
+/** A fact shown in a hero's technical metadata strip. Sourced facts only. */
+export interface MetaItem {
+  label: Localized;
+  value: Localized;
+}
+
+export interface PageLink {
+  route: RouteKey;
+  label: Localized;
+  description?: Localized;
+}
+
+/** Closing call to action at the end of an inner page. */
+export interface PageCta {
+  label: Localized;
+  title: Localized;
+  body?: Localized;
+  links: PageLink[];
+}
+
+export interface AboutContent {
+  hero: PageHero & { meta: MetaItem[]; media: MediaId; mediaAlt: Localized; caption: Localized; nameplate: Localized };
+  overview: { label: Localized; title: Localized; paragraphs: Localized<string[]>; servicesLabel: Localized };
+  vision: { label: Localized; aimsLabel: Localized };
+  beyond: {
+    label: Localized;
+    title: Localized;
+    intro: Localized;
+    items: Localized[];
+    media: MediaId;
+    mediaAlt: Localized;
+    link: Localized;
+  };
+  process: { label: Localized; title: Localized; intro: Localized; steps: { slug: string; title: Localized; body: Localized }[] };
+  why: { label: Localized; title: Localized; intro: Localized };
+  cta: PageCta;
+}
+
+export interface ServicesPageContent {
+  hero: PageHero & { meta: MetaItem[] };
+  /** Name of the service plate in the hero (a second, distinct navigation landmark). */
+  plateLabel: Localized;
+  indexLabel: Localized;
+  includesLabel: Localized;
+  equipmentLabel: Localized;
+  open: Localized;
+  cta: PageCta;
+}
+
+export interface IndustriesPageContent {
+  hero: PageHero & { meta: MetaItem[] };
+  listLabel: Localized;
+  basis: { profile: Localized; inferred: Localized };
+  relatedLabel: Localized;
+  note: { label: Localized; title: Localized; paragraphs: Localized<string[]> };
+  cta: PageCta;
+}
+
+export interface ClientsPageContent {
+  hero: PageHero;
+  listLabel: Localized;
+  note: Localized;
+  cta: PageCta;
+}
+
+export interface CertificatesPageContent {
+  hero: PageHero;
+  registerLabel: Localized;
+  columns: { number: Localized; document: Localized; issuer: Localized; reference: Localized };
+  /** Shown instead of registration numbers, which stay off the site. */
+  reference: Localized;
+  view: Localized;
+  previewLabel: Localized;
+  /** Labels for the English and Arabic versions of a bilingual document, in that order. */
+  versions: Localized<string[]>;
+  dialogNote: Localized;
+  redaction: { label: Localized; title: Localized; points: Localized<string[]> };
+  cta: PageCta;
+}
+
+export type QuoteFieldName =
+  | "fullName"
+  | "company"
+  | "email"
+  | "phone"
+  | "service"
+  | "projectType"
+  | "requirement"
+  | "location"
+  | "message"
+  | "files";
+
+export interface QuoteField {
+  label: Localized;
+  hint?: Localized;
+  placeholder?: Localized;
+}
+
+export interface QuoteFormContent {
+  label: Localized;
+  title: Localized;
+  intro: Localized;
+  /** How sending works. There is no delivery backend: the visitor sends the request. */
+  status: Localized;
+  steps: Localized<string[]>;
+  requiredNote: Localized;
+  /** Shown only without JavaScript, when the form falls back to a mailto: submission. */
+  noscript: Localized;
+  fields: Record<QuoteFieldName, QuoteField>;
+  serviceOther: Localized;
+  projectTypes: { value: string; label: Localized }[];
+  files: {
+    accept: string[];
+    maxFiles: number;
+    maxSizeMb: number;
+    choose: Localized;
+    drop: Localized;
+    remove: Localized;
+    units: { kb: Localized; mb: Localized };
+    note: Localized;
+  };
+  submit: Localized;
+  errors: {
+    summary: Localized;
+    fullName: Localized;
+    email: Localized;
+    emailInvalid: Localized;
+    phone: Localized;
+    phoneInvalid: Localized;
+    service: Localized;
+    message: Localized;
+    messageShort: Localized;
+    fileType: Localized;
+    fileSize: Localized;
+    fileCount: Localized;
+  };
+  ready: {
+    title: Localized;
+    body: Localized;
+    email: Localized;
+    whatsapp: Localized;
+    copy: Localized;
+    copied: Localized;
+    copyFailed: Localized;
+    attach: Localized;
+    filesLine: Localized;
+    fallback: Localized;
+    edit: Localized;
+    subject: Localized;
+    preview: Localized;
+  };
+  /** `text` contains a {link} placeholder for the privacy policy link. */
+  privacy: { text: Localized; link: Localized };
+}
+
+export interface ContactPageContent {
+  hero: PageHero;
+  actions: { quote: Localized; call: Localized };
+  methods: {
+    label: Localized;
+    phone: Localized;
+    whatsapp: Localized;
+    chat: Localized;
+    send: Localized;
+    email: Localized;
+    address: Localized;
+    name: Localized;
+    stepsLabel: Localized;
+  };
+  form: QuoteFormContent;
+}
+
+/** A paragraph, or a bullet list, in a legal document. */
+export type LegalBlock = string | { list: string[] };
+
+export interface LegalSection {
+  id: string;
+  title: Localized;
+  body: Localized<LegalBlock[]>;
+  /** Shows the company contact details after the text. */
+  contact?: boolean;
+  /** Point that needs RAWASY (or legal) confirmation before launch; shown on the page. */
+  pending?: Localized;
+}
+
+export interface LegalDocument {
+  slug: "privacy" | "terms";
+  hero: PageHero;
+  /** ISO date of the last content change. */
+  updated: string;
+  sections: LegalSection[];
+}
+
+export interface LegalChrome {
+  updated: Localized;
+  appliesTo: Localized;
+  appliesToValue: Localized;
+  onThisPage: Localized;
+  pending: Localized;
+  contactLabels: { email: Localized; phone: Localized; address: Localized };
 }

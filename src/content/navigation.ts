@@ -45,3 +45,18 @@ export const legalNav: NavItem[] = [
   { route: "privacy", label: { en: "Privacy Policy", ar: "سياسة الخصوصية" } },
   { route: "terms", label: { en: "Website Terms", ar: "شروط الاستخدام" } },
 ];
+
+/** Short page names for breadcrumbs and page indexes. */
+export const routeLabels: Record<Exclude<RouteKey, "service" | "project">, Localized> = {
+  home: { en: "Home", ar: "الرئيسية" },
+  about: { en: "About RAWASY", ar: "عن رواسي" },
+  services: { en: "Services", ar: "الخدمات" },
+  capabilities: { en: "Capabilities", ar: "القدرات" },
+  projects: { en: "Projects", ar: "المشاريع" },
+  industries: { en: "Industries", ar: "القطاعات" },
+  clients: { en: "Clients", ar: "العملاء" },
+  certificates: { en: "Certificates & Compliance", ar: "الشهادات والامتثال" },
+  contact: { en: "Contact", ar: "تواصل معنا" },
+  privacy: { en: "Privacy Policy", ar: "سياسة الخصوصية" },
+  terms: { en: "Website Terms", ar: "شروط الاستخدام" },
+};

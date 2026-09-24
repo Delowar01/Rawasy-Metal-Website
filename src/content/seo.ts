@@ -18,15 +18,15 @@ export const seo: Record<Exclude<RouteKey, "service" | "project">, SeoEntry> = {
   about: {
     title: { en: "About RAWASY", ar: "عن رواسي" },
     description: {
-      en: "Who we are: a Saudi metal and construction solutions company combining advanced technology with skilled craftsmanship.",
-      ar: "تعرّف على رواسي: شركة سعودية للحلول المعدنية والإنشائية تجمع بين التقنية المتقدمة والحِرفية العالية.",
+      en: "RAWASY United International is a Riyadh-based metal and construction solutions company: laser cutting, CNC bending, steel structures, fabrication, laser engraving and scaffolding.",
+      ar: "رواسي المتحدة العالمية شركة سعودية للحلول المعدنية والإنشائية في الرياض: قص بالليزر وثني CNC وهياكل حديدية وتصنيع معدني وحفر بالليزر وسقالات.",
     },
   },
   services: {
-    title: { en: "Services", ar: "خدماتنا" },
+    title: { en: "Services — Laser Cutting, CNC Bending & Steel Structures", ar: "الخدمات — القص بالليزر والثني CNC والهياكل الحديدية" },
     description: {
-      en: "Laser cutting, CNC bending, steel structures, metal fabrication, laser engraving and scaffolding from RAWASY in Riyadh.",
-      ar: "القص بالليزر، والثني بتقنية CNC، والهياكل الحديدية، والتصنيع المعدني، والحفر بالليزر، والسقالات من رواسي في الرياض.",
+      en: "Six service lines from RAWASY in Riyadh: laser cutting up to 12,000 W, CNC bending, steel structures, metal fabrication, laser engraving and scaffolding.",
+      ar: "ستة خطوط خدمة من رواسي في الرياض: قص بالليزر حتى 12,000 واط، وثني CNC، وهياكل حديدية، وتصنيع معدني، وحفر بالليزر، وسقالات.",
     },
   },
   capabilities: {
@@ -46,22 +46,22 @@ export const seo: Record<Exclude<RouteKey, "service" | "project">, SeoEntry> = {
   industries: {
     title: { en: "Industries We Serve", ar: "القطاعات التي نخدمها" },
     description: {
-      en: "Construction, infrastructure, industrial, commercial, architecture and public-realm projects across Saudi Arabia.",
-      ar: "مشاريع المقاولات والبنية التحتية والصناعة والقطاع التجاري والعمارة والأماكن العامة في المملكة.",
+      en: "Where RAWASY's metalwork applies: construction, infrastructure, industrial and commercial projects, plus architectural, public-realm, street-furniture and signage work.",
+      ar: "مجالات تطبيق أعمال رواسي المعدنية: البناء والبنية التحتية والصناعة والمشاريع التجارية، إضافة إلى العمارة والأماكن العامة وأثاث الشوارع واللوحات.",
     },
   },
   clients: {
-    title: { en: "Clients", ar: "عملاؤنا" },
+    title: { en: "Our Clients", ar: "عملاؤنا" },
     description: {
-      en: "Organisations that have worked with RAWASY.",
-      ar: "جهات وشركات تعاملت مع رواسي.",
+      en: "Manufacturers, contractors and specialist fabricators that have worked with RAWASY United International in Saudi Arabia.",
+      ar: "مصانع ومقاولون وشركات تصنيع متخصصة تعاملت مع رواسي المتحدة العالمية في المملكة العربية السعودية.",
     },
   },
   certificates: {
     title: { en: "Certificates & Compliance", ar: "الشهادات والامتثال" },
     description: {
-      en: "RAWASY's commercial registration, VAT registration and commercial activity licence.",
-      ar: "السجل التجاري لرواسي، وشهادة التسجيل في ضريبة القيمة المضافة، ورخصة النشاط التجاري.",
+      en: "RAWASY's commercial registration, VAT registration and municipal commercial activity licence, shown as redacted previews.",
+      ar: "السجل التجاري لرواسي، وشهادة التسجيل في ضريبة القيمة المضافة، ورخصة النشاط التجاري البلدية، كنسخ معاينة مع إخفاء البيانات الحساسة.",
     },
   },
   contact: {
@@ -73,10 +73,16 @@ export const seo: Record<Exclude<RouteKey, "service" | "project">, SeoEntry> = {
   },
   privacy: {
     title: { en: "Privacy Policy", ar: "سياسة الخصوصية" },
-    description: { en: "How RAWASY handles information you share with us.", ar: "كيف تتعامل رواسي مع المعلومات التي تشاركها معنا." },
+    description: {
+      en: "How RAWASY handles the information you share through this website: quote requests, files, preferences and contact.",
+      ar: "كيف تتعامل رواسي مع المعلومات التي تشاركها عبر هذا الموقع: طلبات عروض الأسعار والملفات والتفضيلات والتواصل.",
+    },
   },
   terms: {
     title: { en: "Website Terms", ar: "شروط استخدام الموقع" },
-    description: { en: "Terms of use for the RAWASY website.", ar: "شروط استخدام موقع رواسي الإلكتروني." },
+    description: {
+      en: "Terms for using the RAWASY website: acceptable use, intellectual property, content accuracy and quotations.",
+      ar: "شروط استخدام موقع رواسي: الاستخدام المقبول والملكية الفكرية ودقة المحتوى وعروض الأسعار.",
+    },
   },
 };
