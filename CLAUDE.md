@@ -10,14 +10,16 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-24-phase-1-stages-1A-1B.md`.
+- Latest report: `docs/reports/2026-09-24-stage-1B-typography-correction.md` (earlier:
+  `2026-09-24-phase-1-stages-1A-1B.md`).
 
 ## Where the project stands
 
-- Phase 1 is the public website only. Stages 1A (foundation) and 1B (homepage) are done and pushed on
-  `claude/new-session-5eijs6`.
+- Phase 1 is the public website only. Work is pushed on `claude/new-session-5eijs6`.
+- **Stage 1A (foundation) is approved.** Stage 1B (homepage) had a typography and visual hierarchy
+  correction (commit `4b2d6ab`) and is **awaiting the user's approval**. Never self-approve a stage.
 - The homepage is at the **approval gate**. Do not design the inner pages (stages 1C–1J) until the user
-  approves the homepage direction. Do not start Phase 2 (admin panel) during Phase 1.
+  approves the homepage. Do not start Phase 2 (admin panel) during Phase 1.
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
@@ -32,6 +34,21 @@
 - Certificate numbers, QR codes and personal names stay redacted unless RAWASY approves showing them.
   Images flagged in the asset inventory (AI watermark, authorship, renders) stay off featured spots.
 - Orange is an accent (roughly 10%). Keep the design free of clutter.
+
+## Typography rules (set by the user in the 1B correction)
+
+- English: Archivo. Arabic display, headings, navigation and buttons: **Noto Kufi Arabic** (hero and
+  statement 700, headings 600, buttons 600, nav 500). Arabic body, leads and labels: **IBM Plex Sans
+  Arabic 400/500 only**. Never use Plex for headings or at 600/700. Technical labels: Geist Mono.
+  Fonts come only from `next/font` (`src/app/fonts.ts`) and are never requested from Google at runtime.
+- Fonts are tokens, not per-component overrides: `--ff-display-en/-ar` and `--ff-body-en/-ar` resolve
+  through `:root:lang(ar)` and `[lang]`. Components pick a role (`t-*` classes, or `font-display` for UI
+  that should be Kufi in Arabic). Mark inline text in the other language with `lang` (and `dir`).
+- Scale classes: `t-display` (hero), `t-h1`, `t-h2`, `t-h2-compact` (calmer supporting sections),
+  `t-title`, `t-h3`, `t-h4`, `t-lead`, `t-body`, `t-label`. The precision statement is the only
+  expressive size. Arabic paragraphs use line-height 1.85 and headings 1.36–1.6, with no letter-spacing.
+- Heading text goes through `<Phrases>` (`src/components/ui/Phrases.tsx`) so lines break at phrase
+  boundaries. Use `em`, not `ch`, for heading measures.
 
 ## Where things live
 
@@ -57,3 +74,7 @@
   `BootFallback` then reapplies the theme and motion settings.
 - To stop a server in a cloud session, run `pkill -f "[n]ext-server"` as its own command. If the pattern
   also appears in the current command line, it kills your own shell.
+- Both locales share one root layout, so every preloaded font is preloaded on every page (EN pages load
+  the Arabic fonts and vice versa). Splitting preloads per language needs a root layout per language (1J).
+- For a side-by-side build of an older commit, use a `git worktree` with `cp -al node_modules`.
+  Turbopack rejects a symlinked `node_modules` that points outside the project.

@@ -55,7 +55,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-09-24, stages 1A + 1B)
+docs/reports/                Stage reports (latest: 2026-09-24, stage 1B typography correction)
 ```
 
 ### Languages and RTL
