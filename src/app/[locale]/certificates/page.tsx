@@ -12,6 +12,8 @@ import { CertificateRegister } from "@/components/certificates/CertificateRegist
 import { EditorialSection } from "@/components/inner/EditorialSection";
 import { InnerCTA } from "@/components/inner/InnerCTA";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
+import { Backdrop } from "@/components/visual/Backdrop";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -49,40 +51,45 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
         intro={page.hero.intro[locale]}
         below={
           <div className="pb-14 lg:pb-20" data-reveal="fade" style={{ ["--d" as string]: 200 } as CSSProperties}>
-            <table className="w-full border-collapse">
-              <caption className="t-label pb-4 text-start text-ink-3">{page.registerLabel[locale]}</caption>
-              <thead>
-                <tr className="border-y border-line-strong">
-                  <th scope="col" className="t-label w-12 py-3 pe-4 text-start font-normal text-ink-3 sm:w-16">
-                    {page.columns.number[locale]}
-                  </th>
-                  <th scope="col" className="t-label py-3 pe-4 text-start font-normal text-ink-3">
-                    {page.columns.document[locale]}
-                  </th>
-                  <th scope="col" className="t-label py-3 pe-4 text-start font-normal text-ink-3 max-md:hidden">
-                    {page.columns.issuer[locale]}
-                  </th>
-                  <th scope="col" className="t-label py-3 text-start font-normal text-ink-3 max-lg:hidden">
-                    {page.columns.reference[locale]}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {certificates.map((cert, i) => (
-                  <tr key={cert.slug} className="border-b border-line align-baseline">
-                    <td className="t-num py-5 pe-4 text-xs text-accent-ink">{pad(i + 1)}</td>
-                    <th scope="row" className="py-5 pe-4 text-start font-normal">
-                      <a href={`#${cert.slug}`} className="link-line font-display text-[1.05rem] font-semibold text-ink sm:text-[1.15rem]">
-                        {cert.title[locale]}
-                      </a>
-                      <span className="mt-1.5 block text-[0.9rem] text-ink-3 md:hidden">{cert.issuer[locale]}</span>
+            <div className="tf-host panel-raised px-5 pb-2 pt-5 sm:px-7 sm:pt-6">
+              <table className="w-full border-collapse">
+                <caption className="t-label pb-4 text-start text-ink-3">{page.registerLabel[locale]}</caption>
+                <thead>
+                  <tr className="border-y border-line-strong">
+                    <th scope="col" className="t-label w-12 py-3 pe-4 ps-3 text-start font-normal text-ink-3 sm:w-16">
+                      {page.columns.number[locale]}
                     </th>
-                    <td className="py-5 pe-4 text-[0.95rem] text-ink-2 max-md:hidden">{cert.issuer[locale]}</td>
-                    <td className="py-5 text-[0.95rem] text-ink-3 max-lg:hidden">{page.reference[locale]}</td>
+                    <th scope="col" className="t-label py-3 pe-4 text-start font-normal text-ink-3">
+                      {page.columns.document[locale]}
+                    </th>
+                    <th scope="col" className="t-label py-3 pe-4 text-start font-normal text-ink-3 max-md:hidden">
+                      {page.columns.issuer[locale]}
+                    </th>
+                    <th scope="col" className="t-label py-3 text-start font-normal text-ink-3 max-lg:hidden">
+                      {page.columns.reference[locale]}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {certificates.map((cert, i) => (
+                    <tr key={cert.slug} className="group border-b border-line align-baseline transition-colors duration-300 last:border-b-0 hover:bg-[var(--row-tint)]">
+                      <td className="t-num py-5 pe-4 ps-3 text-xs text-accent-ink transition-shadow duration-300 group-hover:[box-shadow:inset_calc(var(--dir)*2px)_0_0_var(--accent)] group-has-[:focus-visible]:[box-shadow:inset_calc(var(--dir)*2px)_0_0_var(--accent)]">
+                        {pad(i + 1)}
+                      </td>
+                      <th scope="row" className="py-5 pe-4 text-start font-normal">
+                        <a href={`#${cert.slug}`} className="link-line font-display text-[1.05rem] font-semibold text-ink sm:text-[1.15rem]">
+                          {cert.title[locale]}
+                        </a>
+                        <span className="mt-1.5 block text-[0.9rem] text-ink-3 md:hidden">{cert.issuer[locale]}</span>
+                      </th>
+                      <td className="py-5 pe-4 text-[0.95rem] text-ink-2 max-md:hidden">{cert.issuer[locale]}</td>
+                      <td className="py-5 text-[0.95rem] text-ink-3 max-lg:hidden">{page.reference[locale]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <FrameMarks lines={false} />
+            </div>
           </div>
         }
       />
@@ -117,13 +124,18 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
         id="redaction"
         label={page.redaction.label[locale]}
         title={page.redaction.title[locale]}
-        className="border-t border-line bg-background-deep"
+        className="isolate overflow-hidden border-t border-line bg-background-deep"
+        note={<span aria-hidden className="redaction-swatch mt-10 block h-7 w-44 shadow-[var(--shadow-inset)]" />}
       >
-        <ol className="border-t border-line">
+        <Backdrop
+          kind="perforated"
+          className="start-auto w-1/3 opacity-60 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]"
+        />
+        <ol className="panel-raised">
           {page.redaction.points[locale].map((point, i) => (
             <li
               key={i}
-              className="grid grid-cols-[2.5rem_1fr] gap-x-4 border-b border-line py-6 sm:grid-cols-[3rem_1fr]"
+              className="act-row grid grid-cols-[2.5rem_1fr] gap-x-4 border-b border-line p-6 last:border-b-0 sm:grid-cols-[3rem_1fr] sm:p-7"
               data-reveal
               style={{ ["--d" as string]: 80 * i } as CSSProperties}
             >

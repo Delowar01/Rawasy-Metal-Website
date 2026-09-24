@@ -15,6 +15,7 @@ import { WhatsAppButton } from "@/components/layout/WhatsAppButton";
 import { BootFallback } from "@/components/motion/BootFallback";
 import { CustomCursor } from "@/components/motion/CustomCursor";
 import { Loader } from "@/components/motion/Loader";
+import { LiveObserver } from "@/components/motion/LiveObserver";
 import { RevealObserver } from "@/components/motion/RevealObserver";
 import { archivo, geistMono, notoKufiArabic, plexArabic } from "../fonts";
 import "../globals.css";
@@ -152,6 +153,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
         <WhatsAppButton href={whatsappHref} label={dict.a11y.whatsapp} text={dict.common.whatsapp} />
         <CustomCursor labels={dict.cursor} />
         <RevealObserver />
+        <LiveObserver />
         <div className="grain" aria-hidden />
       </body>
     </html>

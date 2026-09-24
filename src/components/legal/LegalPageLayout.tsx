@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ChevronIcon } from "@/components/ui/Icons";
 import type { LegalBlock } from "@/content/types";
+import { LegalToc } from "./LegalToc";
 
 export interface LegalSectionView {
   id: string;
@@ -52,10 +53,7 @@ export function LegalPageLayout({
           </summary>
           <div className="pb-5">{toc}</div>
         </details>
-        <div className="sticky top-28 hidden lg:block">
-          <p className="t-label border-b border-line pb-4 text-ink-3">{labels.onThisPage}</p>
-          <div className="pt-4">{toc}</div>
-        </div>
+        <LegalToc label={labels.onThisPage} items={sections.map((section) => ({ id: section.id, title: section.title }))} />
       </nav>
 
       <div className="lg:col-span-8 lg:col-start-5">
@@ -64,12 +62,15 @@ export function LegalPageLayout({
             key={section.id}
             id={section.id}
             aria-labelledby={`${section.id}-title`}
-            className="border-t border-line py-10 first:border-t-0 first:pt-2 sm:py-12 lg:first:pt-0"
+            className="relative border-t border-line py-10 first:border-t-0 first:pt-2 sm:py-12 lg:first:pt-0"
           >
-            <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 sm:grid-cols-[3rem_minmax(0,1fr)]">
-              <span className="t-num pt-2 text-xs text-accent-ink">{pad(i + 1)}</span>
+            {i > 0 && <span aria-hidden className="absolute -top-px start-0 h-[3px] w-12 bg-line-ink" />}
+            <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-x-3 sm:grid-cols-[3.5rem_minmax(0,1fr)]">
+              <span className="t-num grid size-9 place-items-center border border-line-strong bg-elevated text-xs text-accent-ink shadow-[var(--shadow-low)]">
+                {pad(i + 1)}
+              </span>
               <div className="min-w-0">
-                <h2 id={`${section.id}-title`} className="t-h3 text-ink">
+                <h2 id={`${section.id}-title`} className="t-h3 pt-1 text-ink">
                   {section.title}
                 </h2>
                 <div className="legal-prose t-body mt-5 max-w-[42rem]">

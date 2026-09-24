@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 export interface IndustryView {
   slug: string;
@@ -71,12 +72,12 @@ export function IndustryList({ industries }: { industries: IndustryView[] }) {
         {industries.map((industry, i) => (
           <li
             key={industry.slug}
-            className="industry-row group relative border-b border-line"
+            className="industry-row act-row group relative border-b border-line"
             onPointerEnter={() => setHovered(i)}
             data-reveal
             style={{ ["--d" as string]: (i % 4) * 70 }}
           >
-            <div className="relative flex items-center gap-5 py-6 md:py-7">
+            <div className="relative flex items-center gap-5 py-6 ps-3 md:py-7 md:pe-3 md:ps-4">
               <span className="t-num w-8 shrink-0 text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
               <div className="min-w-0 flex-1">
                 <h3 className="t-h3 text-ink transition-transform duration-500 ease-out-expo group-hover:translate-x-[calc(var(--dir)*8px)]">
@@ -100,20 +101,29 @@ export function IndustryList({ industries }: { industries: IndustryView[] }) {
           className="pointer-events-none absolute left-0 top-0 z-10 hidden w-[15rem] md:block"
         >
           <div
-            className="relative aspect-[4/3] overflow-hidden shadow-[var(--shadow-soft)] transition-[opacity,transform] duration-500 ease-out-expo"
+            className="tf-host relative transition-[opacity,transform] duration-500 ease-out-expo"
+            data-active
             style={{ opacity: hovered === null ? 0 : 1, transform: hovered === null ? "scale(0.92)" : "scale(1)" }}
           >
-            {industries.map((industry, i) => (
-              <Image
-                key={industry.slug}
-                src={industry.image.src}
-                alt=""
-                fill
-                sizes="240px"
-                className="object-cover transition-opacity duration-300"
-                style={{ opacity: hovered === i ? 1 : 0 }}
-              />
-            ))}
+            <div className="relative aspect-[4/3] overflow-hidden shadow-[var(--shadow-metal)]">
+              {industries.map((industry, i) => (
+                <Image
+                  key={industry.slug}
+                  src={industry.image.src}
+                  alt=""
+                  fill
+                  sizes="240px"
+                  className="object-cover transition-opacity duration-300"
+                  style={{ opacity: hovered === i ? 1 : 0 }}
+                />
+              ))}
+              <span className="reg-marks" />
+              {/* Technical caption: the sector's index */}
+              <span className="t-num absolute bottom-0 end-0 bg-background/85 px-2 py-1 text-[0.66rem] text-ink" dir="ltr">
+                IND {String((hovered ?? 0) + 1).padStart(2, "0")}
+              </span>
+            </div>
+            <FrameMarks lines={false} />
           </div>
         </div>
       )}

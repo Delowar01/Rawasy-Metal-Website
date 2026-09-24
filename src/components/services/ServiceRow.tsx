@@ -33,7 +33,12 @@ export function ServiceRow({
   figure: string;
 }) {
   return (
-    <article id={service.slug} aria-labelledby={`${service.slug}-title`} className="grid gap-x-10 gap-y-10 border-t border-line py-14 md:grid-cols-9 lg:py-20">
+    <article
+      id={service.slug}
+      aria-labelledby={`${service.slug}-title`}
+      className="service-row relative grid gap-x-10 gap-y-10 border-t border-line py-14 md:grid-cols-9 lg:py-20"
+    >
+      <span aria-hidden className="service-row-edge" />
       <div className={cn("md:col-span-5", reverse && "md:order-2")}>
         <span
           aria-hidden
@@ -68,7 +73,7 @@ export function ServiceRow({
             <p className="t-label text-ink-3">{labels.equipment}</p>
             <ul className="mt-3 flex flex-wrap gap-2">
               {service.equipment.map((item) => (
-                <li key={item} className="border border-line bg-elevated px-3 py-1.5 text-[0.82rem] text-ink-2">
+                <li key={item} className="tech-tag">
                   {item}
                 </li>
               ))}
@@ -88,16 +93,23 @@ export function ServiceRow({
           alt={service.cover.alt}
           figure={figure}
           caption={service.name}
+          captionPosition="top"
           sizes="(min-width: 1024px) 420px, (min-width: 768px) 40vw, 90vw"
           className="w-full"
         />
+        {/* A detail view layered over the lower corner of the main photograph. */}
         <MediaFrame
           id={service.supporting.id}
           alt={service.supporting.alt}
           frame="plain"
+          parallax={false}
+          raised
           sizes="(min-width: 1024px) 240px, 40vw"
           delay={200}
-          className={cn("mt-10 hidden w-[62%] sm:block", reverse ? "me-auto" : "ms-auto")}
+          className={cn(
+            "relative z-10 -mt-14 hidden w-[58%] sm:block",
+            reverse ? "me-auto -ms-4 lg:-ms-8" : "ms-auto -me-4 lg:-me-8",
+          )}
         />
       </div>
     </article>

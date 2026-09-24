@@ -77,6 +77,8 @@ export function Metrics({
 }) {
   return (
     <>
+      {/* A measuring scale along the top of the figures */}
+      <span aria-hidden className="ruler" data-reveal="mask" />
       <div className="grid border-t border-band-line sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1fr]">
         {metrics.map((m) => (
           <Figure key={m.slug} metric={m} />

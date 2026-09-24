@@ -10,6 +10,7 @@ import { JsonLd } from "@/lib/seo";
 import { ClientGrid } from "@/components/clients/ClientGrid";
 import { InnerCTA } from "@/components/inner/InnerCTA";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
+import { TechnicalFrame } from "@/components/visual/TechnicalFrame";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/clients">): Promise<Metadata> {
   const { locale } = await params;
@@ -45,22 +46,29 @@ export default async function ClientsPage({ params }: PageProps<"/[locale]/clien
           <h2 id="clients-list-title" className="sr-only">
             {page.listLabel[locale]}
           </h2>
-          <ClientGrid
-            label={page.listLabel[locale]}
-            clients={clients.map((client) => {
-              const logo = getMedia(client.logo);
-              const mono = getMedia(client.logoMono);
-              return {
-                slug: client.slug,
-                name: client.name[locale],
-                logo: { src: logo.src, width: logo.width, height: logo.height },
-                mono: { src: mono.src, width: mono.width, height: mono.height },
-              };
-            })}
-          />
-          <p className="t-label mt-8 max-w-3xl text-ink-3" data-reveal="fade">
-            {page.note[locale]}
-          </p>
+          <TechnicalFrame reveal lines="corners" className="panel-raised p-4 sm:p-6 lg:p-8">
+            <ClientGrid
+              label={page.listLabel[locale]}
+              clients={clients.map((client) => {
+                const logo = getMedia(client.logo);
+                const mono = getMedia(client.logoMono);
+                return {
+                  slug: client.slug,
+                  name: client.name[locale],
+                  logo: { src: logo.src, width: logo.width, height: logo.height },
+                  mono: { src: mono.src, width: mono.width, height: mono.height },
+                };
+              })}
+            />
+            <div className="mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-baseline sm:justify-between">
+              <p className="t-label max-w-3xl text-ink-3" data-reveal="fade">
+                {page.note[locale]}
+              </p>
+              <span aria-hidden className="t-num shrink-0 text-[0.66rem] tracking-[0.14em] text-ink-3" dir="ltr">
+                RW—C · 01
+              </span>
+            </div>
+          </TechnicalFrame>
         </div>
       </section>
 

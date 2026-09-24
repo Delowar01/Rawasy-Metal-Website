@@ -24,6 +24,7 @@ import { buildMetadata, JsonLd, organizationJsonLd } from "@/lib/seo";
 import { formatPower } from "@/lib/utils";
 import { ArrowIcon } from "@/components/ui/Icons";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Backdrop, ScanLine } from "@/components/visual/Backdrop";
 import { Certificates } from "@/components/home/Certificates";
 import { ClientMarquee } from "@/components/home/ClientMarquee";
 import { FeaturedProjects } from "@/components/home/FeaturedProjects";
@@ -120,7 +121,12 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       />
 
       {/* 03 — Key capabilities */}
-      <section id="capabilities" aria-labelledby="capabilities-title" className="section-y relative overflow-hidden bg-background-deep">
+      <section id="capabilities" aria-labelledby="capabilities-title" className="section-y relative isolate overflow-hidden bg-background-deep">
+        <Backdrop
+          kind="grid"
+          drift
+          className="[--bd-fade:linear-gradient(to_right,transparent,var(--background-deep)_55%)] rtl:[--bd-fade:linear-gradient(to_left,transparent,var(--background-deep)_55%)]"
+        />
         <div aria-hidden className="bg-perforated pointer-events-none absolute inset-y-0 end-0 w-1/2 opacity-70 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]" />
         <div className="container-x relative">
           <SectionHeader
@@ -301,8 +307,9 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       </section>
 
       {/* 10 — Metrics */}
-      <section id="metrics" aria-labelledby="metrics-title" className="on-band section-y relative overflow-hidden bg-band text-band-ink">
-        <div aria-hidden className="bg-grid pointer-events-none absolute inset-0 opacity-40 [--grid-line:rgb(236_234_229/0.05)]" />
+      <section id="metrics" aria-labelledby="metrics-title" className="on-band section-y relative isolate overflow-hidden bg-band text-band-ink">
+        <Backdrop kind="grid" drift className="[--bd-opacity:0.4] [--grid-line:rgb(236_234_229/0.05)]" />
+        <ScanLine duration={14} delay={2} />
         <div className="container-x relative">
           <SectionHeader
             id="metrics-title"

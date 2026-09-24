@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { CloseIcon, PlusIcon } from "@/components/ui/Icons";
+import { PointerLight } from "@/components/visual/PointerLight";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 export interface CertificateView {
   slug: string;
@@ -38,7 +40,12 @@ export function Certificates({
     <>
       <ul className="grid gap-6 md:grid-cols-3">
         {certificates.map((cert, i) => (
-          <li key={cert.slug} className="cert-card group flex flex-col border border-line bg-elevated" data-reveal style={{ ["--d" as string]: i * 90 }}>
+          <li
+            key={cert.slug}
+            className="cert-card tf-host panel-raised group relative flex flex-col"
+            data-reveal
+            style={{ ["--d" as string]: i * 90 }}
+          >
             <button
               type="button"
               onClick={() => show(i)}
@@ -47,7 +54,11 @@ export function Certificates({
               aria-label={`${labels.view}: ${cert.title}`}
             >
               <div aria-hidden className="bg-perforated absolute inset-0 opacity-60" />
-              <div className="absolute inset-x-[16%] top-[12%] bottom-[-14%] rotate-[-2.5deg] shadow-[var(--shadow-soft)] transition-transform duration-700 ease-out-expo group-hover:-translate-y-2 group-hover:rotate-[-1deg]">
+              <PointerLight />
+              <span aria-hidden className="t-num absolute start-4 top-3.5 text-[0.66rem] tracking-[0.14em] text-ink-2" dir="ltr">
+                DOC {String(i + 1).padStart(2, "0")}
+              </span>
+              <div className="absolute inset-x-[16%] top-[12%] bottom-[-14%] rotate-[-2.5deg] shadow-[var(--shadow-metal)] transition-transform duration-700 ease-out-expo group-hover:-translate-y-2 group-hover:rotate-[-1deg]">
                 <Image
                   src={cert.thumb.src}
                   alt=""
@@ -78,6 +89,7 @@ export function Certificates({
                 <PlusIcon size={16} className="arrow" />
               </button>
             </div>
+            <FrameMarks lines={false} />
           </li>
         ))}
       </ul>
@@ -89,24 +101,35 @@ export function Certificates({
           if (e.target === dialogRef.current) close();
         }}
         aria-labelledby="cert-dialog-title"
-        className="cert-dialog m-auto max-h-[92dvh] w-[min(64rem,94vw)] overflow-hidden border border-line-strong bg-background p-0 text-ink backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+        className="cert-dialog m-auto max-h-[92dvh] w-[min(64rem,94vw)] overflow-hidden border border-line-strong bg-background p-0 text-ink shadow-[var(--shadow-metal)] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
       >
         {current && (
           <div className="flex max-h-[92dvh] flex-col">
-            <div className="flex items-start justify-between gap-6 border-b border-line p-5 sm:p-6">
+            <span aria-hidden className="block h-0.5 w-1/3 shrink-0 bg-accent" />
+            <div className="flex items-start justify-between gap-6 border-b border-line bg-[image:var(--sheen)] p-5 sm:p-6">
               <div>
-                <p className="t-label text-accent-ink">{current.issuer}</p>
+                <p className="t-label flex items-center gap-3 text-accent-ink">
+                  <span aria-hidden className="t-num text-ink-2" dir="ltr">
+                    DOC {String((open ?? 0) + 1).padStart(2, "0")}
+                  </span>
+                  {current.issuer}
+                </p>
                 <h2 id="cert-dialog-title" className="t-h3 mt-2">
                   {current.title}
                 </h2>
               </div>
-              <button type="button" onClick={close} className="grid size-11 shrink-0 place-items-center border border-line-strong hover:border-accent" aria-label={labels.close}>
+              <button
+                type="button"
+                onClick={close}
+                className="grid size-11 shrink-0 place-items-center border border-line-strong transition-colors hover:border-accent"
+                aria-label={labels.close}
+              >
                 <CloseIcon />
               </button>
             </div>
-            <div className="grid gap-6 overflow-y-auto bg-surface p-5 sm:p-8 md:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]">
+            <div className="bg-grid-fine grid gap-8 overflow-y-auto bg-surface p-6 sm:p-10 md:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]">
               {current.previews.map((preview) => (
-                <div key={preview.src} className="relative mx-auto w-full max-w-2xl shadow-[var(--shadow-soft)]">
+                <div key={preview.src} className="tf-host relative mx-auto w-full max-w-2xl shadow-[var(--shadow-metal)]" data-active>
                   <Image
                     src={preview.src}
                     alt={`${current.title} — ${labels.redacted}`}
@@ -117,10 +140,14 @@ export function Certificates({
                     blurDataURL={preview.blurDataURL}
                     className="h-auto w-full"
                   />
+                  <FrameMarks lines={false} />
                 </div>
               ))}
             </div>
-            <p className="t-label border-t border-line p-5 text-ink-3">{labels.redacted}</p>
+            <p className="t-label flex items-center gap-3 border-t border-line p-5 text-ink-2">
+              <span aria-hidden className="redaction-swatch" />
+              {labels.redacted}
+            </p>
           </div>
         )}
       </dialog>

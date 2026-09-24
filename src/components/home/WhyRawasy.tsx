@@ -1,3 +1,4 @@
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 import type { Pillar } from "@/content/types";
 
 export interface PillarView {
@@ -57,17 +58,22 @@ function PillarIcon({ icon }: { icon: Pillar["icon"] }) {
   }
 }
 
-/** Why RAWASY — six pillars on a technical sheet (rules, not cards). */
+/**
+ * Why RAWASY — six pillars on one raised technical sheet (rules, not cards).
+ * Hovering a pillar tints it, draws its top edge and shows its corner marks.
+ */
 export function WhyRawasy({ pillars }: { pillars: PillarView[] }) {
   return (
-    <ul className="grid border-t border-line sm:grid-cols-2 lg:grid-cols-3">
+    <ul className="panel-raised grid sm:grid-cols-2 lg:grid-cols-3">
       {pillars.map((pillar, i) => (
         <li
           key={pillar.slug}
-          className="pillar group relative border-b border-line p-7 sm:p-8 sm:[&:nth-child(odd)]:border-e lg:border-e lg:[&:nth-child(3n)]:border-e-0 lg:p-10"
+          className="pillar act-row tf-host group relative border-b border-line p-7 before:hidden last:border-b-0 sm:p-8 sm:[&:nth-child(odd)]:border-e sm:max-lg:[&:nth-last-child(-n+2)]:border-b-0 lg:border-e lg:p-10 lg:[&:nth-child(3n)]:border-e-0 lg:[&:nth-last-child(-n+3)]:border-b-0"
+          data-tf="hover"
           data-reveal
           style={{ ["--d" as string]: (i % 3) * 90 }}
         >
+          <FrameMarks lines={false} />
           <div className="flex items-start justify-between">
             <svg viewBox="0 0 56 56" className="pillar-icon size-14 text-ink" aria-hidden>
               <PillarIcon icon={pillar.icon} />
@@ -76,7 +82,6 @@ export function WhyRawasy({ pillars }: { pillars: PillarView[] }) {
           </div>
           <h3 className="t-h4 mt-8 text-ink">{pillar.title}</h3>
           <p className="t-body mt-3 max-w-sm text-[0.975rem]">{pillar.body}</p>
-          <span aria-hidden className="absolute inset-x-0 top-0 h-px origin-[var(--origin-start)] scale-x-0 bg-accent transition-transform duration-700 ease-out-expo group-hover:scale-x-100" />
         </li>
       ))}
     </ul>

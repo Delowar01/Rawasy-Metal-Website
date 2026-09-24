@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowIcon } from "@/components/ui/Icons";
+import { TechnicalFrame } from "@/components/visual/TechnicalFrame";
 import { cn } from "@/lib/utils";
 
 export interface ServiceView {
@@ -61,10 +62,10 @@ export function ServiceExplorer({
           <span
             ref={markerRef}
             aria-hidden
-            className="pointer-events-none absolute start-0 top-0 w-px bg-accent transition-[transform,height] duration-700 ease-out-expo"
+            className="pointer-events-none absolute start-0 top-0 z-10 w-0.5 bg-accent transition-[transform,height] duration-700 ease-out-expo"
           />
           {services.map((s, i) => (
-            <li key={s.slug} data-row className="border-b border-line">
+            <li key={s.slug} data-row data-active={i === active || undefined} className="act-row border-b border-line before:hidden">
               <Link
                 href={s.href}
                 onMouseEnter={() => select(i)}
@@ -95,8 +96,8 @@ export function ServiceExplorer({
 
         <div className="lg:col-span-6 lg:col-start-7">
           <figure>
-            <div className="crop-marks">
-              <div className="relative aspect-[4/3] overflow-hidden bg-strong">
+            <TechnicalFrame reveal>
+              <div className="relative aspect-[4/3] overflow-hidden bg-strong shadow-[var(--shadow-medium)] [container-type:inline-size]">
                 {services.map((s, i) => (
                   <div
                     key={s.slug}
@@ -115,17 +116,20 @@ export function ServiceExplorer({
                   </div>
                 ))}
                 <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgb(0_0_0/0.35),transparent_45%)]" />
-                <span className="t-label absolute bottom-4 start-4 text-white/85">
+                <span aria-hidden className="reg-marks" />
+                {/* A cutting line that runs with the wipe when the service changes */}
+                {previous !== null && <span key={current.slug} aria-hidden className="wipe-line" />}
+                <span className="t-label absolute bottom-5 start-8 text-white/85">
                   {labels.figure} {current.index} — {current.name}
                 </span>
               </div>
-            </div>
+            </TechnicalFrame>
             <figcaption id="service-figure-caption" className="mt-8 grid gap-6 sm:grid-cols-[1fr_auto] sm:items-end" aria-live="polite">
               <div key={current.slug} className="service-copy">
                 <p className="t-body text-[1.0625rem] text-ink-2">{current.summary}</p>
                 <ul className="mt-5 flex flex-wrap gap-2">
                   {current.highlights.map((h) => (
-                    <li key={h} className="border border-line px-2.5 py-1 text-xs text-ink-2">
+                    <li key={h} className="tech-tag">
                       {h}
                     </li>
                   ))}
@@ -145,7 +149,7 @@ export function ServiceExplorer({
         {services.map((s) => (
           <li key={s.slug} className="w-[82%] max-w-[26rem] shrink-0 snap-start">
             <Link href={s.href} className="group block">
-              <div className="photo relative aspect-[4/3]">
+              <div className="photo relative aspect-[4/3] shadow-[var(--shadow-medium)]">
                 <Image
                   src={s.image.src}
                   alt={s.image.alt}

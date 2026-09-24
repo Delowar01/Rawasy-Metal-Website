@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { SectionRule } from "@/components/visual/SectionRule";
 import { Phrases } from "./Phrases";
 
 interface SectionHeaderProps {
@@ -19,6 +20,7 @@ interface SectionHeaderProps {
 export function SectionHeader({ index, label, title, intro, action, id, className, tone = "default", size = "default" }: SectionHeaderProps) {
   return (
     <div className={cn("grid gap-x-10 gap-y-6 lg:grid-cols-12", className)}>
+      <SectionRule tone={tone} className="mb-2 lg:col-span-12" />
       <p className={cn("t-label eyebrow lg:col-span-12", tone === "band" && "!text-band-ink-2")} data-reveal="fade">
         <span className="t-num">{index}</span>
         <span aria-hidden>/</span>

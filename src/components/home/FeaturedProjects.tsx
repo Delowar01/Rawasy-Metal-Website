@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRightIcon } from "@/components/ui/Icons";
 import { MediaImage } from "@/components/ui/MediaImage";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 import type { MediaId } from "@/content/types";
 import { cn } from "@/lib/utils";
 
@@ -36,17 +37,25 @@ export function FeaturedProjects({ projects, viewLabel }: { projects: ProjectCar
         return (
           <li key={project.slug} className={cn(slot.cls, i === 0 && "sm:col-span-2 lg:col-span-5")}>
             <Link href={project.href} data-cursor="view" className="group block" aria-label={`${project.title} — ${viewLabel}`}>
-              <div className={cn("photo relative", slot.ratio)} data-reveal="clip" style={{ ["--d" as string]: (i % 3) * 90 }}>
-                <MediaImage
-                  id={project.media}
-                  alt={project.alt}
-                  fill
-                  sizes={slot.sizes}
-                  className="object-cover transition-transform duration-[1400ms] ease-out-expo group-hover:scale-[1.045]"
-                />
-                <span className="t-num absolute start-3 top-3 bg-background/85 px-2 py-1 text-[0.7rem] text-ink backdrop-blur-sm">
-                  {project.galleryRef}
-                </span>
+              {/* Photo on a frame whose corner marks and accent edges appear with the link's hover or focus */}
+              <div className="tf-host" data-tf="hover">
+                <div
+                  className={cn("photo relative shadow-[var(--shadow-medium)] transition-shadow duration-500 group-hover:shadow-[var(--shadow-metal)]", slot.ratio)}
+                  data-reveal="clip"
+                  style={{ ["--d" as string]: (i % 3) * 90 }}
+                >
+                  <MediaImage
+                    id={project.media}
+                    alt={project.alt}
+                    fill
+                    sizes={slot.sizes}
+                    className="object-cover transition-transform duration-[1400ms] ease-out-expo group-hover:scale-[1.045]"
+                  />
+                  <span className="t-num absolute start-3 top-3 bg-background/85 px-2 py-1 text-[0.7rem] text-ink backdrop-blur-sm">
+                    {project.galleryRef}
+                  </span>
+                </div>
+                <FrameMarks lines={false} />
               </div>
               <div className="mt-4 flex items-start justify-between gap-4">
                 <div>

@@ -13,6 +13,7 @@ import { QuoteForm, type QuoteFormText } from "@/components/contact/QuoteForm";
 import { EditorialSection } from "@/components/inner/EditorialSection";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { TechnicalFrame } from "@/components/visual/TechnicalFrame";
 import { ArrowIcon, BuildingIcon, MailIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/ui/Icons";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/contact">): Promise<Metadata> {
@@ -36,6 +37,7 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
 
   const text: QuoteFormText = {
     requiredNote: form.requiredNote[locale],
+    groups: { details: form.groups.details[locale], project: form.groups.project[locale], message: form.groups.message[locale] },
     noscript: form.noscript[locale],
     fields: Object.fromEntries(
       Object.entries(form.fields).map(([name, field]) => [
@@ -155,7 +157,9 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
           </div>
         }
       >
-        <QuoteForm text={text} email={company.email} whatsapp={whatsappUrl()} privacyHref={href(locale, "privacy")} />
+        <TechnicalFrame reveal lines="corners" className="panel-raised p-5 sm:p-8 lg:p-10">
+          <QuoteForm text={text} email={company.email} whatsapp={whatsappUrl()} privacyHref={href(locale, "privacy")} />
+        </TechnicalFrame>
       </EditorialSection>
     </>
   );

@@ -1,4 +1,5 @@
 import type { ServiceSlug } from "@/content/types";
+import { PointerLight } from "@/components/visual/PointerLight";
 import { ServiceGlyph } from "./ServiceGlyph";
 
 export interface ServicePlateItem {
@@ -14,8 +15,10 @@ export interface ServicePlateItem {
 export function ServicePlate({ items, label }: { items: ServicePlateItem[]; label: string }) {
   return (
     <nav aria-label={label} className="relative" data-reveal="fade" style={{ ["--d" as string]: 180 }}>
-      <div className="plate-sheet brushed relative p-3 shadow-[var(--shadow-soft)] sm:p-4">
-        <ol className="grid grid-cols-2 gap-px bg-[var(--metal-edge)] sm:grid-cols-3">
+      <div className="drop-shadow-[0_22px_28px_rgb(0_0_0/0.14)]">
+      <div className="plate-sheet brushed relative isolate p-3 sm:p-4">
+        <PointerLight className="z-10 mix-blend-soft-light" />
+        <ol className="relative grid grid-cols-2 gap-px bg-[var(--metal-edge)] sm:grid-cols-3">
           {items.map((item) => (
             <li key={item.slug} className="bg-[color-mix(in_srgb,var(--surface-elevated)_82%,transparent)]">
               <a
@@ -34,6 +37,7 @@ export function ServicePlate({ items, label }: { items: ServicePlateItem[]; labe
             </li>
           ))}
         </ol>
+      </div>
       </div>
       <div aria-hidden className="t-label mt-4 flex items-center gap-4 text-ink-3" dir="ltr">
         <span className="t-num">RW—S</span>

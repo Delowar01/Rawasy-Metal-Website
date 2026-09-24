@@ -21,6 +21,7 @@ import {
   FileIcon,
   UploadIcon,
 } from "@/components/ui/Icons";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 import { cn } from "@/lib/utils";
 
 type FieldName = "fullName" | "company" | "email" | "phone" | "service" | "projectType" | "requirement" | "location" | "message";
@@ -30,6 +31,7 @@ type Option = { value: string; label: string };
 
 export interface QuoteFormText {
   requiredNote: string;
+  groups: { details: string; project: string; message: string };
   noscript: string;
   fields: Record<FieldName | "files", FieldText>;
   services: Option[];
@@ -309,8 +311,8 @@ export function QuoteForm({
 
   if (stage === "ready") {
     return (
-      <div className="border border-line-strong bg-elevated">
-        <div className="border-b border-line p-6 sm:p-8">
+      <div>
+        <div className="border-b border-line pb-8">
           <h3 ref={readyRef} tabIndex={-1} className="t-h3 flex items-center gap-4 text-ink outline-none">
             <span aria-hidden className="grid size-9 shrink-0 place-items-center bg-accent text-[#17191a]">
               <CheckIcon size={18} />
@@ -360,7 +362,7 @@ export function QuoteForm({
             </div>
           )}
         </div>
-        <div className="p-6 sm:p-8">
+        <div className="pt-8">
           <label htmlFor="quote-request" className="t-label text-ink-2">
             {text.ready.preview}
           </label>
@@ -426,7 +428,7 @@ export function QuoteForm({
         </div>
       )}
 
-      <div className="grid gap-x-6 gap-y-7 sm:grid-cols-2">
+      <FieldGroup index="01" legend={text.groups.details}>
         <Field name="fullName" text={text.fields.fullName} error={errors.fullName} required>
           <input {...control("fullName")} type="text" autoComplete="name" maxLength={120} required className="form-control" />
         </Field>
@@ -459,6 +461,9 @@ export function QuoteForm({
             className="form-control rtl:text-right"
           />
         </Field>
+      </FieldGroup>
+
+      <FieldGroup index="02" legend={text.groups.project}>
         <Field name="service" text={text.fields.service} error={errors.service} required>
           <Select {...control("service")} required placeholder={text.fields.service.placeholder} options={text.services} />
         </Field>
@@ -471,6 +476,9 @@ export function QuoteForm({
         <Field name="location" text={text.fields.location}>
           <input {...control("location")} type="text" autoComplete="address-level2" maxLength={120} className="form-control" />
         </Field>
+      </FieldGroup>
+
+      <FieldGroup index="03" legend={text.groups.message}>
         <Field name="message" text={text.fields.message} error={errors.message} required className="sm:col-span-2">
           <textarea {...control("message")} rows={6} maxLength={4000} required className="form-control" />
         </Field>
@@ -480,7 +488,7 @@ export function QuoteForm({
             {text.fields.files.label}
           </label>
           <label
-            className="dropzone relative flex cursor-pointer flex-col items-center gap-3 px-6 py-8 text-center"
+            className="dropzone tf-host relative flex cursor-pointer flex-col items-center gap-3 px-6 py-8 text-center"
             data-drag={drag || undefined}
             onDragEnter={onDrag}
             onDragOver={onDrag}
@@ -504,6 +512,7 @@ export function QuoteForm({
               }}
               className="sr-only"
             />
+            <FrameMarks lines={false} />
           </label>
           <p id="quote-files-note" className="text-[0.85rem] leading-snug text-ink-3">
             {text.files.note}
@@ -538,9 +547,9 @@ export function QuoteForm({
             ))}
           </div>
         </div>
-      </div>
+      </FieldGroup>
 
-      <div className="flex flex-col gap-5 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rule-double flex flex-col gap-5 pt-8 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-[26rem] text-[0.9rem] text-ink-3">
           {privacyBefore}
           <a href={privacyHref} className="link-line text-ink-2 hover:text-ink">
@@ -585,7 +594,7 @@ function Field({
           </span>
         )}
       </label>
-      {children}
+      <div className="field-edge">{children}</div>
       {text.hint && (
         <p id={`quote-${name}-hint`} className="text-[0.85rem] leading-snug text-ink-3">
           {text.hint}
@@ -598,6 +607,24 @@ function Field({
         </p>
       )}
     </div>
+  );
+}
+
+/** A numbered group of fields with a ruled legend. */
+function FieldGroup({ index, legend, children }: { index: string; legend: string; children: ReactNode }) {
+  return (
+    <fieldset className="min-w-0">
+      <legend className="mb-6 w-full">
+        <span className="flex items-center gap-3">
+          <span aria-hidden className="t-num text-xs text-accent-ink">
+            {index}
+          </span>
+          <span className="font-display text-[1.02rem] font-semibold text-ink">{legend}</span>
+          <span aria-hidden className="h-px flex-1 bg-line-strong" />
+        </span>
+      </legend>
+      <div className="grid gap-x-6 gap-y-7 sm:grid-cols-2">{children}</div>
+    </fieldset>
   );
 }
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Phrases } from "@/components/ui/Phrases";
+import { SectionRule } from "@/components/visual/SectionRule";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,6 +31,9 @@ export function EditorialSection({
 }) {
   return (
     <section id={id} aria-labelledby={`${id}-title`} className={cn("section-y relative", className)}>
+      <div className="container-x">
+        <SectionRule className="mb-10 lg:mb-14" />
+      </div>
       <div className="container-x grid gap-x-10 gap-y-12 lg:grid-cols-12">
         <header className={cn("lg:sticky lg:top-28 lg:col-span-4 lg:self-start", headerClassName)}>
           <p className="t-label eyebrow" data-reveal="fade">

@@ -2,6 +2,8 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { MailIcon, PhoneIcon, WhatsAppIcon } from "@/components/ui/Icons";
 import { MediaImage } from "@/components/ui/MediaImage";
 import { Phrases } from "@/components/ui/Phrases";
+import { SectionRule } from "@/components/visual/SectionRule";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 export interface ProjectCTAProps {
   index: string;
@@ -26,6 +28,7 @@ export function ProjectCTA({ index, label, title, steps, primary, whatsapp, phon
       </div>
 
       <div className="container-x py-[clamp(6rem,4rem+8vw,11rem)]">
+        <SectionRule tone="band" className="mb-8" />
         <p className="t-label eyebrow !text-band-ink-2" data-reveal="fade">
           <span className="t-num">{index}</span>
           <span aria-hidden>/</span>
@@ -35,14 +38,17 @@ export function ProjectCTA({ index, label, title, steps, primary, whatsapp, phon
           <Phrases>{title}</Phrases>
         </h2>
 
-        <ol className="mt-14 grid max-w-4xl gap-px border border-band-line bg-band-line sm:grid-cols-3" data-reveal style={{ ["--d" as string]: 120 }}>
-          {steps.map((step, i) => (
-            <li key={step} className="flex items-start gap-4 bg-band/80 p-5 backdrop-blur-sm">
-              <span className="t-num text-sm text-accent">{String(i + 1).padStart(2, "0")}</span>
-              <span className="text-[0.95rem] font-medium">{step}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="tf-host mt-14 max-w-4xl" data-reveal style={{ ["--d" as string]: 120 }}>
+          <ol className="grid gap-px border border-band-line bg-band-line sm:grid-cols-3">
+            {steps.map((step, i) => (
+              <li key={step} className="flex items-start gap-4 bg-band/80 p-5 backdrop-blur-sm">
+                <span className="t-num text-sm text-accent">{String(i + 1).padStart(2, "0")}</span>
+                <span className="text-[0.95rem] font-medium">{step}</span>
+              </li>
+            ))}
+          </ol>
+          <FrameMarks lines={false} />
+        </div>
 
         <div className="mt-12 flex flex-wrap items-center gap-3" data-reveal style={{ ["--d" as string]: 200 }}>
           <ButtonLink href={primary.href} className="[--btn-bg:var(--accent)] [--btn-fg:#17191a] [--btn-hover:#eceae5] [--btn-hover-fg:#17191a]">

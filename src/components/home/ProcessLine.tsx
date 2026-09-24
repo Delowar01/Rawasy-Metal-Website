@@ -131,9 +131,12 @@ export function ProcessLine({ steps }: { steps: ProcessStepView[] }) {
       {steps.map((step) => {
         const content = (
           <>
-            <span aria-hidden className="process-node absolute start-[0.85rem] top-[0.9rem] size-[0.8rem] border border-line-strong bg-background lg:static lg:block" />
-            <span className="process-icon block size-12 text-ink-2 lg:mt-8">
-              <svg viewBox="0 0 48 48" className="size-12" aria-hidden>
+            <span className="process-icon panel-raised grid size-16 place-items-center text-ink-2 lg:mt-8">
+              <svg viewBox="0 0 48 48" className="size-11" aria-hidden>
+                {/* A faint outline of the icon waits on the tile until the line reaches the station */}
+                <g className="icon-ghost">
+                  <StepIcon slug={step.slug} />
+                </g>
                 <StepIcon slug={step.slug} />
               </svg>
             </span>
@@ -144,9 +147,10 @@ export function ProcessLine({ steps }: { steps: ProcessStepView[] }) {
           </>
         );
         return (
-          <li key={step.slug} data-station className="process-station relative ps-14 pb-12 lg:pe-6 lg:ps-0 lg:pb-0">
+          <li key={step.slug} data-station className="process-station relative ps-14 pb-8 lg:pe-3 lg:ps-0 lg:pb-0">
+            <span aria-hidden className="process-node absolute start-[0.85rem] top-[1.6rem] size-[0.8rem] border border-line-strong bg-background lg:static lg:block" />
             {step.href ? (
-              <Link href={step.href} className="group block">
+              <Link href={step.href} className="act-row group -ms-3 block pb-4 pe-3 ps-3 lg:pb-6">
                 {content}
               </Link>
             ) : (

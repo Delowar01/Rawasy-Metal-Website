@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Phrases } from "@/components/ui/Phrases";
+import { Backdrop } from "@/components/visual/Backdrop";
+import { PointerLight } from "@/components/visual/PointerLight";
 import { cn } from "@/lib/utils";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs";
 
@@ -95,11 +97,16 @@ export function InnerPageHero({
 /** Technical metadata under the hero, on a measured rule. */
 function MetaStrip({ items }: { items: HeroMeta[] }) {
   return (
-    <div className="relative border-t border-line">
-      <div aria-hidden className="ruler-ticks absolute inset-x-0 top-0 h-2.5" />
+    <div className="rule-double relative bg-[color-mix(in_srgb,var(--surface-elevated)_45%,transparent)]">
+      <div aria-hidden className="ruler-ticks absolute inset-x-0 top-[3px] h-2.5" data-reveal="mask" />
       <dl className={cn("container-x grid gap-x-8 gap-y-6 py-7", items.length > 2 ? "grid-cols-2 md:grid-cols-4" : "sm:grid-cols-2 md:grid-cols-4")}>
         {items.map((item, i) => (
-          <div key={item.label} className={cn("min-w-0", items.length === 2 && i === 1 && "md:col-span-3")} data-reveal="fade" style={{ ["--d" as string]: 80 * i }}>
+          <div
+            key={item.label}
+            className={cn("min-w-0", i > 0 && "md:border-s md:border-line md:ps-8", items.length === 2 && i === 1 && "md:col-span-3")}
+            data-reveal="fade"
+            style={{ ["--d" as string]: 80 * i }}
+          >
             <dt className="t-label flex items-center gap-2 text-ink-3">
               <span aria-hidden className="size-1 bg-accent" />
               {item.label}
@@ -116,21 +123,24 @@ function HeroBackdrop({ kind }: { kind: Backdrop }) {
   if (kind === "none") return null;
   if (kind === "perforated") {
     return (
-      <div
-        aria-hidden
-        className="bg-perforated pointer-events-none absolute inset-y-0 end-0 -z-10 w-2/3 opacity-70 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]"
-      />
+      <>
+        <Backdrop
+          kind="perforated"
+          className="start-auto w-2/3 opacity-80 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]"
+        />
+        <PointerLight className="-z-10" />
+      </>
     );
   }
   return (
-    <div
-      aria-hidden
-      className={cn(
-        "pointer-events-none absolute inset-0 -z-10",
+    <Backdrop
+      kind={kind === "grid" ? "grid" : "fine"}
+      drift
+      className={
         kind === "grid"
-          ? "bg-grid [mask-image:radial-gradient(ellipse_70%_80%_at_75%_40%,black_15%,transparent_75%)] rtl:[mask-image:radial-gradient(ellipse_70%_80%_at_25%_40%,black_15%,transparent_75%)]"
-          : "bg-grid-fine opacity-60 [mask-image:linear-gradient(to_bottom,black,transparent_85%)]",
-      )}
+          ? "[--bd-fade:radial-gradient(ellipse_70%_80%_at_75%_40%,transparent_15%,var(--background)_75%)] rtl:[--bd-fade:radial-gradient(ellipse_70%_80%_at_25%_40%,transparent_15%,var(--background)_75%)]"
+          : "[--bd-opacity:0.7] [--bd-fade:linear-gradient(to_bottom,transparent,var(--background)_85%)]"
+      }
     />
   );
 }

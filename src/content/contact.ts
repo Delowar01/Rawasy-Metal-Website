@@ -50,6 +50,11 @@ export const contactPage: ContactPageContent = {
       ar: ["املأ تفاصيل مشروعك.", "جهّز الطلب وراجع الملخّص.", "أرسله من تطبيق بريدك أو عبر واتساب، مع إرفاق مخططاتك."],
     },
     requiredNote: { en: "Fields marked * are required.", ar: "الحقول المعلّمة بـ * مطلوبة." },
+    groups: {
+      details: { en: "Your details", ar: "بياناتك" },
+      project: { en: "Project", ar: "المشروع" },
+      message: { en: "Details and drawings", ar: "التفاصيل والمخططات" },
+    },
     noscript: {
       en: "JavaScript is off, so the button below opens your email app with your details as plain text. Attach your drawings there.",
       ar: "جافاسكربت غير مفعّل؛ لذلك يفتح الزر أدناه تطبيق بريدك الإلكتروني ببياناتك كنص عادي. أرفق مخططاتك هناك.",

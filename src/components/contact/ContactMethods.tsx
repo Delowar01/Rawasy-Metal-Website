@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowIcon, ArrowUpRightIcon } from "@/components/ui/Icons";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 export interface ContactLink {
   href: string;
@@ -27,7 +28,7 @@ export function ContactMethod({
   children?: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-b border-line py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
+    <div className="act-row grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-b border-line py-5 ps-3 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:ps-4">
       <span className="t-num pt-0.5 text-xs text-ink-2">{index}</span>
       <div className="min-w-0">
         <p className="t-label flex items-center gap-2.5 text-ink-2">
@@ -52,9 +53,15 @@ export function ContactMethod({
                   <span className="t-label flex shrink-0 items-center gap-1.5 text-ink-2 transition-colors group-hover:text-ink">
                     {link.action}
                     {link.external ? (
-                      <ArrowUpRightIcon size={14} className="rtl:-scale-x-100" />
+                      <ArrowUpRightIcon
+                        size={14}
+                        className="transition-transform duration-500 ease-out-expo group-hover:translate-x-[calc(var(--dir)*3px)] group-hover:-translate-y-0.5 group-focus-visible:translate-x-[calc(var(--dir)*3px)] rtl:-scale-x-100"
+                      />
                     ) : (
-                      <ArrowIcon size={14} className="rtl:-scale-x-100" />
+                      <ArrowIcon
+                        size={14}
+                        className="transition-transform duration-500 ease-out-expo group-hover:translate-x-[calc(var(--dir)*4px)] group-focus-visible:translate-x-[calc(var(--dir)*4px)] rtl:-scale-x-100"
+                      />
                     )}
                   </span>
                 </a>
@@ -72,12 +79,14 @@ export function ContactMethod({
 export function ContactSheet({ label, children }: { label: string; children: ReactNode }) {
   return (
     <address className="not-italic">
-      <div className="border border-line-strong bg-elevated px-5 sm:px-7">
-        <p className="t-label flex items-center gap-3 border-b border-line-strong py-4 text-ink-2">
+      <div className="tf-host panel-raised relative px-4 sm:px-6">
+        <p className="t-label flex items-center gap-3 border-b border-line-strong px-3 py-4 text-ink-2 sm:px-4">
           <span aria-hidden className="size-1.5 bg-accent" />
           {label}
+          <span aria-hidden className="ms-auto h-2 w-16 bg-[repeating-linear-gradient(90deg,var(--border-strong)_0_1px,transparent_1px_8px)]" />
         </p>
         <div className="[&>*:last-child]:border-b-0">{children}</div>
+        <FrameMarks lines={false} />
       </div>
     </address>
   );

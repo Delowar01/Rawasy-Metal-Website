@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, type MouseEvent } from "react";
+import { useScrollSpy } from "@/lib/use-scroll-spy";
 
 export interface SpyItem {
   id: string;
@@ -13,20 +14,12 @@ export interface SpyItem {
  * scrolls to a row when its entry is chosen.
  */
 export function ServiceScrollSpy({ items, label }: { items: SpyItem[]; label: string }) {
-  const [active, setActive] = useState(items[0]?.id);
+  const [active, setActive] = useScrollSpy(items.map((item) => item.id));
 
+  // Mark the row being read, so its frame and edge can light up.
   useEffect(() => {
-    const targets = items.map((item) => document.getElementById(item.id)).filter((el): el is HTMLElement => !!el);
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { rootMargin: "-30% 0px -60% 0px" },
-    );
-    targets.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [items]);
+    for (const item of items) document.getElementById(item.id)?.toggleAttribute("data-active", item.id === active);
+  }, [active, items]);
 
   const go = (e: MouseEvent<HTMLAnchorElement>, id: string) => {
     const target = document.getElementById(id);
@@ -40,7 +33,7 @@ export function ServiceScrollSpy({ items, label }: { items: SpyItem[]; label: st
 
   return (
     <nav aria-label={label} className="sticky top-28">
-      <p className="t-label text-ink-3">{label}</p>
+      <p className="t-label text-ink-2">{label}</p>
       <ol className="mt-5 border-s border-line">
         {items.map((item) => {
           const current = active === item.id;
@@ -51,7 +44,7 @@ export function ServiceScrollSpy({ items, label }: { items: SpyItem[]; label: st
                 onClick={(e) => go(e, item.id)}
                 aria-current={current ? "true" : undefined}
                 className={`relative flex items-baseline gap-3 py-2.5 ps-5 text-[0.95rem] transition-colors duration-300 ${
-                  current ? "text-ink" : "text-ink-3 hover:text-ink-2"
+                  current ? "text-ink" : "text-ink-2 hover:text-ink"
                 }`}
               >
                 <span
@@ -60,7 +53,7 @@ export function ServiceScrollSpy({ items, label }: { items: SpyItem[]; label: st
                     current ? "scale-y-100" : "scale-y-0"
                   }`}
                 />
-                <span className={`t-num text-[0.7rem] ${current ? "text-accent-ink" : ""}`}>{item.index}</span>
+                <span className="t-num text-[0.7rem]">{item.index}</span>
                 <span className={current ? "font-display font-medium" : ""}>{item.name}</span>
               </a>
             </li>

@@ -12,6 +12,7 @@ import { InnerPageHero } from "@/components/inner/InnerPageHero";
 import { ServicePlate } from "@/components/services/ServicePlate";
 import { ServiceRow } from "@/components/services/ServiceRow";
 import { ServiceScrollSpy } from "@/components/services/ServiceScrollSpy";
+import { Backdrop } from "@/components/visual/Backdrop";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/services">): Promise<Metadata> {
   const { locale } = await params;
@@ -51,10 +52,13 @@ export default async function ServicesPage({ params }: PageProps<"/[locale]/serv
         meta={page.hero.meta.map((m) => ({ label: m.label[locale], value: m.value[locale] }))}
       />
 
-      <section aria-label={page.indexLabel[locale]} className="pb-[var(--section-y)]">
+      <section aria-label={page.indexLabel[locale]} className="relative overflow-x-clip pb-[var(--section-y)]">
         <div className="container-x grid gap-x-10 lg:grid-cols-12">
-          <div className="hidden lg:col-span-3 lg:block">
-            <div className="h-full pt-14 lg:pt-20">
+          <div className="relative isolate hidden lg:col-span-3 lg:block">
+            <div aria-hidden className="panel-recessed absolute inset-y-0 end-0 -z-10 w-[calc(100%+var(--gutter)+50vw)] border-y-0 border-s-0 border-e border-line">
+              <Backdrop kind="fine" className="opacity-70" />
+            </div>
+            <div className="h-full pe-2 pt-14 lg:pt-20">
               <ServiceScrollSpy
                 label={page.indexLabel[locale]}
                 items={services.map((s) => ({ id: s.slug, index: s.index, name: s.name[locale] }))}

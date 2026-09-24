@@ -14,6 +14,7 @@ import { IndustryIndex } from "@/components/industries/IndustryIndex";
 import { InnerCTA } from "@/components/inner/InnerCTA";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
 import { Phrases } from "@/components/ui/Phrases";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 /** Sectors shown in the hero strip (photos large enough to show well). */
 const STRIP = ["construction", "industrial", "public-realm", "architecture", "street-furniture"];
@@ -55,16 +56,23 @@ export default async function IndustriesPage({ params }: PageProps<"/[locale]/in
               return (
                 <li key={industry.slug} className={cn(i === 4 && "max-lg:hidden", i === 3 && "sm:max-lg:hidden", i % 2 === 1 && "lg:mt-12")}>
                   <figure>
-                    <div className="photo relative aspect-[4/5]" data-reveal="clip" style={{ ["--d" as string]: i * 90 } as CSSProperties}>
-                      <Image
-                        src={media.src}
-                        alt=""
-                        fill
-                        sizes="(min-width: 1024px) 18vw, (min-width: 640px) 30vw, 46vw"
-                        placeholder="blur"
-                        blurDataURL={media.blurDataURL}
-                        className="object-cover"
-                      />
+                    <div className="tf-host zoom-host">
+                      <div
+                        className="photo zoom-img relative aspect-[4/5] shadow-[var(--shadow-medium)]"
+                        data-reveal="clip"
+                        style={{ ["--d" as string]: i * 90 } as CSSProperties}
+                      >
+                        <Image
+                          src={media.src}
+                          alt=""
+                          fill
+                          sizes="(min-width: 1024px) 18vw, (min-width: 640px) 30vw, 46vw"
+                          placeholder="blur"
+                          blurDataURL={media.blurDataURL}
+                          className="object-cover"
+                        />
+                      </div>
+                      <FrameMarks lines={false} />
                     </div>
                     <figcaption className="t-label mt-3 flex items-baseline gap-2 text-ink-2">
                       <span className="t-num text-accent-ink">{pad(n)}</span>
@@ -117,9 +125,9 @@ export default async function IndustriesPage({ params }: PageProps<"/[locale]/in
           </div>
 
           {/* How the sectors are classified */}
-          <div className="mt-20 grid gap-x-10 gap-y-8 border-t border-line pt-12 lg:mt-28 lg:grid-cols-12">
+          <div className="panel-recessed mt-20 grid gap-x-10 gap-y-8 p-7 sm:p-10 lg:mt-28 lg:grid-cols-12 lg:p-12">
             <div className="lg:col-span-4">
-              <p className="t-label eyebrow" data-reveal="fade">
+              <p className="t-label eyebrow text-ink-2" data-reveal="fade">
                 <span className="t-num">02</span>
                 <span aria-hidden>/</span>
                 <span>{page.note.label[locale]}</span>

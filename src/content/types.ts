@@ -321,6 +321,8 @@ export interface QuoteFormContent {
   status: Localized;
   steps: Localized<string[]>;
   requiredNote: Localized;
+  /** Legends of the three field groups. */
+  groups: { details: Localized; project: Localized; message: Localized };
   /** Shown only without JavaScript, when the form falls back to a mailto: submission. */
   noscript: Localized;
   fields: Record<QuoteFieldName, QuoteField>;

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 import { cn } from "@/lib/utils";
 
 export interface IndustryIndexItem {
@@ -36,9 +37,10 @@ export function IndustryIndex({
         {items.map((item, i) => (
           <li
             key={item.slug}
-            className="group relative border-b border-line"
+            className="act-row group relative border-b border-line"
             onPointerEnter={() => setActive(i)}
             onFocus={() => setActive(i)}
+            data-active={active === i || undefined}
             data-reveal
             style={{ ["--d" as string]: (i % 4) * 60 } as CSSProperties}
           >
@@ -49,7 +51,7 @@ export function IndustryIndex({
                 active === i ? "w-full" : "w-0",
               )}
             />
-            <div className="grid grid-cols-[2.25rem_1fr_auto] gap-x-4 py-7 sm:grid-cols-[3rem_1fr_auto] sm:py-8">
+            <div className="grid grid-cols-[2.25rem_1fr_auto] gap-x-4 py-7 ps-4 sm:grid-cols-[3rem_1fr_auto] sm:py-8 sm:ps-5">
               <span className={cn("t-num pt-1.5 text-xs transition-colors", active === i ? "text-accent-ink" : "text-ink-3")}>{item.index}</span>
               <div className="min-w-0">
                 <h3 className="t-h3 text-ink">{item.name}</h3>
@@ -82,8 +84,14 @@ export function IndustryIndex({
 
       <div className="hidden lg:col-span-5 lg:block">
         <figure className="sticky top-28" aria-hidden>
-          <div className="crop-marks relative">
-            <div className="bg-grid-fine relative aspect-[4/3] overflow-hidden border border-line bg-surface">
+          <div className="tf-host relative" data-active>
+            <div className="panel-raised bg-grid-fine relative aspect-[4/3] overflow-hidden [container-type:inline-size]">
+              {/* Large index numeral of the sector on show */}
+              <span
+                key={`n-${current.slug}`}
+                data-n={current.index}
+                className="outline-num industry-num pointer-events-none absolute end-5 top-3 z-10 font-display text-[4.5rem] font-semibold leading-none"
+              />
               {items.map((item, i) => {
                 const small = item.image.width < 440;
                 return (
@@ -117,7 +125,11 @@ export function IndustryIndex({
                   </div>
                 );
               })}
+              <span aria-hidden className="reg-marks" />
+              {/* A scan sweeps across on every change */}
+              <span key={`s-${current.slug}`} className="machine-sweep pointer-events-none absolute inset-y-0 start-0 z-10 w-px bg-accent" />
             </div>
+            <FrameMarks lines={false} />
           </div>
           <figcaption className="t-label mt-5 flex items-baseline gap-3 text-ink-3">
             <span className="t-num text-accent-ink">{`${labels.figure} ${current.index}`}</span>

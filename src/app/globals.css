@@ -9,16 +9,22 @@
 
 /* ---------- Semantic tokens: light (default) ---------- */
 :root {
+  /* Surfaces, from deepest to highest: recessed wells and bands sit below the
+     warm off-white base; sheets and panels are raised above it. */
   --background: #f3f1ed;
   --background-deep: #eceae5;
   --surface: #ecebe6;
-  --surface-elevated: #f8f7f4;
+  --surface-recessed: #e8e6e1;
+  --surface-elevated: #f9f8f5;
   --surface-strong: #e2e0db;
   --text-primary: #1e2021;
   --text-secondary: #4a4c4e;
   --text-tertiary: #67696b;
+  /* Border hierarchy: faint internal rules → default → strong frames → charcoal ink lines. */
+  --border-faint: rgb(30 32 33 / 0.07);
   --border: rgb(30 32 33 / 0.12);
   --border-strong: rgb(30 32 33 / 0.24);
+  --border-ink: rgb(30 32 33 / 0.62);
   --accent: #f15f22;
   --accent-hover: #d9501a;
   --accent-text: #b8440f;
@@ -46,10 +52,30 @@
   --metal-c: #c3c2be;
   --metal-hair: rgb(255 255 255 / 0.5);
   --metal-edge: rgb(30 32 33 / 0.22);
+  --plate-a: #e4e3df;
+  --plate-b: #f2f1ee;
+  --plate-c: #dad9d5;
+  --rivet: rgb(30 32 33 / 0.3);
   --grain-opacity: 0.05;
   --grain-blend: multiply;
-  --shadow-soft: 0 1px 2px rgb(30 32 33 / 0.06), 0 12px 40px -12px rgb(30 32 33 / 0.18);
   --glass: rgb(243 241 237 / 0.78);
+
+  /* Depth: layered metal sheets, not floating cards. */
+  --edge-light: rgb(255 255 255 / 0.8);
+  --edge-shade: rgb(30 32 33 / 0.06);
+  --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0) 46%);
+  --shadow-low: 0 1px 0 rgb(30 32 33 / 0.04), 0 1px 2px rgb(30 32 33 / 0.06);
+  --shadow-medium: 0 1px 2px rgb(30 32 33 / 0.05), 0 12px 26px -14px rgb(30 32 33 / 0.24);
+  --shadow-metal:
+    inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 0 rgb(30 32 33 / 0.05),
+    0 2px 3px -1px rgb(30 32 33 / 0.08), 0 24px 44px -28px rgb(30 32 33 / 0.42);
+  --shadow-inset: inset 0 1px 2px rgb(30 32 33 / 0.08), inset 0 0 0 1px rgb(30 32 33 / 0.025);
+  --shadow-accent: 0 14px 34px -20px rgb(241 95 34 / 0.55);
+  --shadow-soft: 0 1px 2px rgb(30 32 33 / 0.06), 0 12px 40px -12px rgb(30 32 33 / 0.18);
+  /* Hover lifts a row towards the light (never darker, so text contrast only rises). */
+  --row-tint: rgb(255 255 255 / 0.5);
+  --light-spot: rgb(255 255 255 / 0.62);
+  --scan: rgb(241 95 34 / 0.55);
 
   color-scheme: light;
 }
@@ -57,22 +83,25 @@
 /* ---------- Semantic tokens: dark ---------- */
 :root[data-theme="dark"] {
   --background: #17191a;
-  --background-deep: #141617;
-  --surface: #1e2021;
-  --surface-elevated: #252728;
-  --surface-strong: #313334;
+  --background-deep: #121415;
+  --surface: #1d1f21;
+  --surface-recessed: #131516;
+  --surface-elevated: #24272a;
+  --surface-strong: #2f3235;
   --text-primary: #eceae5;
   --text-secondary: #a8a6a1;
-  --text-tertiary: #8c8a85;
+  --text-tertiary: #95938d;
+  --border-faint: rgb(236 234 229 / 0.05);
   --border: rgb(236 234 229 / 0.09);
   --border-strong: rgb(236 234 229 / 0.18);
+  --border-ink: rgb(236 234 229 / 0.42);
   --accent: #f15f22;
   --accent-hover: #ff7433;
   --accent-text: #ff7a3d;
   --accent-soft: rgb(241 95 34 / 0.12);
   --focus: #ff7a3d;
 
-  --band: #111213;
+  --band: #0f1112;
   --band-surface: #1a1c1d;
   --band-text: #eceae5;
   --band-text-2: #a8a6a1;
@@ -90,10 +119,28 @@
   --metal-c: #222425;
   --metal-hair: rgb(255 255 255 / 0.06);
   --metal-edge: rgb(236 234 229 / 0.16);
+  --plate-a: #2a2d2f;
+  --plate-b: #313436;
+  --plate-c: #25282a;
+  --rivet: rgb(236 234 229 / 0.28);
   --grain-opacity: 0.06;
   --grain-blend: overlay;
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 18px 50px -16px rgb(0 0 0 / 0.55);
   --glass: rgb(23 25 26 / 0.74);
+
+  --edge-light: rgb(255 255 255 / 0.065);
+  --edge-shade: rgb(0 0 0 / 0.38);
+  --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0) 46%);
+  --shadow-low: 0 1px 0 rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.3);
+  --shadow-medium: 0 1px 2px rgb(0 0 0 / 0.35), 0 16px 32px -16px rgb(0 0 0 / 0.7);
+  --shadow-metal:
+    inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 0 rgb(0 0 0 / 0.45),
+    0 26px 46px -26px rgb(0 0 0 / 0.9);
+  --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.02);
+  --shadow-accent: 0 16px 38px -22px rgb(241 95 34 / 0.5);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 18px 50px -16px rgb(0 0 0 / 0.55);
+  --row-tint: rgb(255 255 255 / 0.028);
+  --light-spot: rgb(255 255 255 / 0.075);
+  --scan: rgb(255 122 61 / 0.6);
 
   color-scheme: dark;
 }
@@ -102,19 +149,22 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --background: #17191a;
-    --background-deep: #141617;
-    --surface: #1e2021;
-    --surface-elevated: #252728;
-    --surface-strong: #313334;
+    --background-deep: #121415;
+    --surface: #1d1f21;
+    --surface-recessed: #131516;
+    --surface-elevated: #24272a;
+    --surface-strong: #2f3235;
     --text-primary: #eceae5;
     --text-secondary: #a8a6a1;
-    --text-tertiary: #8c8a85;
+    --text-tertiary: #95938d;
+    --border-faint: rgb(236 234 229 / 0.05);
     --border: rgb(236 234 229 / 0.09);
     --border-strong: rgb(236 234 229 / 0.18);
+    --border-ink: rgb(236 234 229 / 0.42);
     --accent-hover: #ff7433;
     --accent-text: #ff7a3d;
     --focus: #ff7a3d;
-    --band: #111213;
+    --band: #0f1112;
     --band-surface: #1a1c1d;
     --btn-bg: #f15f22;
     --btn-fg: #17191a;
@@ -126,7 +176,25 @@
     --metal-c: #222425;
     --metal-hair: rgb(255 255 255 / 0.06);
     --metal-edge: rgb(236 234 229 / 0.16);
+    --plate-a: #2a2d2f;
+    --plate-b: #313436;
+    --plate-c: #25282a;
+    --rivet: rgb(236 234 229 / 0.28);
     --glass: rgb(23 25 26 / 0.74);
+    --edge-light: rgb(255 255 255 / 0.065);
+    --edge-shade: rgb(0 0 0 / 0.38);
+    --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0) 46%);
+    --shadow-low: 0 1px 0 rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.3);
+    --shadow-medium: 0 1px 2px rgb(0 0 0 / 0.35), 0 16px 32px -16px rgb(0 0 0 / 0.7);
+    --shadow-metal:
+      inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 0 rgb(0 0 0 / 0.45),
+      0 26px 46px -26px rgb(0 0 0 / 0.9);
+    --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.02);
+    --shadow-accent: 0 16px 38px -22px rgb(241 95 34 / 0.5);
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 18px 50px -16px rgb(0 0 0 / 0.55);
+    --row-tint: rgb(255 255 255 / 0.028);
+    --light-spot: rgb(255 255 255 / 0.075);
+    --scan: rgb(255 122 61 / 0.6);
     color-scheme: dark;
   }
 }
@@ -149,6 +217,12 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-snap: cubic-bezier(0.7, 0, 0.2, 1);
 
+  /* Interaction timing: micro 240ms, hover 480ms, frame draw 800ms, reveals 1200ms. */
+  --dur-1: 0.24s;
+  --dur-2: 0.48s;
+  --dur-3: 0.8s;
+  --dur-4: 1.2s;
+
   /* Direction helpers: multiply x-translations by --dir for RTL mirroring. */
   --dir: 1;
   --origin-start: left;
@@ -159,6 +233,19 @@
   --dir: -1;
   --origin-start: right;
   --origin-end: left;
+}
+
+/* Registered so they can transition: the button chamfer and frame corner colour. */
+@property --chamfer {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 12px;
+}
+
+@property --tfc {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgb(103 105 107);
 }
 
 /*
@@ -194,12 +281,15 @@
   --color-background-deep: var(--background-deep);
   --color-surface: var(--surface);
   --color-elevated: var(--surface-elevated);
+  --color-recessed: var(--surface-recessed);
   --color-strong: var(--surface-strong);
   --color-ink: var(--text-primary);
   --color-ink-2: var(--text-secondary);
   --color-ink-3: var(--text-tertiary);
+  --color-line-faint: var(--border-faint);
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
+  --color-line-ink: var(--border-ink);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-ink: var(--accent-text);
@@ -512,7 +602,18 @@
     line-height: 1.2;
     white-space: nowrap;
     color: var(--btn-fg);
-    transition: color 0.4s var(--ease-out);
+    transition:
+      color 0.4s var(--ease-out),
+      --chamfer var(--dur-2) var(--ease-out);
+  }
+
+  /* The laser-cut corner deepens under the pointer or keyboard focus. */
+  .btn:is(:hover, :focus-visible) {
+    --chamfer: 17px;
+  }
+
+  .btn-sm:is(:hover, :focus-visible) {
+    --chamfer: 13px;
   }
 
   .btn-face {
@@ -568,6 +669,11 @@
       linear-gradient(to bottom left, transparent calc(50% - 0.6px), var(--border-strong) calc(50% - 0.6px), var(--border-strong) calc(50% + 0.6px), transparent calc(50% + 0.6px))
         top right / var(--chamfer) var(--chamfer) no-repeat;
     border: 1px solid var(--border-strong);
+    transition: border-color var(--dur-2) ease;
+  }
+
+  .btn-outline:is(:hover, :focus-visible) .btn-face {
+    border-color: var(--text-primary);
   }
 
   [dir="rtl"] .btn-outline .btn-face {
@@ -1044,8 +1150,31 @@
   stroke-dashoffset: 0;
 }
 
+.process-icon .icon-ghost {
+  opacity: 0.3;
+}
+
+.js .process-icon .icon-ghost [pathLength] {
+  stroke-dashoffset: 0;
+  transition: none;
+}
+
+.process-icon {
+  transition:
+    color var(--dur-2) ease,
+    box-shadow var(--dur-2) ease;
+}
+
+/* A lit station's tile gets an accent top edge; hovering a station marks its node. */
 .process-station[data-lit] .process-icon {
   color: var(--text-primary);
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    var(--shadow-metal);
+}
+
+.process-station:has(a:is(:hover, :focus-visible)) .process-node {
+  border-color: var(--accent);
 }
 
 /* ==========================================================================
@@ -1082,6 +1211,40 @@
 
 .service-copy {
   animation: fade-up 0.6s var(--ease-out) both;
+}
+
+/* The cutting line that leads the figure wipe (same duration and easing). */
+.wipe-line {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -40px;
+  z-index: 3;
+  width: 40px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--accent), var(--accent)) right / 1px 100% no-repeat,
+    linear-gradient(to right, transparent, color-mix(in srgb, var(--accent) 16%, transparent));
+  animation: wipe-line 0.95s var(--ease-out) both;
+}
+
+[dir="rtl"] .wipe-line {
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / 1px 100% no-repeat,
+    linear-gradient(to left, transparent, color-mix(in srgb, var(--accent) 16%, transparent));
+}
+
+@keyframes wipe-line {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(calc(var(--dir) * 100cqw), 0, 0);
+    opacity: 0;
+  }
 }
 
 @keyframes fade-in {
@@ -1532,13 +1695,15 @@
     border: 1px solid var(--border-strong);
     border-radius: 0;
     background: var(--surface-elevated);
+    box-shadow: var(--shadow-inset);
     color: var(--text-primary);
     font: inherit;
     font-size: 1rem;
     line-height: 1.45;
     transition:
       border-color 0.25s ease,
-      background-color 0.25s ease;
+      background-color 0.25s ease,
+      box-shadow 0.25s ease;
   }
 
   .form-control::placeholder {
@@ -1554,6 +1719,31 @@
     outline: 2px solid var(--focus);
     outline-offset: 1px;
     border-color: var(--text-primary);
+    box-shadow:
+      var(--shadow-inset),
+      0 0 0 5px var(--accent-soft);
+  }
+
+  /* An accent edge draws along the bottom of the focused field. */
+  .field-edge {
+    position: relative;
+  }
+
+  .field-edge::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: var(--origin-start);
+    transition: transform var(--dur-2) var(--ease-out);
+    pointer-events: none;
+  }
+
+  .field-edge:focus-within::after {
+    transform: scaleX(1);
   }
 
   .form-control[aria-invalid="true"] {
@@ -1578,14 +1768,20 @@
     content: attr(data-n);
     color: transparent;
     -webkit-text-stroke: 1px var(--border-strong);
+    transition: -webkit-text-stroke-color var(--dur-2) ease;
+  }
+
+  :is(.act-row:hover, .act-row:has(:focus-visible), [data-active]) .outline-num::before {
+    -webkit-text-stroke-color: var(--accent);
   }
 
   /* File drop area, hatched like a cutting table. */
   .dropzone {
     border: 1px dashed var(--border-strong);
     background:
-      repeating-linear-gradient(135deg, transparent 0 11px, var(--grid-line) 11px 12px),
-      var(--surface);
+      repeating-linear-gradient(135deg, transparent 0 11px, var(--grid-line) 11px 12px) 0 0,
+      var(--surface-recessed);
+    box-shadow: var(--shadow-inset);
     transition:
       border-color 0.25s ease,
       background-color 0.25s ease;
@@ -1632,6 +1828,522 @@
   }
 }
 
+/* ==========================================================================
+   Visual system (stage 1C-V): surfaces, frames, backdrops, active states.
+   Decorative layers are always aria-hidden; ambient motion runs only with
+   JavaScript, only while in view, and never with reduced motion.
+   ========================================================================== */
+@layer components {
+  /* ---------- Surfaces ---------- */
+  .panel {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-low);
+  }
+
+  /* A raised sheet: lit top edge, shaded bottom edge, contact shadow. */
+  .panel-raised {
+    background: var(--sheen), var(--surface-elevated);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-metal);
+  }
+
+  /* A recessed well or tray. */
+  .panel-recessed {
+    background: var(--surface-recessed);
+    border: 1px solid var(--border-faint);
+    box-shadow: var(--shadow-inset);
+  }
+
+  /* Brushed plate for engraved content (text on it uses ink or ink-2 only). */
+  .panel-metal {
+    background:
+      var(--sheen),
+      repeating-linear-gradient(90deg, var(--metal-hair) 0 1px, transparent 1px 4px),
+      linear-gradient(115deg, var(--plate-a) 0%, var(--plate-b) 42%, var(--plate-c) 72%, var(--plate-b) 100%);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-metal);
+  }
+
+  /* Four fixing points, like a riveted nameplate. */
+  .rivets {
+    position: absolute;
+    inset: 7px;
+    pointer-events: none;
+    background:
+      radial-gradient(circle, var(--rivet) 1.5px, transparent 2.1px) left top / 6px 6px no-repeat,
+      radial-gradient(circle, var(--rivet) 1.5px, transparent 2.1px) right top / 6px 6px no-repeat,
+      radial-gradient(circle, var(--rivet) 1.5px, transparent 2.1px) left bottom / 6px 6px no-repeat,
+      radial-gradient(circle, var(--rivet) 1.5px, transparent 2.1px) right bottom / 6px 6px no-repeat;
+  }
+
+  /* ---------- Technical frame ----------
+     Base rules (top/bottom and sides as separate layers so each can draw in),
+     an accent highlight that draws on hover/focus/active, corner marks and a
+     small orange marker that travels the top edge and settles. */
+  .tf-host {
+    position: relative;
+    --tfc: var(--text-tertiary);
+    transition: --tfc var(--dur-2) ease;
+  }
+
+  .tf,
+  .tf-hl,
+  .tf-c {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .tf,
+  .tf-hl {
+    inset: 0;
+    z-index: 2;
+  }
+
+  .tf::before,
+  .tf::after,
+  .tf-hl::before,
+  .tf-hl::after {
+    content: "";
+    position: absolute;
+  }
+
+  .tf::before {
+    inset: 0;
+    border-block: 1px solid var(--tf-line, var(--border-strong));
+    transform-origin: var(--origin-start);
+  }
+
+  .tf::after {
+    inset: 0;
+    border-inline: 1px solid var(--tf-line, var(--border-strong));
+    transform-origin: top;
+  }
+
+  .tf-host[data-tf="corners"] .tf {
+    display: none;
+  }
+
+  .tf-hl::before {
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: var(--origin-start);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .tf-hl::after {
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 1px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform var(--dur-2) var(--ease-out) 0.12s;
+  }
+
+  .tf-c {
+    inset: calc(var(--tf-out, 6px) * -1);
+    z-index: 3;
+    --s: 12px;
+    background:
+      linear-gradient(var(--tfc), var(--tfc)) left top / var(--s) 1px no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) left top / 1px var(--s) no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) right top / var(--s) 1px no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) right top / 1px var(--s) no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) left bottom / var(--s) 1px no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) left bottom / 1px var(--s) no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) right bottom / var(--s) 1px no-repeat,
+      linear-gradient(var(--tfc), var(--tfc)) right bottom / 1px var(--s) no-repeat;
+    opacity: 0.9;
+  }
+
+  /* Marker strip along the top edge: ::before runs once when the frame is
+     revealed, ::after runs on hover or focus. Transform and opacity only. */
+  .tf-m {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    z-index: 3;
+    height: 2px;
+    pointer-events: none;
+    container-type: inline-size;
+  }
+
+  .tf-m::before,
+  .tf-m::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    width: 14px;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+  }
+
+  /* data-tf="hover": no rules, and corner marks only while hovered, focused or active. */
+  .tf-host[data-tf="hover"] .tf {
+    display: none;
+  }
+
+  .tf-host[data-tf="hover"] .tf-c {
+    opacity: 0;
+    transition: opacity var(--dur-2) ease;
+  }
+
+  /* A frame inside a link lights with the link. */
+  .tf-host:is(:hover, :has(:focus-visible), [data-active]),
+  a:is(:hover, :focus-visible) .tf-host {
+    --tfc: var(--accent);
+  }
+
+  .tf-host:is(:hover, :has(:focus-visible), [data-active]) .tf-hl::before,
+  .tf-host:is(:hover, :has(:focus-visible), [data-active]) .tf-hl::after,
+  a:is(:hover, :focus-visible) .tf-host .tf-hl::before,
+  a:is(:hover, :focus-visible) .tf-host .tf-hl::after {
+    transform: none;
+  }
+
+  .tf-host[data-tf="hover"]:is(:hover, :has(:focus-visible), [data-active]) .tf-c,
+  a:is(:hover, :focus-visible) .tf-host[data-tf="hover"] .tf-c {
+    opacity: 0.9;
+  }
+
+  .tf-host:is(:hover, :has(:focus-visible)) .tf-m::after,
+  a:is(:hover, :focus-visible) .tf-host .tf-m::after {
+    animation: tf-travel var(--dur-3) var(--ease-out) both;
+  }
+
+  /* On dark bands */
+  .on-band .tf-host,
+  .tf-host.on-band {
+    --tf-line: var(--band-border);
+    --tfc: var(--band-text-2);
+  }
+
+  /* ---------- Registration marks inside photographs ---------- */
+  .reg-marks {
+    position: absolute;
+    inset: 12px;
+    z-index: 3;
+    pointer-events: none;
+    --m: rgb(255 255 255 / 0.8);
+    background:
+      linear-gradient(var(--m), var(--m)) left 0 top 4px / 9px 1px no-repeat,
+      linear-gradient(var(--m), var(--m)) left 4px top 0 / 1px 9px no-repeat,
+      linear-gradient(var(--m), var(--m)) right 0 top 4px / 9px 1px no-repeat,
+      linear-gradient(var(--m), var(--m)) right 4px top 0 / 1px 9px no-repeat,
+      linear-gradient(var(--m), var(--m)) left 0 bottom 4px / 9px 1px no-repeat,
+      linear-gradient(var(--m), var(--m)) left 4px bottom 0 / 1px 9px no-repeat,
+      linear-gradient(var(--m), var(--m)) right 0 bottom 4px / 9px 1px no-repeat,
+      linear-gradient(var(--m), var(--m)) right 4px bottom 0 / 1px 9px no-repeat;
+    opacity: 0.7;
+    mix-blend-mode: screen;
+    transition: opacity var(--dur-2) ease;
+  }
+
+  /* ---------- Backdrops (engineering grid, fine grid, perforated field) ---------- */
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .backdrop::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--tile) * -1);
+    --drift: var(--tile);
+    opacity: var(--bd-opacity, 1);
+  }
+
+  /* Fade towards the section colour. A drifting pattern is faded with this
+     overlay rather than a mask: a mask over a moving layer is recomposited on
+     every frame. */
+  .backdrop::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--bd-fade, none);
+  }
+
+  .backdrop-grid {
+    --tile: 88px;
+  }
+
+  .backdrop-grid::before {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 88px 88px;
+  }
+
+  .backdrop-fine {
+    --tile: 22px;
+  }
+
+  .backdrop-fine::before {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .backdrop-perforated {
+    --tile: 28px;
+  }
+
+  .backdrop-perforated::before {
+    background-image: radial-gradient(circle at center, var(--perf-dot) 1.15px, transparent 1.7px);
+    background-size: 14px 14px;
+  }
+
+  /* ---------- Scan line: a thin line that passes through a technical area ---------- */
+  .scan {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    container-type: size;
+  }
+
+  /* The line fades out towards both ends; its trailing glow is drawn in four
+     faint steps (gradients only, no mask over the moving layer). */
+  .scan::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 72px;
+    --s1: color-mix(in srgb, var(--scan) 12%, transparent);
+    --s2: color-mix(in srgb, var(--scan) 8%, transparent);
+    --s3: color-mix(in srgb, var(--scan) 5%, transparent);
+    --s4: color-mix(in srgb, var(--scan) 2.5%, transparent);
+    background:
+      linear-gradient(90deg, transparent, var(--scan) 12%, var(--scan) 88%, transparent) left bottom / 100% 1px no-repeat,
+      linear-gradient(90deg, transparent, var(--s1) 12%, var(--s1) 88%, transparent) left bottom 1px / 100% 18px no-repeat,
+      linear-gradient(90deg, transparent, var(--s2) 12%, var(--s2) 88%, transparent) left bottom 19px / 100% 18px no-repeat,
+      linear-gradient(90deg, transparent, var(--s3) 12%, var(--s3) 88%, transparent) left bottom 37px / 100% 18px no-repeat,
+      linear-gradient(90deg, transparent, var(--s4) 12%, var(--s4) 88%, transparent) left bottom 55px / 100% 17px no-repeat;
+    transform: translate3d(0, -80px, 0);
+  }
+
+  /* ---------- Pointer light (desktop only, set up by <PointerLight>) ---------- */
+  .plight {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity var(--dur-3) ease;
+  }
+
+  .plight[data-on] {
+    opacity: 1;
+  }
+
+  .plight::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 40rem;
+    height: 40rem;
+    margin: -20rem 0 0 -20rem;
+    background: radial-gradient(closest-side, var(--light-spot), color-mix(in srgb, var(--accent) 5%, transparent) 55%, transparent);
+    transform: translate3d(var(--lx, 50%), var(--ly, 50%), 0);
+  }
+
+  /* ---------- Active rows: start edge + surface shift ---------- */
+  .act-row {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .act-row::before {
+    content: "";
+    position: absolute;
+    inset-block: -1px;
+    inset-inline-start: 0;
+    width: 2px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .act-row::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--row-tint);
+    opacity: 0;
+    transition: opacity var(--dur-2) ease;
+  }
+
+  .act-row[data-active]::after {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 80%);
+  }
+
+  [dir="rtl"] .act-row[data-active]::after {
+    background: linear-gradient(270deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 80%);
+  }
+
+  .act-row:is(:hover, :has(:focus-visible), [data-active])::before {
+    transform: none;
+  }
+
+  .act-row:is(:hover, :has(:focus-visible), [data-active])::after {
+    opacity: 1;
+  }
+
+  /* ---------- Photographs: hover zoom, subtle parallax layer ---------- */
+  .zoom-img img {
+    transition: transform var(--dur-4) var(--ease-out);
+  }
+
+  :is(.zoom-host:hover, .zoom-host:has(:focus-visible), a:hover, a:focus-visible) > .zoom-img img,
+  :is(.zoom-host:hover, .zoom-host:has(:focus-visible), a:hover, a:focus-visible) .zoom-img img {
+    transform: scale(1.045);
+  }
+
+  .parallax {
+    position: absolute;
+    inset: -4%;
+  }
+
+  /* ---------- Section rule: architectural hairline above a section header ---------- */
+  .section-rule {
+    position: relative;
+    display: block;
+    height: 7px;
+  }
+
+  .section-rule::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 3px;
+    height: 1px;
+    background: var(--border-strong);
+    transform-origin: var(--origin-start);
+  }
+
+  .section-rule::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: 2px;
+    width: 2.75rem;
+    height: 3px;
+    background: var(--border-ink);
+  }
+
+  .section-rule > span {
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: min(7.5rem, 30%);
+    height: 7px;
+    background: repeating-linear-gradient(90deg, var(--border-strong) 0 1px, transparent 1px 10px);
+  }
+
+  .on-band .section-rule::before,
+  .section-rule.on-band::before {
+    background: var(--band-border);
+  }
+
+  .on-band .section-rule::after,
+  .section-rule.on-band::after {
+    background: var(--band-text-2);
+  }
+
+  .on-band .section-rule > span,
+  .section-rule.on-band > span {
+    background: repeating-linear-gradient(90deg, var(--band-border) 0 1px, transparent 1px 10px);
+  }
+
+  /* ---------- Measuring scale: minor ticks every 12px, major every 120px ---------- */
+  .ruler {
+    display: block;
+    height: 10px;
+    --ruler-major: var(--border-ink);
+    --ruler-minor: var(--border-strong);
+    background:
+      repeating-linear-gradient(90deg, var(--ruler-major) 0 1px, transparent 1px 120px) left bottom / 100% 10px no-repeat,
+      repeating-linear-gradient(90deg, var(--ruler-minor) 0 1px, transparent 1px 12px) left bottom / 100% 5px no-repeat;
+  }
+
+  .on-band .ruler {
+    --ruler-major: color-mix(in srgb, var(--band-text-2) 60%, transparent);
+    --ruler-minor: var(--band-border);
+  }
+
+  /* ---------- Double rule on top of a sheet or table ---------- */
+  .rule-double {
+    position: relative;
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .rule-double::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 2px;
+    height: 1px;
+    background: var(--border);
+    pointer-events: none;
+  }
+
+  /* ---------- Technical tags (equipment, scope) ---------- */
+  .tech-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.38rem 0.7rem;
+    border: 1px solid var(--border);
+    background: var(--surface-elevated);
+    box-shadow: var(--shadow-low);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    transition:
+      border-color var(--dur-1) ease,
+      color var(--dur-1) ease;
+  }
+
+  .tech-tag::before {
+    content: "";
+    flex: none;
+    width: 5px;
+    height: 5px;
+    border: 1px solid var(--accent-text);
+    transform: rotate(45deg);
+  }
+
+  .tech-tag:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
+  /* Hatched swatch matching the redaction blocks on the document previews. */
+  .redaction-swatch {
+    display: inline-block;
+    flex: none;
+    width: 0.8rem;
+    height: 0.8rem;
+    border: 1px solid var(--border-strong);
+    background: repeating-linear-gradient(135deg, var(--border-strong) 0 1px, transparent 1px 4px), var(--surface-strong);
+  }
+}
+
 /* Controls that only work with JavaScript (the boot script adds .js). Unlayered
    so it wins over display utilities such as .grid. */
 html:not(.js) .js-only {
@@ -1648,6 +2360,263 @@ html:not(.js) .js-only {
 
 .js .line-draw[data-revealed] [pathLength] {
   stroke-dashoffset: 0;
+}
+
+/* Frame reveal: the rules draw in (horizontal, then vertical), corner marks
+   appear and a marker runs the top edge once. Content itself stays visible. */
+.js [data-reveal="frame"] {
+  opacity: 1;
+  transform: none;
+}
+
+.js [data-reveal="frame"] .tf::before {
+  transform: scaleX(0);
+  transition: transform var(--dur-4) var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+
+.js [data-reveal="frame"] .tf::after {
+  transform: scaleY(0);
+  transition: transform var(--dur-4) var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms + 180ms);
+}
+
+.js [data-reveal="frame"] .tf-c {
+  opacity: 0;
+  transition: opacity var(--dur-3) ease;
+  transition-delay: calc(var(--d, 0) * 1ms + 420ms);
+}
+
+.js [data-reveal="frame"][data-revealed] .tf::before,
+.js [data-reveal="frame"][data-revealed] .tf::after {
+  transform: none;
+}
+
+.js [data-reveal="frame"][data-revealed] .tf-c {
+  opacity: 0.9;
+}
+
+.js [data-reveal="frame"][data-revealed] .tf-m::before {
+  animation: tf-mark 1.1s var(--ease-out) both;
+  animation-delay: calc(var(--d, 0) * 1ms + 260ms);
+}
+
+/* Two names for the same run, so a hover never restarts the reveal marker. */
+@keyframes tf-mark {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  78% {
+    transform: translate3d(calc((100cqw - 14px) * var(--dir)), 0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(calc((100cqw - 14px) * var(--dir)), 0, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes tf-travel {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  75% {
+    transform: translate3d(calc((100cqw - 14px) * var(--dir)), 0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(calc((100cqw - 14px) * var(--dir)), 0, 0);
+    opacity: 0;
+  }
+}
+
+/* Process line: each step's rail segment draws down to the next node, and the
+   node lights, as the step scrolls into view. */
+.js .step-rail::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform var(--dur-4) var(--ease-out) 0.35s;
+}
+
+.js .step[data-revealed] .step-rail::after {
+  transform: none;
+}
+
+.step-node {
+  transition:
+    background-color var(--dur-2) ease 0.2s,
+    box-shadow var(--dur-2) ease 0.2s;
+}
+
+.js .step[data-revealed] .step-node {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Services overview: the row being read gets an accent edge and a lit frame. */
+.service-row-edge {
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: var(--origin-start);
+  transition: transform var(--dur-3) var(--ease-out);
+  pointer-events: none;
+}
+
+.service-row[data-active] .service-row-edge {
+  transform: scaleX(0.34);
+}
+
+.service-row[data-active] .tf-host {
+  --tfc: var(--accent);
+}
+
+.service-row[data-active] .tf-hl::before,
+.service-row[data-active] .tf-hl::after {
+  transform: none;
+}
+
+/* Industries: the sector numeral behind the preview settles in on change. */
+.industry-num {
+  animation: fade-up var(--dur-3) var(--ease-out) both;
+}
+
+.industry-num::before {
+  -webkit-text-stroke-color: color-mix(in srgb, var(--text-primary) 22%, transparent);
+}
+
+/* Clients sheet: a hovered cell is raised and an accent line draws beneath it. */
+.client-cell {
+  transition:
+    background-color var(--dur-2) ease,
+    box-shadow var(--dur-2) ease;
+}
+
+.client-cell:hover {
+  z-index: 2;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-medium);
+}
+
+.client-line {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  z-index: 3;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: var(--origin-start);
+  transition: transform var(--dur-3) var(--ease-out);
+  pointer-events: none;
+}
+
+.client-cell:hover .client-line {
+  transform: scaleX(1);
+}
+
+/* Section rule reveal: the hairline draws in the reading direction. */
+.js [data-reveal="rule"] {
+  opacity: 1;
+  transform: none;
+}
+
+.js [data-reveal="rule"]::before {
+  transform: scaleX(0);
+  transition: transform var(--dur-4) var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+
+.js [data-reveal="rule"] > span {
+  opacity: 0;
+  transition: opacity var(--dur-3) ease 0.5s;
+}
+
+.js [data-reveal="rule"][data-revealed]::before {
+  transform: none;
+}
+
+.js [data-reveal="rule"][data-revealed] > span {
+  opacity: 1;
+}
+
+/* Horizontal image mask: media wipes open in the reading direction. */
+.js [data-reveal="mask"] {
+  opacity: 1;
+  transform: none;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path var(--dur-4) var(--ease-snap);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+
+.js[dir="rtl"] [data-reveal="mask"] {
+  clip-path: inset(0 0 0 100%);
+}
+
+.js [data-reveal="mask"][data-revealed] {
+  clip-path: inset(0);
+}
+
+/* Ambient motion, only while the element is in view (LiveObserver sets data-live). */
+/* Declared only while on screen, so off-screen patterns are not composited
+   layers; restarting out of view is invisible. */
+.js .backdrop[data-drift][data-live="on"]::before {
+  animation: backdrop-drift var(--drift-dur, 90s) linear infinite;
+}
+
+@keyframes backdrop-drift {
+  to {
+    transform: translate3d(calc(var(--dir) * var(--drift)), var(--drift), 0);
+  }
+}
+
+.js .scan[data-live="on"]::before {
+  animation: scan-y var(--scan-dur, 11s) var(--ease-in-out) infinite;
+  animation-delay: var(--scan-delay, 0s);
+}
+
+@keyframes scan-y {
+  0% {
+    transform: translate3d(0, -80px, 0);
+  }
+  55%,
+  100% {
+    transform: translate3d(0, 100cqh, 0);
+  }
+}
+
+/* Ambient motion rests while the page is being scrolled (LiveObserver). */
+.js[data-scrolling] .backdrop[data-drift]::before,
+.js[data-scrolling] .scan::before {
+  animation-play-state: paused;
+}
+
+/* Very subtle scroll-linked parallax on framed photographs, where supported. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .js .parallax {
+      animation: parallax-y linear both;
+      animation-timeline: view();
+    }
+  }
+}
+
+@keyframes parallax-y {
+  from {
+    transform: translate3d(0, -3%, 0);
+  }
+  to {
+    transform: translate3d(0, 3%, 0);
+  }
 }
 
 /* ==========================================================================
@@ -1696,11 +2665,13 @@ html:not(.js) .js-only {
   .machine-figure,
   .machine-copy,
   .machine-power,
+  .industry-num,
   .service-copy {
     animation: fade-in 0.3s linear both !important;
   }
 
-  .machine-sweep {
+  .machine-sweep,
+  .wipe-line {
     display: none;
   }
 
@@ -1725,5 +2696,58 @@ html:not(.js) .js-only {
   .link-arrow .arrow,
   .photo img {
     transition-duration: 0.01ms !important;
+  }
+
+  .js .step-rail::after,
+  .step-node,
+  .service-row-edge,
+  .client-cell,
+  .client-line,
+  .btn,
+  .btn-outline .btn-face,
+  .tf-host,
+  .tf-hl::before,
+  .tf-hl::after,
+  .act-row::before,
+  .act-row::after,
+  .field-edge::after,
+  .dropzone {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+
+  .backdrop::before,
+  .scan::before,
+  .tf-m::before,
+  .tf-m::after,
+  .parallax {
+    animation: none !important;
+  }
+
+  .scan,
+  .plight {
+    display: none;
+  }
+
+  .zoom-img img {
+    transform: none !important;
+  }
+
+  .js [data-reveal="frame"] .tf::before,
+  .js [data-reveal="frame"] .tf::after,
+  .js [data-reveal="rule"]::before {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .js [data-reveal="frame"] .tf-c,
+  .js [data-reveal="rule"] > span {
+    opacity: 0.9 !important;
+    transition: none !important;
+  }
+
+  .js [data-reveal="mask"] {
+    clip-path: none !important;
+    transition: opacity 0.4s linear !important;
   }
 }

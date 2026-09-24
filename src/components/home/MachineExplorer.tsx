@@ -4,6 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useId, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowIcon } from "@/components/ui/Icons";
+import { ScanLine } from "@/components/visual/Backdrop";
+import { PointerLight } from "@/components/visual/PointerLight";
+import { TechnicalFrame } from "@/components/visual/TechnicalFrame";
 import { cn } from "@/lib/utils";
 
 export interface MachineView {
@@ -90,8 +93,9 @@ export function MachineExplorer({
               tabIndex={selected ? 0 : -1}
               onClick={() => go(i)}
               onKeyDown={onKey}
+              data-active={selected || undefined}
               className={cn(
-                "group relative flex shrink-0 items-center gap-4 border px-4 py-3 text-start transition-colors lg:border-x-0 lg:border-t-0 lg:px-0 lg:py-5",
+                "act-row group relative flex shrink-0 items-center gap-4 border px-4 py-3 text-start transition-colors max-lg:before:hidden max-lg:after:hidden lg:border-x-0 lg:border-t-0 lg:py-5 lg:pe-1 lg:ps-4",
                 selected ? "border-accent bg-accent-soft lg:border-line lg:bg-transparent" : "border-line hover:border-line-strong",
               )}
             >
@@ -102,7 +106,7 @@ export function MachineExplorer({
                   selected ? "w-full" : "w-0",
                 )}
               />
-              <span className={cn("t-num text-xs", selected ? "text-accent-ink" : "text-ink-3")}>{String(i + 1).padStart(2, "0")}</span>
+              <span className={cn("t-num text-xs", selected ? "text-accent-ink max-lg:text-ink" : "text-ink-3")}>{String(i + 1).padStart(2, "0")}</span>
               <span className={cn("flex-1 whitespace-nowrap font-display text-[0.95rem] font-semibold lg:text-[1.0625rem]", selected ? "text-ink" : "text-ink-2 group-hover:text-ink")}>
                 {machine.shortName}
               </span>
@@ -121,65 +125,69 @@ export function MachineExplorer({
         aria-labelledby={`${uid}-tab-${active}`}
         className="lg:col-span-8"
       >
-        <div className="machine-stage relative overflow-hidden border border-line bg-surface">
-          <div aria-hidden className="bg-grid-fine absolute inset-0 opacity-80" />
-          <div aria-hidden className="bg-grid absolute inset-0" />
-          {/* Axis ticks */}
-          <div aria-hidden className="t-num absolute inset-x-5 top-3 flex justify-between text-[0.62rem] text-ink-3" dir="ltr">
-            {["0", "200", "400", "600", "800", "1000"].map((t) => (
-              <span key={t}>{t}</span>
-            ))}
-          </div>
-          <div aria-hidden className="t-num absolute bottom-10 start-3 top-10 flex flex-col justify-between text-[0.62rem] text-ink-3" dir="ltr">
-            {["600", "400", "200", "0"].map((t) => (
-              <span key={t}>{t}</span>
-            ))}
-          </div>
-
-          {/* Oversized power figure behind the machine */}
-          <span
-            aria-hidden
-            key={`p-${m.slug}`}
-            className="machine-power pointer-events-none absolute end-6 top-8 select-none font-display text-[clamp(3.25rem,2.23rem+4.19vw,6rem)] font-semibold leading-none text-transparent [-webkit-text-stroke:1px_var(--border-strong)]"
-            dir="ltr"
-          >
-            {m.power ?? ""}
-          </span>
-
-          <div className="relative flex aspect-[16/11] items-center justify-center px-8 pb-12 pt-14 sm:aspect-[16/10]">
-            <div
-              key={m.slug}
-              className="machine-figure relative mx-auto h-full"
-              // Never enlarge the source cut-outs much beyond their native size.
-              style={{ ["--from" as string]: `${direction * 48}px`, width: `min(100%, ${Math.round(m.image.width * 1.4)}px)` }}
-            >
-              <span
-                aria-hidden
-                className="absolute inset-x-[6%] bottom-[2%] h-[9%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.22),transparent)] blur-md"
-              />
-              <Image
-                src={m.image.src}
-                alt={m.image.alt}
-                fill
-                sizes={`${Math.round(m.image.width * 1.4)}px`}
-                placeholder="blur"
-                blurDataURL={m.image.blurDataURL}
-                className="object-contain object-bottom"
-              />
+        <TechnicalFrame reveal lines="corners">
+          <div className="machine-stage panel-raised relative overflow-hidden">
+            <div aria-hidden className="bg-grid-fine absolute inset-0 opacity-80" />
+            <div aria-hidden className="bg-grid absolute inset-0" />
+            <PointerLight />
+            {/* Axis ticks */}
+            <div aria-hidden className="t-num absolute inset-x-5 top-3 flex justify-between text-[0.62rem] text-ink-3" dir="ltr">
+              {["0", "200", "400", "600", "800", "1000"].map((t) => (
+                <span key={t}>{t}</span>
+              ))}
             </div>
-            {/* Floor line */}
-            <span aria-hidden className="absolute inset-x-10 bottom-10 h-px bg-line-strong" />
-          </div>
+            <div aria-hidden className="t-num absolute bottom-10 start-3 top-10 flex flex-col justify-between text-[0.62rem] text-ink-3" dir="ltr">
+              {["600", "400", "200", "0"].map((t) => (
+                <span key={t}>{t}</span>
+              ))}
+            </div>
 
-          <span key={`s-${sweep}`} aria-hidden className="machine-sweep pointer-events-none absolute inset-y-0 start-0 w-px bg-accent" />
-        </div>
+            {/* Oversized power figure behind the machine */}
+            <span
+              aria-hidden
+              key={`p-${m.slug}`}
+              className="machine-power pointer-events-none absolute end-6 top-8 select-none font-display text-[clamp(3.25rem,2.23rem+4.19vw,6rem)] font-semibold leading-none text-transparent [-webkit-text-stroke:1px_var(--border-strong)]"
+              dir="ltr"
+            >
+              {m.power ?? ""}
+            </span>
+
+            <div className="relative flex aspect-[16/11] items-center justify-center px-8 pb-12 pt-14 sm:aspect-[16/10]">
+              <div
+                key={m.slug}
+                className="machine-figure relative mx-auto h-full"
+                // Never enlarge the source cut-outs much beyond their native size.
+                style={{ ["--from" as string]: `${direction * 48}px`, width: `min(100%, ${Math.round(m.image.width * 1.4)}px)` }}
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-x-[6%] bottom-[2%] h-[9%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.22),transparent)] blur-md"
+                />
+                <Image
+                  src={m.image.src}
+                  alt={m.image.alt}
+                  fill
+                  sizes={`${Math.round(m.image.width * 1.4)}px`}
+                  placeholder="blur"
+                  blurDataURL={m.image.blurDataURL}
+                  className="object-contain object-bottom"
+                />
+              </div>
+              {/* Floor line */}
+              <span aria-hidden className="absolute inset-x-10 bottom-10 h-px bg-line-strong" />
+            </div>
+
+            <span key={`s-${sweep}`} aria-hidden className="machine-sweep pointer-events-none absolute inset-y-0 start-0 w-px bg-accent" />
+            <ScanLine duration={12} delay={3} />
+          </div>
+        </TechnicalFrame>
 
         <div className="mt-8 grid gap-6 sm:grid-cols-12 sm:items-end">
           <div key={`t-${m.slug}`} className="machine-copy sm:col-span-8">
             <p className="t-label text-accent-ink">{m.category}</p>
             <h3 className="t-title mt-3 text-ink">{m.name}</h3>
             <p className="t-body mt-4 max-w-xl">{m.capability}</p>
-            <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 text-sm">
+            <dl className="rule-double mt-6 flex flex-wrap gap-x-10 gap-y-3 pt-5 text-sm">
               <div>
                 <dt className="t-label text-ink-3">{labels.power}</dt>
                 <dd className="t-num mt-1.5 text-ink" dir="ltr">
@@ -204,7 +212,7 @@ export function MachineExplorer({
               type="button"
               onClick={() => go(active - 1)}
               aria-label={labels.previous}
-              className="grid size-11 place-items-center border border-line-strong text-ink transition-colors hover:border-accent hover:text-accent-ink"
+              className="grid size-11 place-items-center border border-line-strong bg-elevated text-ink shadow-[var(--shadow-low)] transition-colors hover:border-accent hover:text-accent-ink"
             >
               <ArrowIcon className="-scale-x-100 rtl:scale-x-100" />
             </button>
@@ -212,7 +220,7 @@ export function MachineExplorer({
               type="button"
               onClick={() => go(active + 1)}
               aria-label={labels.next}
-              className="grid size-11 place-items-center border border-line-strong text-ink transition-colors hover:border-accent hover:text-accent-ink"
+              className="grid size-11 place-items-center border border-line-strong bg-elevated text-ink shadow-[var(--shadow-low)] transition-colors hover:border-accent hover:text-accent-ink"
             >
               <ArrowIcon className="rtl:-scale-x-100" />
             </button>

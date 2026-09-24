@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowIcon } from "@/components/ui/Icons";
 import { Phrases } from "@/components/ui/Phrases";
+import { Backdrop } from "@/components/visual/Backdrop";
+import { Nameplate } from "@/components/visual/Nameplate";
 
 export interface IntroProps {
   index: string;
@@ -18,7 +20,13 @@ export interface IntroProps {
 /** Who is RAWASY? — editorial statement on one side, short readable copy on the other. */
 export function Intro({ index, label, statement, paragraphs, beyondLabel, beyond, visionLabel, vision, link, legalNames }: IntroProps) {
   return (
-    <section id="intro" aria-labelledby="intro-title" className="relative overflow-hidden pb-16 pt-[var(--section-y)] md:pb-20">
+    <section id="intro" aria-labelledby="intro-title" className="relative isolate overflow-hidden pb-16 pt-[var(--section-y)] md:pb-20">
+      {/* A faint drawing-sheet grid behind the copy column */}
+      <Backdrop
+        kind="fine"
+        drift
+        className="start-auto w-[62%] [--bd-opacity:0.8] [--bd-fade:radial-gradient(ellipse_70%_60%_at_70%_38%,transparent,var(--background)_75%)] rtl:[--bd-fade:radial-gradient(ellipse_70%_60%_at_30%_38%,transparent,var(--background)_75%)] max-lg:hidden"
+      />
       <div className="container-x">
         <div className="grid gap-x-10 gap-y-14 lg:grid-cols-12">
           <div className="lg:col-span-6">
@@ -31,14 +39,9 @@ export function Intro({ index, label, statement, paragraphs, beyondLabel, beyond
               <Phrases>{statement}</Phrases>
             </h2>
 
-            {/* Nameplate: the company's registered names, like an engraved plate */}
-            <div className="mt-14 inline-flex max-w-full flex-col gap-3 border border-line-strong px-6 py-5" data-reveal style={{ ["--d" as string]: 150 }}>
-              <span className="t-label text-ink-3" lang="en" dir="ltr">
-                {legalNames.en}
-              </span>
-              <span className="font-display text-lg font-medium text-ink-2" lang="ar" dir="rtl">
-                {legalNames.ar}
-              </span>
+            {/* Nameplate: the company's registered names on a riveted, brushed plate */}
+            <div className="mt-14" data-reveal style={{ ["--d" as string]: 150 }}>
+              <Nameplate en={legalNames.en} ar={legalNames.ar} />
             </div>
           </div>
 
@@ -55,15 +58,15 @@ export function Intro({ index, label, statement, paragraphs, beyondLabel, beyond
               <p className="t-label text-ink-3">{beyondLabel}</p>
               <ul className="mt-4 flex flex-wrap gap-2">
                 {beyond.map((item) => (
-                  <li key={item} className="border border-line px-3 py-1.5 text-sm text-ink-2">
+                  <li key={item} className="tech-tag">
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <figure className="mt-12 border-s-2 border-accent ps-6" data-reveal>
-              <figcaption className="t-label text-ink-3">{visionLabel}</figcaption>
+            <figure className="panel-recessed mt-12 border-s-2 border-s-accent px-6 py-5" data-reveal>
+              <figcaption className="t-label text-ink-2">{visionLabel}</figcaption>
               <blockquote className="mt-3 text-lg leading-relaxed text-ink">{vision}</blockquote>
             </figure>
 

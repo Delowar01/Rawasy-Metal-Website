@@ -16,6 +16,10 @@ import { MediaFrame } from "@/components/inner/MediaFrame";
 import { ArrowIcon } from "@/components/ui/Icons";
 import { Phrases } from "@/components/ui/Phrases";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Backdrop, ScanLine } from "@/components/visual/Backdrop";
+import { Nameplate } from "@/components/visual/Nameplate";
+import { SectionRule } from "@/components/visual/SectionRule";
+import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 const delay = (ms: number) => ({ ["--d" as string]: ms }) as CSSProperties;
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -46,20 +50,10 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
         eyebrow={about.hero.eyebrow[locale]}
         title={about.hero.title[locale]}
         intro={about.hero.intro[locale]}
-        actions={
-          <div className="inline-flex max-w-full flex-col gap-2.5 border border-line-strong px-5 py-4">
-            <span className="t-label text-ink-3">{about.hero.nameplate[locale]}</span>
-            <span className="t-label text-ink-2" lang="en" dir="ltr">
-              {company.legalName.en}
-            </span>
-            <span className="font-display text-[1.05rem] font-medium text-ink-2" lang="ar" dir="rtl">
-              {company.legalName.ar}
-            </span>
-          </div>
-        }
+        actions={<Nameplate label={about.hero.nameplate[locale]} en={company.legalName.en} ar={company.legalName.ar} />}
         aside={
           <div className="relative">
-            <StructuralSketch className="pointer-events-none absolute -top-12 end-[-8%] w-[116%] text-line-strong max-lg:hidden" />
+            <StructuralSketch className="pointer-events-none absolute -top-12 end-[-8%] w-[116%] text-ink-3/55 max-lg:hidden" />
             <MediaFrame
               id={about.hero.media}
               alt={about.hero.mediaAlt[locale]}
@@ -67,6 +61,7 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
               figure={fig(1)}
               sizes="(min-width: 1024px) 396px, 90vw"
               preload
+              plate
               className="relative w-full lg:ms-auto lg:mt-28"
             />
           </div>
@@ -89,8 +84,8 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
           </p>
           <ul className="mt-5 grid border-t border-line sm:grid-cols-2 sm:gap-x-8">
             {services.map((service, i) => (
-              <li key={service.slug} className="border-b border-line" data-reveal style={delay((i % 2) * 80)}>
-                <Link href={href(locale, "service", { slug: service.slug })} className="group flex gap-4 py-5">
+              <li key={service.slug} className="act-row border-b border-line" data-reveal style={delay((i % 2) * 80)}>
+                <Link href={href(locale, "service", { slug: service.slug })} className="group flex gap-4 py-5 ps-4">
                   <span className="t-num pt-1 text-xs text-accent-ink">{service.index}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-display text-[1.05rem] font-semibold text-ink transition-colors group-hover:text-accent-ink">
@@ -111,37 +106,41 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
 
       {/* 02 — Vision */}
       <section id="vision" aria-labelledby="vision-title" className="on-band relative isolate overflow-hidden bg-band text-band-ink">
-        <div
-          aria-hidden
-          className="bg-perforated pointer-events-none absolute inset-y-0 end-0 -z-10 w-1/2 opacity-40 [--perf-dot:rgb(236_234_229/0.1)] [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]"
+        <Backdrop kind="grid" drift className="[--bd-opacity:0.7] [--grid-line:rgb(236_234_229/0.045)]" />
+        <Backdrop
+          kind="perforated"
+          className="start-auto w-1/2 opacity-45 [--perf-dot:rgb(236_234_229/0.1)] [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]"
         />
-        <div className="container-x section-y grid gap-x-10 gap-y-14 lg:grid-cols-12">
-          <div className="lg:col-span-7">
+        <ScanLine duration={13} />
+        <div className="container-x section-y relative">
+          <SectionRule tone="band" />
+          <div className="mt-10 max-w-[62rem]">
             <h2 id="vision-title" className="t-label eyebrow !text-band-ink-2" data-reveal="fade">
               <span className="t-num">02</span>
               <span aria-hidden>/</span>
               <span>{about.vision.label[locale]}</span>
             </h2>
-            <blockquote className="mt-10 border-s-2 border-accent ps-6 sm:ps-8" data-reveal>
-              <p className="t-h2-compact max-w-[18em]">
+            <blockquote className="relative mt-10 border-s-2 border-accent ps-6 sm:ps-10" data-reveal>
+              <span aria-hidden className="absolute -start-[5px] top-0 size-2 rotate-45 bg-accent" />
+              <p className="t-h2 max-w-[19em]">
                 <Phrases>{company.vision.statement[locale]}</Phrases>
               </p>
             </blockquote>
           </div>
-          <div className="lg:col-span-4 lg:col-start-9 lg:self-end">
-            <p className="t-label !text-band-ink-2" data-reveal="fade">
-              {about.vision.aimsLabel[locale]}
-            </p>
-            <ol className="mt-5 border-t border-band-line">
-              {company.vision.aims[locale].map((aim, i) => (
-                <li key={i} className="flex gap-4 border-b border-band-line py-4" data-reveal style={delay(80 * i)}>
-                  <span className="t-num pt-1 text-xs text-accent">{pad(i + 1)}</span>
-                  <span className="text-[0.98rem] text-band-ink">{aim}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <p className="flex items-center gap-4 border-t border-band-line pt-8 font-display text-[1.1rem] font-medium text-band-ink-2 lg:col-span-12" data-reveal>
+
+          <p className="t-label mt-16 !text-band-ink-2 lg:mt-20" data-reveal="fade">
+            {about.vision.aimsLabel[locale]}
+          </p>
+          <ol className="mt-5 grid gap-px border border-band-line bg-band-line sm:grid-cols-2 lg:grid-cols-4">
+            {company.vision.aims[locale].map((aim, i) => (
+              <li key={i} className="tf-host relative bg-band-surface/95 p-6 sm:p-7" data-reveal style={delay(80 * i)}>
+                <span className="t-num block text-xs text-accent">{pad(i + 1)}</span>
+                <span className="mt-4 block text-[0.98rem] leading-relaxed text-band-ink">{aim}</span>
+                <FrameMarks lines={false} corners={false} />
+              </li>
+            ))}
+          </ol>
+          <p className="mt-12 flex items-center gap-4 font-display text-[1.1rem] font-medium text-band-ink-2" data-reveal>
             <span aria-hidden className="h-px w-10 shrink-0 bg-accent" />
             {company.vision.closing[locale]}
           </p>
@@ -149,7 +148,11 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
       </section>
 
       {/* 03 — Beyond metalwork */}
-      <section id="beyond" aria-labelledby="beyond-title" className="section-y relative bg-background-deep [--curtain:var(--background-deep)]">
+      <section id="beyond" aria-labelledby="beyond-title" className="section-y relative isolate overflow-hidden bg-background-deep [--curtain:var(--background-deep)]">
+        <Backdrop
+          kind="fine"
+          className="end-auto w-1/2 opacity-80 [mask-image:linear-gradient(to_right,black,transparent)] rtl:[mask-image:linear-gradient(to_left,black,transparent)]"
+        />
         <div className="container-x grid gap-x-10 gap-y-14 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-6">
             <MediaFrame
@@ -176,7 +179,7 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
             </p>
             <ol className="mt-10 grid border-t border-line sm:grid-cols-2 sm:gap-x-8">
               {about.beyond.items.map((item, i) => (
-                <li key={item.en} className="flex items-baseline gap-4 border-b border-line py-4" data-reveal style={delay(60 * i)}>
+                <li key={item.en} className="act-row flex items-baseline gap-4 border-b border-line py-4 ps-3" data-reveal style={delay(60 * i)}>
                   <span className="t-num text-xs text-accent-ink">{pad(i + 1)}</span>
                   <span className="font-display text-[1rem] font-medium text-ink">{item[locale]}</span>
                 </li>
@@ -199,11 +202,13 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
         intro={about.process.intro[locale]}
       >
         <ol className="relative">
-          <span aria-hidden className="absolute bottom-6 start-[0.6875rem] top-3 w-px bg-line-strong" />
           {about.process.steps.map((step, i) => (
-            <li key={step.slug} className="relative grid grid-cols-[1.375rem_1fr] gap-x-6 pb-11 last:pb-0" data-reveal style={delay(70 * i)}>
-              <span aria-hidden className="relative mt-2 grid size-[1.375rem] place-items-center bg-background">
-                <span className="size-2.5 rotate-45 border border-accent bg-accent-soft" />
+            <li key={step.slug} className="step relative grid grid-cols-[1.375rem_1fr] gap-x-6 pb-11 last:pb-0" data-reveal style={delay(70 * i)}>
+              {i < about.process.steps.length - 1 && (
+                <span aria-hidden className="step-rail absolute bottom-0 start-[0.6875rem] top-[2.1rem] w-px bg-line-strong" />
+              )}
+              <span aria-hidden className="relative mt-2 grid size-[1.375rem] place-items-center border border-line bg-elevated shadow-[var(--shadow-low)]">
+                <span className="step-node size-2.5 rotate-45 border border-accent bg-accent-soft" />
               </span>
               <div>
                 <div className="flex items-baseline gap-3">
@@ -228,11 +233,11 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
             title={about.why.title[locale]}
             intro={about.why.intro[locale]}
           />
-          <ol className="mt-12 grid border-t border-line lg:mt-16 lg:grid-cols-2 lg:gap-x-16">
+          <ol className="panel-raised mt-12 grid lg:mt-16 lg:grid-cols-2">
             {pillars.map((pillar, i) => (
               <li
                 key={pillar.slug}
-                className="grid grid-cols-[3.25rem_1fr] gap-x-5 border-b border-line py-7 sm:grid-cols-[4.5rem_1fr] sm:py-8"
+                className="act-row grid grid-cols-[3.25rem_1fr] gap-x-5 border-b border-line p-6 last:border-b-0 sm:grid-cols-[4.5rem_1fr] sm:p-8 lg:p-10 lg:odd:border-e lg:[&:nth-last-child(2)]:border-b-0"
                 data-reveal
                 style={delay((i % 2) * 90)}
               >
