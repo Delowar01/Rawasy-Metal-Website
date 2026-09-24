@@ -10,16 +10,23 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-24-stage-1B-typography-correction.md` (earlier:
-  `2026-09-24-phase-1-stages-1A-1B.md`).
+- Latest report: `docs/reports/2026-09-24-stage-1C-core-inner-pages.md` (earlier:
+  `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
+- The user's stage briefs list numbered report items; answer every one of them, in order.
 
 ## Where the project stands
 
 - Phase 1 is the public website only. Work is pushed on `claude/new-session-5eijs6`.
-- **Stage 1A (foundation) is approved.** Stage 1B (homepage) had a typography and visual hierarchy
-  correction (commit `4b2d6ab`) and is **awaiting the user's approval**. Never self-approve a stage.
-- The homepage is at the **approval gate**. Do not design the inner pages (stages 1C–1J) until the user
-  approves the homepage. Do not start Phase 2 (admin panel) during Phase 1.
+- **Stages 1A (foundation) and 1B (homepage) are approved.** Stage 1C (core inner pages: about,
+  services overview, industries, clients, certificates, contact / quote, privacy, terms) is built
+  (commit `74bf5c3`) and **awaiting the user's approval**. Never self-approve a stage.
+- Do not start stage 1D (or later stages) until the user approves 1C. Do not start Phase 2 (admin
+  panel) during Phase 1.
+- When a stage is approved, set its routes to `published` in `src/lib/page-meta.ts` (they are
+  `review` until then: noindex and left out of the sitemap).
+- The approved homepage must not change unless a genuine shared-component bug requires it. After
+  shared changes, compare it with the approved build: server HTML (normalise `/_next/static` paths)
+  and full-page screenshots at the five widths, EN/AR, light/dark.
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
@@ -58,12 +65,19 @@
   `npm run assets:extract -- <profile.pdf>`.
 - Routes: `src/i18n/routes.ts`. Publishing, indexing and the sitemap: `src/lib/page-meta.ts`.
 - Design tokens and motion CSS: `src/app/globals.css`. Homepage sections: `src/components/home/*`.
+- Inner pages: shared system in `src/components/inner/*` and `src/lib/inner-page.ts` (metadata,
+  breadcrumb trail, JSON-LD); page components in `src/components/{about,services,industries,clients,
+  certificates,contact,legal}`; copy in `src/content/{about,pages,contact,legal}.ts`.
+- Quote form: `src/components/contact/QuoteForm.tsx`. No backend: it prepares the request for the
+  visitor to send by email or WhatsApp. Never make it claim a request was sent.
+- Browser tests: `e2e/*.spec.ts` with `playwright.config.ts`; run `npm run test:e2e` after a build.
 
 ## Before pushing
 
-- Run `npm run lint`, `npm run typecheck` and `npm run build`.
+- Run `npm run lint`, `npm run typecheck`, `npm run build` and then `npm run test:e2e`.
 - Check pages in a browser with Playwright: EN/AR × light/dark × desktop/mobile, console errors, and
-  sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`.
+  sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`. An axe-core audit (installed
+  in the scratchpad, not the project) is a cheap extra check.
 
 ## Gotchas learned
 
@@ -72,8 +86,22 @@
   already sends every non-locale URL to `/{locale}/…`, where the catch-all renders the localized 404.
 - A `notFound()` hit during a dynamic render is built in the browser by Next.js 16 (real 404 status).
   `BootFallback` then reapplies the theme and motion settings.
-- To stop a server in a cloud session, run `pkill -f "[n]ext-server"` as its own command. If the pattern
-  also appears in the current command line, it kills your own shell.
+- To stop a server in a cloud session, run `pkill -f "[n]ext-server"` as its own command. Never use a
+  `pkill -f`/`pgrep -f` pattern that appears literally in the same command (for example
+  `"next start -p 3400"`): it matches your own shell and kills it (exit 144). Bracket one letter.
+- After a rebuild, stop any `next start` left running from before (check `pgrep -fa "[n]ext-server"`
+  and `/proc/<pid>/cwd`). Otherwise the tests reuse the stale server and assets fail with 500s.
+- Styles inside `@layer components` lose to Tailwind utilities (`.grid`, `.flex`) whatever their
+  specificity. Rules that must win, like `html:not(.js) .js-only`, go outside the layers.
+- Playwright's `javaScriptEnabled: false` still parses `<noscript>` as text. Check noscript content in
+  the server HTML instead.
+- Reveal fades also run with reduced motion (opacity only), so content in the bottom band of the
+  viewport stays hidden until scrolled into view. Visibility checks must leave that band out.
+- In dark mode `--text-tertiary` on `--surface-elevated` is 4.35:1, which fails AA for small text. Use
+  `text-ink-2` on raised panels. The approved homepage's certificate cards still have this; the token
+  fix waits for the user's approval.
+- Decorative outlined numerals use `.outline-num` with `data-n` (drawn by `::before`), so they stay out
+  of the text and accessibility trees.
 - Both locales share one root layout, so every preloaded font is preloaded on every page (EN pages load
   the Arabic fonts and vice versa). Splitting preloads per language needs a root layout per language (1J).
 - For a side-by-side build of an older commit, use a `git worktree` with `cp -al node_modules`.
