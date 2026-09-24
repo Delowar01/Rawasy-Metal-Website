@@ -1,0 +1,458 @@
+import type { Project, ProjectCategory } from "./types";
+
+/**
+ * Source: company profile work gallery (p.8–11, items 01–32) and the laser
+ * cutting page (p.3). Titles and summaries describe only what is visible.
+ * Client, location, year, scope and materials stay empty until confirmed.
+ */
+export const projects: Project[] = [
+  {
+    slug: "tulip-roundabout-sculpture",
+    galleryRef: "04",
+    title: { en: "Tulip Roundabout Sculpture", ar: "مجسم التوليب للدوّار" },
+    summary: {
+      en: "A tulip-form landmark for a roundabout — pictured lit on site at night and in the workshop during fabrication.",
+      ar: "معلم على شكل زهرة التوليب لأحد الدوارات — يظهر مضاءً في موقعه ليلًا وفي الورشة أثناء التصنيع.",
+    },
+    categories: ["public-realm", "architectural"],
+    services: ["fabrication"],
+    media: ["projects/tulip-roundabout-1", "projects/tulip-roundabout-2"],
+    featured: true,
+  },
+  {
+    slug: "clock-tower-landmark",
+    galleryRef: "05",
+    title: { en: "Clock Tower Landmark", ar: "برج الساعة" },
+    summary: {
+      en: "A clock tower with a patterned lattice façade — by day, lit at night, and during crane installation.",
+      ar: "برج ساعة بواجهة شبكية مزخرفة — نهارًا، ومضاءً ليلًا، وأثناء التركيب بالرافعة.",
+    },
+    categories: ["structures", "public-realm", "laser-cutting"],
+    services: ["steel-structures", "laser-cutting", "fabrication"],
+    media: ["projects/clock-tower-1", "projects/clock-tower-2", "projects/clock-tower-3"],
+    featured: true,
+  },
+  {
+    slug: "geometric-lanterns",
+    galleryRef: "23",
+    title: { en: "Geometric Lanterns", ar: "فوانيس هندسية" },
+    summary: {
+      en: "Polyhedral lanterns wrapped in laser-cut geometric patterns, casting their pattern across the workshop floor.",
+      ar: "فوانيس متعددة الأوجه بنقوش هندسية مقصوصة بالليزر، ترسم ظلالها على أرضية الورشة.",
+    },
+    categories: ["decorative", "laser-cutting"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/geometric-lanterns-1", "services/fabrication-workshop"],
+    featured: true,
+  },
+  {
+    slug: "palm-leaf-shade-canopies",
+    galleryRef: "18",
+    title: { en: "Palm-Leaf Shade Canopies", ar: "مظلات سعف النخيل" },
+    summary: {
+      en: "Illuminated palm-leaf shade structures with perforated canopies along a public walkway.",
+      ar: "مظلات على شكل سعف النخيل بأسطح مثقّبة ومضاءة على امتداد ممشى عام.",
+    },
+    categories: ["structures", "public-realm", "architectural"],
+    services: ["steel-structures", "laser-cutting"],
+    media: ["projects/palm-canopies-1"],
+    featured: true,
+  },
+  {
+    slug: "heritage-cannon-replicas",
+    galleryRef: "11",
+    title: { en: "Heritage Cannon Replicas", ar: "مجسمات مدافع تراثية" },
+    summary: {
+      en: "Decorative cannon replicas with laser-cut perforated barrels and wheels, in gold and raw-steel finishes.",
+      ar: "مجسمات مدافع زخرفية بأجسام وعجلات مقصوصة بالليزر، بتشطيب ذهبي وآخر معدني.",
+    },
+    categories: ["decorative", "laser-cutting", "fabrication"],
+    services: ["laser-cutting", "fabrication"],
+    media: [
+      "projects/heritage-cannons-1",
+      "projects/heritage-cannons-2",
+      "projects/heritage-cannons-3",
+      "projects/heritage-cannons-4",
+    ],
+  },
+  {
+    slug: "wave-form-sculpture",
+    galleryRef: "06",
+    title: { en: "Wave-Form Sculpture", ar: "مجسم الموجة" },
+    summary: {
+      en: "A sweeping patterned sculpture — lit on site at night and shown under fabrication in the workshop.",
+      ar: "مجسم منحنٍ بنقوش مزخرفة — مضاء في موقعه ليلًا، ويظهر أثناء التصنيع في الورشة.",
+    },
+    categories: ["public-realm", "fabrication"],
+    services: ["fabrication", "laser-cutting"],
+    media: ["projects/wave-sculpture-1", "projects/wave-sculpture-2", "projects/wave-sculpture-3"],
+    featured: true,
+  },
+  {
+    slug: "suspended-lantern",
+    galleryRef: "p.3",
+    title: { en: "Suspended Lantern", ar: "فانوس معلّق" },
+    summary: {
+      en: "A large laser-cut lantern suspended from a red steel arm.",
+      ar: "فانوس كبير مقصوص بالليزر معلّق على ذراع حديدي أحمر.",
+    },
+    categories: ["decorative", "laser-cutting", "public-realm"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/suspended-lantern-1"],
+    featured: true,
+  },
+  {
+    slug: "tiered-chandelier",
+    galleryRef: "01",
+    title: { en: "Tiered Metal Chandelier", ar: "ثريا معدنية بطبقتين" },
+    summary: {
+      en: "A two-tier ring chandelier with laser-cut detailing, installed beneath a decorated dome.",
+      ar: "ثريا حلقية بطبقتين وتفاصيل مقصوصة بالليزر، مركّبة أسفل قبة مزخرفة.",
+    },
+    categories: ["decorative", "laser-cutting"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/chandelier-1"],
+  },
+  {
+    slug: "illuminated-lattice-cubes",
+    galleryRef: "02",
+    title: { en: "Illuminated Lattice Cubes", ar: "مكعبات مضيئة بنقوش مفرّغة" },
+    summary: {
+      en: "Stacked cubes wrapped in a laser-cut geometric lattice, lit from within at night.",
+      ar: "مكعبات متراكبة بنقوش هندسية مقصوصة بالليزر، مضاءة من الداخل ليلًا.",
+    },
+    categories: ["public-realm", "laser-cutting", "decorative"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/lattice-cubes-1"],
+    flags: ["confirm-authorship"],
+  },
+  {
+    slug: "colour-lighting-tree",
+    galleryRef: "03",
+    title: { en: "Colour Lighting Tree", ar: "شجرة إنارة ملوّنة" },
+    summary: {
+      en: "A branching lighting sculpture with coloured canopies for a pedestrian plaza.",
+      ar: "مجسم إنارة متفرّع بمظلات ملوّنة لساحة مشاة.",
+    },
+    categories: ["public-realm", "custom"],
+    services: ["fabrication"],
+    media: ["projects/lighting-tree-1"],
+  },
+  {
+    slug: "wheat-stalks-monument",
+    galleryRef: "07–08",
+    title: { en: "Wheat Stalks Monument", ar: "مجسم سنابل القمح" },
+    summary: {
+      en: "Gold wheat stalks with a stainless-steel sweep, crowned by the national flag — pictured during workshop assembly.",
+      ar: "سنابل ذهبية مع انحناءة من الستانلس ستيل يعلوها العلم الوطني — مصوّرة أثناء التجميع في الورشة.",
+    },
+    categories: ["public-realm", "fabrication"],
+    services: ["fabrication", "steel-structures"],
+    media: ["projects/wheat-monument-2", "projects/wheat-monument-3", "projects/wheat-monument-1"],
+    flags: ["ai-watermark"],
+    note: "Finished-installation photo (wheat-monument-1) carries an AI-image watermark; workshop photos look genuine.",
+  },
+  {
+    slug: "dome-finial-and-crescent",
+    galleryRef: "09",
+    title: { en: "Dome Finial & Crescent", ar: "قبة وهلال بلمسة ذهبية" },
+    summary: {
+      en: "A gold-finish sphere and crescent finial — fabricated in the workshop and installed atop a minaret.",
+      ar: "كرة وهلال بتشطيب ذهبي — صُنعت في الورشة ورُكّبت أعلى مئذنة.",
+    },
+    categories: ["decorative", "fabrication"],
+    services: ["fabrication"],
+    media: ["projects/dome-finial-1", "projects/dome-finial-2"],
+  },
+  {
+    slug: "gateway-welcome-signs",
+    galleryRef: "10",
+    title: { en: "Gateway Welcome Signs", ar: "لوحات مداخل المحافظة" },
+    summary: {
+      en: "Illuminated welcome and farewell signs on steel supports, installed by crane at a governorate entrance.",
+      ar: "لوحات ترحيب ووداع مضيئة على هياكل حديدية، رُكّبت بالرافعة عند مدخل إحدى المحافظات.",
+    },
+    categories: ["structures", "public-realm"],
+    services: ["steel-structures", "fabrication"],
+    media: ["projects/gateway-signs-1", "projects/gateway-signs-2", "projects/gateway-signs-3"],
+    note: "Signage reads 'Badr Governorate' — confirm before publishing a location.",
+  },
+  {
+    slug: "laser-cut-bench",
+    galleryRef: "12",
+    title: { en: "Laser-Cut Bench", ar: "مقعد خارجي بجوانب مقصوصة بالليزر" },
+    summary: {
+      en: "An outdoor bench with timber slats and laser-cut steel end panels (design render).",
+      ar: "تصميم مقعد خارجي بألواح خشبية وجوانب حديدية مقصوصة بالليزر (صورة تصميمية).",
+    },
+    categories: ["public-realm", "laser-cutting"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/laser-cut-bench-1"],
+    flags: ["render"],
+  },
+  {
+    slug: "calligraphic-sculptures",
+    galleryRef: "13",
+    title: { en: "Calligraphic Sculptures", ar: "مجسمات بالخط العربي" },
+    summary: {
+      en: "A series of green sculptural forms carrying laser-cut Arabic calligraphy, in the workshop before installation.",
+      ar: "مجموعة مجسمات خضراء تحمل خطًا عربيًا مقصوصًا بالليزر، في الورشة قبل التركيب.",
+    },
+    categories: ["decorative", "laser-cutting"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/calligraphy-sculptures-1"],
+  },
+  {
+    slug: "stainless-landmark-sculpture",
+    galleryRef: "14",
+    title: { en: "Stainless Steel Landmark", ar: "معلم من الستانلس ستيل" },
+    summary: {
+      en: "A polished stainless-steel sculpture with sweeping, flame-like forms at a landscaped roundabout.",
+      ar: "مجسم من الستانلس ستيل المصقول بأشكال منحنية كألسنة اللهب، في دوّار مزروع.",
+    },
+    categories: ["public-realm", "architectural"],
+    services: ["fabrication"],
+    media: ["projects/stainless-landmark-1"],
+    flags: ["ai-watermark"],
+  },
+  {
+    slug: "laser-cut-components",
+    galleryRef: "15",
+    title: { en: "Laser-Cut Structural Components", ar: "مكوّنات إنشائية مقصوصة بالليزر" },
+    summary: {
+      en: "Stacked laser-cut profiles with patterned openings, ready for assembly in the workshop.",
+      ar: "قطاعات مقصوصة بالليزر بفتحات مزخرفة، جاهزة للتجميع في الورشة.",
+    },
+    categories: ["laser-cutting", "industrial"],
+    services: ["laser-cutting"],
+    media: ["projects/laser-cut-components-1"],
+  },
+  {
+    slug: "perforated-canopy-screen",
+    galleryRef: "16",
+    title: { en: "Perforated Canopy Screen", ar: "مظلة بألواح مفرّغة" },
+    summary: {
+      en: "Patterned laser-cut panels on a steel canopy frame, seen from below.",
+      ar: "ألواح مقصوصة بالليزر بنقوش مزخرفة على هيكل مظلة حديدي، من زاوية سفلية.",
+    },
+    categories: ["architectural", "laser-cutting", "structures"],
+    services: ["laser-cutting", "steel-structures"],
+    media: ["projects/perforated-canopy-1"],
+  },
+  {
+    slug: "perforated-seed-sculpture",
+    galleryRef: "17",
+    title: { en: "Perforated Seed Sculpture", ar: "مجسم البذرة المفرّغ" },
+    summary: {
+      en: "An ovoid sculpture with laser-cut perforations, rising from a reflecting pool.",
+      ar: "مجسم بيضاوي بثقوب مقصوصة بالليزر يرتفع من حوض مائي.",
+    },
+    categories: ["public-realm", "laser-cutting", "decorative"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/seed-sculpture-1"],
+    flags: ["confirm-authorship"],
+  },
+  {
+    slug: "car-park-shade-structures",
+    galleryRef: "19",
+    title: { en: "Car Park Shade Structures", ar: "مظلات مواقف السيارات" },
+    summary: {
+      en: "Tensile car-park shades on steel frames with laser-cut decorative end panels.",
+      ar: "مظلات مواقف مشدودة على هياكل حديدية بجوانب زخرفية مقصوصة بالليزر.",
+    },
+    categories: ["structures"],
+    services: ["steel-structures", "laser-cutting"],
+    media: ["projects/car-park-shades-1", "projects/car-park-shades-2"],
+  },
+  {
+    slug: "illuminated-leaf-sculpture",
+    galleryRef: "20",
+    title: { en: "Illuminated Leaf Sculpture", ar: "مجسم الورقة المضيئة" },
+    summary: {
+      en: "A perforated leaf sculpture glowing green at night — and lifted into place by crane.",
+      ar: "مجسم ورقة شجر بثقوب تضيء باللون الأخضر ليلًا — ويظهر أثناء رفعه بالرافعة.",
+    },
+    categories: ["public-realm", "laser-cutting"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/leaf-sculpture-1", "projects/leaf-sculpture-2"],
+  },
+  {
+    slug: "billboard-support-structure",
+    galleryRef: "21",
+    title: { en: "Billboard Support Structure", ar: "هيكل لوحة إعلانية" },
+    summary: {
+      en: "A large-format billboard frame with lattice steel trusses, standing in open desert.",
+      ar: "هيكل حديدي للوحة إعلانية كبيرة بجمالونات شبكية في منطقة صحراوية.",
+    },
+    categories: ["structures", "industrial"],
+    services: ["steel-structures", "fabrication"],
+    media: ["projects/billboard-structure-1"],
+    flags: ["ai-watermark"],
+  },
+  {
+    slug: "perforated-metal-seating",
+    galleryRef: "22",
+    title: { en: "Perforated Metal Seating", ar: "مقاعد من الصاج المثقّب" },
+    summary: {
+      en: "Modular perforated-metal seating and planters, in orange and raw-metal finishes.",
+      ar: "مقاعد وأحواض زراعة معيارية من الصاج المثقّب بلون برتقالي ومعدني.",
+    },
+    categories: ["public-realm", "fabrication"],
+    services: ["fabrication", "cnc-bending"],
+    media: ["projects/perforated-seating-1", "projects/perforated-seating-2"],
+  },
+  {
+    slug: "laser-cut-tree-grate",
+    galleryRef: "24",
+    title: { en: "Laser-Cut Tree Grate", ar: "شبكة حماية الأشجار" },
+    summary: {
+      en: "A square tree grate with a linear laser-cut pattern.",
+      ar: "شبكة مربعة لحماية جذوع الأشجار بنقش خطّي مقصوص بالليزر.",
+    },
+    categories: ["public-realm", "laser-cutting"],
+    services: ["laser-cutting"],
+    media: ["projects/tree-grate-1"],
+  },
+  {
+    slug: "perforated-screen-enclosures",
+    galleryRef: "25",
+    title: { en: "Perforated Screen Enclosures", ar: "سواتر معدنية مفرّغة" },
+    summary: {
+      en: "Perforated and laser-cut screen enclosures for equipment and service areas.",
+      ar: "سواتر معدنية مثقّبة ومقصوصة بالليزر لإخفاء المعدات ومناطق الخدمات.",
+    },
+    categories: ["architectural", "laser-cutting"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/screen-enclosures-1", "projects/screen-enclosures-2"],
+  },
+  {
+    slug: "national-emblem-sculptures",
+    galleryRef: "26",
+    title: { en: "National Emblem Sculptures", ar: "مجسمات الشعار الوطني" },
+    summary: {
+      en: "Palm-and-swords emblem sculptures in gold and steel finishes, during fabrication.",
+      ar: "مجسمات النخلة والسيفين بتشطيب ذهبي ومعدني، أثناء التصنيع.",
+    },
+    categories: ["decorative", "fabrication"],
+    services: ["fabrication", "laser-cutting"],
+    media: ["projects/emblem-sculptures-1", "projects/emblem-sculptures-2"],
+  },
+  {
+    slug: "globe-and-ring-sculptures",
+    galleryRef: "27",
+    title: { en: "Globe & Ring Sculptures", ar: "مجسما الكرة والحلقة" },
+    summary: {
+      en: "A lattice globe carrying the Vision 2030 identity, alongside a polished ring sculpture.",
+      ar: "مجسم كرة أرضية شبكية يحمل هوية رؤية 2030، إلى جانب مجسم حلقة مصقولة.",
+    },
+    categories: ["public-realm", "decorative"],
+    services: ["fabrication", "laser-cutting"],
+    media: ["projects/vision-globe-1", "projects/vision-globe-2"],
+  },
+  {
+    slug: "street-litter-bins",
+    galleryRef: "28",
+    title: { en: "Street Litter Bins", ar: "حاويات نفايات للشوارع" },
+    summary: {
+      en: "Steel and timber-effect litter bins for streets and public spaces.",
+      ar: "حاويات نفايات من الحديد بلمسة خشبية للشوارع والأماكن العامة.",
+    },
+    categories: ["public-realm"],
+    services: ["fabrication"],
+    media: ["projects/litter-bins-1", "projects/litter-bins-2", "projects/litter-bins-3"],
+    flags: ["render"],
+  },
+  {
+    slug: "sculpture-fabrication",
+    galleryRef: "29",
+    title: { en: "Sculpture Fabrication", ar: "تصنيع المجسمات" },
+    summary: {
+      en: "Large sculptural pieces taking shape in the RAWASY workshop.",
+      ar: "مجسمات فنية كبيرة تتشكّل داخل ورشة رواسي.",
+    },
+    categories: ["fabrication"],
+    services: ["fabrication"],
+    media: ["projects/sculpture-fabrication-1", "projects/sculpture-fabrication-2"],
+  },
+  {
+    slug: "perforated-beams-and-pergola",
+    galleryRef: "30",
+    title: { en: "Perforated Beams & Pergola", ar: "كمرات مثقّبة وبرجولة" },
+    summary: {
+      en: "Laser-perforated steel members, and a slatted pergola installed on a building terrace.",
+      ar: "عناصر حديدية مثقّبة بالليزر، وبرجولة بشرائح معدنية مركّبة على سطح مبنى.",
+    },
+    categories: ["structures", "laser-cutting"],
+    services: ["laser-cutting", "steel-structures"],
+    media: ["projects/perforated-beams-1", "projects/perforated-beams-2"],
+  },
+  {
+    slug: "stainless-steel-handrails",
+    galleryRef: "31",
+    title: { en: "Stainless Steel Handrails", ar: "درابزين ستانلس ستيل" },
+    summary: {
+      en: "Polished stainless-steel handrails with formed bends, installed at a stair.",
+      ar: "درابزين من الستانلس ستيل المصقول بانحناءات مشكّلة، مركّب على درج.",
+    },
+    categories: ["architectural", "fabrication"],
+    services: ["fabrication"],
+    media: ["projects/stainless-handrails-1"],
+  },
+  {
+    slug: "curved-steel-frames",
+    galleryRef: "32",
+    title: { en: "Curved Steel Frames", ar: "هياكل حديدية مقوّسة" },
+    summary: {
+      en: "Curved, welded steel frames with lattice bracing, laid out in the workshop.",
+      ar: "إطارات حديدية مقوّسة ملحومة بتدعيم شبكي، في الورشة.",
+    },
+    categories: ["structures", "fabrication"],
+    services: ["steel-structures", "fabrication"],
+    media: ["projects/curved-frames-1"],
+  },
+  {
+    slug: "canopy-tree-sculpture",
+    galleryRef: "p.3",
+    title: { en: "Canopy Tree Sculpture", ar: "مجسم الشجرة المظلّلة" },
+    summary: {
+      en: "A stainless-steel tree whose angled leaves cast patterned shade over a public walkway.",
+      ar: "شجرة من الستانلس ستيل تُلقي أوراقها المائلة ظلالًا مزخرفة على ممشى عام.",
+    },
+    categories: ["public-realm", "laser-cutting", "architectural"],
+    services: ["laser-cutting", "fabrication"],
+    media: ["projects/canopy-tree-1"],
+    flags: ["confirm-authorship"],
+  },
+  {
+    slug: "lattice-tower-replica",
+    galleryRef: "p.3",
+    title: { en: "Lattice Tower Replica", ar: "مجسم برج شبكي" },
+    summary: {
+      en: "A lattice tower replica — installed on site, and under fabrication in the workshop.",
+      ar: "مجسم برج بهيكل شبكي — مركّب في موقعه، وأثناء التصنيع في الورشة.",
+    },
+    categories: ["structures", "fabrication"],
+    services: ["laser-cutting", "fabrication", "steel-structures"],
+    media: ["projects/tower-replica-1", "services/fabrication-workshop"],
+  },
+];
+
+export const projectCategories: { slug: ProjectCategory; label: { en: string; ar: string } }[] = [
+  { slug: "architectural", label: { en: "Architectural Metal", ar: "أعمال معدنية معمارية" } },
+  { slug: "structures", label: { en: "Structures", ar: "هياكل" } },
+  { slug: "fabrication", label: { en: "Fabrication", ar: "تصنيع" } },
+  { slug: "laser-cutting", label: { en: "Laser Cutting", ar: "قص بالليزر" } },
+  { slug: "public-realm", label: { en: "Public Realm", ar: "الأماكن العامة" } },
+  { slug: "decorative", label: { en: "Decorative Metal", ar: "أعمال زخرفية" } },
+  { slug: "industrial", label: { en: "Industrial", ar: "صناعي" } },
+  { slug: "custom", label: { en: "Custom Projects", ar: "مشاريع خاصة" } },
+];
+
+export function getProject(slug: string) {
+  return projects.find((p) => p.slug === slug);
+}
+
+/** Projects safe to feature: nothing awaiting authenticity confirmation. */
+export function featuredProjects() {
+  return projects.filter((p) => p.featured && !p.flags?.length);
+}
