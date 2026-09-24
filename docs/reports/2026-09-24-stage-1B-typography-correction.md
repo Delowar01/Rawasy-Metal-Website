@@ -158,7 +158,10 @@ The tokens follow the brief's pattern:
 - **First screen, after the laser-cut sequence:** `first-screen-{1440,390}-{ar,en}-{light,dark}.png`.
   - 1440 × 900 at 1×.
   - 390 × 844 at 2×.
-- **Full page:** `full-page-{1440,390}-{ar,en}-{light,dark}.jpg`.
+- **Full page, as column overviews:** `full-page-{1440,390}-{ar,en}-{light,dark}-overview.jpg`.
+  - 1440 is at half scale, cut into 4 columns.
+  - 390 is at full scale, cut into 6 columns.
+  - Read the columns left to right. Single very tall images were rejected by the upload.
 - **Before and after hero:** `before-after-{1440,390}-{ar,en}-light.png`.
 
 **Also reviewed during QA (not attached):**
