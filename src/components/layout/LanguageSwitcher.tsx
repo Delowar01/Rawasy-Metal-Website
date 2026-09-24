@@ -45,7 +45,7 @@ export function LanguageSwitcher({
               className={cn(
                 "relative px-1.5 py-1 transition-colors",
                 size === "lg" ? "text-lg" : "text-[0.8125rem]",
-                code === "en" ? "font-mono tracking-[0.08em]" : "font-medium",
+                code === "en" ? "font-mono tracking-[0.08em]" : "font-display font-medium",
                 active ? "text-ink" : "text-ink-3 hover:text-ink",
               )}
             >

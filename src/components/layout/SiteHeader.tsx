@@ -169,7 +169,7 @@ export function SiteHeader({ locale, homeHref, items, quote, contact, labels }: 
                     onFocus={(e) => moveIndicator(e.currentTarget)}
                     onBlur={() => moveIndicator(null)}
                     className={cn(
-                      "relative block px-3.5 py-2 text-[0.84rem] font-medium transition-colors 2xl:px-4",
+                      "relative block px-3.5 py-2 font-display text-[0.84rem] font-medium transition-colors 2xl:px-4",
                       active ? "text-ink" : "text-ink-2 hover:text-ink",
                     )}
                   >

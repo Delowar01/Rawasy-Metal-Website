@@ -52,7 +52,7 @@ export function Hero({
             {eyebrow}
           </p>
 
-          <h1 id="hero-title" className="t-display hero-title mt-7 text-ink" data-reveal="lines" style={{ ["--d" as string]: 80 }}>
+          <h1 id="hero-title" className="t-display mt-7 text-ink" data-reveal="lines" style={{ ["--d" as string]: 80 }}>
             {headline.map((line, i) => (
               <span key={line} className="mask-line" style={{ ["--i" as string]: i }}>
                 <span>
@@ -69,11 +69,11 @@ export function Hero({
             ))}
           </h1>
 
-          <p className="t-lead mt-8 max-w-[34rem]" data-reveal style={{ ["--d" as string]: 420 }}>
+          <p className="t-lead mt-9 max-w-[34rem] lg:mt-11" data-reveal style={{ ["--d" as string]: 420 }}>
             {sub}
           </p>
 
-          <div className="mt-10 flex flex-wrap items-center gap-3" data-reveal style={{ ["--d" as string]: 540 }}>
+          <div className="mt-9 flex flex-wrap items-center gap-3 lg:mt-10" data-reveal style={{ ["--d" as string]: 540 }}>
             <ButtonLink href={primary.href}>{primary.label}</ButtonLink>
             <ButtonLink href={secondary.href} variant="outline">
               {secondary.label}

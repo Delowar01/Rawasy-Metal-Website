@@ -103,7 +103,7 @@ export function MachineExplorer({
                 )}
               />
               <span className={cn("t-num text-xs", selected ? "text-accent-ink" : "text-ink-3")}>{String(i + 1).padStart(2, "0")}</span>
-              <span className={cn("flex-1 whitespace-nowrap text-[0.95rem] font-semibold lg:text-lg", selected ? "text-ink" : "text-ink-2 group-hover:text-ink")}>
+              <span className={cn("flex-1 whitespace-nowrap font-display text-[0.95rem] font-semibold lg:text-[1.0625rem]", selected ? "text-ink" : "text-ink-2 group-hover:text-ink")}>
                 {machine.shortName}
               </span>
               <span className="t-num hidden text-sm text-ink-3 lg:inline" dir="ltr">
@@ -140,7 +140,7 @@ export function MachineExplorer({
           <span
             aria-hidden
             key={`p-${m.slug}`}
-            className="machine-power pointer-events-none absolute end-6 top-8 select-none font-display text-[clamp(4rem,2rem+7vw,9rem)] font-semibold leading-none text-transparent [-webkit-text-stroke:1px_var(--border-strong)]"
+            className="machine-power pointer-events-none absolute end-6 top-8 select-none font-display text-[clamp(3.25rem,2.23rem+4.19vw,6rem)] font-semibold leading-none text-transparent [-webkit-text-stroke:1px_var(--border-strong)]"
             dir="ltr"
           >
             {m.power ?? ""}
@@ -177,7 +177,7 @@ export function MachineExplorer({
         <div className="mt-8 grid gap-6 sm:grid-cols-12 sm:items-end">
           <div key={`t-${m.slug}`} className="machine-copy sm:col-span-8">
             <p className="t-label text-accent-ink">{m.category}</p>
-            <h3 className="t-h2 mt-3 text-ink">{m.name}</h3>
+            <h3 className="t-title mt-3 text-ink">{m.name}</h3>
             <p className="t-body mt-4 max-w-xl">{m.capability}</p>
             <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 text-sm">
               <div>

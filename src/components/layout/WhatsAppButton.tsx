@@ -16,7 +16,7 @@ export function WhatsAppButton({ href, label, text }: { href: string; label: str
           <span className="absolute -end-0.5 -top-0.5 size-1.5 rounded-full bg-[#25d366]" aria-hidden />
         </span>
       </span>
-      <span className="max-w-0 overflow-hidden whitespace-nowrap text-[0.8125rem] font-semibold opacity-0 transition-[max-width,opacity,padding] duration-500 ease-out-expo group-hover:max-w-40 group-hover:pe-4 group-hover:opacity-100 group-focus-visible:max-w-40 group-focus-visible:pe-4 group-focus-visible:opacity-100">
+      <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-[0.8125rem] font-semibold opacity-0 transition-[max-width,opacity,padding] duration-500 ease-out-expo group-hover:max-w-40 group-hover:pe-4 group-hover:opacity-100 group-focus-visible:max-w-40 group-focus-visible:pe-4 group-focus-visible:opacity-100">
         {text}
       </span>
     </a>

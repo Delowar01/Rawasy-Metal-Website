@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { bootScript } from "@/lib/boot-script";
 import { NotFoundView } from "@/components/layout/NotFoundView";
-import { archivo, geistMono, plexArabic } from "./fonts";
+import { archivo, geistMono, notoKufiArabic, plexArabic } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 /** Unmatched URLs outside any locale: one page, both languages. */
 export default function GlobalNotFound() {
   return (
-    <html lang="en" dir="ltr" className={`${archivo.variable} ${plexArabic.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" dir="ltr" className={`${archivo.variable} ${notoKufiArabic.variable} ${plexArabic.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>

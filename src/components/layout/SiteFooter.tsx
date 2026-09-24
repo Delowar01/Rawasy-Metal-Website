@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Locale } from "@/i18n/config";
 import { Logo, logoPaths } from "@/components/brand/Logo";
 import { ArrowIcon, ArrowUpIcon, FacebookIcon, MailIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/ui/Icons";
+import { Phrases } from "@/components/ui/Phrases";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSelect } from "./ThemeControls";
 
@@ -63,8 +64,8 @@ export function SiteFooter({
       <div className="container-x relative">
         {/* Statement + CTA */}
         <div className="flex flex-col gap-6 border-b border-line py-14 md:flex-row md:items-end md:justify-between md:py-16">
-          <p className="footer-statement max-w-[16ch] text-ink" data-reveal>
-            {statement}
+          <p className="footer-statement max-w-[12em] text-ink" data-reveal>
+            <Phrases>{statement}</Phrases>
           </p>
           <Link href={cta.href} className="link-arrow shrink-0 text-ink">
             <span className="link-line">{cta.label}</span>

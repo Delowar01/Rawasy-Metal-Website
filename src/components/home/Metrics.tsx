@@ -55,10 +55,10 @@ function Figure({ metric }: { metric: MetricView }) {
   return (
     <div className="relative flex flex-col justify-between gap-8 border-b border-band-line py-8 sm:border-e sm:px-8 sm:py-10 lg:border-b-0 lg:[&:last-child]:border-e-0">
       <p className="flex items-start gap-2 text-band-ink" dir={!metric.unit || metric.unit.length <= 2 ? "ltr" : undefined}>
-        <span ref={ref} className="font-display text-[clamp(2.9rem,1.6rem+3vw,4.6rem)] font-semibold leading-[0.9] tracking-[-0.04em] tabular-nums">
+        <span ref={ref} className="font-display text-[clamp(2.5rem,2.04rem+1.9vw,3.75rem)] font-semibold leading-none tracking-[-0.035em] tabular-nums">
           {metric.display}
         </span>
-        {metric.unit && <span className="mt-1 font-display text-2xl font-medium text-accent">{metric.unit}</span>}
+        {metric.unit && <span className="mt-1 font-display text-xl font-medium text-accent">{metric.unit}</span>}
       </p>
       <p className="t-label text-band-ink-2">{metric.label}</p>
     </div>
@@ -87,7 +87,7 @@ export function Metrics({
           <li key={s.title} className="flex gap-4">
             <span aria-hidden className="mt-2 size-1.5 shrink-0 rotate-45 bg-accent" />
             <div>
-              <p className="font-semibold text-band-ink">{s.title}</p>
+              <p className="font-display font-semibold text-band-ink">{s.title}</p>
               <p className="mt-1.5 text-sm text-band-ink-2">{s.body}</p>
             </div>
           </li>

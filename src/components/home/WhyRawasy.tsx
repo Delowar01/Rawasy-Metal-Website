@@ -74,7 +74,7 @@ export function WhyRawasy({ pillars }: { pillars: PillarView[] }) {
             </svg>
             <span className="t-num text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
           </div>
-          <h3 className="t-h3 mt-10 text-ink">{pillar.title}</h3>
+          <h3 className="t-h4 mt-8 text-ink">{pillar.title}</h3>
           <p className="t-body mt-3 max-w-sm text-[0.975rem]">{pillar.body}</p>
           <span aria-hidden className="absolute inset-x-0 top-0 h-px origin-[var(--origin-start)] scale-x-0 bg-accent transition-transform duration-700 ease-out-expo group-hover:scale-x-100" />
         </li>

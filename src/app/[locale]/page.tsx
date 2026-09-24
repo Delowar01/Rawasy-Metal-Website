@@ -130,7 +130,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             title={home.process.title[locale]}
             intro={home.process.intro[locale]}
           />
-          <div className="mt-16 lg:mt-24">
+          <div className="mt-14 lg:mt-20">
             <ProcessLine
               steps={steps.map((s) => ({
                 slug: s.slug,
@@ -156,7 +156,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             intro={home.services.intro[locale]}
             action={<SectionLink href={href(locale, "services")} label={home.services.all[locale]} />}
           />
-          <div className="mt-16 lg:mt-20">
+          <div className="mt-12 lg:mt-16">
             <ServiceExplorer
               labels={{ open: home.services.open[locale], figure: home.services.figure[locale] }}
               services={services.map((s) => {
@@ -195,7 +195,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             intro={home.machinery.intro[locale]}
             action={<SectionLink href={href(locale, "capabilities")} label={home.machinery.all[locale]} />}
           />
-          <div className="mt-16 lg:mt-20">
+          <div className="mt-12 lg:mt-16">
             <MachineExplorer
               labels={{
                 power: home.machinery.power[locale],
@@ -237,7 +237,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             intro={home.projects.intro[locale]}
             action={<SectionLink href={href(locale, "projects")} label={home.projects.all[locale]} />}
           />
-          <div className="mt-16 lg:mt-24">
+          <div className="mt-12 lg:mt-16">
             <FeaturedProjects
               viewLabel={home.projects.view[locale]}
               projects={featured.map((p) => ({
@@ -264,7 +264,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             title={home.industries.title[locale]}
             action={<SectionLink href={href(locale, "industries")} label={home.industries.all[locale]} />}
           />
-          <div className="mt-14 lg:mt-20">
+          <div className="mt-12 lg:mt-16">
             <IndustryList
               industries={industries.map((ind) => {
                 const media = getMedia(ind.media);
@@ -284,8 +284,15 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       {/* 09 — Why RAWASY */}
       <section id="why" aria-labelledby="why-title" className="section-y">
         <div className="container-x">
-          <SectionHeader id="why-title" index="07" label={home.why.label[locale]} title={home.why.title[locale]} intro={home.why.intro[locale]} />
-          <div className="mt-16 lg:mt-20">
+          <SectionHeader
+            id="why-title"
+            size="compact"
+            index="07"
+            label={home.why.label[locale]}
+            title={home.why.title[locale]}
+            intro={home.why.intro[locale]}
+          />
+          <div className="mt-12 lg:mt-16">
             <WhyRawasy
               pillars={pillars.map((p) => ({ slug: p.slug, icon: p.icon, title: p.title[locale], body: p.body[locale] }))}
             />
@@ -297,8 +304,15 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       <section id="metrics" aria-labelledby="metrics-title" className="on-band section-y relative overflow-hidden bg-band text-band-ink">
         <div aria-hidden className="bg-grid pointer-events-none absolute inset-0 opacity-40 [--grid-line:rgb(236_234_229/0.05)]" />
         <div className="container-x relative">
-          <SectionHeader id="metrics-title" tone="band" index="08" label={home.metrics.label[locale]} title={home.metrics.title[locale]} />
-          <div className="mt-14 lg:mt-20">
+          <SectionHeader
+            id="metrics-title"
+            tone="band"
+            size="compact"
+            index="08"
+            label={home.metrics.label[locale]}
+            title={home.metrics.title[locale]}
+          />
+          <div className="mt-12 lg:mt-16">
             <Metrics
               footnote={home.metrics.footnote[locale]}
               metrics={metricData.metrics.map((m) => ({
@@ -319,6 +333,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         <div className="container-x">
           <SectionHeader
             id="clients-title"
+            size="compact"
             index="09"
             label={home.clients.label[locale]}
             title={home.clients.title[locale]}
@@ -326,7 +341,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             action={<SectionLink href={href(locale, "clients")} label={home.clients.all[locale]} />}
           />
         </div>
-        <div className="mt-14 lg:mt-20">
+        <div className="mt-12 lg:mt-16">
           <ClientMarquee
             clients={clients.map((c) => {
               const logo = getMedia(c.logo);
@@ -347,13 +362,14 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         <div className="container-x">
           <SectionHeader
             id="certificates-title"
+            size="compact"
             index="10"
             label={home.certificates.label[locale]}
             title={home.certificates.title[locale]}
             intro={home.certificates.intro[locale]}
             action={<SectionLink href={href(locale, "certificates")} label={home.certificates.all[locale]} />}
           />
-          <div className="mt-14 lg:mt-20">
+          <div className="mt-12 lg:mt-16">
             <Certificates
               labels={{ view: home.certificates.view[locale], close: dict.a11y.close, redacted: home.certificates.redacted[locale] }}
               certificates={certificates.map((c) => ({

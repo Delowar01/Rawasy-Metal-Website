@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowIcon } from "@/components/ui/Icons";
+import { Phrases } from "@/components/ui/Phrases";
 
 export interface IntroProps {
   index: string;
@@ -26,8 +27,8 @@ export function Intro({ index, label, statement, paragraphs, beyondLabel, beyond
               <span aria-hidden>/</span>
               <span>{label}</span>
             </p>
-            <h2 id="intro-title" className="intro-statement mt-8 max-w-[19ch] text-ink" data-reveal>
-              {statement}
+            <h2 id="intro-title" className="intro-statement mt-8 max-w-[13em] text-ink" data-reveal>
+              <Phrases>{statement}</Phrases>
             </h2>
 
             {/* Nameplate: the company's registered names, like an engraved plate */}
@@ -35,7 +36,7 @@ export function Intro({ index, label, statement, paragraphs, beyondLabel, beyond
               <span className="t-label text-ink-3" lang="en" dir="ltr">
                 {legalNames.en}
               </span>
-              <span className="text-lg font-medium text-ink-2" lang="ar" dir="rtl">
+              <span className="font-display text-lg font-medium text-ink-2" lang="ar" dir="rtl">
                 {legalNames.ar}
               </span>
             </div>

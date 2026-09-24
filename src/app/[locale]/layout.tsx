@@ -16,7 +16,7 @@ import { BootFallback } from "@/components/motion/BootFallback";
 import { CustomCursor } from "@/components/motion/CustomCursor";
 import { Loader } from "@/components/motion/Loader";
 import { RevealObserver } from "@/components/motion/RevealObserver";
-import { archivo, geistMono, plexArabic } from "../fonts";
+import { archivo, geistMono, notoKufiArabic, plexArabic } from "../fonts";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -55,7 +55,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     <html
       lang={htmlLang}
       dir={dir}
-      className={`${archivo.variable} ${plexArabic.variable} ${geistMono.variable}`}
+      className={`${archivo.variable} ${notoKufiArabic.variable} ${plexArabic.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
@@ -66,7 +66,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
         <div id="top" />
         <a
           href="#main"
-          className="sr-only-focusable fixed start-4 top-4 z-[210] bg-ink px-4 py-3 text-sm font-semibold text-background"
+          className="sr-only-focusable fixed start-4 top-4 z-[210] bg-ink px-4 py-3 font-display text-sm font-semibold text-background"
         >
           {dict.a11y.skipToContent}
         </a>

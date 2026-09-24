@@ -4,16 +4,17 @@ Bilingual (English / Saudi Arabic) corporate website for **RAWASY UNITED INTERNA
 (شركة رواسي المتحدة العالمية المحدودة): laser cutting, CNC bending, steel structures,
 fabrication, laser engraving and scaffolding in Riyadh.
 
-**Status: stages 1A (foundation) and 1B (homepage) are complete.** The homepage is ready for
-design approval. Every other route is already set up and localized, and shows an
-"in development" page until its design is approved (see the approval gate in the Phase 1 brief).
+**Status: stage 1A (foundation) is approved. Stage 1B (homepage) has had its typography and
+visual hierarchy corrected and is awaiting design approval.** Every other route is already set up
+and localized, and shows an "in development" page until its design is approved (see the approval
+gate in the Phase 1 brief).
 
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
 | Styling | Tailwind CSS v4 + semantic CSS tokens (`src/app/globals.css`) |
 | Motion | GSAP 3 + ScrollTrigger (hero, scroll scenes), CSS/IntersectionObserver for reveals |
-| Fonts | Archivo (Latin, variable width), IBM Plex Sans Arabic, Geist Mono via `next/font` |
+| Fonts | Archivo (English), Noto Kufi Arabic (Arabic display), IBM Plex Sans Arabic (Arabic body), Geist Mono, all via `next/font` |
 | Rendering | Static pages for every route in both languages (109 pages at build time) |
 
 ## Getting started

@@ -9,7 +9,7 @@ const route = createPlaceholderRoute("services", (locale) => (
       <li key={s.slug} className="border-b border-line">
         <Link href={href(locale, "service", { slug: s.slug })} className="flex items-baseline gap-4 py-4 text-ink hover:text-accent-ink">
           <span className="t-num text-xs text-ink-3">{s.index}</span>
-          <span className="font-semibold">{s.name[locale]}</span>
+          <span className="font-medium">{s.name[locale]}</span>
         </Link>
       </li>
     ))}

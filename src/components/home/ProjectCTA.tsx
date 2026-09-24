@@ -1,6 +1,7 @@
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { MailIcon, PhoneIcon, WhatsAppIcon } from "@/components/ui/Icons";
 import { MediaImage } from "@/components/ui/MediaImage";
+import { Phrases } from "@/components/ui/Phrases";
 
 export interface ProjectCTAProps {
   index: string;
@@ -30,8 +31,8 @@ export function ProjectCTA({ index, label, title, steps, primary, whatsapp, phon
           <span aria-hidden>/</span>
           <span>{label}</span>
         </p>
-        <h2 id="cta-title" className="t-h1 mt-8 max-w-[18ch]" data-reveal>
-          {title}
+        <h2 id="cta-title" className="t-h2 mt-8 max-w-[15em]" data-reveal>
+          <Phrases>{title}</Phrases>
         </h2>
 
         <ol className="mt-14 grid max-w-4xl gap-px border border-band-line bg-band-line sm:grid-cols-3" data-reveal style={{ ["--d" as string]: 120 }}>

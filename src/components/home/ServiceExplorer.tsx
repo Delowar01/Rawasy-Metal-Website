@@ -76,7 +76,7 @@ export function ServiceExplorer({
                 <span className={cn("t-num text-xs transition-colors", i === active ? "text-accent-ink" : "text-ink-3")}>{s.index}</span>
                 <span
                   className={cn(
-                    "t-h3 flex-1 text-[clamp(1.4rem,1rem+1.1vw,2.15rem)] transition-[color,transform] duration-500 ease-out-expo",
+                    "t-h3 flex-1 transition-[color,transform] duration-500 ease-out-expo",
                     i === active ? "translate-x-[calc(var(--dir)*6px)] text-ink" : "text-ink-3 group-hover:text-ink-2",
                   )}
                 >
