@@ -4,15 +4,13 @@ Bilingual (English / Saudi Arabic) corporate website for **RAWASY UNITED INTERNA
 (شركة رواسي المتحدة العالمية المحدودة): laser cutting, CNC bending, steel structures,
 fabrication, laser engraving and scaffolding in Riyadh.
 
-**Status: stages 1A (foundation) and 1B (homepage) are approved. Stage 1C (core inner pages:
-about, services overview, industries, clients, certificates, contact / quote, privacy, terms) is
-built. The 1C-V visual pass was not approved, and the Visual Redesign V2 correction pass has been
-applied on top of it: a richer semantic palette, visible borders and shadows, cards and panels,
-Sora / Manrope typography, a rebuilt About page, an expanded homepage introduction, an unnumbered
-clients wall, a Google map on the contact page, and the Projects overview (brought forward from
-Stage 1F). It awaits visual approval.** The remaining routes (service and project detail pages,
-capabilities) are set up and localized, and show an "in development" page until their stage is
-built and approved (see the approval gate in the Phase 1 brief).
+**Status: stages 1A (foundation) and 1B (homepage) are approved, and so is the Visual Redesign V2
+pass over Stage 1C (core inner pages: about, services overview, industries, clients, certificates,
+contact / quote, privacy, terms, plus the Projects overview brought forward from Stage 1F). Stage 1D,
+the six service detail pages (laser cutting, CNC bending, steel structures, metal fabrication, laser
+engraving, scaffolding), is built and awaits visual approval.** The remaining routes (project detail
+pages, capabilities) are set up and localized, and show an "in development" page until their stage
+is built and approved (see the approval gate in the Phase 1 brief).
 
 | | |
 | --- | --- |
@@ -55,19 +53,22 @@ src/
     layout/                Header, mobile menu, footer, language + theme controls, 404
     home/                  Homepage sections (hero plate, explorers, statement, …)
     inner/                 Inner-page system: hero variants, breadcrumbs, editorial section, media frame, CTA
-    about/ services/ industries/ clients/ certificates/ contact/ legal/
-                           Page-specific components for the stage 1C pages
+    about/ services/ industries/ clients/ certificates/ contact/ legal/ projects/
+                           Page-specific components for the stage 1C pages and the projects overview
+    service/               Service detail pages (stage 1D): hero, scope, process, machines, applications,
+                           gallery, why, related services, projects, CTA; `looks.ts` gives each service
+                           its composition; `visuals/` holds the six hero drawings
     visual/                Visual system: technical frame, backdrops and scan line, section rule,
                            pointer light, nameplate
     motion/                Loader, reveal and live observers, custom cursor, page transition
     ui/                    Button, section header, image, icons
   lib/                     SEO helpers, inner-page metadata, theme engine, boot script, GSAP setup
-e2e/                       Playwright browser tests (site shell + homepage, stage 1C pages)
+e2e/                       Playwright browser tests (site shell + homepage, inner pages, V2, service pages)
 scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-09-25, visual redesign V2)
+docs/reports/                Stage reports (latest: 2026-09-25, stage 1D service pages)
 ```
 
 ### Languages and RTL
@@ -93,7 +94,8 @@ fields and are simply not shown. Nothing has been made up to fill them.
 `src/lib/page-meta.ts` is the approval gate. Each route is `planned` (shows the in-development page),
 `review` (built, awaiting approval) or `published`. Only published routes are indexed and listed in
 the sitemap (currently the homepage); `planned` and `review` routes are served with `noindex`. When a
-stage is approved, set its routes to `published`. The stage 1C routes are `review`.
+stage is approved, set its routes to `published`. The stage 1C routes, the projects overview and
+the stage 1D service pages are `review`; publishing waits for the Stage 1J launch approval.
 
 ### Theme engine
 
@@ -142,6 +144,14 @@ Reusable pieces:
   row is full; no numbers or counts).
 - Contact: `LocationSection` with `src/lib/maps.ts` (a keyless Google Maps embed and directions link
   built from the verified address; no coordinates are stored).
+- Service pages (`src/components/service/`): one set of components, composed per service by
+  `looks.ts` (hero drawing, scope layout, process layout, gallery layout and the sequence of section
+  surfaces). Laser cutting: steel blue and orange, a nesting sheet with the cut path. CNC bending: a
+  press-brake elevation with fold lines. Steel structures: a slate drawing sheet with structural axes.
+  Metal fabrication: brass and graphite, workshop photos on a bench plate. Laser engraving: an engraved
+  brass plate and material swatches (no authentic engraving photo yet). Scaffolding: teal, a tower
+  elevation drawn lift by lift. Copy is in `src/content/service-details.ts` and `servicePage` in
+  `pages.ts`; sections without sourced content (machines, projects, gallery) are left out.
 
 Decoration is always `aria-hidden`. Ambient motion runs only while on screen and never with reduced
 motion; it animates transform and opacity only.
@@ -153,7 +163,8 @@ motion; it animates transform and opacity only.
   cursor-reactive reflection and scroll parallax.
 - **Signature metal cut** (used once): a laser line runs through the statement "Precision in every
   cut. Strength in every structure." as you scroll, and the lettering splits along the cut.
-- Line-mask headline reveals, curtain image reveals, structural line drawing, a production-line
+- Line-mask headline reveals, curtain image reveals, structural line drawing (paths read an
+  inherited `--draw` set on the revealed element), a production-line
   progress rail, a direction-aware machinery stage with a scan sweep, count-up metrics, and a
   slow client marquee.
 - Visual system motion: frames draw in (horizontal, then vertical) with a marker running the top edge,
@@ -210,12 +221,15 @@ the noindex gate, breadcrumbs, clients, certificate dialog, quote form, legal pa
 (ambient motion only on screen, reduced motion and touch, active rows and contents, focus frames,
 decoration hidden from assistive technology); `redesign-v2.spec.ts` covers the V2 pass (projects
 filters and grid, clients wall without numbering, contact map, fonts, colour-role contrast in both
-themes, responsive layouts, reduced motion, keyboard). In a cloud session Chromium is preinstalled at
+themes, responsive layouts, reduced motion, keyboard); `service-pages.spec.ts` covers the six service
+pages (routes in both languages, SEO and the noindex gate, sourced machine / project / related links,
+the quote action, imagery rules, RTL, dark theme, overflow at 360/390/834 px, keyboard, reduced
+motion, no-JS). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages
 
-1D service pages · 1E capabilities and machinery page · 1F project detail pages (the projects
-overview was built in V2) · 1G (its clients,
+1E capabilities and machinery page · 1F project detail pages (the projects overview was built in
+V2) · 1G (its clients,
 certificates and contact pages moved into 1C) · 1H Arabic completion · 1I motion polish ·
 1J SEO/performance QA and release. Phase 2 (admin panel) follows Phase 1 approval.

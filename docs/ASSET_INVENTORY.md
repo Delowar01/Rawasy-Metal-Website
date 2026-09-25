@@ -46,7 +46,7 @@ Only the machine names and power ratings above are used. **No** brands, bed size
 | CNC Bending | `services/cnc-bending-1…3` | Look like stock photography — confirm licence. |
 | Steel Structures | `services/steel-structures-1…4`, `site/steel-beams-hall`, `site/steel-frame-dusk` | Look like stock — confirm. |
 | Fabrication | `services/fabrication-workshop` (real workshop), `fabrication-cut-sheets`, `fabrication-perforated-beams` (real), `fabrication-grinding`, `fabrication-welding`, `fabrication-laser-welding` (stock-like) | Mixed. |
-| Laser Engraving | `services/engraving-nameplates` (real), `engraving-wood`, `engraving-rotary` (render) | |
+| Laser Engraving | `services/engraving-nameplates` (real; third-party branding and serial numbers — kept off the 1D page), `engraving-wood`, `engraving-rotary` (render) | See item 12. |
 | Scaffolding | `services/scaffolding-1…5`, `scaffolding-props`, `site/scaffold-silhouettes`, `site/site-engineers` | Look like stock / supplier imagery — confirm. |
 
 ## 4. Projects — Work Gallery (profile p.3, p.8–11)
@@ -131,3 +131,19 @@ Redaction is a solid hatched block (nothing of the original survives). Thumbnail
 9. **WhatsApp number.** Both numbers carry a WhatsApp icon; +966 53 736 8310 is used as the primary chat link.
 10. **Email.** A domain address (e.g. info@rawasymetal.com) would suit the new brand better than Gmail.
 11. **Vision 2030 mark** appears on the profile cover. It is a government mark and has not been used.
+12. **Laser engraving photography (Stage 1D).** The engraving service page shows no photographs. The
+    only engraving photo, `services/engraving-nameplates`, shows third-party (HITACHI) branding with
+    legible part and serial numbers, and `engraving-wood` / `engraving-rotary` are renders; the page uses
+    a drawn, engraved brass plate and material swatches instead. Please supply photos of RAWASY's own
+    engraved work (no third-party brands or data) or confirm permission for the nameplates photo. The
+    services overview (approved in V2) still uses the nameplates photo as the engraving cover and the
+    wood render as its second image.
+13. **Service page imagery (Stage 1D).** The service pages add `site/welder-sparks` (fabrication hero),
+    which looks like stock, to the photos listed in section 3 — please confirm its licence. Gallery
+    captions describe only what is visible in each photo.
+14. **Which services each project used.** Service pages link only projects whose record lists that
+    service. So the stainless handrails (#31) are not linked to CNC bending, and the calligraphic
+    sculptures (#13) and cannon replicas (#11) are not linked to laser engraving. RAWASY can confirm
+    the services behind each project to enrich these links.
+15. **Machine anchors.** Machine cards on the service pages link to `/capabilities#<machine>`; the
+    Capabilities & Machinery page (Stage 1E) is still in development.

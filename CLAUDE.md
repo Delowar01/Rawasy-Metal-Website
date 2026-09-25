@@ -10,8 +10,9 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-25-visual-redesign-v2.md` (earlier:
-  `2026-09-24-stage-1C-V-visual-enhancement.md`, `2026-09-24-stage-1C-core-inner-pages.md`,
+- Latest report: `docs/reports/2026-09-25-stage-1D-service-pages.md` (earlier:
+  `2026-09-25-visual-redesign-v2.md`, `2026-09-24-stage-1C-V-visual-enhancement.md`,
+  `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
 - The user's stage briefs list numbered report items; answer every one of them, in order.
 
@@ -24,13 +25,17 @@
   **not approved**. The **Visual Redesign V2** correction pass followed (report
   `2026-09-25-visual-redesign-v2.md`): new palette, borders, shadows, cards, Sora/Manrope, the
   Projects overview brought forward from 1F, a rebuilt About page, an expanded homepage intro, an
-  unnumbered clients wall and a contact map. **V2 awaits the user's visual approval.** Never
-  self-approve a stage.
-- Do not start stage 1D (or later stages) until the user approves V2. Project detail pages stay
-  `planned` until 1F; Capabilities stays in 1E. Do not start Phase 2 (admin panel) during Phase 1.
+  unnumbered clients wall and a contact map. **The user approved V2 with conditions** (in the 1D
+  brief): keep the V2 visual system, leave the contact map as it is, and keep the open items (RAWASY's
+  Google Maps place link, image rights, the two moderate shell accessibility findings for 1I/1J).
+- **Stage 1D (the six service detail pages) is built and awaits the user's visual approval** (report
+  `2026-09-25-stage-1D-service-pages.md`). Never self-approve a stage. Do not start 1E (Capabilities &
+  Machinery), 1F (project detail pages), 1G or later until the user says so; project detail pages
+  and Capabilities stay `planned`. Do not start Phase 2 (admin panel) during Phase 1.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
-  design is approved. Only the homepage is `published`.
+  design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
+  `published`.
 - Unless a brief asks for homepage work (as 1C-V and V2 did, below the hero only), the approved
   homepage must not change except for a genuine shared-component bug. (V2's Sora headline and orange
   primary buttons also reach the hero: both were the user's instructions, and the hero markup is
@@ -118,6 +123,17 @@
   cards and never enlarges a photo much beyond its native size.
 - **1F project detail pages:** hero, gallery, title, category, scope, service; materials, location,
   year and client only if verified; challenge, solution, related projects. Unknown facts stay hidden.
+  The service pages already link to `/projects/<slug>` and the machine cards to `/capabilities#<slug>`
+  (use the machine slugs as anchors in 1E).
+- **Service pages (1D) rules:** each page shares one component set and gets its character from
+  `src/components/service/looks.ts` (hero drawing, scope / process / gallery layout, section surfaces).
+  Machines, projects and galleries appear only when sourced: related projects are those in
+  `services.ts` whose own record lists the service (CNC links one project; engraving and scaffolding
+  none). Every process carries the "general workflow, not a certified procedure" note. Laser Engraving
+  shows no photographs: the nameplates photo (third-party brand, part/serial numbers) and the two
+  renders stay off it until RAWASY supplies or approves images. `projects/canopy-tree-1` stays out of
+  the laser-cutting gallery (authorship). Gallery photos are never repeated in the same page's
+  project cards.
 
 ## Typography rules (1B correction, English changed in V2)
 
@@ -156,10 +172,14 @@
   RAWASY's own Google Maps place link once confirmed; never invent coordinates).
 - Quote form: `src/components/contact/QuoteForm.tsx`. No backend: it prepares the request for the
   visitor to send by email or WhatsApp. Never make it claim a request was sent.
+- Service detail pages: route `src/app/[locale]/services/[slug]/page.tsx`; components in
+  `src/components/service/*` (hero drawings in `visuals/`, per-service composition in `looks.ts`);
+  copy in `src/content/service-details.ts` (per service) and `servicePage` in `src/content/pages.ts`
+  (shared labels); captioned galleries and project links in `src/content/services.ts`.
 - Browser tests: `e2e/*.spec.ts` with `playwright.config.ts`; run `npm run test:e2e` after a build.
-  `visual-system.spec.ts` covers ambient motion, active states, the pointer light and decoration
-  semantics; `redesign-v2.spec.ts` covers projects filters, the clients wall, the map, fonts and
-  colour-role contrast.
+  `visual-system.spec.ts` covers ambient motion, active states, the pointer light, line drawing and
+  decoration semantics; `redesign-v2.spec.ts` covers projects filters, the clients wall, the map, fonts
+  and colour-role contrast; `service-pages.spec.ts` covers the six service pages.
 
 ## Before pushing
 
@@ -196,6 +216,14 @@
   `scroll-mt-*` to sections as well: the two add up (the gallery landed 168px down).
 - `.js [data-reveal]` rules are unlayered, so on an element that also lifts on hover (`.card-link`) they
   cancel the hover transform. Put `data-reveal` on a wrapper around the card.
+- Chromium does not restyle SVG descendants for selectors like `[data-revealed] [pathLength]` when
+  the attribute appears, so line drawings stayed undrawn until the next resize (full-page captures
+  resize, which hid the bug until 1D). Draw-on-reveal paths read an inherited `--draw` that the
+  revealed element sets (`.line-draw`, `.beam-draw`, `.pillar`); keep that pattern for new drawings.
+- `MediaFrame` always adds `relative`; passing `absolute` in its `className` loses. Wrap it in a
+  positioned element instead.
+- `dir="ltr"` on an element also flips its own logical insets (`end-0` becomes the right edge in
+  Arabic). Leave `dir` off decorative numerals; digits render the same either way.
 - google.com is blocked in cloud sessions: the map iframe cannot load there. Tests and captures stub
   `https://www.google.com/*` with Playwright routing; check the live map on a normal network.
 - The project does not use Prettier (lines run to about 130–140 characters); do not run `npx prettier`.
