@@ -10,9 +10,9 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-24-stage-1C-V-visual-enhancement.md` (earlier:
-  `2026-09-24-stage-1C-core-inner-pages.md`, `2026-09-24-stage-1B-typography-correction.md`,
-  `2026-09-24-phase-1-stages-1A-1B.md`).
+- Latest report: `docs/reports/2026-09-25-visual-redesign-v2.md` (earlier:
+  `2026-09-24-stage-1C-V-visual-enhancement.md`, `2026-09-24-stage-1C-core-inner-pages.md`,
+  `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
 - The user's stage briefs list numbered report items; answer every one of them, in order.
 
 ## Where the project stands
@@ -20,16 +20,21 @@
 - Phase 1 is the public website only. Work is pushed on `claude/new-session-5eijs6`.
 - **Stages 1A (foundation) and 1B (homepage) are approved.** Stage 1C (core inner pages: about,
   services overview, industries, clients, certificates, contact / quote, privacy, terms) is built
-  (commit `74bf5c3`). The user found it too flat, so Stage 1C-V (a global visual enhancement pass
-  on the homepage below the hero and the eight 1C pages, commit `ed4a622`) followed. **Both await
-  the user's visual approval.** Never self-approve a stage.
-- Do not start stage 1D (or later stages) until the user approves 1C / 1C-V. Do not start Phase 2
-  (admin panel) during Phase 1.
+  (commit `74bf5c3`). The user found it too flat; Stage 1C-V (commit `ed4a622`) followed and was
+  **not approved**. The **Visual Redesign V2** correction pass followed (report
+  `2026-09-25-visual-redesign-v2.md`): new palette, borders, shadows, cards, Sora/Manrope, the
+  Projects overview brought forward from 1F, a rebuilt About page, an expanded homepage intro, an
+  unnumbered clients wall and a contact map. **V2 awaits the user's visual approval.** Never
+  self-approve a stage.
+- Do not start stage 1D (or later stages) until the user approves V2. Project detail pages stay
+  `planned` until 1F; Capabilities stays in 1E. Do not start Phase 2 (admin panel) during Phase 1.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved. Only the homepage is `published`.
-- Unless a brief asks for homepage work (as 1C-V did, below the hero only), the approved homepage
-  must not change except for a genuine shared-component bug. After shared changes, compare it with
+- Unless a brief asks for homepage work (as 1C-V and V2 did, below the hero only), the approved
+  homepage must not change except for a genuine shared-component bug. (V2's Sora headline and orange
+  primary buttons also reach the hero: both were the user's instructions, and the hero markup is
+  byte-identical to 1C-V.) After shared changes, compare it with
   the approved build: server HTML (normalise `/_next/static` paths), aria snapshots and screenshots
   at the five widths, EN/AR, light/dark.
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
@@ -45,14 +50,34 @@
   reduced motion and without JavaScript.
 - Certificate numbers, QR codes and personal names stay redacted unless RAWASY approves showing them.
   Images flagged in the asset inventory (AI watermark, authorship, renders) stay off featured spots.
-- Orange is an accent (roughly 10%). Keep the design free of clutter.
+- Orange is an accent (roughly 10%) and the primary action colour; the supporting roles below carry
+  the rest of the colour. Keep the design free of clutter, and never make it a rainbow.
+- The clients page shows no numbering, grid references or client counts, and no partnership claims
+  or testimonials (V2 brief). The homepage marquee shows no count either.
 
-## Visual system (Stage 1C-V)
+## Visual system (V2, on top of 1C-V)
 
 - Direction: precision engineering × metal fabrication × architectural detail. Premium, engineered,
-  layered metal sheets. Never flashy, neon, cyberpunk, gradient-heavy, generic SaaS or generic
-  construction. Light theme is warm off-white (never pure white); dark is graphite and charcoal
-  (never pure black).
+  layered metal plates; colourful but controlled; clear boxes and panels so each section, service
+  and fact reads as its own unit. Never flashy, neon, cyberpunk, gradient-heavy, generic SaaS or
+  generic construction. Light theme is warm off-white (never pure white); dark is graphite with
+  blue-grey panels (never pure black, never a black-and-orange gaming look).
+- Colour roles (semantic, never random), set with `data-tone` on cards, chips and tags
+  (`--tone/-ink/-surface/-line`): `brand` orange = primary actions and active states; `eng` steel
+  blue = engineering, machinery, information; `proc` teal = process, capability, site support;
+  `craft` brass = craftsmanship, certificates, premium details; slate/graphite = dark bands. Service
+  tones live in `src/lib/tones.ts`. Colour comes through surfaces, edges, icons and tags, never
+  through coloured paragraphs; small text uses the role inks (`.tone-ink`), which pass AA.
+- Sections: `.sec-eng`, `.sec-proc`, `.sec-craft` (tinted), `.sec-deep` (recessed), `.sec-slate`
+  (dark band, with `on-band`). Vary the background sequence down a page; the homepage runs neutral →
+  teal → neutral → graphite → steel → neutral → deep → neutral → graphite → neutral → brass → dark.
+- Cards: `.card`, `.card-edge` (3px tone edge), `.card-link` (+ `.card-arrow`), `.icon-chip`,
+  `.tone-tag`; `LineIcon` (`src/components/ui/LineIcons.tsx`) for services, support, process and
+  company icons. Buttons: primary orange, `secondary` graphite, `steel` / `teal` contextual, `outline`.
+  Not every button is orange.
+- Border tiers `--border-subtle / --border / --border-strong / --border-ink` + `--border-active`
+  and steel/teal/brass edges; shadows `--shadow-card / --shadow-raised / --shadow-image /
+  --shadow-floating / --shadow-inset` (the 1C-V names are aliases).
 - Primitives in `src/components/visual/`: `TechnicalFrame` / `FrameMarks` (with the `.tf-host`
   class; variants: full rules, `lines="corners"`, `lines="hover"`), `Backdrop` (grid, fine, perforated;
   `drift`), `ScanLine`, `SectionRule`, `PointerLight`, `Nameplate`. CSS helpers: `.panel`,
@@ -69,7 +94,8 @@
 - Never put `mask-image` or `opacity` on an element whose child moves: it is recomposited every frame
   (it cost about 8–10 fps while scrolling). Fade a drifting `Backdrop` with `--bd-fade` (a gradient
   to the section colour) and dim it with `--bd-opacity`.
-- Buttons keep the approved resting look (a resting bevel was tried and removed because it changed
+- Buttons: V2 made the primary button orange at rest (brief §24), which also shows in the hero
+  (its markup is unchanged). Do not add a resting bevel (tried in 1C-V, removed because it changed
   the hero). To prove the hero is unchanged after shared CSS work, compare its server HTML (from
   `<main>` to `#intro`, byte-identical) and reduced-motion first-viewport renders with the approved
   build. Animated full-page captures differ by animation phase, not by code.
@@ -78,20 +104,26 @@
   the light-theme hover tint lightens (`--row-tint`), so hover never lowers contrast. axe cannot
   check gradient backgrounds, so work those out by hand.
 
-## Requirements to carry into later stages (from the 1C-V brief)
+## Requirements to carry into later stages (from the 1C-V and V2 briefs)
 
 - **1E Capabilities & Machinery** must become one of the strongest pages, never a plain list: large
   machinery photography, a machine selector, technical specifications, grid/axis backgrounds, a
   scanning-line animation, an animated equipment diagram, related services, power figures, machine
-  image transitions, technical measurement detail and industrial depth.
-- **1F Projects** must be image-led: a featured cinematic image, 2-column editorial rows, masonry,
-  filters, project numbers, hover interactions, captions and reveals. The text index stays secondary.
+  image transitions, technical measurement detail and industrial depth. V2 locked its colour
+  direction: steel blue, graphite, orange active lines, clear cards and panels, technical tables,
+  visible borders, shadows and scan lines.
+- **Projects overview** (built in V2, `review`): image-led, with a hero collage, featured project,
+  editorial highlights, a filterable masonry gallery and a text index at the end. Category filters are
+  website classifications. Photos are small: `src/lib/project-cards.ts` picks photo / pair / framed
+  cards and never enlarges a photo much beyond its native size.
 - **1F project detail pages:** hero, gallery, title, category, scope, service; materials, location,
   year and client only if verified; challenge, solution, related projects. Unknown facts stay hidden.
 
-## Typography rules (set by the user in the 1B correction)
+## Typography rules (1B correction, English changed in V2)
 
-- English: Archivo. Arabic display, headings, navigation and buttons: **Noto Kufi Arabic** (hero and
+- English (V2): **Sora** for display and headings (H1, major H2, key statements), **Manrope** for
+  body, navigation, forms and buttons, **Geist Mono** for technical labels only (machine data,
+  references, dimensions). Arabic display, headings, navigation and buttons: **Noto Kufi Arabic** (hero and
   statement 700, headings 600, buttons 600, nav 500). Arabic body, leads and labels: **IBM Plex Sans
   Arabic 400/500 only**. Never use Plex for headings or at 600/700. Technical labels: Geist Mono.
   Fonts come only from `next/font` (`src/app/fonts.ts`) and are never requested from Google at runtime.
@@ -99,8 +131,9 @@
   through `:root:lang(ar)` and `[lang]`. Components pick a role (`t-*` classes, or `font-display` for UI
   that should be Kufi in Arabic). Mark inline text in the other language with `lang` (and `dir`).
 - Scale classes: `t-display` (hero), `t-h1`, `t-h2`, `t-h2-compact` (calmer supporting sections),
-  `t-title`, `t-h3`, `t-h4`, `t-lead`, `t-body`, `t-label`. The precision statement is the only
-  expressive size. Arabic paragraphs use line-height 1.85 and headings 1.36–1.6, with no letter-spacing.
+  `t-title`, `t-h3`, `t-h4`, `t-lead`, `t-body`, `t-caption`, `t-label`, `t-stat` (figures). The
+  precision statement is the only large expressive size; `.vision-quote`, outlined numerals and
+  `t-stat` values are the smaller typographic accents. Arabic paragraphs use line-height 1.85 and headings 1.36–1.6, with no letter-spacing.
 - Heading text goes through `<Phrases>` (`src/components/ui/Phrases.tsx`) so lines break at phrase
   boundaries. Use `em`, not `ch`, for heading measures.
 
@@ -113,13 +146,20 @@
 - Routes: `src/i18n/routes.ts`. Publishing, indexing and the sitemap: `src/lib/page-meta.ts`.
 - Design tokens and motion CSS: `src/app/globals.css`. Homepage sections: `src/components/home/*`.
 - Inner pages: shared system in `src/components/inner/*` and `src/lib/inner-page.ts` (metadata,
-  breadcrumb trail, JSON-LD); page components in `src/components/{about,services,industries,clients,
-  certificates,contact,legal}`; copy in `src/content/{about,pages,contact,legal}.ts`.
+  breadcrumb trail, JSON-LD); page components in `src/components/{about,services,projects,industries,
+  clients,certificates,contact,legal}`; shared cards in `src/components/cards/*` and teasers in
+  `src/components/teasers/*`; copy in `src/content/{about,pages,contact,legal}.ts`.
+- Projects: `src/components/projects/*`, `src/lib/project-cards.ts`; showcased projects and withheld
+  photos in `src/content/projects.ts` (`isShowcased`, `projectImages`).
+- Clients wall: `src/components/clients/ClientWall.tsx` + `src/lib/logo-wall.ts`. Contact map:
+  `src/components/contact/LocationSection.tsx` + `src/lib/maps.ts` (address search only; replace with
+  RAWASY's own Google Maps place link once confirmed; never invent coordinates).
 - Quote form: `src/components/contact/QuoteForm.tsx`. No backend: it prepares the request for the
   visitor to send by email or WhatsApp. Never make it claim a request was sent.
 - Browser tests: `e2e/*.spec.ts` with `playwright.config.ts`; run `npm run test:e2e` after a build.
   `visual-system.spec.ts` covers ambient motion, active states, the pointer light and decoration
-  semantics.
+  semantics; `redesign-v2.spec.ts` covers projects filters, the clients wall, the map, fonts and
+  colour-role contrast.
 
 ## Before pushing
 
@@ -152,6 +192,17 @@
   of the text and accessibility trees.
 - Both locales share one root layout, so every preloaded font is preloaded on every page (EN pages load
   the Arabic fonts and vice versa). Splitting preloads per language needs a root layout per language (1J).
+- `html` has `scroll-padding-top` (header + 1rem), so anchor jumps already clear the header. Do not add
+  `scroll-mt-*` to sections as well: the two add up (the gallery landed 168px down).
+- `.js [data-reveal]` rules are unlayered, so on an element that also lifts on hover (`.card-link`) they
+  cancel the hover transform. Put `data-reveal` on a wrapper around the card.
+- google.com is blocked in cloud sessions: the map iframe cannot load there. Tests and captures stub
+  `https://www.google.com/*` with Playwright routing; check the live map on a normal network.
+- The project does not use Prettier (lines run to about 130–140 characters); do not run `npx prettier`.
+- `services/engraving-nameplates` (the laser-engraving cover) shows a third-party brand name and part
+  and serial numbers. Keep it off new featured spots until RAWASY confirms it may be shown.
+- Backgrounding `cd dir && cmd &` in Bash runs the `cd` in the background job; later lines still run in
+  the old directory. Use absolute paths for background jobs.
 - For a side-by-side build of an older commit, use a `git worktree` with `cp -al node_modules`.
   Turbopack rejects a symlinked `node_modules` that points outside the project.
 - Chromium full-page screenshots taller than about 16,000 px come out blank at the bottom (the 390 px

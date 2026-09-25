@@ -6,17 +6,20 @@ fabrication, laser engraving and scaffolding in Riyadh.
 
 **Status: stages 1A (foundation) and 1B (homepage) are approved. Stage 1C (core inner pages:
 about, services overview, industries, clients, certificates, contact / quote, privacy, terms) is
-built, and Stage 1C-V (a global visual enhancement pass over the homepage below the hero and those
-eight pages) has been applied. Both await visual approval.** The remaining routes (service and project detail pages,
-capabilities, projects) are set up and localized, and show an "in development" page until their
-stage is built and approved (see the approval gate in the Phase 1 brief).
+built. The 1C-V visual pass was not approved, and the Visual Redesign V2 correction pass has been
+applied on top of it: a richer semantic palette, visible borders and shadows, cards and panels,
+Sora / Manrope typography, a rebuilt About page, an expanded homepage introduction, an unnumbered
+clients wall, a Google map on the contact page, and the Projects overview (brought forward from
+Stage 1F). It awaits visual approval.** The remaining routes (service and project detail pages,
+capabilities) are set up and localized, and show an "in development" page until their stage is
+built and approved (see the approval gate in the Phase 1 brief).
 
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
 | Styling | Tailwind CSS v4 + semantic CSS tokens (`src/app/globals.css`) |
 | Motion | GSAP 3 + ScrollTrigger (hero, scroll scenes), CSS/IntersectionObserver for reveals |
-| Fonts | Archivo (English), Noto Kufi Arabic (Arabic display), IBM Plex Sans Arabic (Arabic body), Geist Mono, all via `next/font` |
+| Fonts | Sora (English display), Manrope (English text and UI), Noto Kufi Arabic (Arabic display), IBM Plex Sans Arabic (Arabic text), Geist Mono (technical labels), all self-hosted via `next/font` |
 | Rendering | Static pages for every route in both languages (109 pages at build time) |
 
 ## Getting started
@@ -64,7 +67,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-09-24, stage 1C-V visual enhancement)
+docs/reports/                Stage reports (latest: 2026-09-25, visual redesign V2)
 ```
 
 ### Languages and RTL
@@ -102,18 +105,43 @@ theme. Where supported, switching themes reveals the new theme with a circular w
 
 ### Visual system
 
-The look is precision engineering, metal fabrication and architectural detail: layered metal sheets,
-not floating cards. Surfaces come in standard, elevated, recessed, raised (`.panel-raised`) and brushed
-metal (`.panel-metal`) versions, with semantic depth tokens (`--shadow-low`, `--shadow-medium`,
-`--shadow-metal`, `--shadow-inset`). Reusable pieces in `src/components/visual/`:
+Precision engineering, metal fabrication and architectural detail: layered metal plates with visible
+edges and shadows, colourful but controlled. Since V2 the palette has semantic roles, set on any
+card, chip or tag with `data-tone` (`--tone`, `--tone-ink`, `--tone-surface`, `--tone-line`):
 
-- `TechnicalFrame` / `FrameMarks`: 1px rules that draw in, corner marks, an accent edge on hover,
-  focus or `data-active`, and a marker that runs the top edge.
-- `Backdrop` (engineering grid, fine grid, perforated field; optionally drifting) and `ScanLine`.
-- `SectionRule` (architectural hairline above section headers), `PointerLight` (a soft light that
-  follows the mouse on desktop), `Nameplate` (riveted plate with the registered names).
-- `MediaFrame` (in `inner/`) is the image frame: crop and registration marks, numbered captions,
-  hover zoom, a subtle parallax and never wider than the source image.
+| Role | Colour | Used for |
+| --- | --- | --- |
+| `brand` | RAWASY orange `#F15F22` | primary actions, active states, key indicators |
+| `eng` | steel blue `#355C70 / #416F82` | engineering, machinery, information surfaces |
+| `proc` | industrial teal `#39766F` | process, capability, site support |
+| `craft` | brass `#A98549 / #BEA069` | craftsmanship, certificates, premium details |
+| slate / graphite | `#34434A`, `#1E2123` | dark bands and structured panels |
+
+Each role has an ink colour for small text (AA on its surfaces, tested in both themes). Tokens:
+borders `--border-subtle / --border / --border-strong / --border-ink` plus `--border-active` and
+steel, teal and brass edges; shadows `--shadow-card / --shadow-raised / --shadow-image /
+--shadow-floating / --shadow-inset` (older names are aliases). Section surfaces: `.sec-eng`,
+`.sec-proc`, `.sec-craft` (tinted), `.sec-deep` (recessed) and `.sec-slate` (dark band). Cards:
+`.card`, `.card-edge` (a 3px top edge in the tone), `.card-link` (lifts on hover and focus) and
+`.card-arrow`; `.icon-chip`, `.tone-tag` and `.tone-ink`. Buttons: primary (orange), `secondary`
+(graphite, steel on hover), `steel` and `teal` (contextual), `outline`.
+
+Reusable pieces:
+
+- `src/components/ui/LineIcons.tsx`: industrial line icons (services, site support, process,
+  company) on a 32-unit grid, always decorative.
+- `src/components/cards/`: `ServiceCard` (a service line as a card, optional photo and scope tags)
+  and `SupportList` (site-support tiles).
+- `src/components/visual/`: `TechnicalFrame` / `FrameMarks`, `Backdrop` (grid, fine grid,
+  perforated; optionally drifting), `ScanLine`, `SectionRule`, `PointerLight`, `Nameplate`.
+- `MediaFrame` (in `inner/`) is the image frame, never wider than the source image.
+- Projects (`src/components/projects/`): hero collage, featured project, highlights, a filterable
+  masonry gallery (`ProjectFilter` + view transitions) and a text index; `src/lib/project-cards.ts`
+  chooses a card layout per project that respects the small source photos.
+- Clients: `ClientWall` with `src/lib/logo-wall.ts` (plans double-width cells per breakpoint so every
+  row is full; no numbers or counts).
+- Contact: `LocationSection` with `src/lib/maps.ts` (a keyless Google Maps embed and directions link
+  built from the verified address; no coordinates are stored).
 
 Decoration is always `aria-hidden`. Ambient motion runs only while on screen and never with reduced
 motion; it animates transform and opacity only.
@@ -180,11 +208,14 @@ internal links); `stage-1c.spec.ts` covers the inner pages (routes, language and
 the noindex gate, breadcrumbs, clients, certificate dialog, quote form, legal pages, 404, overflow at
 360/390/834 px, keyboard, reduced motion, no-JS); `visual-system.spec.ts` covers the visual system
 (ambient motion only on screen, reduced motion and touch, active rows and contents, focus frames,
-decoration hidden from assistive technology). In a cloud session Chromium is preinstalled at
+decoration hidden from assistive technology); `redesign-v2.spec.ts` covers the V2 pass (projects
+filters and grid, clients wall without numbering, contact map, fonts, colour-role contrast in both
+themes, responsive layouts, reduced motion, keyboard). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages
 
-1D service pages · 1E machinery explorer page · 1F projects and gallery · 1G (its clients,
+1D service pages · 1E capabilities and machinery page · 1F project detail pages (the projects
+overview was built in V2) · 1G (its clients,
 certificates and contact pages moved into 1C) · 1H Arabic completion · 1I motion polish ·
 1J SEO/performance QA and release. Phase 2 (admin panel) follows Phase 1 approval.
