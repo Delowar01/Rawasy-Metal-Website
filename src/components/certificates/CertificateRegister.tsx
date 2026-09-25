@@ -51,13 +51,18 @@ export function CertificateRegister({
 
   return (
     <>
-      <ol className="border-b border-line">
+      <ol className="grid gap-6 lg:gap-8">
         {documents.map((doc, i) => {
           const [cover] = doc.previews;
           const portrait = cover.height > cover.width;
           const n = String(i + 1).padStart(2, "0");
           return (
-            <li key={doc.slug} id={doc.slug} className="grid gap-x-12 gap-y-8 border-t border-line py-12 sm:py-14 lg:grid-cols-12 lg:py-20">
+            <li
+              key={doc.slug}
+              id={doc.slug}
+              className="card card-edge grid gap-x-12 gap-y-8 p-6 sm:p-8 lg:grid-cols-12 lg:p-12"
+              data-tone="craft"
+            >
               <figure className="lg:col-span-5">
                 <a
                   href={cover.src}
@@ -65,12 +70,12 @@ export function CertificateRegister({
                   aria-haspopup="dialog"
                   data-cursor="view"
                   aria-label={`${labels.view}: ${doc.title}`}
-                  className="tf-host group relative block aspect-[4/3] w-full bg-strong shadow-[var(--shadow-metal)]"
+                  className="proj-plate tf-host group relative block aspect-[4/3] w-full shadow-[var(--shadow-inset)]"
                   data-reveal="frame"
                 >
                   {/* The document lies on a perforated fabrication table; a light follows the pointer. */}
                   <span aria-hidden className="absolute inset-0 overflow-hidden">
-                    <span className="bg-perforated absolute inset-0 opacity-60" />
+                    <span className="bg-perforated absolute inset-0 opacity-40" />
                     <PointerLight />
                   </span>
                   <span className="absolute inset-0 flex items-center justify-center">
@@ -88,20 +93,20 @@ export function CertificateRegister({
                   <span aria-hidden className="t-num absolute start-4 top-3.5 text-[0.66rem] tracking-[0.14em] text-ink-2" dir="ltr">
                     DOC {n}
                   </span>
-                  <span className="absolute bottom-4 end-4 grid size-10 place-items-center bg-ink text-background transition-colors group-hover:bg-accent group-hover:text-[#17191a]">
+                  <span className="absolute bottom-4 end-4 grid size-10 place-items-center bg-ink text-background transition-colors group-hover:bg-[var(--craft)] group-hover:text-[#17191a]">
                     <PlusIcon size={18} />
                   </span>
                   <FrameMarks />
                 </a>
                 <figcaption className="t-label mt-5 flex items-center gap-3 text-ink-3">
-                  <span className="t-num text-accent-ink">{`${labels.figure} ${n}`}</span>
+                  <span className="t-num tone-ink">{`${labels.figure} ${n}`}</span>
                   <span aria-hidden className="redaction-swatch" />
                   {labels.preview}
                 </figcaption>
               </figure>
 
               <div className="lg:col-span-6 lg:col-start-7 lg:self-center">
-                <p className="t-label flex items-center gap-3 text-accent-ink" data-reveal="fade">
+                <p className="t-label tone-ink flex items-center gap-3" data-reveal="fade">
                   <span className="t-num text-ink-3">{n}</span>
                   {doc.issuer}
                 </p>

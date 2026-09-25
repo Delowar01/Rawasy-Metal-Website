@@ -9,44 +9,95 @@
 
 /* ---------- Semantic tokens: light (default) ---------- */
 :root {
+  /* Fixed palette. Orange is the brand and primary action colour; the
+     supporting colours carry meaning (see the role tokens below) and decorate
+     surfaces, borders, icons and highlights — never long runs of text. */
+  --c-orange: #f15f22;
+  --c-steel-600: #355c70;
+  --c-steel-500: #416f82;
+  --c-steel-400: #547f91;
+  --c-slate-700: #34434a;
+  --c-slate-600: #455861;
+  --c-teal-600: #39766f;
+  --c-teal-500: #4b8980;
+  --c-brass-600: #a98549;
+  --c-brass-500: #bea069;
+  --c-brass-300: #d1b986;
+
   /* Surfaces, from deepest to highest: recessed wells and bands sit below the
-     warm off-white base; sheets and panels are raised above it. */
+     warm off-white base; sheets and cards are raised above it. */
   --background: #f3f1ed;
-  --background-deep: #eceae5;
+  --background-deep: #ebe8e2;
   --surface: #ecebe6;
-  --surface-recessed: #e8e6e1;
-  --surface-elevated: #f9f8f5;
-  --surface-strong: #e2e0db;
-  --text-primary: #1e2021;
-  --text-secondary: #4a4c4e;
-  --text-tertiary: #67696b;
-  /* Border hierarchy: faint internal rules → default → strong frames → charcoal ink lines. */
-  --border-faint: rgb(30 32 33 / 0.07);
-  --border: rgb(30 32 33 / 0.12);
-  --border-strong: rgb(30 32 33 / 0.24);
+  --surface-recessed: #e6e3dd;
+  --surface-elevated: #fbfaf7;
+  --surface-strong: #e0ddd6;
+  --text-primary: #1b1e20;
+  --text-secondary: #464a4d;
+  --text-tertiary: #62666a;
+
+  /* Borders: subtle internal rules → default → strong frames → ink lines, plus
+     active (orange) and role colours. Visible, never heavy. */
+  --border-subtle: rgb(30 32 33 / 0.1);
+  --border: rgb(30 32 33 / 0.17);
+  --border-strong: rgb(30 32 33 / 0.3);
   --border-ink: rgb(30 32 33 / 0.62);
+  --border-faint: var(--border-subtle);
   --accent: #f15f22;
   --accent-hover: #d9501a;
   --accent-text: #b8440f;
   --accent-soft: rgb(241 95 34 / 0.1);
   --focus: #b8440f;
 
-  /* Always-dark band used for statement sections */
-  --band: #1e2021;
-  --band-surface: #252728;
-  --band-text: #eceae5;
-  --band-text-2: #a8a6a1;
-  --band-border: rgb(236 234 229 / 0.12);
+  /* Semantic roles: engineering & machinery (steel), process & capability
+     (teal), craftsmanship & premium details (brass). Each has a mark colour,
+     an ink for small text (AA on its own surface and on the base), tinted
+     surfaces and a border. */
+  --eng: #416f82;
+  --eng-ink: #355c70;
+  --eng-surface: #e6edf0;
+  --eng-surface-2: #d8e3e8;
+  --eng-line: rgb(65 111 130 / 0.42);
+  --proc: #39766f;
+  --proc-ink: #2f6660;
+  --proc-surface: #e4eeeb;
+  --proc-surface-2: #d4e5e0;
+  --proc-line: rgb(57 118 111 / 0.42);
+  --craft: #a98549;
+  --craft-ink: #7a5c26;
+  --craft-surface: #f3ecdf;
+  --craft-surface-2: #e9ddc6;
+  --craft-line: rgb(169 133 73 / 0.5);
+  --border-active: var(--accent);
+  --border-steel: var(--eng-line);
+  --border-teal: var(--proc-line);
+  --border-brass: var(--craft-line);
 
-  /* Buttons */
-  --btn-bg: #1e2021;
-  --btn-fg: #f3f1ed;
-  --btn-hover: #f15f22;
-  --btn-hover-fg: #17191a;
+  /* Always-dark bands: graphite (statements) and deep slate (technical blocks). */
+  --band: #1e2123;
+  --band-surface: #262a2d;
+  --band-text: #eceae5;
+  --band-text-2: #aeb2b4;
+  --band-border: rgb(236 234 229 / 0.14);
+  --slate: #34434a;
+  --slate-surface: #3d4e56;
+  --slate-text: #eef1f2;
+  --slate-text-2: #c3cdd2;
+  --slate-border: rgb(222 232 236 / 0.18);
+
+  /* Buttons: primary (orange), secondary (graphite → steel), contextual. */
+  --btn-bg: #f15f22;
+  --btn-fg: #17191a;
+  --btn-hover: #1b1e20;
+  --btn-hover-fg: #f3f1ed;
+  --btn2-bg: #262b2e;
+  --btn2-fg: #f3f1ed;
+  --btn2-hover: #355c70;
+  --btn2-hover-fg: #ffffff;
 
   /* Materials */
-  --grid-line: rgb(30 32 33 / 0.055);
-  --perf-dot: rgb(30 32 33 / 0.16);
+  --grid-line: rgb(30 32 33 / 0.065);
+  --perf-dot: rgb(30 32 33 / 0.17);
   --metal-a: #d6d5d1;
   --metal-b: #efeeeb;
   --metal-c: #c3c2be;
@@ -58,157 +109,229 @@
   --rivet: rgb(30 32 33 / 0.3);
   --grain-opacity: 0.05;
   --grain-blend: multiply;
-  --glass: rgb(243 241 237 / 0.78);
+  --glass: rgb(243 241 237 / 0.8);
 
-  /* Depth: layered metal sheets, not floating cards. */
-  --edge-light: rgb(255 255 255 / 0.8);
-  --edge-shade: rgb(30 32 33 / 0.06);
+  /* Depth: layered metal plates. Cards sit just above the surface, raised
+     sheets clearly above it, images cast a contact shadow; wells sit below. */
+  --edge-light: rgb(255 255 255 / 0.85);
+  --edge-shade: rgb(24 27 29 / 0.07);
   --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0) 46%);
-  --shadow-low: 0 1px 0 rgb(30 32 33 / 0.04), 0 1px 2px rgb(30 32 33 / 0.06);
-  --shadow-medium: 0 1px 2px rgb(30 32 33 / 0.05), 0 12px 26px -14px rgb(30 32 33 / 0.24);
-  --shadow-metal:
-    inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 0 rgb(30 32 33 / 0.05),
-    0 2px 3px -1px rgb(30 32 33 / 0.08), 0 24px 44px -28px rgb(30 32 33 / 0.42);
-  --shadow-inset: inset 0 1px 2px rgb(30 32 33 / 0.08), inset 0 0 0 1px rgb(30 32 33 / 0.025);
-  --shadow-accent: 0 14px 34px -20px rgb(241 95 34 / 0.55);
-  --shadow-soft: 0 1px 2px rgb(30 32 33 / 0.06), 0 12px 40px -12px rgb(30 32 33 / 0.18);
+  --shadow-card: 0 1px 1px rgb(24 27 29 / 0.06), 0 2px 6px -1px rgb(24 27 29 / 0.1), 0 10px 22px -12px rgb(24 27 29 / 0.24);
+  --shadow-raised:
+    inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 1px rgb(24 27 29 / 0.08),
+    0 4px 8px -2px rgb(24 27 29 / 0.12), 0 22px 40px -18px rgb(24 27 29 / 0.4);
+  --shadow-image: 0 2px 4px rgb(24 27 29 / 0.14), 0 18px 34px -14px rgb(24 27 29 / 0.46);
+  --shadow-floating: 0 2px 6px rgb(24 27 29 / 0.1), 0 28px 56px -18px rgb(24 27 29 / 0.45);
+  --shadow-inset: inset 0 2px 3px rgb(24 27 29 / 0.1), inset 0 0 0 1px rgb(24 27 29 / 0.05);
+  --shadow-accent: 0 14px 34px -18px rgb(241 95 34 / 0.6);
+  /* Earlier names, kept as aliases. */
+  --shadow-low: var(--shadow-card);
+  --shadow-medium: var(--shadow-image);
+  --shadow-metal: var(--shadow-raised);
+  --shadow-soft: var(--shadow-floating);
   /* Hover lifts a row towards the light (never darker, so text contrast only rises). */
-  --row-tint: rgb(255 255 255 / 0.5);
+  --row-tint: rgb(255 255 255 / 0.55);
   --light-spot: rgb(255 255 255 / 0.62);
   --scan: rgb(241 95 34 / 0.55);
+  /* Client logos: monochrome silhouettes; a revealed logo sits on a paper plate. */
+  --logo-filter: none;
+  --logo-mono-opacity: 0.6;
+  --logo-plate: var(--surface-elevated);
+  --logo-plate-ink: var(--text-primary);
 
   color-scheme: light;
 }
 
-/* ---------- Semantic tokens: dark ---------- */
+/* ---------- Semantic tokens: dark (graphite base, blue-grey panels) ---------- */
 :root[data-theme="dark"] {
-  --background: #17191a;
-  --background-deep: #121415;
-  --surface: #1d1f21;
-  --surface-recessed: #131516;
-  --surface-elevated: #24272a;
-  --surface-strong: #2f3235;
+  --background: #16191b;
+  --background-deep: #111416;
+  --surface: #1c2023;
+  --surface-recessed: #121517;
+  --surface-elevated: #232a2e;
+  --surface-strong: #2d353a;
   --text-primary: #eceae5;
-  --text-secondary: #a8a6a1;
-  --text-tertiary: #95938d;
-  --border-faint: rgb(236 234 229 / 0.05);
-  --border: rgb(236 234 229 / 0.09);
-  --border-strong: rgb(236 234 229 / 0.18);
-  --border-ink: rgb(236 234 229 / 0.42);
+  --text-secondary: #aeb3b5;
+  --text-tertiary: #979da0;
+  --border-subtle: rgb(196 210 216 / 0.09);
+  --border: rgb(196 210 216 / 0.15);
+  --border-strong: rgb(196 210 216 / 0.26);
+  --border-ink: rgb(236 234 229 / 0.45);
   --accent: #f15f22;
   --accent-hover: #ff7433;
   --accent-text: #ff7a3d;
-  --accent-soft: rgb(241 95 34 / 0.12);
+  --accent-soft: rgb(241 95 34 / 0.13);
   --focus: #ff7a3d;
-
-  --band: #0f1112;
-  --band-surface: #1a1c1d;
+  --eng: #5f8ea2;
+  --eng-ink: #92b8c9;
+  --eng-surface: #17222a;
+  --eng-surface-2: #1d2b34;
+  --eng-line: rgb(95 142 162 / 0.5);
+  --proc: #56978d;
+  --proc-ink: #8cc7bc;
+  --proc-surface: #152320;
+  --proc-surface-2: #1b2d29;
+  --proc-line: rgb(86 151 141 / 0.5);
+  --craft: #bea069;
+  --craft-ink: #d6be8c;
+  --craft-surface: #211d16;
+  --craft-surface-2: #2a251b;
+  --craft-line: rgb(190 160 105 / 0.5);
+  --band: #0f1213;
+  --band-surface: #1a1e20;
   --band-text: #eceae5;
-  --band-text-2: #a8a6a1;
-  --band-border: rgb(236 234 229 / 0.1);
-
+  --band-text-2: #aeb2b4;
+  --band-border: rgb(236 234 229 / 0.12);
+  --slate: #1e2a30;
+  --slate-surface: #25343b;
+  --slate-text: #eceae5;
+  --slate-text-2: #b3c1c8;
+  --slate-border: rgb(200 220 228 / 0.16);
   --btn-bg: #f15f22;
   --btn-fg: #17191a;
   --btn-hover: #eceae5;
   --btn-hover-fg: #17191a;
-
-  --grid-line: rgb(236 234 229 / 0.04);
-  --perf-dot: rgb(236 234 229 / 0.13);
-  --metal-a: #2a2c2d;
-  --metal-b: #3b3d3e;
-  --metal-c: #222425;
+  --btn2-bg: #2f3d44;
+  --btn2-fg: #eceae5;
+  --btn2-hover: #416f82;
+  --btn2-hover-fg: #ffffff;
+  --grid-line: rgb(214 226 232 / 0.05);
+  --perf-dot: rgb(214 226 232 / 0.14);
+  --metal-a: #2a2e30;
+  --metal-b: #3b4043;
+  --metal-c: #222628;
   --metal-hair: rgb(255 255 255 / 0.06);
   --metal-edge: rgb(236 234 229 / 0.16);
-  --plate-a: #2a2d2f;
-  --plate-b: #313436;
-  --plate-c: #25282a;
+  --plate-a: #2a2f32;
+  --plate-b: #323a3e;
+  --plate-c: #252a2d;
   --rivet: rgb(236 234 229 / 0.28);
   --grain-opacity: 0.06;
   --grain-blend: overlay;
-  --glass: rgb(23 25 26 / 0.74);
-
-  --edge-light: rgb(255 255 255 / 0.065);
-  --edge-shade: rgb(0 0 0 / 0.38);
-  --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0) 46%);
-  --shadow-low: 0 1px 0 rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.3);
-  --shadow-medium: 0 1px 2px rgb(0 0 0 / 0.35), 0 16px 32px -16px rgb(0 0 0 / 0.7);
-  --shadow-metal:
-    inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 0 rgb(0 0 0 / 0.45),
-    0 26px 46px -26px rgb(0 0 0 / 0.9);
-  --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.02);
-  --shadow-accent: 0 16px 38px -22px rgb(241 95 34 / 0.5);
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 18px 50px -16px rgb(0 0 0 / 0.55);
-  --row-tint: rgb(255 255 255 / 0.028);
+  --glass: rgb(22 25 27 / 0.78);
+  --edge-light: rgb(255 255 255 / 0.075);
+  --edge-shade: rgb(0 0 0 / 0.42);
+  --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0) 46%);
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 22px -12px rgb(0 0 0 / 0.75);
+  --shadow-raised:
+    inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 2px 4px rgb(0 0 0 / 0.45),
+    0 26px 46px -20px rgb(0 0 0 / 0.95);
+  --shadow-image: 0 2px 4px rgb(0 0 0 / 0.5), 0 22px 40px -16px rgb(0 0 0 / 0.9);
+  --shadow-floating: 0 2px 6px rgb(0 0 0 / 0.5), 0 30px 60px -20px rgb(0 0 0 / 0.95);
+  --shadow-inset: inset 0 2px 5px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.03);
+  --shadow-accent: 0 16px 38px -20px rgb(241 95 34 / 0.55);
+  --row-tint: rgb(255 255 255 / 0.03);
   --light-spot: rgb(255 255 255 / 0.075);
   --scan: rgb(255 122 61 / 0.6);
-
+  --logo-filter: invert(1);
+  --logo-mono-opacity: 0.62;
+  --logo-plate: #e6e4de;
+  --logo-plate-ink: #26292b;
   color-scheme: dark;
 }
 
 /* No-JS fallback: follow the OS until the boot script sets data-theme. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --background: #17191a;
-    --background-deep: #121415;
-    --surface: #1d1f21;
-    --surface-recessed: #131516;
-    --surface-elevated: #24272a;
-    --surface-strong: #2f3235;
+    --background: #16191b;
+    --background-deep: #111416;
+    --surface: #1c2023;
+    --surface-recessed: #121517;
+    --surface-elevated: #232a2e;
+    --surface-strong: #2d353a;
     --text-primary: #eceae5;
-    --text-secondary: #a8a6a1;
-    --text-tertiary: #95938d;
-    --border-faint: rgb(236 234 229 / 0.05);
-    --border: rgb(236 234 229 / 0.09);
-    --border-strong: rgb(236 234 229 / 0.18);
-    --border-ink: rgb(236 234 229 / 0.42);
+    --text-secondary: #aeb3b5;
+    --text-tertiary: #979da0;
+    --border-subtle: rgb(196 210 216 / 0.09);
+    --border: rgb(196 210 216 / 0.15);
+    --border-strong: rgb(196 210 216 / 0.26);
+    --border-ink: rgb(236 234 229 / 0.45);
+    --accent: #f15f22;
     --accent-hover: #ff7433;
     --accent-text: #ff7a3d;
+    --accent-soft: rgb(241 95 34 / 0.13);
     --focus: #ff7a3d;
-    --band: #0f1112;
-    --band-surface: #1a1c1d;
+    --eng: #5f8ea2;
+    --eng-ink: #92b8c9;
+    --eng-surface: #17222a;
+    --eng-surface-2: #1d2b34;
+    --eng-line: rgb(95 142 162 / 0.5);
+    --proc: #56978d;
+    --proc-ink: #8cc7bc;
+    --proc-surface: #152320;
+    --proc-surface-2: #1b2d29;
+    --proc-line: rgb(86 151 141 / 0.5);
+    --craft: #bea069;
+    --craft-ink: #d6be8c;
+    --craft-surface: #211d16;
+    --craft-surface-2: #2a251b;
+    --craft-line: rgb(190 160 105 / 0.5);
+    --band: #0f1213;
+    --band-surface: #1a1e20;
+    --band-text: #eceae5;
+    --band-text-2: #aeb2b4;
+    --band-border: rgb(236 234 229 / 0.12);
+    --slate: #1e2a30;
+    --slate-surface: #25343b;
+    --slate-text: #eceae5;
+    --slate-text-2: #b3c1c8;
+    --slate-border: rgb(200 220 228 / 0.16);
     --btn-bg: #f15f22;
     --btn-fg: #17191a;
     --btn-hover: #eceae5;
-    --grid-line: rgb(236 234 229 / 0.04);
-    --perf-dot: rgb(236 234 229 / 0.13);
-    --metal-a: #2a2c2d;
-    --metal-b: #3b3d3e;
-    --metal-c: #222425;
+    --btn-hover-fg: #17191a;
+    --btn2-bg: #2f3d44;
+    --btn2-fg: #eceae5;
+    --btn2-hover: #416f82;
+    --btn2-hover-fg: #ffffff;
+    --grid-line: rgb(214 226 232 / 0.05);
+    --perf-dot: rgb(214 226 232 / 0.14);
+    --metal-a: #2a2e30;
+    --metal-b: #3b4043;
+    --metal-c: #222628;
     --metal-hair: rgb(255 255 255 / 0.06);
     --metal-edge: rgb(236 234 229 / 0.16);
-    --plate-a: #2a2d2f;
-    --plate-b: #313436;
-    --plate-c: #25282a;
+    --plate-a: #2a2f32;
+    --plate-b: #323a3e;
+    --plate-c: #252a2d;
     --rivet: rgb(236 234 229 / 0.28);
-    --glass: rgb(23 25 26 / 0.74);
-    --edge-light: rgb(255 255 255 / 0.065);
-    --edge-shade: rgb(0 0 0 / 0.38);
-    --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0) 46%);
-    --shadow-low: 0 1px 0 rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.3);
-    --shadow-medium: 0 1px 2px rgb(0 0 0 / 0.35), 0 16px 32px -16px rgb(0 0 0 / 0.7);
-    --shadow-metal:
-      inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 1px 0 rgb(0 0 0 / 0.45),
-      0 26px 46px -26px rgb(0 0 0 / 0.9);
-    --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.02);
-    --shadow-accent: 0 16px 38px -22px rgb(241 95 34 / 0.5);
-    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 18px 50px -16px rgb(0 0 0 / 0.55);
-    --row-tint: rgb(255 255 255 / 0.028);
+    --grain-opacity: 0.06;
+    --grain-blend: overlay;
+    --glass: rgb(22 25 27 / 0.78);
+    --edge-light: rgb(255 255 255 / 0.075);
+    --edge-shade: rgb(0 0 0 / 0.42);
+    --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0) 46%);
+    --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 22px -12px rgb(0 0 0 / 0.75);
+    --shadow-raised:
+      inset 0 1px 0 var(--edge-light), inset 0 -1px 0 var(--edge-shade), 0 2px 4px rgb(0 0 0 / 0.45),
+      0 26px 46px -20px rgb(0 0 0 / 0.95);
+    --shadow-image: 0 2px 4px rgb(0 0 0 / 0.5), 0 22px 40px -16px rgb(0 0 0 / 0.9);
+    --shadow-floating: 0 2px 6px rgb(0 0 0 / 0.5), 0 30px 60px -20px rgb(0 0 0 / 0.95);
+    --shadow-inset: inset 0 2px 5px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.03);
+    --shadow-accent: 0 16px 38px -20px rgb(241 95 34 / 0.55);
+    --row-tint: rgb(255 255 255 / 0.03);
     --light-spot: rgb(255 255 255 / 0.075);
     --scan: rgb(255 122 61 / 0.6);
+    --logo-filter: invert(1);
+    --logo-mono-opacity: 0.62;
+    --logo-plate: #e6e4de;
+    --logo-plate-ink: #26292b;
     color-scheme: dark;
   }
 }
 
 /* ---------- Layout, type & motion tokens ---------- */
 :root {
+  /* Small orange text on the dark slate and graphite bands (AA on both): RAWASY orange, lifted. */
+  --accent-on-dark: #ffa072;
   --gutter: clamp(1.25rem, 0.55rem + 3.1vw, 3.5rem);
   --container: 1520px;
   --section-y: clamp(5.5rem, 3.6rem + 7vw, 11rem);
   --header-h: 76px;
 
   /* Font roles per script (faces are self-hosted by next/font, see src/app/fonts.ts). */
-  --ff-display-en: var(--font-archivo);
-  --ff-body-en: var(--font-archivo);
+  --ff-display-en: var(--font-sora);
+  --ff-body-en: var(--font-manrope);
   --ff-display-ar: var(--font-noto-kufi-arabic);
   --ff-body-ar: var(--font-plex-arabic);
   --ff-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -299,6 +422,27 @@
   --color-band-ink: var(--band-text);
   --color-band-ink-2: var(--band-text-2);
   --color-band-line: var(--band-border);
+  --color-line-subtle: var(--border-subtle);
+  --color-eng: var(--eng);
+  --color-eng-ink: var(--eng-ink);
+  --color-eng-surface: var(--eng-surface);
+  --color-eng-surface-2: var(--eng-surface-2);
+  --color-eng-line: var(--eng-line);
+  --color-proc: var(--proc);
+  --color-proc-ink: var(--proc-ink);
+  --color-proc-surface: var(--proc-surface);
+  --color-proc-surface-2: var(--proc-surface-2);
+  --color-proc-line: var(--proc-line);
+  --color-craft: var(--craft);
+  --color-craft-ink: var(--craft-ink);
+  --color-craft-surface: var(--craft-surface);
+  --color-craft-surface-2: var(--craft-surface-2);
+  --color-craft-line: var(--craft-line);
+  --color-slate: var(--slate);
+  --color-slate-surface: var(--slate-surface);
+  --color-slate-ink: var(--slate-text);
+  --color-slate-ink-2: var(--slate-text-2);
+  --color-slate-line: var(--slate-border);
 
   --font-sans: var(--ff-body);
   --font-display: var(--ff-display);
@@ -409,31 +553,31 @@
   }
 
   /* ---------- Typography ----------
-     One scale for both scripts, fluid from 390px to 1440px:
-       display  EN 38→80   AR 40→66     title  EN 26→34  AR 24→32
-       h1       EN 38→70   AR 38→64     h3     EN 22→28  AR 22→26
-       h2       EN 32→50   AR 31→48     h4     18→21
-       h2-compact (supporting sections)  EN 29→44  AR 28→42
-     English display type is uppercase, width-stretched Archivo. Arabic display
-     type is Noto Kufi Arabic, set slightly smaller (Kufi letterforms are large
-     for their em), never tracked, with taller lines for marks and descenders. */
+     English: Sora for display type (hero, page titles, section headings,
+     statements), Manrope for body, navigation, forms and buttons, Geist Mono
+     for technical labels. Arabic: Noto Kufi Arabic for display type, IBM Plex
+     Sans Arabic for body (400/500). One fluid scale from 390px to 1440px:
+       display  EN 35→74   AR 38→66     title  EN 24→34  AR 24→32
+       h1       EN 40→72   AR 38→64     h3     EN 20→26  AR 22→26
+       h2       EN 32→52   AR 31→48     h4     EN 17→19 (Manrope 700)
+       h2-compact (supporting sections)  EN 28→44  AR 28→42
+     Hierarchy steps are wide on purpose: title ≫ section ≫ subsection ≫ body,
+     with captions, mono labels and numerals as distinct voices. */
   .t-display {
     font-family: var(--ff-display);
-    font-weight: 640;
-    font-size: clamp(2.3rem, 1.43rem + 3.96vw, 5rem);
-    line-height: 0.92;
-    letter-spacing: -0.03em;
+    font-weight: 700;
+    font-size: clamp(2.2rem, 1.39rem + 3.46vw, 4.625rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
     text-transform: uppercase;
-    font-variation-settings: "wdth" 112;
   }
 
   .t-h1 {
     font-family: var(--ff-display);
-    font-weight: 620;
-    font-size: clamp(2.4rem, 1.67rem + 3.01vw, 4.375rem);
-    line-height: 0.98;
-    letter-spacing: -0.028em;
-    font-variation-settings: "wdth" 106;
+    font-weight: 650;
+    font-size: clamp(2.5rem, 1.73rem + 3.24vw, 4.5rem);
+    line-height: 1.02;
+    letter-spacing: -0.042em;
     text-wrap: balance;
   }
 
@@ -441,54 +585,52 @@
   .t-h2-compact {
     font-family: var(--ff-display);
     font-weight: 600;
-    font-size: clamp(2rem, 1.58rem + 1.71vw, 3.125rem);
-    line-height: 1.04;
-    letter-spacing: -0.024em;
-    font-variation-settings: "wdth" 104;
+    font-size: clamp(2rem, 1.53rem + 1.9vw, 3.25rem);
+    line-height: 1.08;
+    letter-spacing: -0.036em;
     text-wrap: balance;
   }
 
   .t-h2-compact {
-    font-size: clamp(1.8125rem, 1.46rem + 1.43vw, 2.75rem);
+    font-size: clamp(1.75rem, 1.39rem + 1.52vw, 2.75rem);
   }
 
   .t-title {
     font-family: var(--ff-display);
     font-weight: 600;
-    font-size: clamp(1.625rem, 1.44rem + 0.76vw, 2.125rem);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    font-variation-settings: "wdth" 104;
+    font-size: clamp(1.5rem, 1.23rem + 1.14vw, 2.125rem);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
     text-wrap: balance;
   }
 
   .t-h3 {
     font-family: var(--ff-display);
     font-weight: 600;
-    font-size: clamp(1.375rem, 1.24rem + 0.57vw, 1.75rem);
-    line-height: 1.15;
-    letter-spacing: -0.016em;
-    font-variation-settings: "wdth" 102;
+    font-size: clamp(1.25rem, 1.11rem + 0.57vw, 1.625rem);
+    line-height: 1.25;
+    letter-spacing: -0.024em;
   }
 
+  /* h4 is a UI-weight heading in English (Manrope), Kufi in Arabic. */
   .t-h4 {
-    font-family: var(--ff-display);
-    font-weight: 600;
-    font-size: clamp(1.125rem, 1.055rem + 0.29vw, 1.3125rem);
-    line-height: 1.3;
-    letter-spacing: -0.01em;
+    font-family: var(--ff-body);
+    font-weight: 700;
+    font-size: clamp(1.0625rem, 1.02rem + 0.19vw, 1.1875rem);
+    line-height: 1.35;
+    letter-spacing: -0.012em;
   }
 
   .t-lead {
-    font-size: clamp(1.03rem, 0.97rem + 0.24vw, 1.1875rem);
-    line-height: 1.6;
+    font-size: clamp(1.0625rem, 0.99rem + 0.29vw, 1.25rem);
+    line-height: 1.62;
     color: var(--text-secondary);
     text-wrap: pretty;
   }
 
   .t-body {
     font-size: 1rem;
-    line-height: 1.68;
+    line-height: 1.7;
     color: var(--text-secondary);
     text-wrap: pretty;
   }
@@ -496,6 +638,14 @@
   .t-small {
     font-size: 0.875rem;
     line-height: 1.55;
+  }
+
+  /* Caption: small supporting text under images and in cards. */
+  .t-caption {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--text-secondary);
   }
 
   .t-label {
@@ -514,27 +664,33 @@
     letter-spacing: 0;
   }
 
+  /* Statistical figures and machine values: display face, tabular digits. */
+  .t-stat {
+    font-family: var(--ff-display-en), var(--ff-display);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
   /* Arabic: Kufi display 600 (hero 700), Plex body 400 and labels 500. */
   .t-display:lang(ar) {
     font-weight: 700;
     font-size: clamp(2.4rem, 1.9rem + 2.48vw, 4.125rem);
     line-height: 1.36;
     text-transform: none;
-    font-variation-settings: normal;
   }
 
   .t-h1:lang(ar) {
     font-weight: 600;
     font-size: clamp(2.375rem, 1.77rem + 2.48vw, 4rem);
     line-height: 1.4;
-    font-variation-settings: normal;
   }
 
   .t-h2:lang(ar),
   .t-h2-compact:lang(ar) {
     font-size: clamp(1.9375rem, 1.54rem + 1.62vw, 3rem);
     line-height: 1.45;
-    font-variation-settings: normal;
   }
 
   .t-h2-compact:lang(ar) {
@@ -544,16 +700,16 @@
   .t-title:lang(ar) {
     font-size: clamp(1.5rem, 1.31rem + 0.76vw, 2rem);
     line-height: 1.5;
-    font-variation-settings: normal;
   }
 
   .t-h3:lang(ar) {
     font-size: clamp(1.375rem, 1.28rem + 0.38vw, 1.625rem);
     line-height: 1.55;
-    font-variation-settings: normal;
   }
 
   .t-h4:lang(ar) {
+    font-family: var(--ff-display);
+    font-weight: 600;
     line-height: 1.6;
   }
 
@@ -1078,16 +1234,14 @@
   font-family: var(--ff-display);
   font-weight: 600;
   font-size: clamp(1.875rem, 1.55rem + 1.33vw, 2.75rem);
-  line-height: 1.04;
-  letter-spacing: -0.026em;
-  font-variation-settings: "wdth" 106;
+  line-height: 1.08;
+  letter-spacing: -0.038em;
   text-wrap: balance;
 }
 
 .footer-statement:lang(ar) {
   font-size: clamp(1.75rem, 1.47rem + 1.14vw, 2.5rem);
   line-height: 1.45;
-  font-variation-settings: normal;
 }
 
 /* ==========================================================================
@@ -1097,16 +1251,29 @@
   font-family: var(--ff-display);
   font-weight: 600;
   font-size: clamp(1.875rem, 1.5rem + 1.52vw, 2.875rem);
-  line-height: 1.08;
-  letter-spacing: -0.026em;
-  font-variation-settings: "wdth" 104;
+  line-height: 1.1;
+  letter-spacing: -0.038em;
   text-wrap: balance;
 }
 
 .intro-statement:lang(ar) {
   font-size: clamp(1.8125rem, 1.51rem + 1.24vw, 2.625rem);
   line-height: 1.5;
-  font-variation-settings: normal;
+}
+
+/* Vision statement: a quotation set in the display face (an expressive accent). */
+.vision-quote {
+  font-family: var(--ff-display);
+  font-weight: 600;
+  font-size: clamp(1.375rem, 1.13rem + 1vw, 1.95rem);
+  line-height: 1.24;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+
+.vision-quote:lang(ar) {
+  font-size: clamp(1.3rem, 1.12rem + 0.76vw, 1.75rem);
+  line-height: 1.65;
 }
 
 /* ==========================================================================
@@ -1273,10 +1440,9 @@
 .statement {
   font-family: var(--ff-display);
   font-weight: 600;
-  font-size: clamp(2.25rem, 1.275rem + 4vw, 4.875rem);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  font-variation-settings: "wdth" 108;
+  font-size: clamp(2.125rem, 1.23rem + 3.67vw, 4.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
   text-wrap: balance;
 }
 
@@ -1284,7 +1450,6 @@
   font-weight: 700;
   font-size: clamp(2.125rem, 1.475rem + 2.67vw, 3.875rem);
   line-height: 1.42;
-  font-variation-settings: normal;
 }
 
 /* Each half clips to its own box, so the box keeps room for ascenders,
@@ -1657,29 +1822,6 @@
     clip-path: polygon(0 26px, 26px 0, 100% 0, 100% 100%, 0 100%);
   }
 
-  /* Client logo sheet: logo size steps with the cell size. */
-  .client-grid {
-    --logo-scale: 0.6;
-  }
-
-  @media (min-width: 40rem) {
-    .client-grid {
-      --logo-scale: 0.78;
-    }
-  }
-
-  @media (min-width: 64rem) {
-    .client-grid {
-      --logo-scale: 0.72;
-    }
-  }
-
-  @media (min-width: 80rem) {
-    .client-grid {
-      --logo-scale: 0.86;
-    }
-  }
-
   /* Offset outline behind a framed photograph (MediaFrame). */
   .media-offset {
     inset-block: 14px -14px;
@@ -1693,6 +1835,7 @@
     min-height: 3.1rem;
     padding: 0.75rem 1rem;
     border: 1px solid var(--border-strong);
+    border-bottom-color: color-mix(in srgb, var(--text-primary) 46%, transparent);
     border-radius: 0;
     background: var(--surface-elevated);
     box-shadow: var(--shadow-inset);
@@ -1713,6 +1856,7 @@
 
   .form-control:hover {
     border-color: var(--text-tertiary);
+    border-bottom-color: var(--text-secondary);
   }
 
   .form-control:focus-visible {
@@ -1762,6 +1906,83 @@
     cursor: pointer;
   }
 
+  /* Quote form: each group of fields is its own panel — a header bar, then
+     the fields (elevated) on a recessed plate. */
+  .form-group {
+    border: 1px solid var(--border-strong);
+    background: var(--surface-recessed);
+    box-shadow: var(--shadow-inset);
+  }
+
+  /* Floated, the legend leaves the border notch and becomes a header bar. */
+  .form-group-legend {
+    float: left;
+    float: inline-start;
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.8rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-elevated);
+  }
+
+  .form-group-legend + * {
+    clear: both;
+  }
+
+  .form-group-index {
+    display: inline-grid;
+    min-width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 1px solid var(--tone-line, var(--border));
+    background: var(--tone-surface, var(--surface));
+    color: var(--tone-ink, var(--text-primary));
+    font-size: 0.72rem;
+  }
+
+  .form-group-body {
+    padding: 1.25rem 1.1rem 1.4rem;
+  }
+
+  @media (min-width: 40rem) {
+    .form-group-body {
+      padding: 1.5rem 1.5rem 1.7rem;
+    }
+
+    .form-group-legend {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  /* Contact map: a framed well; a plan grid with a marker shows until the map loads. */
+  .map-well {
+    border: 1px solid var(--border-strong);
+    background: var(--surface-recessed);
+    box-shadow: var(--shadow-image);
+  }
+
+  .map-plate {
+    background:
+      linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 28px 28px,
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 28px 28px;
+  }
+
+  .map-plate-rings {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 9rem;
+    height: 9rem;
+    border: 1px solid var(--eng-line);
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 3rem color-mix(in srgb, var(--eng) 7%, transparent),
+      0 0 0 6rem color-mix(in srgb, var(--eng) 4%, transparent);
+    transform: translate(-50%, -50%);
+  }
+
   /* Decorative outlined numerals. Drawn from data-n so they stay out of the text
      (and accessibility) tree; the list order already carries the numbering. */
   .outline-num::before {
@@ -1777,11 +1998,10 @@
 
   /* File drop area, hatched like a cutting table. */
   .dropzone {
-    border: 1px dashed var(--border-strong);
+    border: 1px dashed var(--border-ink);
     background:
       repeating-linear-gradient(135deg, transparent 0 11px, var(--grid-line) 11px 12px) 0 0,
-      var(--surface-recessed);
-    box-shadow: var(--shadow-inset);
+      var(--surface-elevated);
     transition:
       border-color 0.25s ease,
       background-color 0.25s ease;
@@ -2344,6 +2564,428 @@
   }
 }
 
+/* ==========================================================================
+   Visual system V2: semantic colour roles, sections, cards, icon chips and
+   button hierarchy. Orange = brand and primary action, steel = engineering and
+   machinery, teal = process and capability, brass = craftsmanship and
+   certificates, graphite and deep slate = the industrial base.
+   ========================================================================== */
+@layer components {
+  /* ---------- Buttons: primary (orange) → secondary (graphite/steel) → contextual ---------- */
+  .btn-secondary {
+    --btn-bg: var(--btn2-bg);
+    --btn-fg: var(--btn2-fg);
+    --btn-hover: var(--btn2-hover);
+    --btn-hover-fg: var(--btn2-hover-fg);
+  }
+
+  .btn-steel {
+    --btn-bg: var(--c-steel-600);
+    --btn-fg: #ffffff;
+    --btn-hover: var(--c-slate-700);
+    --btn-hover-fg: #ffffff;
+  }
+
+  .btn-teal {
+    --btn-bg: #2f6660;
+    --btn-fg: #ffffff;
+    --btn-hover: var(--c-slate-700);
+    --btn-hover-fg: #ffffff;
+  }
+
+  /* ---------- Section surfaces ---------- */
+  .sec-deep {
+    background: var(--background-deep);
+    --curtain: var(--background-deep);
+  }
+
+  .sec-eng {
+    background: var(--eng-surface);
+    --curtain: var(--eng-surface);
+    --grid-line: color-mix(in srgb, var(--eng) 16%, transparent);
+    --perf-dot: color-mix(in srgb, var(--eng) 34%, transparent);
+  }
+
+  .sec-proc {
+    background: var(--proc-surface);
+    --curtain: var(--proc-surface);
+    --grid-line: color-mix(in srgb, var(--proc) 16%, transparent);
+    --perf-dot: color-mix(in srgb, var(--proc) 34%, transparent);
+  }
+
+  .sec-craft {
+    background: var(--craft-surface);
+    --curtain: var(--craft-surface);
+    --grid-line: color-mix(in srgb, var(--craft) 18%, transparent);
+    --perf-dot: color-mix(in srgb, var(--craft) 38%, transparent);
+  }
+
+  /* Deep slate block: an always-dark technical band (reuses the band tokens). */
+  .sec-slate {
+    --band: var(--slate);
+    --band-surface: var(--slate-surface);
+    --band-text: var(--slate-text);
+    --band-text-2: var(--slate-text-2);
+    --band-border: var(--slate-border);
+    --curtain: var(--slate);
+    --grid-line: rgb(222 232 236 / 0.06);
+    background: var(--slate);
+    color: var(--slate-text);
+  }
+
+  /* ---------- Tones: a role colour for a card, chip or rule ---------- */
+  [data-tone="brand"] {
+    --tone: var(--accent);
+    --tone-ink: var(--accent-text);
+    --tone-surface: var(--accent-soft);
+    --tone-line: rgb(241 95 34 / 0.45);
+  }
+
+  [data-tone="eng"] {
+    --tone: var(--eng);
+    --tone-ink: var(--eng-ink);
+    --tone-surface: var(--eng-surface-2);
+    --tone-line: var(--eng-line);
+  }
+
+  [data-tone="proc"] {
+    --tone: var(--proc);
+    --tone-ink: var(--proc-ink);
+    --tone-surface: var(--proc-surface-2);
+    --tone-line: var(--proc-line);
+  }
+
+  [data-tone="craft"] {
+    --tone: var(--craft);
+    --tone-ink: var(--craft-ink);
+    --tone-surface: var(--craft-surface-2);
+    --tone-line: var(--craft-line);
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    position: relative;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* A coloured top edge in the card's tone. */
+  .card-edge::before {
+    content: "";
+    position: absolute;
+    inset-inline: -1px;
+    top: -1px;
+    height: 3px;
+    background: var(--tone, var(--accent));
+    pointer-events: none;
+  }
+
+  /* Interactive card: lifts, deepens its shadow and takes its tone's border. */
+  .card-link {
+    transition:
+      transform var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) ease,
+      border-color var(--dur-2) ease;
+  }
+
+  .card-link:is(:hover, :focus-visible, :has(:focus-visible)) {
+    transform: translate3d(0, -3px, 0);
+    box-shadow: var(--shadow-raised);
+    border-color: var(--tone-line, var(--border-strong));
+  }
+
+  /* "Explore →" line at the foot of a linked card. */
+  .card-arrow {
+    opacity: 0.55;
+    transition:
+      opacity var(--dur-2) ease,
+      transform var(--dur-2) var(--ease-out);
+  }
+
+  .card-link:is(:hover, :focus-visible, :has(:focus-visible)) .card-arrow {
+    opacity: 1;
+    color: var(--tone-ink, var(--accent-text));
+    transform: translate3d(calc(var(--dir) * 5px), 0, 0);
+  }
+
+  /* Square icon holder in the card's tone. */
+  .icon-chip {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid var(--tone-line, var(--border));
+    background: var(--tone-surface, var(--surface));
+    color: var(--tone, var(--accent));
+    box-shadow: inset 0 1px 0 var(--edge-light);
+  }
+
+  .icon-chip-lg {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+
+  /* Tone ink for small labels. */
+  .tone-ink {
+    color: var(--tone-ink, var(--accent-text));
+  }
+
+  /* Tag chip in a tone. */
+  .tone-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--tone-line, var(--border));
+    background: var(--tone-surface, var(--surface));
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .tone-tag::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    background: var(--tone, var(--accent));
+  }
+}
+
+/* ==========================================================================
+   Projects: filter chips, masonry wall, cards, highlights
+   ========================================================================== */
+@layer components {
+  /* Category chips (toggle buttons). A small square carries the category's tone. */
+  .filter-chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-elevated);
+    box-shadow: var(--shadow-card);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-1) ease,
+      border-color var(--dur-1) ease,
+      color var(--dur-1) ease;
+  }
+
+  .filter-chip:hover {
+    border-color: var(--text-primary);
+  }
+
+  .filter-chip[aria-pressed="true"] {
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--background);
+  }
+
+  .chips-sm .filter-chip {
+    min-height: 2.125rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8125rem;
+    box-shadow: none;
+  }
+
+  .filter-chip-mark {
+    width: 0.55rem;
+    height: 0.55rem;
+    background: var(--tone, var(--accent));
+  }
+
+  .filter-chip[aria-pressed="true"] .filter-chip-mark {
+    outline: 1px solid color-mix(in srgb, var(--background) 60%, transparent);
+  }
+
+  /* The gallery's filter bar stays under the header while the wall scrolls. */
+  .proj-filterbar {
+    background: color-mix(in srgb, var(--background) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Masonry wall: 1 → 2 → 3 → 4 columns; photos keep their own proportions. */
+  .proj-masonry {
+    columns: 1;
+    column-gap: 1.25rem;
+  }
+
+  .proj-item {
+    break-inside: avoid;
+    padding-bottom: 1.25rem;
+  }
+
+  /* Card: border lights in orange, the photo lifts into the light, the
+     category flag appears, the title shifts and the arrow moves. */
+  .proj-card {
+    overflow: hidden;
+  }
+
+  .proj-card:is(:hover, :focus-visible) {
+    border-color: var(--accent);
+  }
+
+  .proj-plate {
+    background:
+      repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 22px),
+      var(--tone-surface, var(--surface-recessed));
+    border-bottom: 1px solid var(--border);
+  }
+
+  .proj-shade {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(to top, rgb(12 14 15 / 0.32), transparent 42%);
+    transition: opacity var(--dur-2) ease;
+  }
+
+  .proj-card:is(:hover, :focus-visible) .proj-shade,
+  .hl-item:is(:hover, :focus-visible) .proj-shade {
+    opacity: 0.35;
+  }
+
+  .proj-flag {
+    position: absolute;
+    bottom: 0.75rem;
+    inset-inline-start: 0.75rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.55rem;
+    background: rgb(14 16 17 / 0.82);
+    color: #f3f1ed;
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+    transition:
+      opacity var(--dur-2) ease,
+      transform var(--dur-2) var(--ease-out);
+  }
+
+  .proj-flag::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--tone, var(--accent));
+  }
+
+  .proj-card:is(:hover, :focus-visible) .proj-flag {
+    opacity: 1;
+    transform: none;
+  }
+
+  .proj-title {
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .proj-card:is(:hover, :focus-visible) .proj-title,
+  .hl-item:is(:hover, :focus-visible) .hl-title {
+    transform: translate3d(calc(var(--dir) * 4px), 0, 0);
+  }
+
+  .proj-arrow {
+    opacity: 0.45;
+    transition:
+      opacity var(--dur-2) ease,
+      transform var(--dur-2) var(--ease-out);
+  }
+
+  :is(.proj-card, .hl-item):is(:hover, :focus-visible) .proj-arrow {
+    opacity: 1;
+    color: var(--accent-text);
+    transform: translate3d(calc(var(--dir) * 5px), 0, 0);
+  }
+
+  .proj-card .zoom-img img,
+  .hl-item .zoom-img img {
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+
+  :is(.proj-card, .hl-item):is(:hover, :focus-visible) .zoom-img img {
+    transform: scale(1.035);
+  }
+
+  .hl-title {
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .hl-num {
+    line-height: 0.9;
+  }
+
+  .hl-num::before {
+    -webkit-text-stroke-color: var(--tone-line, var(--border-strong));
+  }
+
+  .hl-item:is(:hover, :focus-visible) .hl-num::before {
+    -webkit-text-stroke-color: var(--accent);
+  }
+
+  /* Category tags on dark blocks. */
+  .band-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--band-border);
+    background: color-mix(in srgb, var(--band-surface) 70%, transparent);
+    color: var(--band-text);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .band-tag::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--tone, var(--accent));
+  }
+}
+
+@media (min-width: 40rem) {
+  .proj-masonry {
+    columns: 2;
+  }
+}
+
+@media (min-width: 64rem) {
+  .proj-masonry {
+    columns: 3;
+    column-gap: 1.5rem;
+  }
+
+  .proj-item {
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  .proj-masonry {
+    columns: 4;
+  }
+}
+
+/* Filtering re-flows the wall with a view transition (where supported). */
+:root[data-vt="filter"]::view-transition-group(*) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease-out);
+}
+
 /* Controls that only work with JavaScript (the boot script adds .js). Unlayered
    so it wins over display utilities such as .grid. */
 html:not(.js) .js-only {
@@ -2520,8 +3162,233 @@ html:not(.js) .js-only {
   pointer-events: none;
 }
 
-.client-cell:hover .client-line {
+.client-cell:hover .client-line,
+.logo-cell:hover .client-line {
   transform: scaleX(1);
+}
+
+/* ---------- Clients wall ----------
+   One seamless wall: the 1px gaps show the wall's own colour as dividers.
+   Spans come from planSpans() per breakpoint (--span-sm/-md/-lg). */
+.logo-wall {
+  --logo-scale: 0.66;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 7.25rem;
+  gap: 1px;
+  border: 1px solid var(--border);
+  background: var(--border);
+  box-shadow: var(--shadow-raised);
+}
+
+.logo-cell {
+  --span: var(--span-sm);
+  /* Double cells show their (wide) logo larger. */
+  --logo-boost: calc(1 + (var(--span) - 1) * 0.38);
+  position: relative;
+  display: flex;
+  grid-column: span var(--span);
+  background: var(--surface-elevated);
+  transition:
+    background-color var(--dur-2) ease,
+    box-shadow var(--dur-2) ease;
+}
+
+.logo-cell[data-tint="eng"] {
+  background: var(--eng-surface);
+}
+
+.logo-cell[data-tint="proc"] {
+  background: var(--proc-surface);
+}
+
+.logo-cell[data-tint="craft"] {
+  background: var(--craft-surface);
+}
+
+.logo-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 0.75rem 0.75rem 0.65rem;
+}
+
+.logo-mark {
+  position: relative;
+  display: block;
+  max-width: 100%;
+}
+
+.logo-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  transition: color var(--dur-2) ease;
+}
+
+.logo-cell .client-mono {
+  filter: var(--logo-filter);
+  opacity: var(--logo-mono-opacity);
+}
+
+/* Reveal: hovering a cell, or the "original colours" switch, puts each logo
+   in its own colours on a paper plate (a light plate in the dark theme too). */
+.logo-cell:hover,
+.logo-wall-host:has(.logo-toggle-input:checked) .logo-cell {
+  background: var(--logo-plate);
+}
+
+.logo-cell:hover {
+  z-index: 2;
+  box-shadow: var(--shadow-floating);
+}
+
+.logo-cell:hover .client-mono,
+.logo-wall-host:has(.logo-toggle-input:checked) .client-mono {
+  opacity: 0;
+}
+
+.logo-cell:hover .client-color,
+.logo-wall-host:has(.logo-toggle-input:checked) .client-color {
+  opacity: 1;
+  background-image: var(--logo);
+}
+
+.logo-cell:hover .logo-name,
+.logo-wall-host:has(.logo-toggle-input:checked) .logo-name {
+  color: var(--logo-plate-ink);
+}
+
+@media (min-width: 48rem) {
+  .logo-wall {
+    --logo-scale: 0.84;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: 8.75rem;
+  }
+
+  .logo-cell {
+    --span: var(--span-md);
+  }
+}
+
+@media (min-width: 64rem) {
+  .logo-wall {
+    --logo-scale: 0.94;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 9.5rem;
+  }
+
+  .logo-cell {
+    --span: var(--span-lg);
+  }
+}
+
+@media (min-width: 80rem) {
+  .logo-wall {
+    --logo-scale: 1.04;
+    grid-auto-rows: 10.25rem;
+  }
+}
+
+/* A short logo row (About teaser): 2, 3 or 6 across so the row is always full. */
+.logo-strip {
+  --logo-scale: 0.9;
+  grid-auto-rows: 7.5rem;
+}
+
+.logo-strip .logo-cell {
+  --span: 1;
+}
+
+@media (min-width: 40rem) {
+  .logo-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .logo-strip {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 8.5rem;
+  }
+}
+
+/* Machine table rows: an orange edge at the start on hover. */
+.machine-row {
+  transition: background-color var(--dur-2) ease;
+}
+
+.machine-row:hover {
+  background: var(--row-tint);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+[dir="rtl"] .machine-row:hover {
+  box-shadow: inset -3px 0 0 var(--accent);
+}
+
+/* "Original colours" switch. */
+.logo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.logo-toggle-track {
+  position: relative;
+  width: 2.35rem;
+  height: 1.3rem;
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-recessed);
+  box-shadow: var(--shadow-inset);
+  transition:
+    background-color var(--dur-2) ease,
+    border-color var(--dur-2) ease;
+}
+
+.logo-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: calc(1.3rem - 8px);
+  height: calc(1.3rem - 8px);
+  background: var(--text-secondary);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) ease;
+}
+
+.logo-toggle-input:checked + .logo-toggle-track {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.logo-toggle-input:checked + .logo-toggle-track::after {
+  background: #fff;
+  transform: translateX(calc(var(--dir) * 1.05rem));
+}
+
+.logo-toggle-input:focus-visible + .logo-toggle-track {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.logo-toggle:hover .logo-toggle-track {
+  border-color: var(--border-ink);
 }
 
 /* Section rule reveal: the hairline draws in the reading direction. */
@@ -2703,6 +3570,8 @@ html:not(.js) .js-only {
   .service-row-edge,
   .client-cell,
   .client-line,
+  .logo-cell,
+  .logo-toggle-track::after,
   .btn,
   .btn-outline .btn-face,
   .tf-host,
@@ -2729,7 +3598,13 @@ html:not(.js) .js-only {
     display: none;
   }
 
-  .zoom-img img {
+  .zoom-img img,
+  .card-link:is(:hover, :focus-visible, :has(:focus-visible)),
+  .card-arrow,
+  .proj-title,
+  .hl-title,
+  .proj-arrow,
+  .proj-flag {
     transform: none !important;
   }
 

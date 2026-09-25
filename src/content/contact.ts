@@ -18,6 +18,7 @@ export const contactPage: ContactPageContent = {
   actions: {
     quote: { en: "Request a quote", ar: "اطلب عرض سعر" },
     call: { en: "Call", ar: "اتصال" },
+    findUs: { en: "Find us", ar: "موقعنا" },
   },
   methods: {
     label: { en: "Direct contact", ar: "تواصل مباشر" },
@@ -27,8 +28,25 @@ export const contactPage: ContactPageContent = {
     send: { en: "Send email", ar: "أرسل بريدًا" },
     email: { en: "Email", ar: "البريد الإلكتروني" },
     address: { en: "Address", ar: "العنوان" },
+    viewMap: { en: "View map", ar: "عرض الخريطة" },
     name: { en: "Registered name", ar: "الاسم المسجّل" },
     stepsLabel: { en: "How it works", ar: "طريقة الطلب" },
+  },
+  location: {
+    label: { en: "Location", ar: "الموقع" },
+    title: { en: "Find us in Riyadh.", ar: "موقعنا في الرياض." },
+    intro: {
+      en: "RAWASY's address is in Al Mashael, Sulay, in Riyadh. Open it in Google Maps for directions.",
+      ar: "يقع عنوان رواسي في حي المشاعل بالسلي في الرياض. افتحه في خرائط Google للحصول على الاتجاهات.",
+    },
+    contact: { en: "Direct contact", ar: "تواصل مباشر" },
+    mapTitle: {
+      en: "Google map of RAWASY's address: Al Mashael, Sulay, Riyadh",
+      ar: "خريطة Google لعنوان رواسي: حي المشاعل، السلي، الرياض",
+    },
+    mapCaption: { en: "Google Maps · located from the address", ar: "خرائط Google · الموقع بحسب العنوان" },
+    directions: { en: "Get directions", ar: "الحصول على الاتجاهات" },
+    openMap: { en: "Open in Google Maps", ar: "فتح في خرائط Google" },
   },
   form: {
     label: { en: "Quote request", ar: "طلب عرض سعر" },

@@ -10,8 +10,23 @@ export interface CtaLink {
   description?: string;
 }
 
-/** Closing band of an inner page: a short prompt and a few numbered ways forward. */
-export function InnerCTA({ label, title, body, links }: { label: string; title: string; body?: string; links: CtaLink[] }) {
+/**
+ * Closing band of an inner page: a short prompt and a few numbered ways
+ * forward (`numbered={false}` drops the numbers, e.g. on the clients page).
+ */
+export function InnerCTA({
+  label,
+  title,
+  body,
+  links,
+  numbered = true,
+}: {
+  label: string;
+  title: string;
+  body?: string;
+  links: CtaLink[];
+  numbered?: boolean;
+}) {
   return (
     <section aria-labelledby="page-cta-title" className="on-band relative isolate overflow-hidden bg-band text-band-ink [--row-tint:rgb(236_234_229/0.035)]">
       <Backdrop kind="grid" drift className="[--bd-opacity:0.6] [--grid-line:rgb(236_234_229/0.05)]" />
@@ -37,7 +52,7 @@ export function InnerCTA({ label, title, body, links }: { label: string; title: 
           {links.map((link, i) => (
             <li key={link.href} className="act-row border-b border-band-line" data-reveal style={{ ["--d" as string]: 80 * i }}>
               <Link href={link.href} className="group flex items-center gap-5 py-5 ps-4 sm:gap-6 sm:py-6 sm:ps-5">
-                <span className="t-num w-6 shrink-0 text-xs text-band-ink-2">{String(i + 1).padStart(2, "0")}</span>
+                {numbered && <span className="t-num w-6 shrink-0 text-xs text-band-ink-2">{String(i + 1).padStart(2, "0")}</span>}
                 <span className="min-w-0 flex-1">
                   <span className="block font-display text-[1.15rem] font-semibold leading-snug transition-colors group-hover:text-accent sm:text-[1.3rem]">
                     {link.label}

@@ -79,6 +79,7 @@ export type ProjectCategory =
   | "laser-cutting"
   | "public-realm"
   | "decorative"
+  | "shade"
   | "industrial"
   | "custom";
 
@@ -235,21 +236,38 @@ export interface PageCta {
   links: PageLink[];
 }
 
+/** Site-support work around the scaffolding line (company profile p.2, p.6). */
+export type SupportSlug = "formwork" | "props" | "rental" | "installation" | "transport";
+
 export interface AboutContent {
   hero: PageHero & { meta: MetaItem[]; media: MediaId; mediaAlt: Localized; caption: Localized; nameplate: Localized };
-  overview: { label: Localized; title: Localized; paragraphs: Localized<string[]>; servicesLabel: Localized };
+  overview: { label: Localized; title: Localized; paragraphs: Localized<string[]> };
   vision: { label: Localized; aimsLabel: Localized };
   beyond: {
     label: Localized;
     title: Localized;
     intro: Localized;
-    items: Localized[];
+    items: { slug: SupportSlug; label: Localized }[];
     media: MediaId;
     mediaAlt: Localized;
     link: Localized;
   };
   process: { label: Localized; title: Localized; intro: Localized; steps: { slug: string; title: Localized; body: Localized }[] };
   why: { label: Localized; title: Localized; intro: Localized };
+  /** The two sections of the business (profile p.3: "Metal Section", "Scaffolding Section"). */
+  what: {
+    label: Localized;
+    title: Localized;
+    intro: Localized;
+    divisions: { slug: "metal" | "scaffolding"; label: Localized; title: Localized; body: Localized; link: Localized }[];
+  };
+  metal: { label: Localized; title: Localized; intro: Localized; explore: Localized };
+  approach: { label: Localized; title: Localized; intro: Localized };
+  workshop: { label: Localized; title: Localized; intro: Localized; photos: { media: MediaId; caption: Localized }[] };
+  machinery: { label: Localized; title: Localized; intro: Localized; link: Localized; machine: Localized; type: Localized; power: Localized };
+  projects: { label: Localized; title: Localized; intro: Localized; link: Localized; slugs: ProjectSlug[] };
+  clients: { label: Localized; title: Localized; intro: Localized; link: Localized };
+  compliance: { label: Localized; title: Localized; intro: Localized; link: Localized; note: Localized };
   cta: PageCta;
 }
 
@@ -273,9 +291,31 @@ export interface IndustriesPageContent {
   cta: PageCta;
 }
 
+export interface ProjectsPageContent {
+  hero: PageHero & { meta: MetaItem[]; quickFilter: Localized };
+  /** Editorial choices: the featured project and the highlighted ones (slugs of showcased projects). */
+  featured: { label: Localized; slug: ProjectSlug };
+  editorial: { label: Localized; title: Localized; intro: Localized; slugs: ProjectSlug[] };
+  gallery: {
+    label: Localized;
+    title: Localized;
+    intro: Localized;
+    filterLabel: Localized;
+    all: Localized;
+    /** Announced to screen readers when the filter changes, e.g. "Showing: Structures". */
+    showing: Localized;
+  };
+  index: { label: Localized; title: Localized; note: Localized };
+  view: Localized;
+  refLabel: Localized;
+  cta: PageCta;
+}
+
 export interface ClientsPageContent {
   hero: PageHero;
   listLabel: Localized;
+  /** Switch that shows every logo in its original colours (keyboard and touch). */
+  colours: Localized;
   note: Localized;
   cta: PageCta;
 }
@@ -374,7 +414,7 @@ export interface QuoteFormContent {
 
 export interface ContactPageContent {
   hero: PageHero;
-  actions: { quote: Localized; call: Localized };
+  actions: { quote: Localized; call: Localized; findUs: Localized };
   methods: {
     label: Localized;
     phone: Localized;
@@ -383,8 +423,20 @@ export interface ContactPageContent {
     send: Localized;
     email: Localized;
     address: Localized;
+    viewMap: Localized;
     name: Localized;
     stepsLabel: Localized;
+  };
+  /** The map section. The map is an address search on Google Maps; no coordinates are stored. */
+  location: {
+    label: Localized;
+    title: Localized;
+    intro: Localized;
+    contact: Localized;
+    mapTitle: Localized;
+    mapCaption: Localized;
+    directions: Localized;
+    openMap: Localized;
   };
   form: QuoteFormContent;
 }

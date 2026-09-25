@@ -16,7 +16,7 @@ export function LegalToc({ items, label }: { items: { id: string; title: string 
   );
 
   return (
-    <div className="panel-recessed sticky top-28 hidden p-5 lg:block">
+    <div className="card sticky top-28 hidden p-5 lg:block">
       <p className="t-label border-b border-line pb-4 text-ink-2">{label}</p>
       <ol className="mt-4 border-s border-line">
         {items.map((item, i) => {

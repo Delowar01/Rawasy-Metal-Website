@@ -26,6 +26,11 @@ const DECORATION = [
   ".step-rail",
   ".step-node",
   ".outline-num",
+  ".proj-shade",
+  ".proj-flag",
+  ".filter-chip-mark",
+  ".map-plate",
+  ".logo-toggle-track",
 ].join(", ");
 
 function exposedDecoration(page: Page) {
@@ -38,7 +43,7 @@ function exposedDecoration(page: Page) {
 
 test("decorative layers are hidden from assistive technology", async ({ page }) => {
   test.setTimeout(120_000);
-  for (const path of ["/en", "/ar", "/en/about", "/ar/services", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact", "/ar/privacy"]) {
+  for (const path of ["/en", "/ar", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact", "/ar/privacy"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     expect(await exposedDecoration(page), path).toEqual([]);
   }

@@ -37,13 +37,22 @@ export const home = {
         "نجمع بين التقنية المتقدمة والحِرفية العالية لنحقق أعلى معايير الجودة، ونلتزم بالمواعيد ونتجاوز التوقعات.",
       ],
     } as Localized<string[]>,
+    capabilitiesLabel: { en: "What we do", ar: "ما نقدّمه" },
+    explore: { en: "Explore", ar: "استكشف" },
+    // Site-support items come from the About content (profile p.2, p.6).
     beyondLabel: { en: "Beyond metalwork", ar: "إلى جانب الأعمال المعدنية" },
-    beyond: {
-      en: ["Scaffolding", "Formwork systems", "Wood & steel props", "Rental services", "Transportation"],
-      ar: ["السقالات", "أنظمة الشدّات", "الدعامات الخشبية والحديدية", "خدمات التأجير", "النقل"],
-    } as Localized<string[]>,
+    beyondTitle: { en: "Scaffolding and site support.", ar: "السقالات ودعم مواقع العمل." },
+    workshopCaption: {
+      en: "In the workshop — laser-cut lanterns, a lattice tower and patterned sheets",
+      ar: "داخل الورشة — فوانيس مقصوصة بالليزر وبرج شبكي وألواح بنقوش مقصوصة",
+    },
+    workshopDetailAlt: {
+      en: "Laser-cut patterned steel sheets stacked in the workshop",
+      ar: "ألواح حديدية بنقوش مقصوصة بالليزر مكدّسة في الورشة",
+    },
     visionLabel: { en: "Our vision", ar: "رؤيتنا" },
     link: { en: "About RAWASY", ar: "تعرّف على رواسي" },
+    servicesLink: { en: "Explore services", ar: "استكشف الخدمات" },
   },
   process: {
     label: { en: "Key capabilities", ar: "قدراتنا الأساسية" },

@@ -4,6 +4,7 @@ import { whatsappUrl } from "@/content/company";
 import { getMedia } from "@/content/media";
 import { projectCategories } from "@/content/projects";
 import {
+  getAboutContent,
   getCertificates,
   getClients,
   getCompany,
@@ -21,6 +22,7 @@ import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
 import { buildMetadata, JsonLd, organizationJsonLd } from "@/lib/seo";
+import { serviceTone } from "@/lib/tones";
 import { formatPower } from "@/lib/utils";
 import { ArrowIcon } from "@/components/ui/Icons";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -65,7 +67,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
 
-  const [home, company, services, machines, featured, industries, pillars, metricData, clients, certificates, steps] =
+  const [home, company, services, machines, featured, industries, pillars, metricData, clients, certificates, steps, about] =
     await Promise.all([
       getHomeContent(),
       getCompany(),
@@ -78,6 +80,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       getClients(),
       getCertificates(),
       getProcessSteps(),
+      getAboutContent(),
     ]);
   const dict = getDictionary(locale);
   const [phone] = company.phones;
@@ -106,26 +109,46 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         }}
       />
 
-      {/* 02 — Introduction */}
+      {/* 02 — Introduction: who RAWASY is and what it does */}
       <Intro
         index="01"
         label={home.intro.label[locale]}
         statement={home.intro.statement[locale]}
         paragraphs={home.intro.paragraphs[locale]}
+        capabilitiesLabel={home.intro.capabilitiesLabel[locale]}
+        explore={home.intro.explore[locale]}
+        capabilities={services.map((s) => ({
+          slug: s.slug,
+          index: s.index,
+          name: s.name[locale],
+          tagline: s.tagline[locale],
+          href: href(locale, "service", { slug: s.slug }),
+          tone: serviceTone[s.slug],
+        }))}
         beyondLabel={home.intro.beyondLabel[locale]}
-        beyond={home.intro.beyond[locale]}
+        beyondTitle={home.intro.beyondTitle[locale]}
+        beyond={about.beyond.items.map((item) => ({ slug: item.slug, label: item.label[locale] }))}
+        workshop={{
+          main: { ...getMedia("services/fabrication-workshop"), alt: about.hero.mediaAlt[locale] },
+          detail: { ...getMedia("services/fabrication-cut-sheets"), alt: home.intro.workshopDetailAlt[locale] },
+          caption: home.intro.workshopCaption[locale],
+        }}
         visionLabel={home.intro.visionLabel[locale]}
         vision={company.vision.statement[locale]}
-        link={{ href: href(locale, "about"), label: home.intro.link[locale] }}
+        visionClosing={company.vision.closing[locale]}
+        links={{
+          about: { href: href(locale, "about"), label: home.intro.link[locale] },
+          services: { href: href(locale, "services"), label: home.intro.servicesLink[locale] },
+        }}
         legalNames={company.legalName}
       />
 
       {/* 03 — Key capabilities */}
-      <section id="capabilities" aria-labelledby="capabilities-title" className="section-y relative isolate overflow-hidden bg-background-deep">
+      <section id="capabilities" aria-labelledby="capabilities-title" className="sec-proc section-y relative isolate overflow-hidden">
         <Backdrop
           kind="grid"
           drift
-          className="[--bd-fade:linear-gradient(to_right,transparent,var(--background-deep)_55%)] rtl:[--bd-fade:linear-gradient(to_left,transparent,var(--background-deep)_55%)]"
+          className="[--bd-fade:linear-gradient(to_right,transparent,var(--proc-surface)_55%)] rtl:[--bd-fade:linear-gradient(to_left,transparent,var(--proc-surface)_55%)]"
         />
         <div aria-hidden className="bg-perforated pointer-events-none absolute inset-y-0 end-0 w-1/2 opacity-70 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]" />
         <div className="container-x relative">
@@ -191,7 +214,8 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       />
 
       {/* 06 — Machinery */}
-      <section id="machinery" aria-labelledby="machinery-title" className="section-y">
+      <section id="machinery" aria-labelledby="machinery-title" className="sec-eng section-y relative isolate overflow-hidden">
+        <Backdrop kind="fine" className="[--bd-fade:linear-gradient(to_bottom,transparent_25%,var(--eng-surface))]" />
         <div className="container-x">
           <SectionHeader
             id="machinery-title"
@@ -233,7 +257,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       </section>
 
       {/* 07 — Featured projects */}
-      <section id="projects" aria-labelledby="projects-title" className="section-y border-t border-line">
+      <section id="projects" aria-labelledby="projects-title" className="section-y">
         <div className="container-x">
           <SectionHeader
             id="projects-title"
@@ -365,7 +389,8 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       </section>
 
       {/* 12 — Certificates */}
-      <section id="certificates" aria-labelledby="certificates-title" className="section-y bg-background-deep">
+      <section id="certificates" aria-labelledby="certificates-title" className="sec-craft section-y relative isolate overflow-hidden">
+        <Backdrop kind="fine" className="[--bd-fade:linear-gradient(to_bottom,transparent_30%,var(--craft-surface))]" />
         <div className="container-x">
           <SectionHeader
             id="certificates-title"

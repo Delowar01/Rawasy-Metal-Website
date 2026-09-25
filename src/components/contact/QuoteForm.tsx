@@ -484,7 +484,7 @@ export function QuoteForm({
         </Field>
 
         <div className="js-only grid content-start gap-2 sm:col-span-2">
-          <label htmlFor="quote-files" className="text-[0.95rem] font-medium text-ink">
+          <label htmlFor="quote-files" className="text-[0.95rem] font-semibold text-ink">
             {text.fields.files.label}
           </label>
           <label
@@ -514,7 +514,7 @@ export function QuoteForm({
             />
             <FrameMarks lines={false} />
           </label>
-          <p id="quote-files-note" className="text-[0.85rem] leading-snug text-ink-3">
+          <p id="quote-files-note" className="text-[0.85rem] leading-snug text-ink-2">
             {text.files.note}
           </p>
           {files.length > 0 && (
@@ -586,7 +586,7 @@ function Field({
 }) {
   return (
     <div className={cn("grid content-start gap-2", className)}>
-      <label htmlFor={`quote-${name}`} className="text-[0.95rem] font-medium text-ink">
+      <label htmlFor={`quote-${name}`} className="text-[0.95rem] font-semibold text-ink">
         {text.label}
         {required && (
           <span aria-hidden className="text-accent-ink">
@@ -596,7 +596,7 @@ function Field({
       </label>
       <div className="field-edge">{children}</div>
       {text.hint && (
-        <p id={`quote-${name}-hint`} className="text-[0.85rem] leading-snug text-ink-3">
+        <p id={`quote-${name}-hint`} className="text-[0.85rem] leading-snug text-ink-2">
           {text.hint}
         </p>
       )}
@@ -610,20 +610,17 @@ function Field({
   );
 }
 
-/** A numbered group of fields with a ruled legend. */
+/** A numbered group of fields as its own panel: a header bar, then the fields on a recessed plate. */
 function FieldGroup({ index, legend, children }: { index: string; legend: string; children: ReactNode }) {
   return (
-    <fieldset className="min-w-0">
-      <legend className="mb-6 w-full">
-        <span className="flex items-center gap-3">
-          <span aria-hidden className="t-num text-xs text-accent-ink">
-            {index}
-          </span>
-          <span className="font-display text-[1.02rem] font-semibold text-ink">{legend}</span>
-          <span aria-hidden className="h-px flex-1 bg-line-strong" />
+    <fieldset className="form-group min-w-0" data-tone="eng">
+      <legend className="form-group-legend">
+        <span aria-hidden className="form-group-index t-num">
+          {index}
         </span>
+        <span className="font-display text-[1.05rem] font-semibold text-ink">{legend}</span>
       </legend>
-      <div className="grid gap-x-6 gap-y-7 sm:grid-cols-2">{children}</div>
+      <div className="form-group-body grid gap-x-6 gap-y-7 sm:grid-cols-2">{children}</div>
     </fieldset>
   );
 }

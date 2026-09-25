@@ -1,8 +1,9 @@
-import { Archivo, Geist_Mono, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from "next/font/google";
+import { Geist_Mono, IBM_Plex_Sans_Arabic, Manrope, Noto_Kufi_Arabic, Sora } from "next/font/google";
 
 /*
  * Font roles (wired to CSS tokens in globals.css):
- *   English display + text  → Archivo
+ *   English display (H1, major H2, key statements) → Sora
+ *   English body, navigation, forms and buttons    → Manrope
  *   Arabic display / UI     → Noto Kufi Arabic (headings, navigation, buttons)
  *   Arabic body             → IBM Plex Sans Arabic (paragraphs, leads, labels)
  *   Technical labels        → Geist Mono
@@ -12,11 +13,17 @@ import { Archivo, Geist_Mono, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from "nex
  * share one root layout, those preloads are emitted on every page.
  */
 
-/** English: a grotesque with a width axis for engineered headlines. */
-export const archivo = Archivo({
+/** English display: a modern geometric sans for headings and statements (variable weight). */
+export const sora = Sora({
   subsets: ["latin"],
-  axes: ["wdth"],
-  variable: "--font-archivo",
+  variable: "--font-sora",
+  display: "swap",
+});
+
+/** English body and UI: an open, highly readable grotesque (variable weight). */
+export const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
   display: "swap",
 });
 

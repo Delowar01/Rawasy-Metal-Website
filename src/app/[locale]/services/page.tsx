@@ -6,6 +6,7 @@ import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
 import { breadcrumbTrail, innerPageJsonLd, innerPageMetadata } from "@/lib/inner-page";
 import { JsonLd } from "@/lib/seo";
+import { serviceTone } from "@/lib/tones";
 import { formatPower } from "@/lib/utils";
 import { InnerCTA } from "@/components/inner/InnerCTA";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
@@ -65,7 +66,7 @@ export default async function ServicesPage({ params }: PageProps<"/[locale]/serv
               />
             </div>
           </div>
-          <div className="lg:col-span-9">
+          <div className="grid gap-6 pt-10 lg:col-span-9 lg:gap-8 lg:pt-14">
             {services.map((service, i) => (
               <ServiceRow
                 key={service.slug}
@@ -87,6 +88,7 @@ export default async function ServicesPage({ params }: PageProps<"/[locale]/serv
                     .filter((m) => m.service === service.slug)
                     .map((m) => (m.powerWatts ? `${m.shortName[locale]} · ${formatPower(m.powerWatts, locale)}` : m.shortName[locale])),
                   href: href(locale, "service", { slug: service.slug }),
+                  tone: serviceTone[service.slug],
                   cover: { id: service.cover, alt: service.coverAlt[locale] },
                   supporting: { id: service.supporting.media, alt: service.supporting.alt[locale] },
                 }}

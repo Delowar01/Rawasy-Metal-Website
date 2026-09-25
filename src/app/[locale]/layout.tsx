@@ -17,7 +17,7 @@ import { CustomCursor } from "@/components/motion/CustomCursor";
 import { Loader } from "@/components/motion/Loader";
 import { LiveObserver } from "@/components/motion/LiveObserver";
 import { RevealObserver } from "@/components/motion/RevealObserver";
-import { archivo, geistMono, notoKufiArabic, plexArabic } from "../fonts";
+import { geistMono, manrope, notoKufiArabic, plexArabic, sora } from "../fonts";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -56,7 +56,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     <html
       lang={htmlLang}
       dir={dir}
-      className={`${archivo.variable} ${notoKufiArabic.variable} ${plexArabic.variable} ${geistMono.variable}`}
+      className={`${sora.variable} ${manrope.variable} ${notoKufiArabic.variable} ${plexArabic.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <head>

@@ -3,8 +3,8 @@ import type { BrowserContext, Page } from "@playwright/test";
 export const LOCALES = ["en", "ar"] as const;
 export type TestLocale = (typeof LOCALES)[number];
 
-/** The Stage 1C inner pages. */
-export const INNER_PAGES = ["about", "services", "industries", "clients", "certificates", "contact", "privacy", "terms"] as const;
+/** The inner pages built so far: Stage 1C, plus the Projects overview brought forward in the V2 redesign. */
+export const INNER_PAGES = ["about", "services", "projects", "industries", "clients", "certificates", "contact", "privacy", "terms"] as const;
 
 export const HTML_LANG: Record<TestLocale, string> = { en: "en", ar: "ar-SA" };
 

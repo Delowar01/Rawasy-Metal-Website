@@ -27,7 +27,7 @@ export function NotFoundView({ locale, compact = false }: { locale: Locale; comp
               y="215"
               className="fill-none stroke-ink-3"
               strokeWidth="1.2"
-              style={{ font: "600 270px var(--font-archivo), sans-serif", letterSpacing: "-0.04em" }}
+              style={{ font: "700 270px var(--font-sora), sans-serif", letterSpacing: "-0.05em" }}
             >
               404
             </text>

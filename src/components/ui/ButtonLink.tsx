@@ -6,7 +6,8 @@ import { ArrowIcon, ArrowUpRightIcon } from "./Icons";
 interface ButtonLinkProps {
   href: string;
   children: ReactNode;
-  variant?: "primary" | "outline";
+  /** primary: orange (one main action per view); secondary: graphite → steel; outline; steel/teal: contextual. */
+  variant?: "primary" | "secondary" | "outline" | "steel" | "teal";
   size?: "md" | "sm";
   icon?: "arrow" | "external" | "none" | ReactNode;
   external?: boolean;
@@ -27,7 +28,7 @@ export function ButtonLink({
   cursor,
   ...rest
 }: ButtonLinkProps) {
-  const classes = cn("btn", variant === "outline" && "btn-outline", size === "sm" && "btn-sm", className);
+  const classes = cn("btn", variant !== "primary" && `btn-${variant}`, size === "sm" && "btn-sm", className);
   const iconNode =
     icon === "arrow" ? (
       <ArrowIcon size={size === "sm" ? 16 : 18} className="rtl:-scale-x-100" />

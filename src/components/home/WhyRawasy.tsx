@@ -58,29 +58,43 @@ function PillarIcon({ icon }: { icon: Pillar["icon"] }) {
   }
 }
 
+/** Each pillar's colour role: engineering in steel, craft in brass, delivery in teal. */
+const TONE: Record<string, string> = {
+  precision: "eng",
+  technology: "eng",
+  craft: "craft",
+  reliability: "proc",
+  custom: "craft",
+  execution: "proc",
+};
+
 /**
- * Why RAWASY — six pillars on one raised technical sheet (rules, not cards).
- * Hovering a pillar tints it, draws its top edge and shows its corner marks.
+ * Why RAWASY — six pillars as cards, each with a coloured top edge in its
+ * role colour and a line icon that draws itself in. Hovering a card shows its
+ * corner marks.
  */
 export function WhyRawasy({ pillars }: { pillars: PillarView[] }) {
   return (
-    <ul className="panel-raised grid sm:grid-cols-2 lg:grid-cols-3">
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {pillars.map((pillar, i) => (
         <li
           key={pillar.slug}
-          className="pillar act-row tf-host group relative border-b border-line p-7 before:hidden last:border-b-0 sm:p-8 sm:[&:nth-child(odd)]:border-e sm:max-lg:[&:nth-last-child(-n+2)]:border-b-0 lg:border-e lg:p-10 lg:[&:nth-child(3n)]:border-e-0 lg:[&:nth-last-child(-n+3)]:border-b-0"
+          className="pillar card card-edge tf-host group relative p-7 sm:p-8"
+          data-tone={TONE[pillar.icon] ?? "eng"}
           data-tf="hover"
           data-reveal
           style={{ ["--d" as string]: (i % 3) * 90 }}
         >
           <FrameMarks lines={false} />
           <div className="flex items-start justify-between">
-            <svg viewBox="0 0 56 56" className="pillar-icon size-14 text-ink" aria-hidden>
-              <PillarIcon icon={pillar.icon} />
-            </svg>
-            <span className="t-num text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+            <span className="icon-chip icon-chip-lg">
+              <svg viewBox="0 0 56 56" className="pillar-icon size-11" aria-hidden>
+                <PillarIcon icon={pillar.icon} />
+              </svg>
+            </span>
+            <span className="t-num text-xs text-ink-2">{String(i + 1).padStart(2, "0")}</span>
           </div>
-          <h3 className="t-h4 mt-8 text-ink">{pillar.title}</h3>
+          <h3 className="t-h4 mt-7 text-ink">{pillar.title}</h3>
           <p className="t-body mt-3 max-w-sm text-[0.975rem]">{pillar.body}</p>
         </li>
       ))}

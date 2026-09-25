@@ -7,10 +7,10 @@ import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
 import { breadcrumbTrail, innerPageJsonLd, innerPageMetadata } from "@/lib/inner-page";
 import { JsonLd } from "@/lib/seo";
-import { ClientGrid } from "@/components/clients/ClientGrid";
+import { ClientWall } from "@/components/clients/ClientWall";
 import { InnerCTA } from "@/components/inner/InnerCTA";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
-import { TechnicalFrame } from "@/components/visual/TechnicalFrame";
+import { Backdrop } from "@/components/visual/Backdrop";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/clients">): Promise<Metadata> {
   const { locale } = await params;
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/clients"
   return innerPageMetadata("clients", locale);
 }
 
-/** Clients: the logos from the company profile, with a short factual introduction only. */
+/** Clients: the logos from the company profile on one unnumbered wall, with a short factual introduction only. */
 export default async function ClientsPage({ params }: PageProps<"/[locale]/clients">) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
@@ -41,40 +41,35 @@ export default async function ClientsPage({ params }: PageProps<"/[locale]/clien
         intro={page.hero.intro[locale]}
       />
 
-      <section aria-labelledby="clients-list-title" className="pb-[var(--section-y)]">
+      <section aria-labelledby="clients-list-title" className="sec-eng section-y relative isolate overflow-hidden">
+        <Backdrop kind="fine" className="[--bd-fade:linear-gradient(to_bottom,transparent_40%,var(--eng-surface))]" />
         <div className="container-x">
-          <h2 id="clients-list-title" className="sr-only">
-            {page.listLabel[locale]}
-          </h2>
-          <TechnicalFrame reveal lines="corners" className="panel-raised p-4 sm:p-6 lg:p-8">
-            <ClientGrid
-              label={page.listLabel[locale]}
-              clients={clients.map((client) => {
-                const logo = getMedia(client.logo);
-                const mono = getMedia(client.logoMono);
-                return {
-                  slug: client.slug,
-                  name: client.name[locale],
-                  logo: { src: logo.src, width: logo.width, height: logo.height },
-                  mono: { src: mono.src, width: mono.width, height: mono.height },
-                };
-              })}
-            />
-            <div className="mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-baseline sm:justify-between">
-              <p className="t-label max-w-3xl text-ink-3" data-reveal="fade">
-                {page.note[locale]}
-              </p>
-              <span aria-hidden className="t-num shrink-0 text-[0.66rem] tracking-[0.14em] text-ink-3" dir="ltr">
-                RW—C · 01
-              </span>
-            </div>
-          </TechnicalFrame>
+          <ClientWall
+            label={page.listLabel[locale]}
+            labelId="clients-list-title"
+            coloursLabel={page.colours[locale]}
+            clients={clients.map((client) => {
+              const logo = getMedia(client.logo);
+              const mono = getMedia(client.logoMono);
+              return {
+                slug: client.slug,
+                name: client.name[locale],
+                logo: { src: logo.src, width: logo.width, height: logo.height },
+                mono: { src: mono.src, width: mono.width, height: mono.height },
+              };
+            })}
+          />
+          <p className="t-caption mt-6 max-w-3xl text-ink-2" data-reveal="fade">
+            {page.note[locale]}
+          </p>
         </div>
       </section>
 
+      {/* No numbered rows here: the clients page shows no numbering or counts at all. */}
       <InnerCTA
         label={page.cta.label[locale]}
         title={page.cta.title[locale]}
+        numbered={false}
         links={page.cta.links.map((link) => ({ href: href(locale, link.route), label: link.label[locale] }))}
       />
     </>

@@ -42,7 +42,8 @@ export function Certificates({
         {certificates.map((cert, i) => (
           <li
             key={cert.slug}
-            className="cert-card tf-host panel-raised group relative flex flex-col"
+            className="cert-card tf-host panel-raised card-edge group relative flex flex-col"
+            data-tone="craft"
             data-reveal
             style={{ ["--d" as string]: i * 90 }}
           >
@@ -50,10 +51,9 @@ export function Certificates({
               type="button"
               onClick={() => show(i)}
               data-cursor="view"
-              className="relative block aspect-[4/3] overflow-hidden border-b border-line bg-strong"
+              className="proj-plate relative block aspect-[4/3] overflow-hidden border-b border-line"
               aria-label={`${labels.view}: ${cert.title}`}
             >
-              <div aria-hidden className="bg-perforated absolute inset-0 opacity-60" />
               <PointerLight />
               <span aria-hidden className="t-num absolute start-4 top-3.5 text-[0.66rem] tracking-[0.14em] text-ink-2" dir="ltr">
                 DOC {String(i + 1).padStart(2, "0")}
@@ -69,12 +69,12 @@ export function Certificates({
                   className="object-cover object-top"
                 />
               </div>
-              <span className="absolute bottom-4 end-4 grid size-10 place-items-center bg-ink text-background transition-colors group-hover:bg-accent group-hover:text-[#17191a]">
+              <span className="absolute bottom-4 end-4 grid size-10 place-items-center bg-ink text-background transition-colors group-hover:bg-[var(--craft)] group-hover:text-[#17191a]">
                 <PlusIcon size={18} />
               </span>
             </button>
             <div className="flex flex-1 flex-col p-6">
-              <p className="t-label text-accent-ink">{cert.issuer}</p>
+              <p className="t-label tone-ink">{cert.issuer}</p>
               <h3 className="t-h4 mt-3 text-ink">{cert.title}</h3>
               <dl className="mt-5 grid gap-2 text-sm">
                 {cert.facts.map((fact) => (

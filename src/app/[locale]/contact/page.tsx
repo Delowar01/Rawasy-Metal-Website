@@ -3,18 +3,19 @@ import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
 import { company, primaryWhatsApp, whatsappUrl } from "@/content/company";
 import { getContactContent, getServices } from "@/content/repository";
-import { isLocale, type Locale } from "@/i18n/config";
+import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
 import { breadcrumbTrail, innerPageJsonLd, innerPageMetadata } from "@/lib/inner-page";
 import { JsonLd, organizationJsonLd } from "@/lib/seo";
-import { ContactMethod, ContactSheet } from "@/components/contact/ContactMethods";
+import { ContactCard } from "@/components/contact/ContactCards";
+import { LocationSection } from "@/components/contact/LocationSection";
 import { QuoteForm, type QuoteFormText } from "@/components/contact/QuoteForm";
 import { EditorialSection } from "@/components/inner/EditorialSection";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { TechnicalFrame } from "@/components/visual/TechnicalFrame";
-import { ArrowIcon, BuildingIcon, MailIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/ui/Icons";
+import { ArrowIcon, MailIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/ui/Icons";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/contact">): Promise<Metadata> {
   const { locale } = await params;
@@ -24,8 +25,10 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/contact"
 
 /**
  * Contact / request a quote. Direct contact details are verified (profile
- * p.16). The quote form has no delivery backend in this phase: it prepares the
- * request for the visitor to send by email or WhatsApp, and says so.
+ * p.16) and open the page as cards; the quote form follows, then the location
+ * with a Google map of the address. The quote form has no delivery backend in
+ * this phase: it prepares the request for the visitor to send by email or
+ * WhatsApp, and says so.
  */
 export default async function ContactPage({ params }: PageProps<"/[locale]/contact">) {
   const { locale } = await params;
@@ -33,7 +36,6 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
   const [page, services] = await Promise.all([getContactContent(), getServices()]);
   const dict = getDictionary(locale);
   const { methods, form } = page;
-  const other: Locale = locale === "ar" ? "en" : "ar";
 
   const text: QuoteFormText = {
     requiredNote: form.requiredNote[locale],
@@ -82,73 +84,82 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
         title={page.hero.title[locale]}
         intro={page.hero.intro[locale]}
         actions={
-          <ButtonLink href={`${href(locale, "contact")}#quote`} icon={<ArrowIcon size={18} className="rotate-90" />}>
-            {page.actions.quote[locale]}
-          </ButtonLink>
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href={`${href(locale, "contact")}#quote`} icon={<ArrowIcon size={18} className="rotate-90" />}>
+              {page.actions.quote[locale]}
+            </ButtonLink>
+            <ButtonLink href={`${href(locale, "contact")}#location`} variant="secondary" icon={<PinIcon size={17} />}>
+              {page.actions.findUs[locale]}
+            </ButtonLink>
+          </div>
         }
         aside={
-          <div data-reveal style={{ ["--d" as string]: 160 } as CSSProperties}>
-            <ContactSheet label={methods.label[locale]}>
-              <ContactMethod
-                index="01"
-                label={methods.phone[locale]}
-                icon={<PhoneIcon size={15} />}
-                links={company.phones.map((phone) => ({
-                  href: `tel:${phone.e164}`,
-                  value: phone.display,
-                  action: page.actions.call[locale],
-                  ltr: true,
-                }))}
-              />
-              <ContactMethod
-                index="02"
-                label={methods.whatsapp[locale]}
-                icon={<WhatsAppIcon size={15} />}
-                links={[{ href: whatsappUrl(), value: primaryWhatsApp.display, action: methods.chat[locale], external: true, ltr: true }]}
-              />
-              <ContactMethod
-                index="03"
-                label={methods.email[locale]}
-                icon={<MailIcon size={15} />}
-                links={[{ href: `mailto:${company.email}`, value: company.email, action: methods.send[locale], ltr: true }]}
-              />
-              <ContactMethod index="04" label={methods.address[locale]} icon={<PinIcon size={15} />}>
-                <p className="text-[1.02rem] leading-relaxed text-ink">
-                  {company.address[locale].lines.map((line) => (
-                    <span key={line} className="block">
-                      {line}
-                    </span>
-                  ))}
-                </p>
-              </ContactMethod>
-              <ContactMethod index="05" label={methods.name[locale]} icon={<BuildingIcon size={15} />}>
-                <p className="font-display text-[1.02rem] font-semibold text-ink">{company.legalName[locale]}</p>
-                <p
-                  lang={other}
-                  dir={other === "ar" ? "rtl" : "ltr"}
-                  className={`mt-1 text-[0.92rem] text-ink-2 ${locale === "ar" ? "text-right" : "text-left"}`}
-                >
-                  {company.legalName[other]}
-                </p>
-              </ContactMethod>
-            </ContactSheet>
+          <div
+            className="grid gap-4 sm:grid-cols-2"
+            role="group"
+            aria-label={methods.label[locale]}
+            data-reveal
+            style={{ ["--d" as string]: 160 } as CSSProperties}
+          >
+            <ContactCard
+              tone="eng"
+              icon={<PhoneIcon size={19} />}
+              label={methods.phone[locale]}
+              externalLabel={dict.a11y.externalLink}
+              links={company.phones.map((phone) => ({
+                href: `tel:${phone.e164}`,
+                value: phone.display,
+                action: page.actions.call[locale],
+                ltr: true,
+              }))}
+            />
+            <ContactCard
+              tone="proc"
+              icon={<WhatsAppIcon size={19} />}
+              label={methods.whatsapp[locale]}
+              externalLabel={dict.a11y.externalLink}
+              links={[{ href: whatsappUrl(), value: primaryWhatsApp.display, action: methods.chat[locale], external: true, ltr: true }]}
+            />
+            <ContactCard
+              tone="eng"
+              icon={<MailIcon size={19} />}
+              label={methods.email[locale]}
+              externalLabel={dict.a11y.externalLink}
+              links={[{ href: `mailto:${company.email}`, value: company.email, action: methods.send[locale], ltr: true }]}
+            />
+            <ContactCard
+              tone="craft"
+              icon={<PinIcon size={19} />}
+              label={methods.address[locale]}
+              externalLabel={dict.a11y.externalLink}
+              links={[{ href: `${href(locale, "contact")}#location`, value: methods.viewMap[locale], action: page.location.label[locale], down: true }]}
+            >
+              <p className="text-[0.98rem] leading-relaxed text-ink">
+                {company.address[locale].lines.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
+              </p>
+            </ContactCard>
           </div>
         }
       />
 
       <EditorialSection
         id="quote"
+        index="01"
         label={form.label[locale]}
         title={form.title[locale]}
         intro={form.intro[locale]}
-        className="border-t border-line"
+        className="sec-deep"
         note={
           <div className="mt-10 border-t border-line pt-8" data-reveal style={{ ["--d" as string]: 160 } as CSSProperties}>
             <p className="t-label text-ink-3">{methods.stepsLabel[locale]}</p>
             <ol className="mt-5 grid gap-4">
               {form.steps[locale].map((step, i) => (
                 <li key={i} className="grid grid-cols-[2rem_1fr] gap-x-3">
-                  <span className="t-num pt-0.5 text-xs text-accent-ink">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="t-num pt-0.5 text-xs text-[var(--proc-ink)]">{String(i + 1).padStart(2, "0")}</span>
                   <span className="text-[0.98rem] leading-relaxed text-ink-2">{step}</span>
                 </li>
               ))}
@@ -161,6 +172,25 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
           <QuoteForm text={text} email={company.email} whatsapp={whatsappUrl()} privacyHref={href(locale, "privacy")} />
         </TechnicalFrame>
       </EditorialSection>
+
+      <LocationSection
+        locale={locale}
+        text={{
+          label: page.location.label[locale],
+          title: page.location.title[locale],
+          intro: page.location.intro[locale],
+          address: methods.address[locale],
+          name: methods.name[locale],
+          contact: page.location.contact[locale],
+          mapTitle: page.location.mapTitle[locale],
+          mapCaption: page.location.mapCaption[locale],
+          directions: page.location.directions[locale],
+          openMap: page.location.openMap[locale],
+          call: page.actions.call[locale],
+          send: methods.send[locale],
+          external: dict.a11y.externalLink,
+        }}
+      />
     </>
   );
 }

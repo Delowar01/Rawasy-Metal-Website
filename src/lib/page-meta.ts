@@ -18,7 +18,7 @@ export const pageStatus: Record<RouteKey, PageStatus> = {
   services: "review",
   service: "planned",
   capabilities: "planned",
-  projects: "planned",
+  projects: "review",
   project: "planned",
   industries: "review",
   clients: "review",

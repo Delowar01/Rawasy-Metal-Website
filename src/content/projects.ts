@@ -1,4 +1,4 @@
-import type { Project, ProjectCategory } from "./types";
+import type { MediaId, Project, ProjectCategory, ProjectFlag } from "./types";
 
 /**
  * Source: company profile work gallery (p.8–11, items 01–32) and the laser
@@ -53,7 +53,7 @@ export const projects: Project[] = [
       en: "Illuminated palm-leaf shade structures with perforated canopies along a public walkway.",
       ar: "مظلات على شكل سعف النخيل بأسطح مثقّبة ومضاءة على امتداد ممشى عام.",
     },
-    categories: ["structures", "public-realm", "architectural"],
+    categories: ["structures", "shade", "public-realm", "architectural"],
     services: ["steel-structures", "laser-cutting"],
     media: ["projects/palm-canopies-1"],
     featured: true,
@@ -66,7 +66,7 @@ export const projects: Project[] = [
       en: "Decorative cannon replicas with laser-cut perforated barrels and wheels, in gold and raw-steel finishes.",
       ar: "مجسمات مدافع زخرفية بأجسام وعجلات مقصوصة بالليزر، بتشطيب ذهبي وآخر معدني.",
     },
-    categories: ["decorative", "laser-cutting", "fabrication"],
+    categories: ["decorative", "custom", "laser-cutting", "fabrication"],
     services: ["laser-cutting", "fabrication"],
     media: [
       "projects/heritage-cannons-1",
@@ -160,7 +160,7 @@ export const projects: Project[] = [
       en: "A gold-finish sphere and crescent finial — fabricated in the workshop and installed atop a minaret.",
       ar: "كرة وهلال بتشطيب ذهبي — صُنعت في الورشة ورُكّبت أعلى مئذنة.",
     },
-    categories: ["decorative", "fabrication"],
+    categories: ["decorative", "custom", "fabrication"],
     services: ["fabrication"],
     media: ["projects/dome-finial-1", "projects/dome-finial-2"],
   },
@@ -235,7 +235,7 @@ export const projects: Project[] = [
       en: "Patterned laser-cut panels on a steel canopy frame, seen from below.",
       ar: "ألواح مقصوصة بالليزر بنقوش مزخرفة على هيكل مظلة حديدي، من زاوية سفلية.",
     },
-    categories: ["architectural", "laser-cutting", "structures"],
+    categories: ["architectural", "shade", "laser-cutting", "structures"],
     services: ["laser-cutting", "steel-structures"],
     media: ["projects/perforated-canopy-1"],
   },
@@ -260,7 +260,7 @@ export const projects: Project[] = [
       en: "Tensile car-park shades on steel frames with laser-cut decorative end panels.",
       ar: "مظلات مواقف مشدودة على هياكل حديدية بجوانب زخرفية مقصوصة بالليزر.",
     },
-    categories: ["structures"],
+    categories: ["structures", "shade"],
     services: ["steel-structures", "laser-cutting"],
     media: ["projects/car-park-shades-1", "projects/car-park-shades-2"],
   },
@@ -382,7 +382,7 @@ export const projects: Project[] = [
       en: "Laser-perforated steel members, and a slatted pergola installed on a building terrace.",
       ar: "عناصر حديدية مثقّبة بالليزر، وبرجولة بشرائح معدنية مركّبة على سطح مبنى.",
     },
-    categories: ["structures", "laser-cutting"],
+    categories: ["structures", "shade", "laser-cutting"],
     services: ["laser-cutting", "steel-structures"],
     media: ["projects/perforated-beams-1", "projects/perforated-beams-2"],
   },
@@ -431,22 +431,51 @@ export const projects: Project[] = [
       en: "A lattice tower replica — installed on site, and under fabrication in the workshop.",
       ar: "مجسم برج بهيكل شبكي — مركّب في موقعه، وأثناء التصنيع في الورشة.",
     },
-    categories: ["structures", "fabrication"],
+    categories: ["structures", "custom", "fabrication"],
     services: ["laser-cutting", "fabrication", "steel-structures"],
     media: ["projects/tower-replica-1", "services/fabrication-workshop"],
   },
 ];
 
+/**
+ * Website classifications, in filter order. They describe the kind of work
+ * visible in each gallery item; they are not sourced project data.
+ */
 export const projectCategories: { slug: ProjectCategory; label: { en: string; ar: string } }[] = [
   { slug: "architectural", label: { en: "Architectural Metal", ar: "أعمال معدنية معمارية" } },
   { slug: "structures", label: { en: "Structures", ar: "هياكل" } },
   { slug: "fabrication", label: { en: "Fabrication", ar: "تصنيع" } },
-  { slug: "laser-cutting", label: { en: "Laser Cutting", ar: "قص بالليزر" } },
   { slug: "public-realm", label: { en: "Public Realm", ar: "الأماكن العامة" } },
   { slug: "decorative", label: { en: "Decorative Metal", ar: "أعمال زخرفية" } },
+  { slug: "shade", label: { en: "Shade & Canopies", ar: "المظلات والتظليل" } },
+  { slug: "laser-cutting", label: { en: "Laser-Cut Work", ar: "أعمال القص بالليزر" } },
+  { slug: "custom", label: { en: "Custom Work", ar: "أعمال حسب الطلب" } },
   { slug: "industrial", label: { en: "Industrial", ar: "صناعي" } },
-  { slug: "custom", label: { en: "Custom Projects", ar: "مشاريع خاصة" } },
 ];
+
+/**
+ * Photos kept off the website until RAWASY confirms them: they carry an
+ * AI-image watermark (see docs/ASSET_INVENTORY.md). The workshop photos of the
+ * wheat monument look genuine and stay.
+ */
+export const withheldMedia: readonly MediaId[] = [
+  "projects/wheat-monument-1",
+  "projects/stainless-landmark-1",
+  "projects/billboard-structure-1",
+];
+
+/** Projects held back entirely until authorship or product ownership is confirmed. */
+const withheldFlags: readonly ProjectFlag[] = ["confirm-authorship", "render"];
+
+/** A project's photos that may be shown. */
+export function projectImages(project: Project): MediaId[] {
+  return project.media.filter((id) => !withheldMedia.includes(id));
+}
+
+/** Whether a project appears in the portfolio (it has a usable photo and no open authorship question). */
+export function isShowcased(project: Project) {
+  return !project.flags?.some((flag) => withheldFlags.includes(flag)) && projectImages(project).length > 0;
+}
 
 export function getProject(slug: string) {
   return projects.find((p) => p.slug === slug);

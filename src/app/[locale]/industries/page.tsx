@@ -14,6 +14,7 @@ import { IndustryIndex } from "@/components/industries/IndustryIndex";
 import { InnerCTA } from "@/components/inner/InnerCTA";
 import { InnerPageHero } from "@/components/inner/InnerPageHero";
 import { Phrases } from "@/components/ui/Phrases";
+import { Backdrop } from "@/components/visual/Backdrop";
 import { FrameMarks } from "@/components/visual/TechnicalFrame";
 
 /** Sectors shown in the hero strip (photos large enough to show well). */
@@ -87,8 +88,10 @@ export default async function IndustriesPage({ params }: PageProps<"/[locale]/in
         meta={page.hero.meta.map((m) => ({ label: m.label[locale], value: m.value[locale] }))}
       />
 
-      <section id="sectors" aria-labelledby="sectors-title" className="section-y">
+      <section id="sectors" aria-labelledby="sectors-title" className="sec-eng section-y relative isolate">
+        <Backdrop kind="fine" className="[--bd-fade:linear-gradient(to_bottom,transparent_20%,var(--eng-surface))]" />
         <div className="container-x">
+          <div className="card p-5 sm:p-8 lg:p-10">
           <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
             <h2 id="sectors-title" className="t-label eyebrow" data-reveal="fade">
               <span className="t-num">01</span>
@@ -124,8 +127,10 @@ export default async function IndustriesPage({ params }: PageProps<"/[locale]/in
             />
           </div>
 
+          </div>
+
           {/* How the sectors are classified */}
-          <div className="panel-recessed mt-20 grid gap-x-10 gap-y-8 p-7 sm:p-10 lg:mt-28 lg:grid-cols-12 lg:p-12">
+          <div className="card card-edge mt-6 grid gap-x-10 gap-y-8 p-7 sm:p-10 lg:mt-8 lg:grid-cols-12 lg:p-12" data-tone="eng">
             <div className="lg:col-span-4">
               <p className="t-label eyebrow text-ink-2" data-reveal="fade">
                 <span className="t-num">02</span>

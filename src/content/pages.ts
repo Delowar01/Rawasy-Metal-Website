@@ -2,6 +2,7 @@ import type {
   CertificatesPageContent,
   ClientsPageContent,
   IndustriesPageContent,
+  ProjectsPageContent,
   ServicesPageContent,
 } from "./types";
 
@@ -102,6 +103,7 @@ export const clientsPage: ClientsPageContent = {
     },
   },
   listLabel: { en: "Client logos", ar: "شعارات العملاء" },
+  colours: { en: "Original colours", ar: "الألوان الأصلية" },
   note: {
     en: "Logos are shown to identify organisations that have worked with RAWASY. They remain the trademarks of their respective owners.",
     ar: "تُعرض الشعارات للتعريف بالجهات التي تعاملت مع رواسي، وتبقى علامات تجارية مملوكة لأصحابها.",
@@ -161,6 +163,68 @@ export const certificatesPage: CertificatesPageContent = {
     title: { en: "Need a document for a tender or supplier registration?", ar: "تحتاج وثيقة لمناقصة أو تسجيل مورّد؟" },
     links: [
       { route: "contact", label: { en: "Contact RAWASY", ar: "تواصل مع رواسي" } },
+      { route: "about", label: { en: "About RAWASY", ar: "عن رواسي" } },
+    ],
+  },
+};
+
+/**
+ * Projects overview. Titles and summaries come from the work gallery in the
+ * company profile; categories are website classifications. No counts, clients,
+ * locations or years are stated.
+ */
+export const projectsPage: ProjectsPageContent = {
+  hero: {
+    eyebrow: { en: "Selected work", ar: "مختارات من أعمالنا" },
+    title: { en: "Built in metal. Made to be seen.", ar: "أعمال من المعدن… تلفت الأنظار." },
+    intro: {
+      en: "Landmark sculptures, shade structures, laser-cut screens, architectural metal and custom pieces from RAWASY's work gallery.",
+      ar: "مجسمات ومعالم ومظلات وسواتر مقصوصة بالليزر وأعمال معدنية معمارية وقطع خاصة من معرض أعمال رواسي.",
+    },
+    meta: [
+      { label: { en: "Source", ar: "المصدر" }, value: { en: "Company profile work gallery", ar: "معرض الأعمال في الملف التعريفي" } },
+      { label: { en: "Workshop", ar: "الورشة" }, value: { en: "Riyadh · Saudi Arabia", ar: "الرياض · المملكة العربية السعودية" } },
+      { label: { en: "Disciplines", ar: "التخصصات" }, value: { en: "Cutting · Forming · Fabrication", ar: "القص · التشكيل · التصنيع" } },
+    ],
+    quickFilter: { en: "Browse by category", ar: "تصفّح حسب الفئة" },
+  },
+  featured: { label: { en: "Featured project", ar: "مشروع مميّز" }, slug: "tulip-roundabout-sculpture" },
+  editorial: {
+    label: { en: "Highlights", ar: "أبرز الأعمال" },
+    title: { en: "Landmarks, lanterns and shade.", ar: "معالم وفوانيس ومظلات." },
+    intro: {
+      en: "A closer look at pieces from the gallery — from the workshop floor to the finished installation.",
+      ar: "نظرة أقرب على قطع من معرض الأعمال… من أرضية الورشة إلى التركيب النهائي.",
+    },
+    slugs: ["clock-tower-landmark", "wave-form-sculpture", "suspended-lantern", "palm-leaf-shade-canopies"],
+  },
+  gallery: {
+    label: { en: "Gallery", ar: "المعرض" },
+    title: { en: "All projects", ar: "جميع المشاريع" },
+    intro: {
+      en: "Filter the gallery by the kind of work. Categories describe what each piece shows; they are website classifications.",
+      ar: "صفِّ المعرض حسب نوع العمل. الفئات تصف ما تُظهره كل قطعة، وهي تصنيفات خاصة بالموقع.",
+    },
+    filterLabel: { en: "Filter projects by category", ar: "تصفية المشاريع حسب الفئة" },
+    all: { en: "All", ar: "الكل" },
+    showing: { en: "Showing", ar: "المعروض" },
+  },
+  index: {
+    label: { en: "Project index", ar: "فهرس المشاريع" },
+    title: { en: "Every project by gallery reference.", ar: "كل المشاريع حسب رقمها في المعرض." },
+    note: {
+      en: "Scope, materials, locations, clients and years appear on a project only once RAWASY has confirmed them.",
+      ar: "لا تظهر تفاصيل النطاق والخامات والمواقع والعملاء والسنوات إلا بعد تأكيدها من رواسي.",
+    },
+  },
+  view: { en: "View project", ar: "عرض المشروع" },
+  refLabel: { en: "Ref.", ar: "المرجع" },
+  cta: {
+    label: { en: "Start a project", ar: "ابدأ مشروعك" },
+    title: { en: "Have a piece like this in mind?", ar: "لديك فكرة لقطعة مماثلة؟" },
+    links: [
+      { route: "contact", label: { en: "Request a quote", ar: "اطلب عرض سعر" } },
+      { route: "services", label: { en: "Our services", ar: "خدماتنا" } },
       { route: "about", label: { en: "About RAWASY", ar: "عن رواسي" } },
     ],
   },

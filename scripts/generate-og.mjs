@@ -45,7 +45,7 @@ const copy = {
 };
 
 const FONTS_URL =
-  "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Noto+Kufi+Arabic:wght@700&family=IBM+Plex+Sans+Arabic:wght@400;500&family=Geist+Mono:wght@500&display=block";
+  "https://fonts.googleapis.com/css2?family=Sora:wght@700&family=Manrope:wght@400;500&family=Noto+Kufi+Arabic:wght@700&family=IBM+Plex+Sans+Arabic:wght@400;500&family=Geist+Mono:wght@500&display=block";
 
 /**
  * Fetch the Google Fonts CSS in Node and inline the latin + arabic subsets as
@@ -72,13 +72,13 @@ const page = (l) => `<!doctype html><html lang="${l}" dir="${copy[l].dir}"><head
 
 *{margin:0;box-sizing:border-box}
 body{width:1200px;height:630px;background:#17191a;color:#eceae5;overflow:hidden;position:relative;
-font-family:${l === "ar" ? "'IBM Plex Sans Arabic'" : "Archivo"},sans-serif}
+font-family:${l === "ar" ? "'IBM Plex Sans Arabic'" : "Manrope"},sans-serif}
 .grid{position:absolute;inset:0;background-image:linear-gradient(to right,rgba(236,234,229,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(236,234,229,.05) 1px,transparent 1px);background-size:60px 60px}
 .logo{position:absolute;top:64px;inset-inline-start:72px;width:230px}
 .logo svg{width:100%;height:auto}
-h1{position:absolute;inset-inline-start:72px;bottom:150px;font-weight:${l === "ar" ? 700 : 640};
-${l === "ar" ? "font-family:'Noto Kufi Arabic',sans-serif;" : ""}font-size:${l === "ar" ? 54 : 70}px;line-height:${l === "ar" ? 1.36 : 0.98};letter-spacing:${l === "ar" ? 0 : "-0.035em"};
-${l === "ar" ? "" : "text-transform:uppercase;font-variation-settings:'wdth' 112;"}max-width:720px}
+h1{position:absolute;inset-inline-start:72px;bottom:150px;font-weight:700;
+font-family:${l === "ar" ? "'Noto Kufi Arabic'" : "Sora"},sans-serif;font-size:${l === "ar" ? 54 : 62}px;line-height:${l === "ar" ? 1.36 : 0.98};letter-spacing:${l === "ar" ? 0 : "-0.04em"};
+${l === "ar" ? "" : "text-transform:uppercase;"}max-width:720px}
 h1 em{font-style:normal;color:#f15f22}
 .meta{position:absolute;inset-inline:72px;bottom:64px;display:flex;justify-content:space-between;gap:32px;white-space:nowrap;
 font-family:'Geist Mono',monospace;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#a8a6a1}

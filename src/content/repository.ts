@@ -13,10 +13,10 @@ import { industries } from "./industries";
 import { legalChrome, legalDocuments } from "./legal";
 import { machines } from "./machines";
 import { capabilityStatements, metrics } from "./metrics";
-import { certificatesPage, clientsPage, industriesPage, servicesPage } from "./pages";
+import { certificatesPage, clientsPage, industriesPage, projectsPage, servicesPage } from "./pages";
 import { pillars } from "./pillars";
 import { processSteps } from "./process";
-import { featuredProjects, getProject, projectCategories, projects } from "./projects";
+import { featuredProjects, getProject, isShowcased, projectCategories, projects } from "./projects";
 import { getService, services } from "./services";
 
 export async function getCompany() {
@@ -45,6 +45,15 @@ export async function getProjects() {
 
 export async function getFeaturedProjects() {
   return featuredProjects();
+}
+
+/** Projects shown in the portfolio: usable photos and no open authorship question. */
+export async function getShowcasedProjects() {
+  return projects.filter(isShowcased);
+}
+
+export async function getProjectsPageContent() {
+  return projectsPage;
 }
 
 export async function getProjectBySlug(slug: string) {

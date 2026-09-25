@@ -30,7 +30,7 @@ export const privacyPolicy: LegalDocument = {
       ar: "كيف تتعامل رواسي مع المعلومات التي تشاركها معنا عبر هذا الموقع.",
     },
   },
-  updated: "2026-09-24",
+  updated: "2026-09-25",
   sections: [
     {
       id: "who-we-are",
@@ -185,10 +185,16 @@ export const privacyPolicy: LegalDocument = {
       body: {
         en: [
           "Links on this website can open services run by others, such as WhatsApp, Facebook or your email app. Their own privacy policies apply when you use them.",
+          "The contact page shows a Google map of our address. The map is loaded from Google when you scroll to it, so Google receives your request (including your IP address) under its own privacy policy. The “Get directions” and “Open in Google Maps” links open Google Maps.",
         ],
         ar: [
           "قد تفتح بعض الروابط في هذا الموقع خدمات تديرها جهات أخرى، مثل واتساب وفيسبوك وتطبيق بريدك الإلكتروني، وتنطبق عليها سياسات الخصوصية الخاصة بها عند استخدامها.",
+          "تعرض صفحة التواصل خريطة Google لعنواننا، وتُحمَّل الخريطة من Google عند وصولك إليها في الصفحة، فيتلقى Google طلبك (بما في ذلك عنوان IP) وفق سياسة الخصوصية الخاصة به. ويفتح رابطا «الحصول على الاتجاهات» و«فتح في خرائط Google» خدمة خرائط Google.",
         ],
+      },
+      pending: {
+        en: "RAWASY to confirm the Google Maps embed wording with its legal adviser before launch.",
+        ar: "بانتظار تأكيد رواسي لصياغة فقرة خرائط Google مع مستشارها القانوني قبل الإطلاق.",
       },
     },
     {

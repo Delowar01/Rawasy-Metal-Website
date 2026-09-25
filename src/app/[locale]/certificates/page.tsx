@@ -51,21 +51,21 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
         intro={page.hero.intro[locale]}
         below={
           <div className="pb-14 lg:pb-20" data-reveal="fade" style={{ ["--d" as string]: 200 } as CSSProperties}>
-            <div className="tf-host panel-raised px-5 pb-2 pt-5 sm:px-7 sm:pt-6">
+            <div className="tf-host panel-raised card-edge relative px-5 pb-2 pt-5 sm:px-7 sm:pt-6" data-tone="craft">
               <table className="w-full border-collapse">
                 <caption className="t-label pb-4 text-start text-ink-3">{page.registerLabel[locale]}</caption>
                 <thead>
-                  <tr className="border-y border-line-strong">
-                    <th scope="col" className="t-label w-12 py-3 pe-4 ps-3 text-start font-normal text-ink-3 sm:w-16">
+                  <tr className="border-y border-line-strong bg-[var(--craft-surface)]">
+                    <th scope="col" className="t-label w-12 py-3 pe-4 ps-3 text-start font-medium text-[var(--craft-ink)] sm:w-16">
                       {page.columns.number[locale]}
                     </th>
-                    <th scope="col" className="t-label py-3 pe-4 text-start font-normal text-ink-3">
+                    <th scope="col" className="t-label py-3 pe-4 text-start font-medium text-[var(--craft-ink)]">
                       {page.columns.document[locale]}
                     </th>
-                    <th scope="col" className="t-label py-3 pe-4 text-start font-normal text-ink-3 max-md:hidden">
+                    <th scope="col" className="t-label py-3 pe-4 text-start font-medium text-[var(--craft-ink)] max-md:hidden">
                       {page.columns.issuer[locale]}
                     </th>
-                    <th scope="col" className="t-label py-3 text-start font-normal text-ink-3 max-lg:hidden">
+                    <th scope="col" className="t-label py-3 text-start font-medium text-[var(--craft-ink)] max-lg:hidden">
                       {page.columns.reference[locale]}
                     </th>
                   </tr>
@@ -73,7 +73,7 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
                 <tbody>
                   {certificates.map((cert, i) => (
                     <tr key={cert.slug} className="group border-b border-line align-baseline transition-colors duration-300 last:border-b-0 hover:bg-[var(--row-tint)]">
-                      <td className="t-num py-5 pe-4 ps-3 text-xs text-accent-ink transition-shadow duration-300 group-hover:[box-shadow:inset_calc(var(--dir)*2px)_0_0_var(--accent)] group-has-[:focus-visible]:[box-shadow:inset_calc(var(--dir)*2px)_0_0_var(--accent)]">
+                      <td className="t-num tone-ink py-5 pe-4 ps-3 text-xs transition-shadow duration-300 group-hover:[box-shadow:inset_calc(var(--dir)*2px)_0_0_var(--accent)] group-has-[:focus-visible]:[box-shadow:inset_calc(var(--dir)*2px)_0_0_var(--accent)]">
                         {pad(i + 1)}
                       </td>
                       <th scope="row" className="py-5 pe-4 text-start font-normal">
@@ -94,7 +94,9 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
         }
       />
 
-      <div className="container-x pb-[var(--section-y)]">
+      <section aria-label={page.registerLabel[locale]} className="sec-craft section-y relative isolate">
+        <Backdrop kind="fine" className="[--bd-fade:linear-gradient(to_bottom,transparent_25%,var(--craft-surface))]" />
+        <div className="container-x">
         <CertificateRegister
           labels={{
             view: page.view[locale],
@@ -118,7 +120,8 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
             };
           })}
         />
-      </div>
+        </div>
+      </section>
 
       <EditorialSection
         id="redaction"
@@ -139,7 +142,7 @@ export default async function CertificatesPage({ params }: PageProps<"/[locale]/
               data-reveal
               style={{ ["--d" as string]: 80 * i } as CSSProperties}
             >
-              <span className="t-num pt-1 text-xs text-accent-ink">{pad(i + 1)}</span>
+              <span className="t-num pt-1 text-xs text-[var(--craft-ink)]">{pad(i + 1)}</span>
               <p className="t-body text-[1.0625rem]">{point}</p>
             </li>
           ))}

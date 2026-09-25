@@ -44,7 +44,6 @@ export const about: AboutContent = {
         "نجمع بين التقنية المتقدمة والحِرفية العالية لنحقق معايير جودة عالية، ونلتزم بالمواعيد ونسعى إلى تجاوز التوقعات.",
       ],
     },
-    servicesLabel: { en: "Six service lines", ar: "ستة خطوط خدمة" },
   },
   vision: {
     label: { en: "Our vision", ar: "رؤيتنا" },
@@ -57,15 +56,15 @@ export const about: AboutContent = {
       en: "RAWASY provides safe and reliable scaffolding solutions to support construction, maintenance and repair projects — with strong, adaptable systems and professional service.",
       ar: "توفّر رواسي حلول سقالات آمنة وموثوقة لدعم مشاريع البناء والصيانة والترميم، بأنظمة قوية ومرنة وخدمة احترافية.",
     },
+    // "New Struck(s)" in the profile is unclear and stays out until RAWASY clarifies it (ASSET_INVENTORY item 7).
     items: [
-      { en: "Formwork systems", ar: "أنظمة الشدّات" },
-      { en: "Wood & steel props", ar: "الدعامات الخشبية والحديدية" },
-      { en: "New structures", ar: "الإنشاءات الجديدة" },
-      { en: "Rental services", ar: "خدمات التأجير" },
-      { en: "Installation & dismantling", ar: "التركيب والفك" },
-      { en: "Transportation", ar: "النقل" },
+      { slug: "formwork", label: { en: "Formwork systems", ar: "أنظمة الشدّات" } },
+      { slug: "props", label: { en: "Wood & steel props", ar: "الدعامات الخشبية والحديدية" } },
+      { slug: "rental", label: { en: "Rental services", ar: "خدمات التأجير" } },
+      { slug: "installation", label: { en: "Installation & dismantling", ar: "التركيب والفك" } },
+      { slug: "transport", label: { en: "Transportation", ar: "النقل" } },
     ],
-    media: "services/scaffolding-3",
+    media: "services/scaffolding-1",
     mediaAlt: {
       en: "Large scaffolding system around a structure under construction",
       ar: "منظومة سقالات كبيرة حول منشأة قيد الإنشاء",
@@ -136,6 +135,115 @@ export const about: AboutContent = {
     intro: {
       en: "Many companies specialise in one or two areas. RAWASY brings metal fabrication, steel structures, scaffolding and formwork together — so a project can move from drawing to site with one partner.",
       ar: "تتخصص شركات كثيرة في مجال أو اثنين، بينما تجمع رواسي التصنيع المعدني والهياكل الحديدية والسقالات والشدّات، لينتقل المشروع من المخطط إلى الموقع مع شريك واحد.",
+    },
+  },
+  what: {
+    label: { en: "What we do", ar: "ما نقدّمه" },
+    title: { en: "Metalwork and scaffolding, from one partner.", ar: "الأعمال المعدنية والسقالات… من شريك واحد." },
+    intro: {
+      en: "RAWASY's services fall into two sections — metal and scaffolding — so one company can take a project from the first cut to support on site.",
+      ar: "تنقسم خدمات رواسي إلى قسمين: المعادن والسقالات، لتتولى جهة واحدة المشروع من أول قصّة حتى دعم الموقع.",
+    },
+    divisions: [
+      {
+        slug: "metal",
+        label: { en: "Metal section", ar: "قسم المعادن" },
+        title: { en: "Metalwork and fabrication", ar: "الأعمال المعدنية والتصنيع" },
+        body: {
+          en: "Laser cutting, CNC bending, steel structures, metal fabrication and laser engraving.",
+          ar: "القص بالليزر، والثني بتقنية CNC، والهياكل الحديدية، والتصنيع المعدني، والحفر بالليزر.",
+        },
+        link: { en: "Core metal services", ar: "خدمات المعادن الأساسية" },
+      },
+      {
+        slug: "scaffolding",
+        label: { en: "Scaffolding section", ar: "قسم السقالات" },
+        title: { en: "Scaffolding and site support", ar: "السقالات ودعم مواقع العمل" },
+        body: {
+          en: "Scaffolding, formwork systems, wood and steel props, rental, installation and dismantling, and transportation.",
+          ar: "السقالات، وأنظمة الشدّات، والدعامات الخشبية والحديدية، والتأجير، والتركيب والفك، والنقل.",
+        },
+        link: { en: "Scaffolding and support", ar: "السقالات والدعم" },
+      },
+    ],
+  },
+  metal: {
+    label: { en: "Core metal services", ar: "خدمات المعادن الأساسية" },
+    title: { en: "Cut, formed, fabricated and finished.", ar: "قصّ وتشكيل وتصنيع وتشطيب." },
+    intro: {
+      en: "Each service works on its own or as part of a complete package.",
+      ar: "كل خدمة تعمل منفردة أو ضمن حزمة متكاملة.",
+    },
+    explore: { en: "Explore", ar: "استكشف" },
+  },
+  approach: {
+    label: { en: "Engineering approach", ar: "نهجنا الهندسي" },
+    title: { en: "Advanced technology, skilled craftsmanship.", ar: "تقنية متقدمة… وحِرفية عالية." },
+    intro: {
+      en: "RAWASY pairs fibre-laser cutting, CNC forming and laser welding with skilled hands — technology for accuracy, craftsmanship for the finish.",
+      ar: "تجمع رواسي بين القص بليزر الفايبر والتشكيل بتقنية CNC واللحام بالليزر وبين الأيدي الماهرة؛ التقنية للدقة، والحِرفية للإتقان.",
+    },
+  },
+  workshop: {
+    label: { en: "In the workshop", ar: "داخل الورشة" },
+    title: { en: "Work in progress.", ar: "أعمال قيد التنفيذ." },
+    intro: {
+      en: "Pieces on the workshop floor, from cut sheets to sculptures taking shape.",
+      ar: "قطع على أرض الورشة، من الألواح المقصوصة إلى مجسّمات تتشكّل.",
+    },
+    // Genuine workshop photos only (see ASSET_INVENTORY): no AI-marked, render or third-party-branded images.
+    photos: [
+      { media: "services/fabrication-workshop", caption: { en: "Lanterns and a lattice tower under fabrication", ar: "فوانيس وبرج شبكي أثناء التصنيع" } },
+      { media: "projects/geometric-lanterns-1", caption: { en: "Polyhedral lanterns with laser-cut patterns", ar: "فوانيس متعددة الأوجه بنقوش مقصوصة بالليزر" } },
+      { media: "projects/perforated-beams-1", caption: { en: "Perforated steel beams", ar: "كمرات حديدية مثقّبة" } },
+      { media: "projects/wheat-monument-2", caption: { en: "The wheat stalks monument in fabrication", ar: "مجسّم سنابل القمح أثناء التصنيع" } },
+      { media: "projects/curved-frames-1", caption: { en: "Curved steel frames", ar: "إطارات حديدية منحنية" } },
+      { media: "projects/heritage-cannons-1", caption: { en: "Finishing a heritage cannon replica", ar: "تشطيب مجسّم مدفع تراثي" } },
+      { media: "services/fabrication-cut-sheets", caption: { en: "Laser-cut patterned sheets", ar: "ألواح بنقوش مقصوصة بالليزر" } },
+    ],
+  },
+  machinery: {
+    label: { en: "Machinery", ar: "المعدات" },
+    title: { en: "The equipment behind the precision.", ar: "المعدات التي تصنع الدقة." },
+    intro: {
+      en: "Four fibre-laser cutting systems up to 12,000 W, CNC press-brake forming and laser welding.",
+      ar: "أربعة أنظمة قص بليزر الفايبر بقدرة تصل إلى 12,000 واط، وثني بمكابس CNC، ولحام بالليزر.",
+    },
+    link: { en: "Capabilities & machinery", ar: "القدرات والمعدات" },
+    machine: { en: "Machine", ar: "المعدّة" },
+    type: { en: "Type", ar: "النوع" },
+    power: { en: "Rated power", ar: "القدرة" },
+  },
+  projects: {
+    label: { en: "Selected work", ar: "مختارات من أعمالنا" },
+    title: { en: "From the workshop to the city.", ar: "من الورشة… إلى المدينة." },
+    intro: {
+      en: "Landmark sculptures, shade structures, screens and custom pieces from RAWASY's work gallery.",
+      ar: "مجسّمات معلَمية ومظلات وسواتر وقطع خاصة من معرض أعمال رواسي.",
+    },
+    link: { en: "All projects", ar: "جميع المشاريع" },
+    slugs: ["tulip-roundabout-sculpture", "clock-tower-landmark", "palm-leaf-shade-canopies", "geometric-lanterns"],
+  },
+  clients: {
+    label: { en: "Clients", ar: "عملاؤنا" },
+    title: { en: "Working alongside Saudi industry.", ar: "شركاء النجاح." },
+    intro: {
+      en: "Manufacturers, contractors and specialist fabricators that have worked with RAWASY.",
+      ar: "مصانع ومقاولون وشركات تصنيع متخصصة تعاملت مع رواسي.",
+    },
+    link: { en: "All clients", ar: "جميع العملاء" },
+  },
+  compliance: {
+    label: { en: "Compliance", ar: "الامتثال" },
+    title: { en: "Registered. Licensed. Accountable.", ar: "مسجّلون ومرخّصون… وملتزمون." },
+    intro: {
+      en: "A registered Saudi company with VAT registration and a municipal commercial activity licence.",
+      ar: "شركة سعودية مسجّلة في السجل التجاري وفي ضريبة القيمة المضافة، وتحمل رخصة نشاط تجاري من البلدية.",
+    },
+    link: { en: "Certificates & compliance", ar: "الشهادات والامتثال" },
+    note: {
+      en: "Numbers, QR codes and personal details are redacted in these previews.",
+      ar: "أُخفيت الأرقام ورموز QR والبيانات الشخصية في هذه المعاينات.",
     },
   },
   cta: {

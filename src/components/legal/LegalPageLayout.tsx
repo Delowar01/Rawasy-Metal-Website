@@ -43,8 +43,10 @@ export function LegalPageLayout({
     </ol>
   );
 
+  // The document reads as a sheet of paper (a raised panel) on a recessed band, with the contents beside it.
   return (
-    <div className="container-x grid gap-x-10 gap-y-8 pb-[var(--section-y)] pt-4 lg:grid-cols-12 lg:pt-8">
+    <div className="sec-deep border-t border-line">
+    <div className="container-x grid gap-x-10 gap-y-8 pb-[var(--section-y)] pt-8 lg:grid-cols-12 lg:pt-14">
       <nav aria-label={labels.onThisPage} className="lg:col-span-3">
         <details className="group border-y border-line lg:hidden">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 [&::-webkit-details-marker]:hidden">
@@ -56,7 +58,7 @@ export function LegalPageLayout({
         <LegalToc label={labels.onThisPage} items={sections.map((section) => ({ id: section.id, title: section.title }))} />
       </nav>
 
-      <div className="lg:col-span-8 lg:col-start-5">
+      <div className="card card-edge px-5 py-6 sm:px-10 sm:py-10 lg:col-span-9 lg:col-start-4 lg:px-14 lg:py-12" data-tone="eng">
         {sections.map((section, i) => (
           <section
             key={section.id}
@@ -101,6 +103,7 @@ export function LegalPageLayout({
           </section>
         ))}
       </div>
+    </div>
     </div>
   );
 }

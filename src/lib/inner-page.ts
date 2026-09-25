@@ -6,8 +6,17 @@ import { href, path } from "@/i18n/routes";
 import { isPublished } from "./page-meta";
 import { breadcrumbJsonLd, buildMetadata, SITE_URL, webPageJsonLd } from "./seo";
 
-/** Stage 1C inner pages. */
-export type InnerRoute = "about" | "services" | "industries" | "clients" | "certificates" | "contact" | "privacy" | "terms";
+/** Built inner pages (Stage 1C, plus the projects overview brought forward in V2). */
+export type InnerRoute =
+  | "about"
+  | "services"
+  | "projects"
+  | "industries"
+  | "clients"
+  | "certificates"
+  | "contact"
+  | "privacy"
+  | "terms";
 
 /** Localized metadata; noindex until the route is published (see page-meta.ts). */
 export function innerPageMetadata(key: InnerRoute, locale: Locale): Metadata {

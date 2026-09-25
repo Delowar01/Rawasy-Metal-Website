@@ -88,23 +88,37 @@ test("dark theme applies to inner pages and toggles back", async ({ page, contex
 });
 
 test.describe("clients", () => {
-  test("21 logos with names, seven across on desktop", async ({ page }) => {
+  test("21 logos with names on one wall, six across on desktop, every row full", async ({ page }) => {
     await page.goto("/en/clients", { waitUntil: "networkidle" });
-    const cells = page.locator("ul.client-grid > li");
+    const cells = page.locator("ul.logo-wall > li");
     await expect(cells).toHaveCount(21);
     const alts = await cells.locator("img").evaluateAll((imgs) => imgs.map((img) => img.getAttribute("alt") ?? ""));
     expect(alts.every((alt) => alt.trim().length > 1)).toBe(true);
-    const columns = await page.locator("ul.client-grid").evaluate((ul) => getComputedStyle(ul).gridTemplateColumns.split(" ").length);
-    expect(columns).toBe(7);
+    const columns = await page.locator("ul.logo-wall").evaluate((ul) => getComputedStyle(ul).gridTemplateColumns.split(" ").length);
+    expect(columns).toBe(6);
+    expect(await lastRowGap(page)).toBe(0);
   });
 
-  test("three across on phones", async ({ page }) => {
+  test("two across on phones, every row full", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/ar/clients", { waitUntil: "networkidle" });
-    const columns = await page.locator("ul.client-grid").evaluate((ul) => getComputedStyle(ul).gridTemplateColumns.split(" ").length);
-    expect(columns).toBe(3);
+    const columns = await page.locator("ul.logo-wall").evaluate((ul) => getComputedStyle(ul).gridTemplateColumns.split(" ").length);
+    expect(columns).toBe(2);
+    expect(await lastRowGap(page)).toBe(0);
   });
 });
+
+/** Empty width at the end of the wall's last row, in px (0 when every row is full). */
+function lastRowGap(page: Page) {
+  return page.locator("ul.logo-wall").evaluate((ul) => {
+    const cells = [...ul.children].map((li) => li.getBoundingClientRect());
+    const bottom = Math.max(...cells.map((r) => r.bottom));
+    const lastRow = cells.filter((r) => Math.abs(r.bottom - bottom) < 2);
+    const box = ul.getBoundingClientRect();
+    const used = lastRow.reduce((sum, r) => sum + r.width, 0) + (lastRow.length - 1);
+    return Math.max(0, Math.round(box.width - 2 - used));
+  });
+}
 
 test.describe("certificates", () => {
   test("register, keyboard dialog, focus return and redaction", async ({ page }) => {
@@ -246,7 +260,7 @@ test.describe("contact and quote form", () => {
 
   test("direct contact links", async ({ page }) => {
     await page.goto("/ar/contact", { waitUntil: "networkidle" });
-    const sheet = page.locator("main address").first();
+    const sheet = page.getByRole("group", { name: "تواصل مباشر" });
     await expect(sheet.locator('a[href="tel:+966537368310"]')).toHaveCount(1);
     await expect(sheet.locator('a[href="tel:+966552616189"]')).toHaveCount(1);
     await expect(sheet.locator('a[href="mailto:rawasymetal@gmail.com"]')).toHaveCount(1);
@@ -283,7 +297,7 @@ test.describe("legal pages", () => {
         await expect(page.locator(href!)).toHaveCount(1);
       }
       expect(await page.getByText("Pending confirmation").count()).toBeGreaterThan(0);
-      await expect(page.locator('main time[datetime="2026-09-24"]')).toHaveCount(1);
+      await expect(page.locator('main time[datetime^="2026-09-"]')).toHaveCount(1);
       await expect(page.locator('main address a[href="mailto:rawasymetal@gmail.com"]')).toHaveCount(1);
     });
   }
