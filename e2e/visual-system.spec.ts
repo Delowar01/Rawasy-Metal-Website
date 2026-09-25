@@ -91,6 +91,28 @@ test.describe("ambient motion", () => {
     expect(await grid.evaluate((el) => getComputedStyle(el, "::before").animationPlayState)).toBe("running");
   });
 
+  test("line work draws itself once revealed, without a resize", async ({ page }) => {
+    // Regression: `[data-revealed] [pathLength]` selectors never restyled the SVG paths in Chromium.
+    for (const [path, host] of [
+      ["/en", ".beam-draw"],
+      ["/en", ".pillar"],
+      ["/en/about", ".line-draw"],
+      ["/en/services/cnc-bending", ".line-draw"],
+      ["/ar/services/laser-engraving", ".line-draw"],
+    ]) {
+      await page.goto(path, { waitUntil: "networkidle" });
+      const el = page.locator(host).first();
+      await el.evaluate((node) => node.scrollIntoView({ block: "center" }));
+      await expect(el).toHaveAttribute("data-revealed", "");
+      await expect
+        .poll(() => el.evaluate((node) => [...node.querySelectorAll("[pathLength]")].every((p) => getComputedStyle(p).strokeDashoffset === "0px")), {
+          message: `${path} ${host}`,
+          timeout: 6_000,
+        })
+        .toBe(true);
+    }
+  });
+
   test("the pointer light follows a mouse over the machinery stage", async ({ page }) => {
     await page.goto("/en", { waitUntil: "networkidle" });
     const stage = page.locator("#machinery .machine-stage");

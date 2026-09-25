@@ -37,13 +37,36 @@ export const services: Service[] = [
       media: "projects/clock-tower-1",
       alt: { en: "Clock tower with laser-cut façade panels", ar: "برج ساعة بواجهات مقصوصة بالليزر" },
     },
+    // Workshop and work-gallery photos not already shown in the page's project cards.
+    // `projects/canopy-tree-1` stays out until its authorship is confirmed.
     gallery: [
-      "site/laser-head",
-      "projects/canopy-tree-1",
-      "projects/suspended-lantern-1",
-      "projects/clock-tower-1",
-      "projects/tower-replica-1",
-      "services/fabrication-cut-sheets",
+      {
+        media: "site/laser-head",
+        caption: { en: "A laser head cutting a row of openings in steel", ar: "رأس ليزر يقص صفًا من الفتحات في الحديد" },
+      },
+      {
+        media: "projects/perforated-beams-1",
+        caption: { en: "Laser-perforated steel members in the workshop", ar: "عناصر حديدية مثقّبة بالليزر في الورشة" },
+      },
+      {
+        media: "projects/laser-cut-components-1",
+        caption: {
+          en: "Laser-cut profiles with patterned openings, ready for assembly",
+          ar: "قطاعات مقصوصة بالليزر بفتحات مزخرفة، جاهزة للتجميع",
+        },
+      },
+      {
+        media: "projects/tree-grate-1",
+        caption: { en: "A tree grate with a linear laser-cut pattern", ar: "شبكة لحماية الأشجار بنقش خطّي مقصوص بالليزر" },
+      },
+      {
+        media: "projects/screen-enclosures-2",
+        caption: { en: "A perforated screen enclosure for a service area", ar: "ساتر معدني مثقّب لمنطقة خدمات" },
+      },
+      {
+        media: "projects/chandelier-1",
+        caption: { en: "A two-tier chandelier with laser-cut detailing", ar: "ثريا بطبقتين وتفاصيل مقصوصة بالليزر" },
+      },
     ],
     machines: ["tube-cutting-12kw", "fiber-laser-combo-12kw", "fiber-laser-6kw", "fiber-laser-3kw"],
     projects: ["geometric-lanterns", "perforated-canopy-screen", "clock-tower-landmark", "suspended-lantern"],
@@ -84,9 +107,19 @@ export const services: Service[] = [
       media: "services/cnc-bending-2",
       alt: { en: "Formed sheet-metal parts from a CNC press brake", ar: "قطع صاج مُشكّلة على مكبس ثني CNC" },
     },
-    gallery: ["services/cnc-bending-2", "services/cnc-bending-3"],
+    gallery: [
+      {
+        media: "services/cnc-bending-2",
+        caption: { en: "A perforated sheet part formed on a press brake", ar: "قطعة صاج مثقّبة تُشكَّل على مكبس الثني" },
+      },
+      {
+        media: "services/cnc-bending-3",
+        caption: { en: "A formed profile at the press-brake tooling", ar: "قطاع مُشكَّل عند أدوات مكبس الثني" },
+      },
+    ],
     machines: ["cnc-press-brake"],
-    projects: ["perforated-metal-seating", "stainless-steel-handrails"],
+    // The handrails project (#31) is recorded as fabrication only, so it is not linked here.
+    projects: ["perforated-metal-seating"],
     source: { basis: "profile", pages: [3, 4] },
   },
   {
@@ -125,11 +158,22 @@ export const services: Service[] = [
       alt: { en: "Steel portal frames of a building under construction at dusk", ar: "إطارات حديدية لمبنى قيد الإنشاء وقت الغروب" },
     },
     gallery: [
-      "services/steel-structures-1",
-      "services/steel-structures-2",
-      "services/steel-structures-3",
-      "services/steel-structures-4",
-      "site/steel-frame-dusk",
+      {
+        media: "services/steel-structures-1",
+        caption: { en: "A large steel-framed building under construction", ar: "مبنى بهيكل حديدي كبير قيد الإنشاء" },
+      },
+      {
+        media: "services/steel-structures-2",
+        caption: { en: "Welding a steel lattice at roof level", ar: "لحام شبكة حديدية على مستوى السقف" },
+      },
+      {
+        media: "services/steel-structures-3",
+        caption: { en: "Working at height on a steel truss", ar: "العمل على ارتفاع فوق جملون حديدي" },
+      },
+      {
+        media: "services/steel-structures-4",
+        caption: { en: "A building with a faceted, illuminated façade at dusk", ar: "مبنى بواجهة متعددة الأوجه مضاءة عند الغسق" },
+      },
     ],
     machines: [],
     projects: ["palm-leaf-shade-canopies", "gateway-welcome-signs", "car-park-shade-structures", "curved-steel-frames"],
@@ -170,12 +214,28 @@ export const services: Service[] = [
       media: "services/fabrication-welding",
       alt: { en: "Welder joining steel parts on a workbench", ar: "لحّام يصل قطعًا حديدية على طاولة العمل" },
     },
+    // Work in progress from the workshop (the welding and grinding photos appear in the page's scope cards).
     gallery: [
-      "services/fabrication-grinding",
-      "services/fabrication-welding",
-      "services/fabrication-laser-welding",
-      "services/fabrication-cut-sheets",
-      "services/fabrication-perforated-beams",
+      {
+        media: "projects/tulip-roundabout-2",
+        caption: { en: "The tulip sculpture in the workshop during fabrication", ar: "مجسم التوليب في الورشة أثناء التصنيع" },
+      },
+      {
+        media: "projects/wave-sculpture-2",
+        caption: { en: "The wave-form sculpture under fabrication", ar: "مجسم الموجة أثناء التصنيع" },
+      },
+      {
+        media: "projects/emblem-sculptures-1",
+        caption: { en: "An emblem sculpture during fabrication", ar: "مجسم الشعار أثناء التصنيع" },
+      },
+      {
+        media: "services/fabrication-perforated-beams",
+        caption: { en: "Perforated steel members stacked in the workshop", ar: "عناصر حديدية مثقّبة مرصوصة في الورشة" },
+      },
+      {
+        media: "services/fabrication-cut-sheets",
+        caption: { en: "Laser-cut patterned steel sheets stacked in the workshop", ar: "ألواح حديدية بنقوش مقصوصة بالليزر مكدّسة في الورشة" },
+      },
     ],
     machines: ["laser-welding"],
     projects: ["heritage-cannon-replicas", "dome-finial-and-crescent", "sculpture-fabrication", "lattice-tower-replica"],
@@ -216,9 +276,12 @@ export const services: Service[] = [
       media: "services/engraving-wood",
       alt: { en: "Detailed laser engraving on wood", ar: "حفر دقيق بالليزر على الخشب" },
     },
-    gallery: ["services/engraving-wood", "services/engraving-rotary"],
+    // No authentic engraving photographs yet: the wood and rotary images are renders, and the nameplates
+    // photo shows third-party branding and part/serial numbers (awaiting RAWASY's confirmation).
+    gallery: [],
     machines: [],
-    projects: ["calligraphic-sculptures", "heritage-cannon-replicas"],
+    // The calligraphic sculptures (#13) and cannon replicas (#11) are recorded as laser-cut, not engraved.
+    projects: [],
     source: { basis: "profile", pages: [3, 5] },
   },
   {
@@ -256,13 +319,24 @@ export const services: Service[] = [
       media: "services/scaffolding-props",
       alt: { en: "Steel props and scaffolding components", ar: "دعامات حديدية ومكوّنات سقالات" },
     },
+    // The props and trailer photos illustrate the page's scope section.
     gallery: [
-      "services/scaffolding-1",
-      "services/scaffolding-3",
-      "services/scaffolding-4",
-      "services/scaffolding-5",
-      "services/scaffolding-props",
-      "site/scaffold-silhouettes",
+      {
+        media: "services/scaffolding-1",
+        caption: { en: "A large scaffolding system around a structure under construction", ar: "منظومة سقالات كبيرة حول منشأة قيد الإنشاء" },
+      },
+      {
+        media: "services/scaffolding-3",
+        caption: { en: "Scaffolding filling a building site between two structures", ar: "سقالات تملأ موقع إنشاء بين منشأتين" },
+      },
+      {
+        media: "services/scaffolding-5",
+        caption: { en: "A scaffolding tower with an internal stair", ar: "برج سقالات بدرج داخلي" },
+      },
+      {
+        media: "site/scaffold-silhouettes",
+        caption: { en: "Workers on scaffolding at sunset", ar: "عمّال على السقالات وقت الغروب" },
+      },
     ],
     machines: [],
     projects: [],

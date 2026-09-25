@@ -68,6 +68,13 @@
   --craft-surface: #f3ecdf;
   --craft-surface-2: #e9ddc6;
   --craft-line: rgb(169 133 73 / 0.5);
+  /* Brass plates (service pages): face, engraved groove and its highlight. */
+  --brass-a: #c9ae76;
+  --brass-b: #e6d4a8;
+  --brass-c: #b99a5f;
+  --brass-edge: #9b7b41;
+  --engr-cut: rgb(72 52 18 / 0.72);
+  --engr-hi: rgb(255 249 232 / 0.75);
   --border-active: var(--accent);
   --border-steel: var(--eng-line);
   --border-teal: var(--proc-line);
@@ -177,6 +184,12 @@
   --craft-surface: #211d16;
   --craft-surface-2: #2a251b;
   --craft-line: rgb(190 160 105 / 0.5);
+  --brass-a: #5e4c2d;
+  --brass-b: #7b6843;
+  --brass-c: #524126;
+  --brass-edge: #3f3220;
+  --engr-cut: rgb(18 12 4 / 0.78);
+  --engr-hi: rgb(236 214 168 / 0.3);
   --band: #0f1213;
   --band-surface: #1a1e20;
   --band-text: #eceae5;
@@ -266,6 +279,12 @@
     --craft-surface: #211d16;
     --craft-surface-2: #2a251b;
     --craft-line: rgb(190 160 105 / 0.5);
+    --brass-a: #5e4c2d;
+    --brass-b: #7b6843;
+    --brass-c: #524126;
+    --brass-edge: #3f3220;
+    --engr-cut: rgb(18 12 4 / 0.78);
+    --engr-hi: rgb(236 214 168 / 0.3);
     --band: #0f1213;
     --band-surface: #1a1e20;
     --band-text: #eceae5;
@@ -1279,9 +1298,13 @@
 /* ==========================================================================
    Home — structural beam, process line
    ========================================================================== */
+/* Line work that draws itself when revealed. The revealed element sets --draw,
+   which the paths inherit: a selector such as `[data-revealed] [pathLength]`
+   is not re-evaluated for SVG descendants when the attribute appears
+   (Chromium), so the paths would stay undrawn until the next resize. */
 .js .beam-draw [pathLength] {
   stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-dashoffset: var(--draw, 1);
   transition: stroke-dashoffset 2.2s var(--ease-out);
 }
 
@@ -1289,8 +1312,8 @@
   transition-delay: 0.6s;
 }
 
-.js .beam-draw[data-revealed] [pathLength] {
-  stroke-dashoffset: 0;
+.js .beam-draw[data-revealed] {
+  --draw: 0;
 }
 
 .process-node {
@@ -1548,14 +1571,15 @@
 /* ==========================================================================
    Home — pillars, clients
    ========================================================================== */
+/* Drawn when the pillar is revealed (see .beam-draw for why --draw is used). */
 .js .pillar-icon [pathLength] {
   stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-dashoffset: var(--draw, 1);
   transition: stroke-dashoffset 1.8s var(--ease-out) 0.25s;
 }
 
-.pillar[data-revealed] .pillar-icon [pathLength] {
-  stroke-dashoffset: 0;
+.pillar[data-revealed] {
+  --draw: 0;
 }
 
 .marquee {
@@ -2992,16 +3016,16 @@ html:not(.js) .js-only {
   display: none;
 }
 
-/* SVG line work that draws itself when revealed (inner pages). */
+/* SVG line work that draws itself when revealed (inner pages; see .beam-draw for --draw). */
 .js .line-draw [pathLength] {
   stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-dashoffset: var(--draw, 1);
   transition: stroke-dashoffset 1.8s var(--ease-out);
   transition-delay: calc(var(--d, 0) * 1ms);
 }
 
-.js .line-draw[data-revealed] [pathLength] {
-  stroke-dashoffset: 0;
+.js .line-draw[data-revealed] {
+  --draw: 0;
 }
 
 /* Frame reveal: the rules draw in (horizontal, then vertical), corner marks
@@ -3542,7 +3566,7 @@ html:not(.js) .js-only {
     display: none;
   }
 
-  .js .line-draw [pathLength] {
+  .js :is(.line-draw, .beam-draw, .pillar-icon) [pathLength] {
     stroke-dashoffset: 0 !important;
     transition: none !important;
   }
@@ -3625,4 +3649,173 @@ html:not(.js) .js-only {
     clip-path: none !important;
     transition: opacity 0.4s linear !important;
   }
+}
+
+/* ==========================================================================
+   Service detail pages (stage 1D): hero drawings, material swatches, process
+   rails. Decoration only; every drawing is aria-hidden.
+   ========================================================================== */
+@layer components {
+  /* Steel Structures: a deep slate drawing sheet with the structural grid. */
+  .axis-plate {
+    border: 1px solid var(--slate-border);
+    background-color: var(--slate);
+    background-image:
+      linear-gradient(to right, rgb(222 232 236 / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(222 232 236 / 0.055) 1px, transparent 1px);
+    background-size: 22px 22px;
+    --axis: color-mix(in srgb, var(--slate-text-2) 46%, transparent);
+    --scan: rgb(255 160 114 / 0.5);
+  }
+
+  /* Centre lines: long dash, gap, dot, gap. */
+  .axis-line {
+    position: absolute;
+  }
+
+  .axis-line-v {
+    top: 9%;
+    bottom: 0;
+    width: 1px;
+    background: repeating-linear-gradient(to bottom, var(--axis) 0 12px, transparent 12px 16px, var(--axis) 16px 18px, transparent 18px 22px);
+  }
+
+  .axis-line-h {
+    left: 6.5%;
+    right: 0;
+    height: 1px;
+    background: repeating-linear-gradient(to right, var(--axis) 0 12px, transparent 12px 16px, var(--axis) 16px 18px, transparent 18px 22px);
+  }
+
+  .axis-bubble {
+    position: absolute;
+    display: grid;
+    width: 1.6rem;
+    height: 1.6rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--slate-text-2) 75%, transparent);
+    border-radius: 50%;
+    background: var(--slate);
+    color: var(--slate-text);
+    font-family: var(--ff-mono);
+    font-size: 0.7rem;
+    line-height: 1;
+    translate: -50% -50%;
+  }
+
+  /* Metal Fabrication: brushed brass bench plate behind the photographs. */
+  .bench-plate {
+    border: 1px solid var(--craft-line);
+    background:
+      var(--sheen),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.1) 0 1px, transparent 1px 4px),
+      linear-gradient(118deg, var(--brass-a) 0%, var(--brass-b) 42%, var(--brass-c) 72%, var(--brass-b) 100%);
+    box-shadow: var(--shadow-raised);
+    --perf-dot: rgb(40 28 10 / 0.28);
+    --rivet: rgb(40 28 10 / 0.45);
+  }
+
+  /* Laser Engraving: the engraved brass plate. */
+  .plate-brass {
+    border: 1px solid var(--brass-edge);
+    background:
+      var(--sheen),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.1) 0 1px, transparent 1px 3px),
+      linear-gradient(118deg, var(--brass-a) 0%, var(--brass-b) 40%, var(--brass-c) 72%, var(--brass-b) 100%);
+    box-shadow: var(--shadow-floating);
+    --rivet: rgb(40 28 10 / 0.5);
+  }
+
+  .engrave .engr-cut {
+    stroke: var(--engr-cut);
+    stroke-width: 1;
+  }
+
+  .engrave .engr-hi {
+    stroke: var(--engr-hi);
+    stroke-width: 1;
+  }
+
+  /* Material swatches (engraving). Physical materials keep their colours in both themes. */
+  .swatch {
+    position: relative;
+    border: 1px solid rgb(0 0 0 / 0.18);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), var(--shadow-card);
+    --engr-cut: rgb(40 28 12 / 0.7);
+    --engr-hi: rgb(255 255 255 / 0.55);
+  }
+
+  .swatch-metal {
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.45), transparent 50%),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.4) 0 1px, transparent 1px 3px),
+      linear-gradient(115deg, #b3b8bb 0%, #e2e4e5 42%, #a4a9ad 72%, #cfd2d4 100%);
+    --engr-cut: rgb(30 34 36 / 0.75);
+  }
+
+  .swatch-wood {
+    background:
+      repeating-linear-gradient(87deg, rgb(92 52 20 / 0.2) 0 2px, transparent 2px 9px),
+      repeating-linear-gradient(93deg, rgb(255 228 186 / 0.16) 0 1px, transparent 1px 14px),
+      linear-gradient(100deg, #b98352 0%, #d3a26d 45%, #a8733f 80%, #c48f5a 100%);
+    --engr-cut: rgb(62 32 10 / 0.8);
+    --engr-hi: rgb(255 226 180 / 0.45);
+  }
+
+  .swatch-plastics {
+    background: linear-gradient(160deg, #3a4246 0%, #262c2f 60%, #1f2427 100%);
+    --engr-cut: rgb(236 238 238 / 0.9);
+    --engr-hi: rgb(0 0 0 / 0.35);
+  }
+
+  .swatch-leather {
+    background:
+      radial-gradient(circle at 22% 28%, rgb(255 255 255 / 0.1), transparent 42%),
+      repeating-radial-gradient(circle at 40% 60%, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px),
+      linear-gradient(135deg, #8e5d38 0%, #a8714a 50%, #7a4d2d 100%);
+    --engr-cut: rgb(46 24 8 / 0.8);
+    --engr-hi: rgb(255 214 170 / 0.3);
+  }
+
+  /* Process rails: a cut path (dashed orange), fold marks (steel) or a fine double line (brass). */
+  .rail-cut {
+    background: repeating-linear-gradient(90deg, var(--accent) 0 10px, transparent 10px 16px);
+  }
+
+  .rail-fold {
+    background:
+      linear-gradient(var(--eng), var(--eng)) 0 50% / 100% 1px no-repeat,
+      repeating-linear-gradient(90deg, transparent 0 22px, var(--eng) 22px 24px, transparent 24px 46px);
+  }
+
+  .rail-fine {
+    background:
+      linear-gradient(var(--craft), var(--craft)) 0 0 / 100% 1px no-repeat,
+      linear-gradient(var(--craft-line), var(--craft-line)) 0 4px / 100% 1px no-repeat;
+  }
+
+  .rail-v.rail-cut {
+    background: repeating-linear-gradient(180deg, var(--accent) 0 10px, transparent 10px 16px);
+  }
+
+  .rail-v.rail-fold {
+    background:
+      linear-gradient(var(--eng), var(--eng)) 50% 0 / 1px 100% no-repeat,
+      repeating-linear-gradient(180deg, transparent 0 22px, var(--eng) 22px 24px, transparent 24px 46px);
+  }
+
+  .rail-v.rail-fine {
+    background:
+      linear-gradient(var(--craft), var(--craft)) 0 0 / 1px 100% no-repeat,
+      linear-gradient(var(--craft-line), var(--craft-line)) 4px 0 / 1px 100% no-repeat;
+  }
+}
+
+/* Vertical lines draw downwards (the shared line reveal draws across). */
+.js :is(.axis-line-v, .rail-v)[data-reveal="line"] {
+  transform-origin: top;
+}
+
+.js :is(.axis-line-v, .rail-v)[data-reveal="line"]:not([data-revealed]) {
+  transform: scaleY(0);
 }

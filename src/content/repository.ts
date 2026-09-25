@@ -13,10 +13,11 @@ import { industries } from "./industries";
 import { legalChrome, legalDocuments } from "./legal";
 import { machines } from "./machines";
 import { capabilityStatements, metrics } from "./metrics";
-import { certificatesPage, clientsPage, industriesPage, projectsPage, servicesPage } from "./pages";
+import { certificatesPage, clientsPage, industriesPage, projectsPage, servicePage, servicesPage } from "./pages";
 import { pillars } from "./pillars";
 import { processSteps } from "./process";
 import { featuredProjects, getProject, isShowcased, projectCategories, projects } from "./projects";
+import { serviceDetails } from "./service-details";
 import { getService, services } from "./services";
 
 export async function getCompany() {
@@ -33,6 +34,13 @@ export async function getServices() {
 
 export async function getServiceBySlug(slug: string) {
   return getService(slug);
+}
+
+/** A service with its detail-page copy and the labels shared by every service page (stage 1D). */
+export async function getServicePageContent(slug: string) {
+  const service = getService(slug);
+  if (!service) return undefined;
+  return { service, detail: serviceDetails[service.slug], labels: servicePage };
 }
 
 export async function getMachines() {

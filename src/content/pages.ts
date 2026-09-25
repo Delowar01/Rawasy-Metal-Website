@@ -3,6 +3,7 @@ import type {
   ClientsPageContent,
   IndustriesPageContent,
   ProjectsPageContent,
+  ServicePageContent,
   ServicesPageContent,
 } from "./types";
 
@@ -42,6 +43,54 @@ export const servicesPage: ServicesPageContent = {
       { route: "capabilities", label: { en: "Machinery", ar: "المعدات" } },
       { route: "projects", label: { en: "Projects", ar: "المشاريع" } },
     ],
+  },
+};
+
+/** Labels shared by the six service detail pages (stage 1D). Per-service copy is in service-details.ts. */
+export const servicePage: ServicePageContent = {
+  sections: {
+    metal: { en: "Metal section", ar: "قسم المعادن" },
+    scaffolding: { en: "Scaffolding section", ar: "قسم السقالات" },
+  },
+  service: { en: "Service", ar: "الخدمة" },
+  quote: { en: "Request a quote", ar: "اطلب عرض سعر" },
+  seeWork: { en: "See the work", ar: "شاهد الأعمال" },
+  labels: {
+    overview: { en: "Overview", ar: "نظرة عامة" },
+    scope: { en: "What we provide", ar: "ما نقدّمه" },
+    process: { en: "How we work", ar: "آلية العمل" },
+    machines: { en: "Machinery", ar: "المعدات" },
+    applications: { en: "Applications", ar: "مجالات الاستخدام" },
+    gallery: { en: "Gallery", ar: "معرض الصور" },
+    why: { en: "Why RAWASY", ar: "لماذا رواسي" },
+    related: { en: "Related services", ar: "خدمات مرتبطة" },
+    projects: { en: "Projects", ar: "المشاريع" },
+  },
+  includes: { en: "Includes", ar: "تشمل" },
+  processNote: {
+    en: "A general outline of the workflow, not a certified procedure. The exact steps are agreed for each project.",
+    ar: "صورة عامة لسير العمل وليست إجراءً معتمدًا، وتُحدَّد الخطوات الفعلية لكل مشروع.",
+  },
+  machine: {
+    power: { en: "Rated power", ar: "القدرة المقننة" },
+    capabilities: { en: "Capabilities & machinery", ar: "القدرات والمعدات" },
+    link: { en: "See all machinery", ar: "جميع المعدات" },
+  },
+  applications: {
+    sectors: { en: "Sectors", ar: "القطاعات" },
+    uses: { en: "Used for", ar: "تُستخدم في" },
+    work: { en: "Seen in our work", ar: "في أعمالنا" },
+    link: { en: "All sectors", ar: "جميع القطاعات" },
+  },
+  explore: { en: "Explore", ar: "تفاصيل" },
+  relatedTitle: { en: "Services that work alongside.", ar: "خدمات مكمّلة." },
+  allServices: { en: "All services", ar: "جميع الخدمات" },
+  allProjects: { en: "All projects", ar: "جميع المشاريع" },
+  cta: {
+    call: { en: "Call", ar: "اتصل" },
+    or: { en: "Or explore", ar: "أو تصفّح" },
+    services: { en: "All services", ar: "جميع الخدمات" },
+    projects: { en: "Projects", ar: "المشاريع" },
   },
 };
 

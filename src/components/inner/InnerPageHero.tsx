@@ -95,7 +95,7 @@ export function InnerPageHero({
 }
 
 /** Technical metadata under the hero, on a measured rule. */
-function MetaStrip({ items }: { items: HeroMeta[] }) {
+export function MetaStrip({ items }: { items: HeroMeta[] }) {
   return (
     <div className="rule-double relative bg-[color-mix(in_srgb,var(--surface-elevated)_45%,transparent)]">
       <div aria-hidden className="ruler-ticks absolute inset-x-0 top-[3px] h-2.5" data-reveal="mask" />

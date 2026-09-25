@@ -44,10 +44,18 @@ export interface Service {
   coverAlt: Localized;
   /** Second image for the services overview page. */
   supporting: { media: MediaId; alt: Localized };
-  gallery: MediaId[];
+  /** Photographs for the service page gallery (never repeated elsewhere on that page). */
+  gallery: CaptionedMedia[];
   machines: MachineSlug[];
+  /** Related projects: only projects whose own record lists this service. */
   projects: ProjectSlug[];
   source: SourceRef;
+}
+
+/** A photograph with a caption that describes only what is visible (it doubles as the alt text). */
+export interface CaptionedMedia {
+  media: MediaId;
+  caption: Localized;
 }
 
 export type MachineSlug =
@@ -469,4 +477,71 @@ export interface LegalChrome {
   onThisPage: Localized;
   pending: Localized;
   contactLabels: { email: Localized; phone: Localized; address: Localized };
+}
+
+/* ---------- Service detail pages (stage 1D) ---------- */
+
+/** An item in a service's scope, process or "why" list. */
+export interface ServicePoint {
+  slug: string;
+  title: Localized;
+  body?: Localized;
+  /** Optional photograph (e.g. the fabrication scope cards). */
+  media?: CaptionedMedia;
+}
+
+/**
+ * Copy for one service detail page. Facts restate the company profile (p.3–7)
+ * and the service and machine records; the process is a website-level general
+ * workflow, not a certified procedure. Sections without sourced content are
+ * left out (no machines, projects or gallery are invented).
+ */
+export interface ServiceDetail {
+  /** The business section the service belongs to (profile p.3: "Metal Section", "Scaffolding Section"). */
+  section: "metal" | "scaffolding";
+  /** Facts for the hero's technical strip. */
+  meta: MetaItem[];
+  /** A second photograph for the hero, where its composition uses two. */
+  heroDetail?: CaptionedMedia;
+  overview: { title: Localized; media?: CaptionedMedia };
+  scope: { title: Localized; intro: Localized; items: ServicePoint[]; media?: CaptionedMedia[] };
+  process: { title: Localized; intro: Localized; steps: ServicePoint[] };
+  /** Shown only when machines are linked to the service. */
+  machines?: { title: Localized; intro: Localized };
+  /** Sectors come from the industries records; `uses` are project types named in the profile. */
+  applications: { title: Localized; intro: Localized; uses?: Localized[] };
+  gallery?: { title: Localized; intro: Localized };
+  why: { title: Localized; points: ServicePoint[] };
+  related: ServiceSlug[];
+  projects?: { title: Localized; intro: Localized };
+  cta: { label: Localized; title: Localized; body: Localized };
+}
+
+/** Labels shared by every service detail page. */
+export interface ServicePageContent {
+  sections: Record<ServiceDetail["section"], Localized>;
+  service: Localized;
+  quote: Localized;
+  seeWork: Localized;
+  labels: {
+    overview: Localized;
+    scope: Localized;
+    process: Localized;
+    machines: Localized;
+    applications: Localized;
+    gallery: Localized;
+    why: Localized;
+    related: Localized;
+    projects: Localized;
+  };
+  includes: Localized;
+  /** Shown with every process: the steps are a general outline, not a certified procedure. */
+  processNote: Localized;
+  machine: { power: Localized; capabilities: Localized; link: Localized };
+  applications: { sectors: Localized; uses: Localized; work: Localized; link: Localized };
+  explore: Localized;
+  relatedTitle: Localized;
+  allServices: Localized;
+  allProjects: Localized;
+  cta: { call: Localized; or: Localized; services: Localized; projects: Localized };
 }

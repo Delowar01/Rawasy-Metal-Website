@@ -16,7 +16,7 @@ export const pageStatus: Record<RouteKey, PageStatus> = {
   home: "published",
   about: "review",
   services: "review",
-  service: "planned",
+  service: "review",
   capabilities: "planned",
   projects: "review",
   project: "planned",
