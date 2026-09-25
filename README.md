@@ -12,13 +12,17 @@ engraving, scaffolding), is built and awaits visual approval.** The remaining ro
 pages, capabilities) are set up and localized, and show an "in development" page until their stage
 is built and approved (see the approval gate in the Phase 1 brief).
 
+**Development is paused for a theme exploration:** three isolated Modern Commerce directions are
+built in the [theme lab](#theme-lab) for review. The current design stays live and unchanged until
+one is chosen.
+
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
 | Styling | Tailwind CSS v4 + semantic CSS tokens (`src/app/globals.css`) |
 | Motion | GSAP 3 + ScrollTrigger (hero, scroll scenes), CSS/IntersectionObserver for reveals |
 | Fonts | Sora (English display), Manrope (English text and UI), Noto Kufi Arabic (Arabic display), IBM Plex Sans Arabic (Arabic text), Geist Mono (technical labels), all self-hosted via `next/font` |
-| Rendering | Static pages for every route in both languages (109 pages at build time) |
+| Rendering | Static pages for every route in both languages (109 site pages + 12 theme-lab previews at build time) |
 
 ## Getting started
 
@@ -199,6 +203,23 @@ Unknown URLs are sent to the visitor's language and render **"Outside the bluepr
 page during a dynamic render, Next.js 16 builds that page in the browser. `BootFallback` then
 reapplies the theme and motion settings, so it still matches the rest of the site.
 
+## Theme lab
+
+Three isolated Modern Commerce explorations of the homepage, each with a design-system sheet, in
+English and Arabic (light theme):
+
+| Option | Homepage | Design system |
+| --- | --- | --- |
+| A · Clean Premium Commerce | `/theme-lab/en/modern-commerce-a` | `/theme-lab/en/modern-commerce-a/system` |
+| B · Bold Industrial Commerce | `/theme-lab/en/modern-commerce-b` | `/theme-lab/en/modern-commerce-b/system` |
+| C · Minimal Luxury Commerce | `/theme-lab/en/modern-commerce-c` | `/theme-lab/en/modern-commerce-c/system` |
+
+Replace `en` with `ar` for Arabic; `/theme-lab` redirects to option A. The lab has its own root layout
+and stylesheet (`src/app/theme-lab/`, `src/components/theme-lab/`), reuses the content layer, is
+`noindex` (meta and `X-Robots-Tag`), and never appears in the sitemap or the site navigation. The
+dark bar at the top of each preview switches option, view and language; links in the previews open
+the current site. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`.
+
 ## Assets
 
 `npm run assets:extract -- <company-profile.pdf>` regenerates `public/media/**` and
@@ -224,7 +245,9 @@ filters and grid, clients wall without numbering, contact map, fonts, colour-rol
 themes, responsive layouts, reduced motion, keyboard); `service-pages.spec.ts` covers the six service
 pages (routes in both languages, SEO and the noindex gate, sourced machine / project / related links,
 the quote action, imagery rules, RTL, dark theme, overflow at 360/390/834 px, keyboard, reduced
-motion, no-JS). In a cloud session Chromium is preinstalled at
+motion, no-JS); `theme-lab.spec.ts` covers the theme lab (isolation from the site CSS, noindex and
+redirects, sitemap and navigation, sections, typefaces per option, flagged photos, card link overlays,
+overflow from 360 to 1280 px, no-JS, reduced motion). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages

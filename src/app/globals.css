@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* The theme lab has its own stylesheet (src/app/theme-lab/lab.css); keep its classes out of the site CSS. */
+@source not "./theme-lab";
+@source not "../components/theme-lab";
 
 /* ==========================================================================
    RAWASY design system

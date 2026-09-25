@@ -147,3 +147,10 @@ Redaction is a solid hatched block (nothing of the original survives). Thumbnail
     the services behind each project to enrich these links.
 15. **Machine anchors.** Machine cards on the service pages link to `/capabilities#<machine>`; the
     Capabilities & Machinery page (Stage 1E) is still in development.
+16. **Photo resolution for the Modern Commerce direction (theme lab).** All three explored themes lean
+    on large imagery, but the supplied photos are low-resolution profile exports: most project photos
+    are 150–470 px wide, the service covers 290–890 px, and only `site/riyadh-night` exceeds 1,100 px.
+    The previews keep photos close to native size (and avoid the weakest ones in large frames), so
+    they read smaller and softer on high-density screens than the final site should. Original
+    photography — ideally 2,000 px or wider for heroes and 1,200 px for cards — is the single biggest
+    upgrade for whichever theme is chosen, together with the licence answers in items 2 and 13.

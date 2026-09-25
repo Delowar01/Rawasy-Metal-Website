@@ -1,0 +1,83 @@
+/*
+ * Lab-only interface text: option names and the labels of the preview chrome and
+ * design-system sheets. None of it is website content.
+ */
+
+export type LabOption = "a" | "b" | "c";
+
+export const labCopy = {
+  en: {
+    lab: "Theme lab",
+    preview: "Modern Commerce exploration",
+    homepage: "Homepage",
+    system: "Design system",
+    note: "Light theme preview · noindex · links open the current site",
+    darkLater: "Dark theme follows approval",
+    optionNames: {
+      a: "A · Clean Premium Commerce",
+      b: "B · Bold Industrial Commerce",
+      c: "C · Minimal Luxury Commerce",
+    },
+    sheet: {
+      palette: "Colour palette",
+      paletteNote: "Orange is the anchor and the primary action; the supporting colours carry surfaces, icons, tags and states. Body text stays neutral.",
+      type: "Typography",
+      radius: "Radius",
+      borders: "Borders",
+      shadows: "Shadows",
+      buttons: "Buttons",
+      cards: "Cards",
+      icons: "Icons, tags and badges",
+      forms: "Form fields",
+      display: "Display",
+      heading: "Heading",
+      body: "Body",
+      label: "Label",
+      english: "English",
+      arabic: "Arabic",
+      name: "Name",
+      email: "Email",
+      message: "Project details",
+      required: "Required",
+      helper: "Share drawings, quantities and timing.",
+      states: { rest: "Rest", hover: "Hover", focus: "Focus", disabled: "Disabled" },
+    },
+  },
+  ar: {
+    lab: "مختبر التصميم",
+    preview: "استكشاف الطابع التجاري الحديث",
+    homepage: "الصفحة الرئيسية",
+    system: "نظام التصميم",
+    note: "معاينة بالوضع الفاتح · غير مفهرسة · الروابط تفتح الموقع الحالي",
+    darkLater: "الوضع الداكن بعد الاعتماد",
+    optionNames: {
+      a: "A · تجاري راقٍ ونظيف",
+      b: "B · تجاري صناعي جريء",
+      c: "C · تجاري فاخر بسيط",
+    },
+    sheet: {
+      palette: "لوحة الألوان",
+      paletteNote: "البرتقالي هو اللون الأساسي ولون الإجراء الرئيسي، والألوان المساندة للأسطح والأيقونات والوسوم والحالات. يبقى نص الفقرات محايدًا.",
+      type: "الخطوط",
+      radius: "استدارة الزوايا",
+      borders: "الحدود",
+      shadows: "الظلال",
+      buttons: "الأزرار",
+      cards: "البطاقات",
+      icons: "الأيقونات والوسوم والشارات",
+      forms: "حقول النماذج",
+      display: "عنوان رئيسي",
+      heading: "عنوان",
+      body: "نص",
+      label: "تسمية",
+      english: "الإنجليزية",
+      arabic: "العربية",
+      name: "الاسم",
+      email: "البريد الإلكتروني",
+      message: "تفاصيل المشروع",
+      required: "مطلوب",
+      helper: "أرفق المخططات والكميات والموعد المطلوب.",
+      states: { rest: "عادي", hover: "تمرير", focus: "تركيز", disabled: "معطّل" },
+    },
+  },
+} as const;

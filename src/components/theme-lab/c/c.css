@@ -1,0 +1,726 @@
+/*
+ * Option C — Minimal Luxury Commerce.
+ * Premium and restrained: near-white and stone surfaces, generous whitespace,
+ * large refined type, borderless product tiles, hairline borders, soft diffuse
+ * shadows, slow minimal motion. Orange only where a decision is made.
+ */
+@layer theme, base, components, utilities;
+
+@layer components {
+  .lab-c {
+    /* Palette */
+    --brand: #f15f22;
+    --brand-hover: #f5733e;
+    --brand-ink: #ab400e;
+    --brand-soft: #fcede5;
+    --brand-line: #f2c6ae;
+    --steel: #4a6275;
+    --steel-soft: #edf1f4;
+    --steel-line: #cbd6de;
+    --teal: #3b6b64;
+    --teal-soft: #eaf1ef;
+    --teal-line: #c3d8d3;
+    --brass: #74592f;
+    --sand: #b59a6c;
+    --brass-soft: #f4eee4;
+    --brass-line: #e3d6c1;
+    --bg: #fafaf8;
+    --bg-alt: #f2f1ed;
+    --surface: #ffffff;
+    --surface-2: #f7f6f3;
+    --ink: #1a1b1d;
+    --ink-2: #4f5358;
+    --ink-3: #676b71;
+    --dark: #1a1b1d;
+    --dark-2: #242628;
+    --on-dark: #f6f5f2;
+    --on-dark-2: #b9b7b1;
+    --focus: #4a6275;
+
+    /* Borders: hairlines, but always visible */
+    --line-subtle: #ebeae6;
+    --line: #dfddd8;
+    --line-strong: #c7c4bd;
+    --line-ink: #8b8780;
+    --line-active: var(--brand);
+
+    /* Radius: soft and consistent */
+    --r-xs: 6px;
+    --r-sm: 10px;
+    --r-btn: 12px;
+    --r-card: 16px;
+    --r-img: 20px;
+    --r-panel: 24px;
+    --r-pill: 999px;
+
+    /* Shadows: soft, wide and low */
+    --sh-xs: 0 1px 2px rgb(26 27 29 / 0.05);
+    --sh-card: 0 1px 2px rgb(26 27 29 / 0.04), 0 12px 32px -18px rgb(26 27 29 / 0.16);
+    --sh-raised: 0 2px 6px rgb(26 27 29 / 0.04), 0 26px 60px -30px rgb(26 27 29 / 0.24);
+    --sh-hover: 0 2px 6px rgb(26 27 29 / 0.05), 0 32px 70px -30px rgb(26 27 29 / 0.3);
+    --sh-image: 0 34px 70px -42px rgb(26 27 29 / 0.5);
+    --sh-float: 0 22px 50px -26px rgb(26 27 29 / 0.32);
+    --sh-inset: inset 0 1px 2px rgb(26 27 29 / 0.05);
+
+    /* Type and icons */
+    --ff-display: var(--font-c-display), ui-sans-serif, system-ui, sans-serif;
+    --ff-body: var(--font-c-body), ui-sans-serif, system-ui, sans-serif;
+    --ff-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --icon-stroke: 1.4;
+    --duo-opacity: 0;
+    --shell: 1240px;
+    --gutter: clamp(1.25rem, 5vw, 3rem);
+    --sec-y: clamp(4.5rem, 3rem + 5vw, 8.5rem);
+    --ease: cubic-bezier(0.25, 1, 0.3, 1);
+    --reveal-y: 10px;
+    --reveal-dur: 1.1s;
+
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--ff-body);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .lab-c:lang(ar),
+  .lab-c [lang|="ar"] {
+    --ff-display: var(--font-c-ar), var(--font-c-display), ui-sans-serif, sans-serif;
+    --ff-body: var(--font-c-ar), var(--font-c-body), ui-sans-serif, sans-serif;
+    font-family: var(--ff-body);
+  }
+
+  .lab-c [lang="en"] {
+    --ff-display: var(--font-c-display), ui-sans-serif, system-ui, sans-serif;
+    --ff-body: var(--font-c-body), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--ff-body);
+  }
+
+  [dir="rtl"] .lab-c {
+    --dir: -1;
+  }
+
+  .lab-c [data-tone="brand"] { --tone: var(--brand); --tone-ink: var(--brand-ink); --tone-soft: var(--brand-soft); --tone-line: var(--brand-line); }
+  .lab-c [data-tone="steel"] { --tone: var(--steel); --tone-ink: var(--steel); --tone-soft: var(--steel-soft); --tone-line: var(--steel-line); }
+  .lab-c [data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); --tone-line: var(--teal-line); }
+  .lab-c [data-tone="brass"] { --tone: var(--brass); --tone-ink: var(--brass); --tone-soft: var(--brass-soft); --tone-line: var(--brass-line); }
+
+  /* ---------- Type ---------- */
+  .lab-c .t-display {
+    font-family: var(--ff-display);
+    font-weight: 500;
+    font-size: clamp(2.8rem, 1.3rem + 4.9vw, 5.6rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
+  }
+
+  .lab-c .t-h2 {
+    font-family: var(--ff-display);
+    font-weight: 500;
+    font-size: clamp(2rem, 1.35rem + 2vw, 3.15rem);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .lab-c .t-h3 {
+    font-family: var(--ff-display);
+    font-weight: 600;
+    font-size: 1.45rem;
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+  }
+
+  .lab-c .t-h4 {
+    font-family: var(--ff-display);
+    font-weight: 600;
+    font-size: 1.12rem;
+    line-height: 1.3;
+    letter-spacing: -0.008em;
+  }
+
+  .lab-c .t-lead {
+    font-size: clamp(1.1rem, 1.02rem + 0.3vw, 1.25rem);
+    line-height: 1.7;
+    color: var(--ink-2);
+  }
+
+  .lab-c .t-body {
+    color: var(--ink-2);
+  }
+
+  .lab-c .t-small {
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+
+  .lab-c .t-stat {
+    font-family: var(--ff-display);
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lab-c .t-display:lang(ar) {
+    font-weight: 500;
+    font-size: clamp(2.4rem, 1.35rem + 3.4vw, 4.3rem);
+    line-height: 1.32;
+  }
+
+  .lab-c .t-h2:lang(ar) {
+    font-size: clamp(1.8rem, 1.3rem + 1.5vw, 2.6rem);
+    line-height: 1.45;
+  }
+
+  .lab-c .t-h3:lang(ar) {
+    font-weight: 500;
+    font-size: 1.35rem;
+    line-height: 1.5;
+  }
+
+  .lab-c .t-h4:lang(ar) {
+    font-weight: 500;
+    line-height: 1.55;
+  }
+
+  .lab-c :is(p, li, dd):lang(ar) {
+    line-height: 1.9;
+  }
+
+  .lab-c .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--ink-2);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  .lab-c .eyebrow::before {
+    content: "";
+    width: 1.75rem;
+    height: 1px;
+    background: var(--tone, var(--brand));
+  }
+
+  .lab-c .eyebrow:lang(ar) {
+    font-size: 0.92rem;
+    text-transform: none;
+  }
+
+  .lab-c .eyebrow-center::after {
+    content: "";
+    width: 1.75rem;
+    height: 1px;
+    background: var(--tone, var(--brand));
+  }
+
+  /* ---------- Buttons ---------- */
+  .lab-c .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 3.1rem;
+    padding: 0 1.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--r-btn);
+    font-family: var(--ff-body);
+    font-size: 0.96rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color 0.35s ease,
+      border-color 0.35s ease,
+      color 0.35s ease,
+      box-shadow 0.4s ease;
+  }
+
+  .lab-c .btn .lab-icon {
+    transition: translate 0.45s var(--ease);
+  }
+
+  .lab-c .btn:is(:hover, .is-hover) .lab-icon:last-child {
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  .lab-c .btn-lg {
+    min-height: 3.5rem;
+    padding: 0 1.9rem;
+    font-size: 1rem;
+  }
+
+  .lab-c .btn-sm {
+    min-height: 2.5rem;
+    padding: 0 1.1rem;
+    font-size: 0.9rem;
+  }
+
+  .lab-c .btn-primary {
+    background: var(--brand);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgb(26 27 29 / 0.1), 0 10px 26px -14px rgb(241 95 34 / 0.8);
+  }
+
+  .lab-c .btn-primary:hover,
+  .lab-c .btn-primary.is-hover {
+    background: var(--brand-hover);
+    box-shadow: 0 1px 2px rgb(26 27 29 / 0.1), 0 16px 34px -14px rgb(241 95 34 / 0.85);
+  }
+
+  .lab-c .btn-secondary {
+    border-color: var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .lab-c .btn-secondary:hover,
+  .lab-c .btn-secondary.is-hover {
+    border-color: var(--ink);
+    box-shadow: var(--sh-card);
+  }
+
+  .lab-c .btn-dark {
+    background: var(--dark);
+    color: #ffffff;
+  }
+
+  .lab-c .btn-dark:hover,
+  .lab-c .btn-dark.is-hover {
+    background: #34373b;
+  }
+
+  .lab-c .btn-steel {
+    border-color: var(--steel-line);
+    background: var(--steel-soft);
+    color: var(--steel);
+  }
+
+  .lab-c .btn-steel:hover,
+  .lab-c .btn-steel.is-hover {
+    border-color: var(--steel);
+    background: var(--steel);
+    color: #ffffff;
+  }
+
+  .lab-c .btn:disabled,
+  .lab-c .btn[aria-disabled="true"] {
+    border-color: var(--line);
+    background: var(--bg-alt);
+    color: var(--ink-3);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .lab-c .btn.is-focus {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  .lab-c .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink);
+    font-weight: 500;
+    background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+    padding-bottom: 3px;
+    transition: background-size 0.5s var(--ease);
+  }
+
+  .lab-c .link-arrow:hover {
+    background-size: 0 1px;
+  }
+
+  [dir="rtl"] .lab-c .link-arrow {
+    background-position: 100% 100%;
+  }
+
+  .lab-c .link-arrow .lab-icon {
+    transition: translate 0.45s var(--ease);
+  }
+
+  .lab-c .link-arrow:hover .lab-icon {
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  /* ---------- Cards and frames ---------- */
+  .lab-c .card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    box-shadow: var(--sh-card);
+  }
+
+  /* Cards own their hover edge and whole-card link overlay. */
+  .lab-c .card-link {
+    position: relative;
+    transition:
+      box-shadow 0.6s var(--ease),
+      border-color 0.4s ease,
+      translate 0.6s var(--ease);
+  }
+
+  .lab-c .card-link:hover,
+  .lab-c .card-link:focus-within {
+    translate: 0 -3px;
+    border-color: var(--line-strong);
+    box-shadow: var(--sh-hover);
+  }
+
+  .lab-c .frame {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-img);
+    background: var(--bg-alt);
+    box-shadow: var(--sh-image);
+    isolation: isolate;
+  }
+
+  .lab-c .frame img {
+    transition: scale 1.2s var(--ease);
+  }
+
+  .lab-c .tile:hover .frame img,
+  .lab-c .tile:focus-within .frame img {
+    scale: 1.035;
+  }
+
+  .lab-c .tile .tile-name {
+    background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+    transition: background-size 0.6s var(--ease);
+  }
+
+  [dir="rtl"] .lab-c .tile .tile-name {
+    background-position: 100% 100%;
+  }
+
+  .lab-c .tile:hover .tile-name,
+  .lab-c .tile:focus-within .tile-name {
+    background-size: 100% 1px;
+  }
+
+  .lab-c .stretch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .lab-c .stretch:focus-visible {
+    outline: none;
+  }
+
+  .lab-c .stretch:focus-visible::after {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+    border-radius: var(--r-img);
+  }
+
+  .lab-c .icon-chip {
+    display: inline-grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--tone, var(--ink));
+  }
+
+  .lab-c .icon-chip-lg {
+    width: 3.25rem;
+    height: 3.25rem;
+  }
+
+  .lab-c .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 1.75rem;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    color: var(--ink-2);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .lab-c .tag-tone {
+    border-color: var(--tone-line);
+    background: var(--tone-soft);
+    color: var(--tone-ink);
+  }
+
+  .lab-c .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    box-shadow: var(--sh-xs), 0 0 0 1px var(--line);
+    color: var(--ink);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .lab-c .field {
+    width: 100%;
+    min-height: 3.1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .lab-c .field:hover {
+    border-color: var(--line-ink);
+  }
+
+  .lab-c .field:focus,
+  .lab-c .field.is-focus {
+    outline: none;
+    border-color: var(--ink);
+    box-shadow: 0 0 0 4px rgb(26 27 29 / 0.08);
+  }
+
+  /* ---------- Sections ---------- */
+  .lab-c .sec {
+    padding-block: var(--sec-y);
+  }
+
+  .lab-c .sec-alt {
+    background: var(--bg-alt);
+  }
+
+  .lab-c .sec-white {
+    background: var(--surface);
+  }
+
+  .lab-c .rule {
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---------- Header ---------- */
+  .lab-c .c-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid transparent;
+    background: rgb(250 250 248 / 0.96);
+    transition:
+      background-color 0.5s ease,
+      border-color 0.5s ease,
+      box-shadow 0.5s ease;
+  }
+
+  html[data-scrolled] .lab-c .c-header {
+    border-color: var(--line);
+    background: rgb(250 250 248 / 0.78);
+    box-shadow: 0 12px 40px -30px rgb(26 27 29 / 0.4);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  }
+
+  .lab-c .nav-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 2.75rem;
+    padding: 0 0.85rem;
+    color: var(--ink-2);
+    font-size: 0.95rem;
+    font-weight: 400;
+    transition: color 0.3s ease;
+  }
+
+  .lab-c .nav-link:hover,
+  .lab-c .nav-link[data-active] {
+    color: var(--ink);
+  }
+
+  .lab-c .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0.2rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand);
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    transition: opacity 0.4s ease, transform 0.5s var(--ease);
+  }
+
+  .lab-c .nav-link[data-active]::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  .lab-c .ctl {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    height: 2.75rem;
+    padding: 0 0.6rem;
+    border-radius: var(--r-btn);
+    color: var(--ink);
+    font-size: 0.92rem;
+    transition: background-color 0.3s ease;
+  }
+
+  .lab-c .ctl:hover {
+    background: var(--bg-alt);
+  }
+
+  .lab-c .seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+  }
+
+  .lab-c .seg button {
+    display: grid;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    color: var(--ink-3);
+  }
+
+  .lab-c .seg button[aria-pressed="true"] {
+    background: var(--ink);
+    color: #ffffff;
+  }
+
+  .lab-c .seg button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .lab-c .c-menu-panel {
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    border-block: 1px solid var(--line);
+    background: var(--bg);
+    box-shadow: 0 30px 60px -40px rgb(26 27 29 / 0.5);
+  }
+
+  .lab-c .c-menu-panel .nav-link {
+    width: 100%;
+    height: 3.25rem;
+    padding: 0;
+    border-bottom: 1px solid var(--line-subtle);
+    font-family: var(--ff-display);
+    font-size: 1.25rem;
+    color: var(--ink);
+  }
+
+  .lab-c .c-menu-panel .nav-link::after {
+    left: auto;
+    inset-inline-end: 0;
+    bottom: 50%;
+    transform: translate(0, 50%);
+  }
+
+  /* ---------- Machinery spotlight ---------- */
+  .lab-c .c-spot {
+    position: relative;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(60% 55% at 50% 60%, #ffffff 0%, transparent 75%),
+      var(--bg-alt);
+  }
+
+  .lab-c .c-spot::after {
+    content: "";
+    position: absolute;
+    inset-inline: 22%;
+    bottom: 16%;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(26 27 29 / 0.18), transparent);
+    filter: blur(6px);
+  }
+
+  .lab-c .c-spot img {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------- Clients: hairline grid ---------- */
+  .lab-c .c-logos {
+    display: grid;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--line);
+  }
+
+  .lab-c .c-logos > li {
+    display: grid;
+    place-items: center;
+    height: clamp(4.75rem, 3.5rem + 3vw, 7rem);
+    padding: 1rem;
+    background: var(--surface);
+  }
+
+  .lab-c .c-logos img {
+    max-height: 3.25rem;
+    width: auto;
+    max-width: 82%;
+    object-fit: contain;
+    opacity: 0.5;
+    transition: opacity 0.6s ease;
+  }
+
+  .lab-c .c-logos > li:hover img {
+    opacity: 0.9;
+  }
+
+  .lab-c .c-footer {
+    border-top: 1px solid var(--line);
+    background: var(--bg-alt);
+    color: var(--ink-2);
+  }
+
+  .lab-c .c-footer a {
+    transition: color 0.3s ease;
+  }
+
+  .lab-c .c-footer a:hover {
+    color: var(--ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lab-c :is(.card-link, .card-link:hover, .card-link:focus-within) {
+      translate: none;
+    }
+
+    .lab-c .tile:hover .frame img,
+    .lab-c .tile:focus-within .frame img {
+      scale: none;
+    }
+  }
+}
