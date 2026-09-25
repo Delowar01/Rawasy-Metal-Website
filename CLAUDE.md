@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-25-modern-commerce-theme-lab.md` (earlier:
-  `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
+- Latest report: `docs/reports/2026-09-25-modern-commerce-a-v2.md` (earlier:
+  `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
@@ -42,6 +42,10 @@
   only. **Never choose the winner, and do nothing further until the user selects one**: no 1E–1J, no
   Phase 2, no new pages or features, no changes to the live routes. The current design stays live
   until a theme is approved; after that the dark equivalent comes next (the user's order).
+- **A is the closest direction but not approved; A V2 is built and awaits visual review** (the user's
+  "OPTION A V2 / REFINE OPTION A ONLY" brief, report `2026-09-25-modern-commerce-a-v2.md`). Work only
+  on A V2 when asked; never on B or C. A stays available for comparison. Never self-approve A V2 and
+  never migrate the site to it until the user explicitly approves it.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
@@ -200,15 +204,30 @@
 
 ## Theme lab (Modern Commerce exploration)
 
-- Routes: `/theme-lab/{en|ar}/modern-commerce-{a|b|c}` and `…/system`, under their own root layout
+- Routes: `/theme-lab/{en|ar}/modern-commerce-{a|a-v2|b|c}` and `…/system`, under their own root layout
   (`src/app/theme-lab/[locale]/layout.tsx`, `lab.css`), so no site header, footer, loader or site CSS.
   `src/proxy.ts` lets `/theme-lab/{locale}/…` through with `X-Robots-Tag: noindex, nofollow` and
-  redirects bare lab URLs to a locale and option A. Pages carry `noindex, nofollow`; they are not in
+  redirects bare lab URLs to a locale and A V2 (`LAB_DEFAULT`); option keys and slugs live in
+  `options.ts`. Pages carry `noindex, nofollow`; they are not in
   `routes`, the sitemap or any navigation. The lab bar at the top is preview chrome.
 - Code: `src/components/theme-lab/` — `data.ts` (everything from the content layer; engraving cover
   and flagged photos excluded), `Icon.tsx` (one icon family: line or duotone per option), `ui.tsx`
   (photos, lab bar), `SystemSheet.tsx`, and per option `{a,b,c}/Home*.tsx`, `System*.tsx`, `*.css`
   (tokens and components scoped to `.lab-a/.lab-b/.lab-c`), `fonts.ts` (loaded only on that option).
+- A V2 (`a2/`): `HomeA2.tsx` (header with Services dropdown and phone menu sheet, hero, capability
+  strip, about, services, machinery, projects, industries by source, clients, compliance, contact,
+  footer), `MachineShowcase.tsx` (client; `:target` fallback without JS), `SystemA2.tsx` +
+  `SheetControls.tsx` (replays, phone preview), `a2.css` (`.lab-a2` tokens — every colour a token so
+  the dark theme only redefines names). It reuses A's fonts (`a/fonts.ts`). LabMotion's A V2 extras
+  key on new attributes only (`data-parallax`, `data-hero`, `data-ambient`, `details[data-dropdown]`,
+  `button[data-toggle]`, `details[data-menu][data-sheet]`), so A, B and C behave as before.
+- Signature illustrations (`signature/`): `LaserCut.tsx` (star kerf, head at constant feed, white-hot
+  tip, sparks, the part lifts, edge cools) and `LaserEngrave.tsx` (brass plate, raster passes behind a
+  scan line, the RAWASY mark only, light sweep). Markup is the finished state; `signature.css` arms
+  the start state only under `.js` + `prefers-reduced-motion: no-preference`; `useSignature` plays
+  once at 50 % in view and replays on host (`[data-sig-host]`) mouse-enter or focus; `sig:replay`
+  (`detail.intro`) forces a run. Every animation of a run shares one clock (`track()`, fill both), so
+  captures pause them all at one `currentTime`. Reusable for the service and capabilities pages.
 - `lab.css` builds Tailwind from lab sources only (`source(none)` + `@source`); `globals.css` has
   `@source not` lines so lab classes never reach the site CSS. Semantic utilities (`bg-surface`,
   `text-ink-2`, `rounded-card`, `shadow-raised`…) resolve to whichever option's tokens are in scope.
@@ -216,7 +235,9 @@
   prerendered file (normalise build id, `/_next/static` paths and the router's
   `"siblings":["theme-lab"]` entry for `[locale]`); site CSS must be byte-identical.
   `e2e/theme-lab.spec.ts` covers isolation, noindex, redirects, sections, flagged photos, overflow,
-  no-JS, reduced motion and whole-card link overlays.
+  no-JS, reduced motion and whole-card link overlays for every option; `e2e/theme-lab-a-v2.spec.ts`
+  covers A V2's behaviour. Next's `<meta name="next-size-adjust">` can move within `<head>` between
+  builds of the same tree; treat that position change as noise.
 - When a theme is chosen, the lab is the reference; delete it once the site carries the new theme.
 
 ## Gotchas learned
@@ -284,3 +305,14 @@
   that name and downloads it. Noto Sans Arabic is about 163 KB per weight for the Arabic range.
 - For language-specific type rules that must also apply to `lang="ar"` specimens inside an English
   page, write `.x .t-h2:lang(ar)`, not `.x:lang(ar) .t-h2`.
+- A custom property that uses another one (`--stage: radial-gradient(… var(--spot-x) …)`) is resolved
+  where it is declared, so changing `--spot-x` on a child does nothing. Write the gradient on the
+  element that owns the changing variable (and register it with `@property` to transition it).
+- A cut-out SVG part filled with an `objectBoundingBox` gradient shows a seam against its plate; use
+  `gradientUnits="userSpaceOnUse"` in plate coordinates so the part matches until it moves.
+- Playwright's `click()` re-scrolls an element that is still moving (a reveal transition) and may
+  align it to the top first; wait for reveals to finish before asserting scroll positions.
+- A hydration flag set with `setState` in `useEffect` fails lint (`react-hooks/set-state-in-effect`);
+  use `useSyncExternalStore(subscribe, () => true, () => false)`.
+- Inactive-state styles of a script-driven widget (e.g. hidden machine panels) must be scoped to its
+  script-ready attribute (`[data-js]`), or the no-JS fallback inherits them.

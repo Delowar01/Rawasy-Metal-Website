@@ -12,9 +12,11 @@ engraving, scaffolding), is built and awaits visual approval.** The remaining ro
 pages, capabilities) are set up and localized, and show an "in development" page until their stage
 is built and approved (see the approval gate in the Phase 1 brief).
 
-**Development is paused for a theme exploration:** three isolated Modern Commerce directions are
-built in the [theme lab](#theme-lab) for review. The current design stays live and unchanged until
-one is chosen.
+**Development is paused for a theme exploration:** Modern Commerce directions are built in the
+[theme lab](#theme-lab) for review. Option A was found closest to the target and is refined as
+**A V2** (signature laser-cutting and laser-engraving illustrations, a fuller header, one motion
+system), which awaits visual review. The current design stays live and unchanged until a theme is
+approved.
 
 | | |
 | --- | --- |
@@ -22,7 +24,7 @@ one is chosen.
 | Styling | Tailwind CSS v4 + semantic CSS tokens (`src/app/globals.css`) |
 | Motion | GSAP 3 + ScrollTrigger (hero, scroll scenes), CSS/IntersectionObserver for reveals |
 | Fonts | Sora (English display), Manrope (English text and UI), Noto Kufi Arabic (Arabic display), IBM Plex Sans Arabic (Arabic text), Geist Mono (technical labels), all self-hosted via `next/font` |
-| Rendering | Static pages for every route in both languages (109 site pages + 12 theme-lab previews at build time) |
+| Rendering | Static pages for every route in both languages (109 site pages + 16 theme-lab previews at build time) |
 
 ## Getting started
 
@@ -205,20 +207,23 @@ reapplies the theme and motion settings, so it still matches the rest of the sit
 
 ## Theme lab
 
-Three isolated Modern Commerce explorations of the homepage, each with a design-system sheet, in
-English and Arabic (light theme):
+Isolated Modern Commerce explorations of the homepage, each with a design-system sheet, in English
+and Arabic (light theme). A V2 refines A; A stays for side-by-side comparison:
 
 | Option | Homepage | Design system |
 | --- | --- | --- |
 | A · Clean Premium Commerce | `/theme-lab/en/modern-commerce-a` | `/theme-lab/en/modern-commerce-a/system` |
+| **A V2 · Clean Premium Commerce, refined** | `/theme-lab/en/modern-commerce-a-v2` | `/theme-lab/en/modern-commerce-a-v2/system` |
 | B · Bold Industrial Commerce | `/theme-lab/en/modern-commerce-b` | `/theme-lab/en/modern-commerce-b/system` |
 | C · Minimal Luxury Commerce | `/theme-lab/en/modern-commerce-c` | `/theme-lab/en/modern-commerce-c/system` |
 
-Replace `en` with `ar` for Arabic; `/theme-lab` redirects to option A. The lab has its own root layout
+Replace `en` with `ar` for Arabic; `/theme-lab` redirects to A V2. The lab has its own root layout
 and stylesheet (`src/app/theme-lab/`, `src/components/theme-lab/`), reuses the content layer, is
 `noindex` (meta and `X-Robots-Tag`), and never appears in the sitemap or the site navigation. The
 dark bar at the top of each preview switches option, view and language; links in the previews open
-the current site. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`.
+the current site. The signature illustrations live in `src/components/theme-lab/signature/` (SVG and
+the Web Animations API, reusable on later pages). See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`
+and `docs/reports/2026-09-25-modern-commerce-a-v2.md`.
 
 ## Assets
 
@@ -247,7 +252,10 @@ pages (routes in both languages, SEO and the noindex gate, sourced machine / pro
 the quote action, imagery rules, RTL, dark theme, overflow at 360/390/834 px, keyboard, reduced
 motion, no-JS); `theme-lab.spec.ts` covers the theme lab (isolation from the site CSS, noindex and
 redirects, sitemap and navigation, sections, typefaces per option, flagged photos, card link overlays,
-overflow from 360 to 1280 px, no-JS, reduced motion). In a cloud session Chromium is preinstalled at
+overflow from 360 to 1280 px, no-JS, reduced motion); `theme-lab-a-v2.spec.ts` covers A V2 (header
+and Services menu, scroll-spy, phone menu sheet, EN/AR mirroring, industries by source, the machinery
+selector, the client colour switch, both signature animations and their replays, parallax and ambient
+light, reduced motion, keyboard, no-JS, sheet overflow). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages

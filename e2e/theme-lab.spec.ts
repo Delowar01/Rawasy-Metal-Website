@@ -2,16 +2,20 @@ import { expect, test } from "@playwright/test";
 import { horizontalOverflow, LOCALES, trackErrors } from "./helpers";
 
 /**
- * Theme lab: three isolated Modern Commerce explorations. They must stay out of
- * search engines, the sitemap and the site navigation, leave the website's own
- * pages untouched, and use only content and photos cleared for featured spots.
+ * Theme lab: isolated Modern Commerce explorations (A, its refinement A V2, B
+ * and C). They must stay out of search engines, the sitemap and the site
+ * navigation, leave the website's own pages untouched, and use only content and
+ * photos cleared for featured spots. A V2's own behaviour: theme-lab-a-v2.spec.ts.
  */
 
-const OPTIONS = ["a", "b", "c"] as const;
+const OPTIONS = ["a", "a-v2", "b", "c"] as const;
 const SECTIONS = ["about", "services", "machinery", "projects", "clients", "contact"];
+/** Root class of each option. */
+const ROOT: Record<(typeof OPTIONS)[number], string> = { a: "lab-a", "a-v2": "lab-a2", b: "lab-b", c: "lab-c" };
 /** Typefaces per option (English display, body, extras, Arabic) and the website's own. */
 const FONTS: Record<(typeof OPTIONS)[number], string[]> = {
   a: ["Plus Jakarta Sans", "Inter", "Tajawal", "IBM Plex Sans Arabic"],
+  "a-v2": ["Plus Jakarta Sans", "Inter", "Tajawal", "IBM Plex Sans Arabic"],
   b: ["Outfit", "Inter", "Geist Mono", "Alexandria", "Noto Sans Arabic"],
   c: ["Urbanist", "DM Sans", "Readex Pro"],
 };
@@ -47,7 +51,7 @@ test.describe("isolation and indexing", () => {
           await expect(page.locator("html")).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
           // Its own root layout and stylesheet: the website's CSS (e.g. its chamfered .btn-face) never loads here.
           expect(await page.locator(".lab-bar").count()).toBe(1);
-          expect(await page.locator(`.lab-${option}`).count()).toBe(1);
+          expect(await page.locator(`.${ROOT[option]}`).count()).toBe(1);
           const siteCss = await page.evaluate(() =>
             [...document.styleSheets].some((sheet) => {
               try {
@@ -71,13 +75,15 @@ test.describe("isolation and indexing", () => {
     }
   }
 
-  test("bare lab URLs redirect to a locale and a default option", async ({ page }) => {
+  test("bare lab URLs redirect to a locale and the default option (A V2)", async ({ page }) => {
     await page.goto("/theme-lab");
-    expect(new URL(page.url()).pathname).toBe("/theme-lab/en/modern-commerce-a");
+    expect(new URL(page.url()).pathname).toBe("/theme-lab/en/modern-commerce-a-v2");
     await page.goto("/theme-lab/modern-commerce-c");
     expect(new URL(page.url()).pathname).toBe("/theme-lab/en/modern-commerce-c");
     await page.goto("/theme-lab/ar");
-    expect(new URL(page.url()).pathname).toBe("/theme-lab/ar/modern-commerce-a");
+    expect(new URL(page.url()).pathname).toBe("/theme-lab/ar/modern-commerce-a-v2");
+    // A stays available beside A V2 for comparison.
+    expect((await page.goto("/theme-lab/en/modern-commerce-a"))?.status()).toBe(200);
   });
 
   test("the sitemap, robots and site navigation never mention the lab", async ({ page, request }) => {

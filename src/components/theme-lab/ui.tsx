@@ -95,7 +95,7 @@ export function LabBar({ data, view }: { data: LabData; view: "home" | "system" 
         <span className="lab-seg">
           {lab.options.map((o) => (
             <a key={o.key} href={view === "home" ? o.href : `${o.href}/system`} aria-current={o.key === data.option ? "page" : undefined}>
-              {o.key.toUpperCase()}
+              {o.short}
               <span className="lab-long"> · {o.name.split(" · ")[1]}</span>
             </a>
           ))}

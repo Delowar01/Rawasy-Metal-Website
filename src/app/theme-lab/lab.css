@@ -1,8 +1,8 @@
 /*
- * Theme lab stylesheet — Modern Commerce explorations A, B and C.
+ * Theme lab stylesheet — Modern Commerce explorations A, A V2, B and C.
  * Loaded only by /theme-lab routes (their own root layout). Utilities are generated
  * from the lab's sources alone; each option adds its tokens and components in its
- * own stylesheet (src/components/theme-lab/{a,b,c}/*.css).
+ * own stylesheet (src/components/theme-lab/{a,a2,b,c}/*.css).
  */
 @import "tailwindcss" source(none);
 @source "../../components/theme-lab";
@@ -115,11 +115,38 @@
   transform: none;
 }
 
+/* Image reveal (A V2): the frame opens from a smaller clip while the photo settles. */
+.js [data-reveal="clip"] {
+  opacity: 1;
+  transform: none;
+  clip-path: inset(9% 7% 9% 7% round var(--r-card, 16px));
+  transition: clip-path 1.1s var(--ease-out);
+}
+
+.js [data-reveal="clip"] img {
+  scale: 1.08;
+  transition: scale 1.6s var(--ease-out);
+}
+
+.js [data-reveal="clip"][data-shown] {
+  clip-path: inset(0 round var(--r-card, 16px));
+}
+
+.js [data-reveal="clip"][data-shown] img {
+  scale: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .js [data-reveal] {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  .js [data-reveal="clip"],
+  .js [data-reveal="clip"] img {
+    clip-path: none;
+    scale: none;
   }
 }
 

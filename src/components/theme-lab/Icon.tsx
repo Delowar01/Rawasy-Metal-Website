@@ -152,6 +152,82 @@ const paths = {
     </>
   ),
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />,
+  // Industries (A V2)
+  construction: (
+    <>
+      <path className="duo" d="M7 8.5h3v3H7z" />
+      <path d="M7 21V5M3 5h18M7 5l3-2.5L13 5M17 5v6.5M15.5 11.5h3M4.5 21h5M7 8.5h3v3H7" />
+    </>
+  ),
+  infrastructure: (
+    <>
+      <path className="duo" d="M4 14c2-5 5-7 8-7s6 2 8 7z" />
+      <path d="M2 14h20M4 14c2-5 5-7 8-7s6 2 8 7M6 14v6M12 14v6M18 14v6" />
+    </>
+  ),
+  commercial: (
+    <>
+      <path className="duo" d="M5 21V4h10v17z" />
+      <path d="M5 21V4h10v17M15 9h4v12M3 21h18M8 7.5h1M11 7.5h1M8 11h1M11 11h1M8 14.5h1M11 14.5h1M9 21v-3h2v3" />
+    </>
+  ),
+  architecture: (
+    <>
+      <path className="duo" d="m12 7 1.4 3.1 3.1 1.4-3.1 1.4L12 16l-1.4-3.1-3.1-1.4 3.1-1.4z" />
+      <path d="M4 3h16v18H4zM12 7l1.4 3.1 3.1 1.4-3.1 1.4L12 16l-1.4-3.1-3.1-1.4 3.1-1.4z" />
+    </>
+  ),
+  landmark: (
+    <>
+      <path className="duo" d="M9 21V8.5h6V21z" />
+      <path d="M9 21V8.5h6V21M7 21h10M8 8.5h8M12 3l3 5.5H9zM12 12v2l1 1" />
+    </>
+  ),
+  shade: (
+    <>
+      <path className="duo" d="M3 9c2.5-3.5 5.5-5 9-5s6.5 1.5 9 5z" />
+      <path d="M3 9c2.5-3.5 5.5-5 9-5s6.5 1.5 9 5zM12 9v11.5M5.5 16.5h13M7 16.5v3.5M17 16.5v3.5" />
+    </>
+  ),
+  signage: (
+    <>
+      <path className="duo" d="M3 5h18v6.5H3z" />
+      <path d="M3 5h18v6.5H3zM5.5 11.5V21M18.5 11.5V21M6.5 8.25h7" />
+    </>
+  ),
+  // Site support (A V2)
+  formwork: (
+    <>
+      <path className="duo" d="M4 4.5h16V10H4z" />
+      <path d="M4 4.5h16V10H4zM4 14h16v5.5H4zM8 10v4M16 10v4" />
+    </>
+  ),
+  props: (
+    <>
+      <path className="duo" d="M10 9.5h4v5h-4z" />
+      <path d="M12 2.5v19M8.5 3h7M8.5 21h7M10 9.5h4v5h-4z" />
+    </>
+  ),
+  rental: (
+    <>
+      <path className="duo" d="m3 12 9-9h7v7l-9 9z" />
+      <path d="m3 12 9-9h7v7l-9 9zM15.5 7.5h.01" />
+    </>
+  ),
+  installation: (
+    <>
+      <path className="duo" d="M14.7 3.8a4.2 4.2 0 0 0-5.3 5.3L3.5 15l2.9 2.9 5.9-5.9a4.2 4.2 0 0 0 5.3-5.3L15 9.3l-2.3-.5-.5-2.3z" />
+      <path d="M14.7 3.8a4.2 4.2 0 0 0-5.3 5.3L3.5 15l2.9 2.9 5.9-5.9a4.2 4.2 0 0 0 5.3-5.3L15 9.3l-2.3-.5-.5-2.3z" />
+    </>
+  ),
+  quote: <path d="M4 17v-4.5C4 9 5.5 7 9 6.5M4 12.5h4V17H4zM14 17v-4.5c0-3.5 1.5-5.5 5-6M14 12.5h4V17h-4z" />,
+  replay: <path d="M4 12a8 8 0 1 0 2.35-5.65M4 4.5V8h3.5M10 9.5v5l4-2.5z" />,
+  colour: (
+    <>
+      <path className="duo" d="M12 3s6 6.2 6 10.5a6 6 0 0 1-12 0C6 9.2 12 3 12 3z" />
+      <path d="M12 3s6 6.2 6 10.5a6 6 0 0 1-12 0C6 9.2 12 3 12 3z" />
+    </>
+  ),
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   "arrow-up-right": <path d="M7 17 17 7M8 7h9v9" />,
   chevron: <path d="m6 9 6 6 6-6" />,

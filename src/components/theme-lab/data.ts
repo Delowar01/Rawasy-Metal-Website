@@ -4,12 +4,15 @@ import type { MediaId } from "@/content/media.generated";
 import { footerNav, headerNav, legalNav } from "@/content/navigation";
 import { projectCategories, projectImages } from "@/content/projects";
 import {
+  getAboutContent,
   getCertificates,
   getClients,
+  getClientsPageContent,
   getCompany,
   getFeaturedProjects,
   getHomeContent,
   getIndustries,
+  getIndustriesPageContent,
   getMachines,
   getMetrics,
   getPillars,
@@ -19,13 +22,13 @@ import type { ServiceSlug } from "@/content/types";
 import { localeConfig, otherLocale, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
-import { labCopy, type LabOption } from "./options";
+import { labCopy, labOptions, type LabOption } from "./options";
 
 /*
- * Everything the three Modern Commerce previews show, drawn from the existing
- * content layer — no new copy, figures or claims. Links point to the current
- * website's pages. Flagged photos stay out: the laser-engraving cover (third-party
- * branding and serial numbers) is replaced by an icon panel.
+ * Everything the Modern Commerce previews (A, A V2, B, C) show, drawn from the
+ * existing content layer — no new copy, figures or claims. Links point to the
+ * current website's pages. Flagged photos stay out: the laser-engraving cover
+ * (third-party branding and serial numbers) is replaced by an illustration.
  */
 
 export type LabImage = MediaAsset & { alt: string };
@@ -43,7 +46,7 @@ export const sectionIds = {
 } as const;
 
 export async function getLabData(locale: Locale, option: LabOption) {
-  const [home, company, services, machines, featured, industries, metricData, pillars, clients, certificates] = await Promise.all([
+  const [home, company, services, machines, featured, industries, metricData, pillars, clients, certificates, about, clientsPage, industriesPage] = await Promise.all([
     getHomeContent(),
     getCompany(),
     getServices(),
@@ -54,6 +57,9 @@ export async function getLabData(locale: Locale, option: LabOption) {
     getPillars(),
     getClients(),
     getCertificates(),
+    getAboutContent(),
+    getClientsPageContent(),
+    getIndustriesPageContent(),
   ]);
   const dict = getDictionary(locale);
   const category = (slug: string) => projectCategories.find((c) => c.slug === slug)?.label[locale] ?? slug;
@@ -62,6 +68,7 @@ export async function getLabData(locale: Locale, option: LabOption) {
   const [phone, phone2] = company.phones;
   const navRoute = (route: string) => headerNav.find((item) => item.route === route)!.label[locale];
   const copy = labCopy[locale];
+  const slug = (key: LabOption) => labOptions.find((o) => o.key === key)!.slug;
 
   return {
     locale,
@@ -69,13 +76,14 @@ export async function getLabData(locale: Locale, option: LabOption) {
     option,
     lab: {
       ...copy,
-      options: (["a", "b", "c"] as const).map((key) => ({
+      options: labOptions.map(({ key, short }) => ({
         key,
+        short,
         name: copy.optionNames[key],
-        href: `/theme-lab/${locale}/modern-commerce-${key}`,
+        href: `/theme-lab/${locale}/${slug(key)}`,
       })),
-      homeHref: `/theme-lab/${locale}/modern-commerce-${option}`,
-      systemHref: `/theme-lab/${locale}/modern-commerce-${option}/system`,
+      homeHref: `/theme-lab/${locale}/${slug(option)}`,
+      systemHref: `/theme-lab/${locale}/${slug(option)}/system`,
       switchHref: (path: string) => path.replace(`/theme-lab/${locale}/`, `/theme-lab/${other}/`),
       otherLocale: other,
       otherLabel: other === "ar" ? "العربية" : "English",
@@ -86,6 +94,17 @@ export async function getLabData(locale: Locale, option: LabOption) {
       { id: sectionIds.services, label: navRoute("services") },
       { id: sectionIds.machinery, label: navRoute("capabilities") },
       { id: sectionIds.projects, label: navRoute("projects") },
+      { id: sectionIds.clients, label: navRoute("clients") },
+      { id: sectionIds.contact, label: navRoute("contact") },
+    ],
+    /** A V2: every main page of the site, as sections of the homepage preview. */
+    navFull: [
+      { id: "home", label: navRoute("home") },
+      { id: sectionIds.about, label: navRoute("about") },
+      { id: sectionIds.services, label: navRoute("services") },
+      { id: sectionIds.machinery, label: navRoute("capabilities") },
+      { id: sectionIds.projects, label: navRoute("projects") },
+      { id: "industries", label: navRoute("industries") },
       { id: sectionIds.clients, label: navRoute("clients") },
       { id: sectionIds.contact, label: navRoute("contact") },
     ],
@@ -109,6 +128,8 @@ export async function getLabData(locale: Locale, option: LabOption) {
       whatsapp: dict.common.whatsapp,
       address: dict.common.address,
       phone: dict.common.phone,
+      backToTop: dict.common.backToTop,
+      closeMenu: dict.a11y.closeMenu,
     },
     links: {
       quote: href(locale, "contact"),
@@ -155,6 +176,14 @@ export async function getLabData(locale: Locale, option: LabOption) {
       })(),
       visionLabel: home.intro.visionLabel[locale],
       vision: company.vision.statement[locale],
+      servicesLink: home.intro.servicesLink[locale],
+      beyond: {
+        label: about.beyond.label[locale],
+        title: about.beyond.title[locale],
+        items: about.beyond.items.map((item) => ({ slug: item.slug, label: item.label[locale] })),
+        link: about.beyond.link[locale],
+        href: href(locale, "service", { slug: "scaffolding" }),
+      },
       whyLabel: home.why.label[locale],
     },
 
@@ -222,7 +251,10 @@ export async function getLabData(locale: Locale, option: LabOption) {
       label: home.industries.label[locale],
       title: home.industries.title[locale],
       all: home.industries.all[locale],
-      items: industries.map((i) => ({ slug: i.slug, name: i.name[locale], description: i.description[locale] })),
+      note: home.industries.note[locale],
+      // `basis` keeps the profile's own sectors apart from website classifications drawn from the work gallery.
+      items: industries.map((i) => ({ slug: i.slug, name: i.name[locale], description: i.description[locale], basis: i.source.basis })),
+      basis: { profile: industriesPage.basis.profile[locale], inferred: industriesPage.basis.inferred[locale] },
     },
 
     clients: {
@@ -230,6 +262,9 @@ export async function getLabData(locale: Locale, option: LabOption) {
       title: home.clients.title[locale],
       intro: home.clients.intro[locale],
       all: home.clients.all[locale],
+      colours: clientsPage.colours[locale],
+      note: clientsPage.note[locale],
+      listLabel: clientsPage.listLabel[locale],
       items: clients.map((c) => ({
         slug: c.slug,
         name: c.name[locale],
@@ -241,6 +276,7 @@ export async function getLabData(locale: Locale, option: LabOption) {
     compliance: {
       label: home.certificates.label[locale],
       title: home.certificates.title[locale],
+      note: home.certificates.note[locale],
       all: home.certificates.all[locale],
       items: certificates.map((c) => ({ slug: c.slug, title: c.title[locale], issuer: c.issuer[locale] })),
     },

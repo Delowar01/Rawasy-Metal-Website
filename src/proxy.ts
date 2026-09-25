@@ -20,11 +20,11 @@ function negotiate(header: string | null): Locale {
 }
 
 /**
- * Theme lab: isolated design previews at /theme-lab/{locale}/modern-commerce-{a|b|c}.
+ * Theme lab: isolated design previews at /theme-lab/{locale}/modern-commerce-{a|a-v2|b|c}.
  * Never indexed, never in the sitemap or navigation; removed once a theme is chosen.
  */
 const LAB = "/theme-lab";
-const LAB_DEFAULT = "modern-commerce-a";
+const LAB_DEFAULT = "modern-commerce-a-v2";
 
 function themeLab(request: NextRequest, locale: () => Locale) {
   const rest = request.nextUrl.pathname.slice(LAB.length).split("/").filter(Boolean);

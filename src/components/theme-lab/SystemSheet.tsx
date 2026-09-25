@@ -24,7 +24,7 @@ export interface SystemSpec {
 
 const uiIcons: IconName[] = ["power", "bevel", "layers", "grid", "machine", "factory", "shield", "truck", "doc", "phone", "mail", "chat", "pin", "globe", "arrow", "check"];
 
-function Block({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+export function Block({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
     <section className="border-t border-line pt-10 first:border-t-0 first:pt-0">
       <div className="max-w-[46rem]">
@@ -36,7 +36,7 @@ function Block({ title, note, children }: { title: string; note?: string; childr
   );
 }
 
-function Meta({ children }: { children: ReactNode }) {
+export function Meta({ children }: { children: ReactNode }) {
   return (
     <span className="block font-mono text-[0.72rem] leading-snug text-ink-2" dir="ltr">
       {children}
@@ -55,12 +55,15 @@ export function SystemSheet({
   header,
   footer,
   cards,
+  extra,
 }: {
   data: LabData;
   spec: SystemSpec;
   header: ReactNode;
   footer: ReactNode;
   cards: ReactNode;
+  /** Further blocks after the form fields (A V2: motion, signatures, reveal, mobile, tokens). */
+  extra?: ReactNode;
 }) {
   const { lab } = data;
   const t = lab.sheet;
@@ -269,6 +272,7 @@ export function SystemSheet({
               </label>
             </div>
           </Block>
+          {extra}
         </main>
         {footer}
       </div>

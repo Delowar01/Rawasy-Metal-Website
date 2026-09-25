@@ -1,0 +1,63 @@
+/*
+ * Signature illustrations (laser cutting, laser engraving).
+ * The rules below the layer are the finished picture: what visitors see without
+ * JavaScript, with reduced motion, and after every run. The start state is armed
+ * from the first paint, only when script and motion are both available.
+ */
+@layer components {
+  .sig {
+    display: block;
+    overflow: visible;
+    direction: ltr;
+  }
+
+  .sig :is(.sig-plate, .sig-piece, .sig-ring) {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .sig .sig-draw {
+    stroke-dasharray: 1 2;
+  }
+
+  .sig .sig-spark {
+    stroke-dasharray: 0.4 1.6;
+    stroke-dashoffset: 0.4;
+    opacity: 0;
+  }
+
+  .sig .sig-tip {
+    stroke-dasharray: 0.045 3;
+  }
+
+  .sig :is(.sig-head-in, .sig-guide, .sig-glow, .sig-core, .sig-tip, .sig-scan, .sig-sweep) {
+    opacity: 0;
+  }
+
+  /* Laser cutting: the part lifted out of the plate, the edge heat-tinted. */
+  .sig-cut .sig-piece {
+    transform: translate(-7px, -9px) rotate(-5deg) scale(1.035);
+  }
+
+  .sig-cut .sig-heat {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .js .sig .sig-plate {
+    opacity: 0;
+  }
+
+  .js .sig-cut .sig-piece {
+    transform: none;
+  }
+
+  .js .sig-cut :is(.sig-hole, .sig-heat, .sig-rim, .sig-edge) {
+    opacity: 0;
+  }
+
+  .js .sig-engrave .sig-engr {
+    clip-path: inset(0 0 100% 0);
+  }
+}
