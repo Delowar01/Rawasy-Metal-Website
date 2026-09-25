@@ -132,7 +132,13 @@ The 1C-V names (`--shadow-low/-medium/-metal/-soft`) are aliases.
 
 ### 8. Homepage changes
 
-The hero is unchanged, except that its headline now uses Sora (your typography instruction).
+The hero's markup is unchanged: its server HTML is byte-identical to 1C-V in EN and AR. Two global
+changes from the brief still show in it:
+- the headline is set in Sora (§9);
+- the primary buttons ("Explore Our Capabilities" and the header's "Get a Quote") are now orange
+  at rest (§24: "Primary: RAWASY orange"). In 1C-V they rested in graphite.
+
+A reduced-motion side-by-side of the hero is sent with the sheets.
 
 Below the hero:
 - Controlled background sequence: neutral → **teal** (key capabilities) → neutral (services) →
