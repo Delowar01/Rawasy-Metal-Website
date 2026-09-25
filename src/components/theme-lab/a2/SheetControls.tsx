@@ -6,7 +6,7 @@ import { Icon } from "../Icon";
 /* Design-system sheet controls: replay a signature illustration or a reveal, and a phone-width live preview. */
 
 export function ReplaySignature({ target, label }: { target: string; label: string }) {
-  const replay = () => document.getElementById(target)?.querySelector("svg.sig")?.dispatchEvent(new CustomEvent("sig:replay", { detail: { intro: true } }));
+  const replay = () => document.getElementById(target)?.querySelector(".sig")?.dispatchEvent(new CustomEvent("sig:replay", { detail: { intro: true } }));
   return (
     <button type="button" className="btn btn-secondary btn-sm sig-replay" data-js-only onClick={replay}>
       <Icon name="replay" size={16} />

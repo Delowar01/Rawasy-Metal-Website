@@ -10,6 +10,9 @@ import { MachineShowcase } from "./MachineShowcase";
 import { PhonePreview, ReplayReveal, ReplaySignature } from "./SheetControls";
 import "./a2.css";
 
+/** Moments of each signature's intro shown as still frames. */
+const STILLS = ["initial", "active", "finished"] as const;
+
 /** Option A V2 — Clean Premium Commerce, refined: design-system sheet. */
 export function SystemA2({ data }: { data: LabData }) {
   const ar = data.locale === "ar";
@@ -47,11 +50,11 @@ export function SystemA2({ data }: { data: LabData }) {
         group: ar ? "أسطح التوقيع البصري" : "Signature surfaces",
         swatches: [
           { name: "Laser stage", value: "radial-gradient(70% 90% at 50% 40%, #243452, #121d31 62%, #0d1626)", role: ar ? "مسرح القص بالليزر" : "Laser-cutting stage" },
-          { name: "Steel plate", value: "linear-gradient(135deg, #e6eaf0, #b5bfcb 40%, #d2d8e0 63%, #9aa5b3)", role: ar ? "لوح القص" : "Cut plate" },
-          { name: "Kerf", value: "linear-gradient(90deg, #fff4e8, #ff7a2e 45%, #b86d3e)", role: ar ? "خط القص من الساخن إلى البارد" : "Cut line, hot to cool" },
-          { name: "Brass plate", value: "linear-gradient(135deg, #f3e5c0, #d4b476 40%, #ead7a6 63%, #b99352)", role: ar ? "لوح الحفر" : "Engraving plate" },
-          { name: "Groove", value: "#5C4417", role: ar ? "الحفر وشعار رواسي" : "Engraved lines, the mark" },
-          { name: "Glass", value: "rgb(255 255 255 / 0.95)", role: ar ? "البطاقات العائمة" : "Floating cards" },
+          { name: "Nesting sheet", value: "linear-gradient(115deg, #e9edf1, #f7f9fa 42%, #e5e9ed 72%, #f2f5f7)", role: ar ? "لوح القص مع الشبكة الدقيقة" : "Cut sheet, fine grid" },
+          { name: "Cut path", value: "#F15F22", role: ar ? "مسار القص ونقاط الثقب والرأس" : "Cut path, pierce points, head" },
+          { name: "Nested parts", value: "#2C5E86", role: ar ? "القطع الفولاذية المرتّبة على اللوح" : "Nested steel parts" },
+          { name: "Brass plate", value: "linear-gradient(118deg, #c9ae76, #e6d4a8 40%, #b99a5f 72%, #e6d4a8)", role: ar ? "لوح الحفر" : "Engraving plate" },
+          { name: "Groove", value: "rgb(72 52 18 / 0.8)", role: ar ? "الأخاديد المحفورة بحافة مضيئة" : "Engraved grooves, with a light edge" },
         ],
       },
     ],
@@ -119,18 +122,21 @@ export function SystemA2({ data }: { data: LabData }) {
       <div className="lg:col-span-7">
         <ServiceFeatureA2 service={find(services, "laser-cutting")} data={data} />
       </div>
+      <div className="lg:col-span-5">
+        <ServiceFeatureA2 service={find(services, "laser-engraving")} data={data} />
+      </div>
       <div className="grid grid-cols-2 items-start gap-3 sm:gap-5 lg:col-span-5">
         <div>
           <ServiceCardA2 service={find(services, "cnc-bending")} open={data.services.open} />
         </div>
         <div>
-          <ServiceCardA2 service={find(services, "laser-engraving")} open={data.services.open} />
+          <ServiceCardA2 service={find(services, "steel-structures")} open={data.services.open} />
         </div>
       </div>
-      <div className="h-[24rem] lg:col-span-4 lg:h-auto lg:min-h-[24rem]">
-        <ProjectCardA2 project={project} view={data.projects.view} sizes="(min-width: 1024px) 380px, 92vw" />
+      <div className="h-[24rem] lg:col-span-7 lg:h-auto lg:min-h-[24rem]">
+        <ProjectCardA2 project={project} view={data.projects.view} sizes="(min-width: 1024px) 680px, 92vw" />
       </div>
-      <div className="lg:col-span-8">
+      <div className="lg:col-span-12">
         <MachineShowcase
           items={machines}
           quote={data.links.quote}
@@ -138,6 +144,83 @@ export function SystemA2({ data }: { data: LabData }) {
         />
       </div>
     </div>
+  );
+
+  // The two signatures lead the sheet: a live demo with a replay, then still frames of the intro.
+  const lead = (
+    <>
+      <Block title={t.cut} note={t.cutNote}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
+          <div id="demo-cut" className="a2-stage a2-stage-sig a2-stage-plain a2-stage-dark rounded-[var(--r-card)] border border-line lg:col-span-7" data-sig-host>
+            <LaserCut />
+          </div>
+          <div className="lg:col-span-5">
+            <ol className="a2-steps grid gap-2.5">
+              {t.cutSteps.map((step) => (
+                <li key={step} className="flex items-center text-[0.94rem] font-medium">
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5">
+              <ReplaySignature target="demo-cut" label={t.replay} />
+            </div>
+            <div className="mt-4">
+              <Meta>0–560 ms sheet · 200–1080 scan · 340–1180 nested parts · 760–1040 head on · 1.4–4.3 s holes, slot · 4.6–6.6 s outer contour · 7.6 s (replay 7.1 s)</Meta>
+            </div>
+          </div>
+        </div>
+        <div className="mt-8" data-js-only>
+          <h3 className="t-h4">{t.stills}</h3>
+          <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {STILLS.map((k) => (
+              <li key={k}>
+                <div className="a2-stage a2-sig-frame a2-stage-dark rounded-[var(--r-card)] border border-line">
+                  <LaserCut freeze={k} />
+                </div>
+                <p className="mt-2.5 text-[0.86rem] font-medium text-ink-2">{t.cutStates[k]}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Block>
+
+      <Block title={t.engrave} note={t.engraveNote}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
+          <div id="demo-engrave" className="a2-stage a2-stage-sig a2-stage-plain a2-stage-brass rounded-[var(--r-card)] border border-line lg:col-span-7" data-sig-host>
+            <LaserEngrave />
+          </div>
+          <div className="lg:col-span-5">
+            <ol className="a2-steps grid gap-2.5">
+              {t.engraveSteps.map((step) => (
+                <li key={step} className="flex items-center text-[0.94rem] font-medium">
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5">
+              <ReplaySignature target="demo-engrave" label={t.replay} />
+            </div>
+            <div className="mt-4">
+              <Meta>0–460 ms plate · 120–1100 reflection · 650–900 crosshair · 1.2–2.2 s border · 2.3–3.7 s lines · 3.8–5.0 s rosette · 5.0–5.7 s ring · 5.9–6.8 s light · 6.8 s (replay 6.3 s)</Meta>
+            </div>
+          </div>
+        </div>
+        <div className="mt-8" data-js-only>
+          <h3 className="t-h4">{t.stills}</h3>
+          <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {STILLS.map((k) => (
+              <li key={k}>
+                <div className="a2-stage a2-sig-frame a2-stage-brass rounded-[var(--r-card)] border border-line">
+                  <LaserEngrave freeze={k} />
+                </div>
+                <p className="mt-2.5 text-[0.86rem] font-medium text-ink-2">{t.engraveStates[k]}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Block>
+    </>
   );
 
   const tokens: [string, string, string, string][] = [
@@ -227,52 +310,6 @@ export function SystemA2({ data }: { data: LabData }) {
         </div>
       </Block>
 
-      <Block title={t.cut} note={t.cutNote}>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
-          <div id="demo-cut" className="a2-stage a2-stage-dark aspect-[16/10] rounded-[var(--r-card)] border border-line lg:col-span-7" data-sig-host>
-            <LaserCut className="relative w-[84%]" />
-          </div>
-          <div className="lg:col-span-5">
-            <ol className="a2-steps grid gap-2.5">
-              {t.cutSteps.map((step) => (
-                <li key={step} className="flex items-center text-[0.94rem] font-medium">
-                  {step}
-                </li>
-              ))}
-            </ol>
-            <div className="mt-5">
-              <ReplaySignature target="demo-cut" label={t.replay} />
-            </div>
-            <div className="mt-4">
-              <Meta>0–440 ms plate · 360 arm · 480–1630 cut · +100–680 lift · 2.5 s (replay 2.1 s)</Meta>
-            </div>
-          </div>
-        </div>
-      </Block>
-
-      <Block title={t.engrave} note={t.engraveNote}>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
-          <div id="demo-engrave" className="a2-stage a2-stage-brass aspect-[16/10] rounded-[var(--r-card)] border border-line lg:col-span-7" data-sig-host>
-            <LaserEngrave className="absolute inset-0 size-full p-6" />
-          </div>
-          <div className="lg:col-span-5">
-            <ol className="a2-steps grid gap-2.5">
-              {t.engraveSteps.map((step) => (
-                <li key={step} className="flex items-center text-[0.94rem] font-medium">
-                  {step}
-                </li>
-              ))}
-            </ol>
-            <div className="mt-5">
-              <ReplaySignature target="demo-engrave" label={t.replay} />
-            </div>
-            <div className="mt-4">
-              <Meta>0–440 ms plate · 340 arm · 480–1680 raster (8 passes) · +60–800 light · 2.5 s (replay 2.2 s)</Meta>
-            </div>
-          </div>
-        </div>
-      </Block>
-
       <Block title={t.reveal} note={t.revealNote}>
         <div id="demo-reveal" className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
           <div className="a2-photo aspect-[4/3]" data-reveal="clip">
@@ -344,5 +381,5 @@ export function SystemA2({ data }: { data: LabData }) {
     </>
   );
 
-  return <SystemSheet data={data} spec={spec} header={<HeaderA2 data={data} view="system" />} footer={<FooterA2 data={data} />} cards={cards} extra={extra} />;
+  return <SystemSheet data={data} spec={spec} header={<HeaderA2 data={data} view="system" />} footer={<FooterA2 data={data} />} cards={cards} lead={lead} extra={extra} />;
 }

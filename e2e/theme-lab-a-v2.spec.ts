@@ -16,13 +16,62 @@ const NAV = ["home", "about", "services", "machinery", "projects", "industries",
 /** Animations currently attached to a signature illustration and its parts. */
 const signatureAnimations = (page: Page, selector: string) =>
   page.evaluate((sel) => {
-    const svg = document.querySelector(sel);
-    return (svg?.getAnimations({ subtree: true }) ?? []).map((a) => ({
+    const root = document.querySelector(sel);
+    return (root?.getAnimations({ subtree: true }) ?? []).map((a) => ({
       state: a.playState,
       end: a.effect?.getComputedTiming().endTime as number,
       iterations: a.effect?.getComputedTiming().iterations as number,
     }));
   }, selector);
+
+const inView = (page: Page, selector: string) => page.evaluate((sel) => document.querySelector(sel)!.scrollIntoView({ block: "center" }), selector);
+
+/** The finished picture of the signatures, as the service pages draw them. */
+async function expectFinished(page: Page, which: readonly ("cut" | "engrave")[] = ["cut", "engrave"]) {
+  const state = await page.evaluate(() => {
+    const css = (sel: string) => getComputedStyle(document.querySelector(sel)!);
+    const all = (sel: string) => [...document.querySelectorAll(sel)].map((el) => getComputedStyle(el));
+    const head = (sel: string) => {
+      const m = new DOMMatrix(css(sel).transform);
+      return [Math.round(m.e * 10) / 10, Math.round(m.f * 10) / 10];
+    };
+    const drawn = (list: CSSStyleDeclaration[]) => list.every((s) => s.strokeDasharray === "none" || parseFloat(s.strokeDashoffset) < 0.001);
+    return {
+      sheet: css(".sig-cut .sig-sheet").opacity,
+      cut: drawn(all(".sig-cut .sig-kerf [pathLength]:not(.sig-slug)")),
+      slugs: all(".sig-cut .sig-kerf .sig-slug").map((s) => s.opacity),
+      pierces: all(".sig-cut .sig-pierce").map((s) => s.opacity),
+      trail: all(".sig-cut :is(.sig-trail > g, .sig-hot, .sig-scan)").map((s) => s.opacity),
+      cutHead: head(".sig-cut .sig-head"),
+      ring: css(".sig-cut .sig-ring").opacity,
+      plate: css(".sig-engrave .sig-plate").opacity,
+      grooves: drawn(all(".sig-engrave .sig-engr [pathLength]")),
+      dots: all(".sig-engrave .sig-dots").map((s) => s.opacity),
+      laser: css(".sig-engrave .sig-on").opacity,
+      beam: css(".sig-engrave .sig-beam-rest").opacity,
+      engraveHead: head(".sig-engrave .sig-head"),
+    };
+  });
+  if (which.includes("cut")) {
+    expect(state.sheet).toBe("1");
+    expect(state.cut).toBe(true);
+    expect(state.slugs.every((o) => o === "0")).toBe(true);
+    expect(state.pierces).toEqual(["1", "1", "1", "1"]);
+    expect(state.trail.every((o) => o === "0")).toBe(true);
+    // The head parks where the service page shows it.
+    expect(state.cutHead).toEqual([176, 92]);
+    expect(state.ring).toBe("1");
+  }
+  if (which.includes("engrave")) {
+    expect(state.plate).toBe("1");
+    expect(state.grooves).toBe(true);
+    expect(state.dots.every((o) => o === "1")).toBe(true);
+    // The laser rests on the ring's top mark, beam dashed, as on the service page.
+    expect(state.laser).toBe("0");
+    expect(state.beam).toBe("0.8");
+    expect(state.engraveHead).toEqual([282, 48]);
+  }
+}
 
 test.describe("A V2 · navigation and layout", () => {
   test("the header lists every main section, and the Services menu opens, lists the six services and closes", async ({ page }) => {
@@ -161,50 +210,204 @@ test.describe("A V2 · navigation and layout", () => {
 test.describe("A V2 · signature illustrations and motion", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
+  test("one laser-cutting and one laser-engraving signature, on the service pages' own artwork", async ({ page }) => {
+    // The service pages' drawings: the nesting sheet (Laser Cutting) and the engraved plate (Laser Engraving).
+    await page.goto("/en/services/laser-cutting", { waitUntil: "networkidle" });
+    const sheet = await page.evaluate(() => [...document.querySelectorAll('svg.line-draw[viewBox="0 0 260 160"] path')].map((p) => p.getAttribute("d")));
+    await page.goto("/en/services/laser-engraving", { waitUntil: "networkidle" });
+    const plate = await page.evaluate(() => {
+      const svg = document.querySelector("svg.engrave .engr-cut")!;
+      return { lines: [...svg.querySelectorAll(":scope > path")].map((p) => p.getAttribute("d")), ellipses: svg.querySelectorAll("ellipse").length };
+    });
+    expect(sheet).toHaveLength(7);
+
+    for (const path of [home("en"), home("ar")]) {
+      await page.goto(path, { waitUntil: "networkidle" });
+      await expect(page.locator("#services .sig-cut")).toHaveCount(1);
+      await expect(page.locator("#services .sig-engrave")).toHaveCount(1);
+      await expect(page.locator(".sig-cut")).toHaveCount(1);
+      await expect(page.locator(".sig-engrave")).toHaveCount(1);
+      // The retired concepts are gone: no lifted star part, no medallion or raster scan.
+      await expect(page.locator(".sig-piece, .sig-rim, .sig-medallion, .sig-raster")).toHaveCount(0);
+      const lab = await page.evaluate(() => ({
+        sheet: [...document.querySelectorAll(".sig-cut :is(.sig-nest, .sig-dims, .sig-kerf, .sig-pierces, .sig-ring) path")].map((p) => p.getAttribute("d")),
+        lines: [...document.querySelectorAll(".sig-engrave .sig-engr-cut > path[data-g^='l'], .sig-engrave .sig-engr-cut > path[data-g^='c']")].map((p) => p.getAttribute("d")),
+        ellipses: document.querySelectorAll(".sig-engrave .sig-engr-cut ellipse").length,
+      }));
+      // Every line of the service page's nesting sheet is in the signature: nested part, dimensions, lead-in, outline, pierce points, head.
+      for (const d of sheet) expect(lab.sheet.join("")).toContain(d!);
+      for (const d of plate.lines) expect(lab.lines.join("")).toContain(d!);
+      expect(lab.ellipses).toBe(plate.ellipses);
+    }
+  });
+
   test("laser cutting plays once in view, finishes, and replays on hover", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto(home("en"), { waitUntil: "networkidle" });
     expect(await signatureAnimations(page, ".sig-cut")).toEqual([]);
-    await page.evaluate(() => document.querySelector(".a2-svc-laser")!.scrollIntoView({ block: "center" }));
-    await expect.poll(async () => (await signatureAnimations(page, ".sig-cut")).length).toBeGreaterThan(10);
+    await inView(page, ".sig-cut");
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-cut")).length).toBeGreaterThan(20);
     const run = await signatureAnimations(page, ".sig-cut");
-    // One pass on a shared clock, about 2.5 s, never looping.
+    // One pass on a shared clock, about 7.6 s, never looping.
     for (const a of run) {
       expect(a.iterations).toBe(1);
-      expect(a.end).toBeGreaterThan(1500);
-      expect(a.end).toBeLessThanOrEqual(2600);
+      expect(a.end).toBeGreaterThan(6000);
+      expect(a.end).toBeLessThanOrEqual(8500);
     }
-    await expect.poll(async () => (await signatureAnimations(page, ".sig-cut")).every((a) => a.state === "finished"), { timeout: 5000 }).toBe(true);
-    // The finished picture: the part lifted out of the plate.
-    expect(await page.locator(".sig-cut .sig-piece").evaluate((el) => getComputedStyle(el).transform)).not.toBe("none");
-    await page.locator(".a2-svc-laser").hover();
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-cut")).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
+    const card = page.locator("article:has(.sig-cut)");
+    await card.hover();
     await expect.poll(async () => (await signatureAnimations(page, ".sig-cut")).some((a) => a.state === "running")).toBe(true);
     // The card turns its edge orange on hover.
-    await expect.poll(() => page.locator(".a2-svc-laser").evaluate((el) => getComputedStyle(el).borderColor)).toBe("rgb(241, 95, 34)");
+    await expect.poll(() => card.evaluate((el) => getComputedStyle(el).borderColor)).toBe("rgb(241, 95, 34)");
     expect(errors).toEqual([]);
   });
 
-  test("laser engraving plays once in view and replays on keyboard focus", async ({ page }) => {
+  test("the cutting head follows the part: holes and slot first, then the outer contour from its lead-in, then parks", async ({ page }) => {
     await page.goto(home("en"), { waitUntil: "networkidle" });
-    const card = page.locator("article:has(.sig-engrave)");
-    await card.scrollIntoViewIfNeeded();
-    await page.evaluate(() => document.querySelector(".sig-engrave")!.scrollIntoView({ block: "center" }));
-    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).length).toBeGreaterThan(4);
-    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).every((a) => a.state === "finished"), { timeout: 5000 }).toBe(true);
-    await card.locator("a.stretch").focus();
-    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).some((a) => a.state === "running")).toBe(true);
+    await inView(page, ".sig-cut");
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-cut")).length).toBeGreaterThan(20);
+    const result = await page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>(".sig-cut")!;
+      root.dispatchEvent(new CustomEvent("sig:replay", { detail: { intro: true } }));
+      const anims = root.getAnimations({ subtree: true });
+      anims.forEach((a) => a.pause());
+      const total = Math.max(...anims.map((a) => a.effect!.getComputedTiming().endTime as number));
+      // The part, contour by contour (lead-in and cut), every half unit.
+      const contours = [...root.querySelectorAll(".sig-kerf > g")].map((g) =>
+        [...g.querySelectorAll<SVGGeometryElement>("path")].flatMap((p) => {
+          const length = p.getTotalLength();
+          return Array.from({ length: Math.ceil(length / 0.5) + 1 }, (_, i) => p.getPointAtLength(Math.min(length, i * 0.5)));
+        }),
+      );
+      const head = root.querySelector(".sig-head")!;
+      const beam = root.querySelector(".sig-hot")!;
+      const order: number[] = [];
+      let worst = 0;
+      let cutting = 0;
+      for (let t = 0; t <= total; t += 20) {
+        anims.forEach((a) => (a.currentTime = t));
+        if (+getComputedStyle(beam).opacity < 0.95) continue;
+        const m = new DOMMatrix(getComputedStyle(head).transform);
+        let best = Infinity;
+        let nearest = -1;
+        contours.forEach((points, i) =>
+          points.forEach((p) => {
+            const d = Math.hypot(p.x - m.e, p.y - m.f);
+            if (d < best) [best, nearest] = [d, i];
+          }),
+        );
+        worst = Math.max(worst, best);
+        cutting++;
+        if (order[order.length - 1] !== nearest) order.push(nearest);
+      }
+      anims.forEach((a) => a.finish());
+      return { order, worst, cutting, contours: contours.length };
+    });
+    // With the beam on, the head is always on the part's geometry (within the kerf), one contour after another.
+    expect(result.contours).toBe(5);
+    expect(result.cutting).toBeGreaterThan(150);
+    expect(result.worst).toBeLessThan(0.8);
+    expect(result.order).toEqual([0, 1, 2, 3, 4]);
+    await expectFinished(page, ["cut"]);
   });
 
-  test("the engraving carries RAWASY's own mark only: no photos, text, part or serial numbers", async ({ page }) => {
-    for (const path of [home("en"), system("en")]) {
+  test("laser engraving plays once in view, replays on keyboard focus, and develops groove by groove as the laser moves", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    expect(await signatureAnimations(page, ".sig-engrave")).toEqual([]);
+    const card = page.locator("article:has(.sig-engrave)");
+    await inView(page, ".sig-engrave");
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).length).toBeGreaterThan(20);
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
+    // Keyboard focus on its card replays it.
+    await card.locator("a.stretch").focus();
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).some((a) => a.state === "running")).toBe(true);
+    await expect.poll(async () => (await signatureAnimations(page, ".sig-engrave")).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
+    const result = await page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>(".sig-engrave")!;
+      root.dispatchEvent(new CustomEvent("sig:replay", { detail: { intro: true } }));
+      const anims = root.getAnimations({ subtree: true });
+      anims.forEach((a) => a.pause());
+      const total = Math.max(...anims.map((a) => a.effect!.getComputedTiming().endTime as number));
+      const grooves = [...root.querySelectorAll(".sig-engr-cut [pathLength]")];
+      const head = root.querySelector(".sig-head")!;
+      const done: number[] = [];
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (let k = 0; k <= 20; k++) {
+        anims.forEach((a) => (a.currentTime = (total * k) / 20));
+        done.push(grooves.filter((g) => parseFloat(getComputedStyle(g).strokeDashoffset) < 0.001).length);
+        const m = new DOMMatrix(getComputedStyle(head).transform);
+        xs.push(m.e);
+        ys.push(m.f);
+      }
+      anims.forEach((a) => a.finish());
+      return { done, grooves: grooves.length, xs, ys, total };
+    });
+    expect(result.total).toBeGreaterThan(6000);
+    expect(result.total).toBeLessThanOrEqual(8000);
+    // None engraved at first, all at the end, never fewer as time goes on, in many visible steps.
+    expect(result.done[0]).toBe(0);
+    expect(result.done[result.done.length - 1]).toBe(result.grooves);
+    for (let i = 1; i < result.done.length; i++) expect(result.done[i]).toBeGreaterThanOrEqual(result.done[i - 1]);
+    expect(new Set(result.done).size).toBeGreaterThan(6);
+    // The laser works across the whole plate.
+    expect(Math.max(...result.xs) - Math.min(...result.xs)).toBeGreaterThan(250);
+    expect(Math.max(...result.ys) - Math.min(...result.ys)).toBeGreaterThan(150);
+    await expectFinished(page, ["engrave"]);
+  });
+
+  test("the finished pictures persist, in English and Arabic; the plate mirrors in Arabic as on its service page", async ({ page }) => {
+    for (const locale of LOCALES) {
+      await page.goto(home(locale), { waitUntil: "networkidle" });
+      for (const sel of [".sig-cut", ".sig-engrave"]) {
+        await inView(page, sel);
+        await expect.poll(async () => (await signatureAnimations(page, sel)).length).toBeGreaterThan(20);
+      }
+      for (const sel of [".sig-cut", ".sig-engrave"]) {
+        await expect.poll(async () => (await signatureAnimations(page, sel)).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
+      }
+      await page.waitForTimeout(600);
+      await expectFinished(page);
+      expect(await page.locator(".sig-engrave .sig-art").evaluate((el) => getComputedStyle(el).scale)).toBe(locale === "ar" ? "-1 1" : "none");
+      expect(await page.locator(".sig-cut svg").evaluate((el) => getComputedStyle(el).scale)).toBe("none");
+    }
+  });
+
+  test("large enough to read: each illustration fills most of its stage and the cut line stays bold, on desktop and phone", async ({ page }) => {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(home("en"), { waitUntil: "networkidle" });
+      const sizes = await page.evaluate(() =>
+        [...document.querySelectorAll("#services .a2-stage-sig")].map((stage) => {
+          const s = stage.getBoundingClientRect();
+          const sig = stage.querySelector(".sig")!.getBoundingClientRect();
+          const svg = stage.querySelector("svg")!;
+          const kerf = svg.querySelector(".sig-kerf");
+          return {
+            share: (sig.width * sig.height) / (s.width * s.height),
+            kerf: kerf ? parseFloat(getComputedStyle(kerf).strokeWidth) * (svg.getBoundingClientRect().width / 260) : null,
+          };
+        }),
+      );
+      expect(sizes).toHaveLength(2);
+      for (const { share } of sizes) expect(share, `${width}px`).toBeGreaterThan(0.5);
+      expect(sizes[0].kerf!, `${width}px`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test("no photos, text, brands or serial numbers in the engraving; the flagged nameplates photo stays off", async ({ page }) => {
+    for (const path of [home("en"), home("ar"), system("en")]) {
       await page.goto(path, { waitUntil: "networkidle" });
-      const plates = page.locator("svg.sig-engrave");
+      const plates = page.locator(".sig-engrave");
       expect(await plates.count()).toBeGreaterThan(0);
       for (const plate of await plates.all()) {
-        expect(await plate.locator("image, text, foreignObject").count()).toBe(0);
-        expect(await plate.locator(".sig-engr path").count()).toBeGreaterThan(4);
+        expect(await plate.locator("img, image, text, foreignObject").count()).toBe(0);
+        expect((await plate.textContent())!.trim()).toBe("");
         await expect(plate).toHaveAttribute("aria-hidden", "true");
       }
+      const flagged = await page.evaluate(() => [...document.images].filter((img) => `${img.src} ${img.srcset}`.includes("engraving-nameplates")).length);
+      expect(flagged).toBe(0);
     }
   });
 
@@ -222,16 +425,52 @@ test.describe("A V2 · signature illustrations and motion", () => {
     expect(glow).toEqual(["paused"]);
   });
 
-  test("the design-system sheet replays each signature on demand", async ({ page }) => {
+  test("the design-system sheet shows each signature first, with a replay and still frames of its initial, active and finished states", async ({ page }) => {
     await page.goto(system("en"), { waitUntil: "networkidle" });
-    for (const id of ["demo-cut", "demo-engrave"]) {
-      await page.evaluate((i) => document.getElementById(i)!.scrollIntoView({ block: "center" }), id);
-      const svg = `#${id} svg.sig`;
-      await expect.poll(async () => (await signatureAnimations(page, svg)).length).toBeGreaterThan(4);
-      await expect.poll(async () => (await signatureAnimations(page, svg)).every((a) => a.state === "finished"), { timeout: 5000 }).toBe(true);
+    // The two signature blocks lead the sheet.
+    const firstBlocks = await page.locator("main > section").evaluateAll((els) => els.slice(0, 2).map((el) => el.querySelector("[id^=demo-]")?.id));
+    expect(firstBlocks).toEqual(["demo-cut", "demo-engrave"]);
+    for (const [id, part] of [
+      ["demo-cut", ".sig-kerf .sig-path"],
+      ["demo-engrave", ".sig-engr-cut [pathLength]"],
+    ] as const) {
+      await inView(page, `#${id}`);
+      const sig = `#${id} .sig`;
+      await expect.poll(async () => (await signatureAnimations(page, sig)).length).toBeGreaterThan(20);
+      await expect.poll(async () => (await signatureAnimations(page, sig)).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
       await page.locator("section", { has: page.locator(`#${id}`) }).locator("button.sig-replay").click();
-      await expect.poll(async () => (await signatureAnimations(page, svg)).some((a) => a.state === "running")).toBe(true);
+      await expect.poll(async () => (await signatureAnimations(page, sig)).some((a) => a.state === "running")).toBe(true);
+      // Still frames: nothing drawn at first, part of it while active, everything when finished.
+      const stills = await page
+        .locator("section", { has: page.locator(`#${id}`) })
+        .locator("[data-frozen]")
+        .evaluateAll((els, sel) => els.map((el) => [...el.querySelectorAll(sel)].filter((p) => parseFloat(getComputedStyle(p).strokeDashoffset) < 0.001).length), part);
+      expect(stills).toHaveLength(3);
+      expect(stills[0]).toBe(0);
+      expect(stills[1]).toBeGreaterThan(0);
+      expect(stills[2]).toBeGreaterThan(stills[1]);
     }
+  });
+});
+
+test.describe("A V2 · signatures on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
+
+  test("each signature plays once as it enters the viewport; touch and scrolling back do not replay it", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    for (const sel of [".sig-cut", ".sig-engrave"]) {
+      expect(await signatureAnimations(page, sel)).toEqual([]);
+      await inView(page, sel);
+      await expect.poll(async () => (await signatureAnimations(page, sel)).length).toBeGreaterThan(20);
+      await expect.poll(async () => (await signatureAnimations(page, sel)).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
+      await page.evaluate((s) => document.querySelector(s)!.closest("[data-sig-host]")!.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "touch" })), sel);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(300);
+      await inView(page, sel);
+      await page.waitForTimeout(600);
+      expect((await signatureAnimations(page, sel)).every((a) => a.state === "finished"), sel).toBe(true);
+    }
+    await expectFinished(page);
   });
 });
 
@@ -239,21 +478,22 @@ test.describe("A V2 · reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
   test("the finished illustrations show at once and nothing animates", async ({ page }) => {
-    await page.goto(home("en"), { waitUntil: "networkidle" });
-    for (const sel of [".sig-cut", ".sig-engrave"]) {
-      await page.evaluate((s) => document.querySelector(s)!.scrollIntoView({ block: "center" }), sel);
-      await page.waitForTimeout(400);
-      expect(await signatureAnimations(page, sel)).toEqual([]);
-      expect(await page.locator(`${sel} .sig-plate`).evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    for (const locale of LOCALES) {
+      await page.goto(home(locale), { waitUntil: "networkidle" });
+      for (const sel of [".sig-cut", ".sig-engrave"]) {
+        await inView(page, sel);
+        await page.waitForTimeout(400);
+        expect(await signatureAnimations(page, sel)).toEqual([]);
+      }
+      await expectFinished(page);
+      // No hero entrance, no parallax, no signature runs.
+      expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length)).toBe(0);
     }
-    expect(await page.locator(".sig-cut .sig-piece").evaluate((el) => getComputedStyle(el).transform)).not.toBe("none");
-    expect(await page.locator(".sig-cut .sig-hole").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-    expect(await page.locator(".sig-cut .sig-head-in").evaluate((el) => getComputedStyle(el).opacity)).toBe("0");
-    expect(await page.locator(".sig-engrave .sig-engr").evaluate((el) => getComputedStyle(el).clipPath)).toBe("none");
-    // No hero entrance, no parallax, no replay buttons on the sheet.
-    expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length)).toBe(0);
+    // The sheet's still frames are still frames; the replay buttons have nothing to play.
     await page.goto(system("en"), { waitUntil: "networkidle" });
     await expect(page.locator("button.sig-replay").first()).toBeHidden();
+    await expect(page.locator("[data-frozen]")).toHaveCount(6);
+    expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length)).toBe(0);
   });
 });
 
@@ -276,9 +516,10 @@ test.describe("A V2 · keyboard", () => {
     await expect(page.locator(".a2-nav details[data-dropdown]")).not.toHaveAttribute("open");
 
     // A focused card lifts and takes its accent edge, as on hover.
-    await page.locator(".a2-svc-laser a.stretch").focus();
-    await expect.poll(() => page.locator(".a2-svc-laser").evaluate((el) => getComputedStyle(el).translate)).not.toBe("none");
-    await expect.poll(() => page.locator(".a2-svc-laser").evaluate((el) => getComputedStyle(el).borderColor)).toBe("rgb(241, 95, 34)");
+    const laser = page.locator("article:has(.sig-cut)");
+    await laser.locator("a.stretch").focus();
+    await expect.poll(() => laser.evaluate((el) => getComputedStyle(el).translate)).not.toBe("none");
+    await expect.poll(() => laser.evaluate((el) => getComputedStyle(el).borderColor)).toBe("rgb(241, 95, 34)");
 
     await page.locator(".a2-mx-pick").nth(2).focus();
     await page.keyboard.press("Enter");
@@ -297,8 +538,7 @@ test.describe("A V2 · without JavaScript", () => {
     await page.goto(home("en"));
     await expect(page.locator("h1")).toBeVisible();
     expect(await page.evaluate(() => [...document.querySelectorAll("[data-reveal], [data-enter]")].filter((el) => getComputedStyle(el).opacity === "0").length)).toBe(0);
-    expect(await page.locator(".sig-cut .sig-plate").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-    expect(await page.locator(".sig-engrave .sig-engr").evaluate((el) => getComputedStyle(el).clipPath)).toBe("none");
+    await expectFinished(page);
     const shown = await page.locator(".a2-mx-panel").evaluateAll((els) => els.filter((el) => getComputedStyle(el).visibility === "visible").length);
     expect(shown).toBe(1);
     expect(await page.locator(".a2-mx-panel").first().locator(".a2-mx-spec").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");

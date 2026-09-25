@@ -1147,16 +1147,79 @@
     background: var(--stage-brass);
   }
 
-  /* Laser cutting: the signature card — orange edge, lift, replayed cut */
-  .lab-a2 .a2-svc-laser {
-    --edge: var(--brand);
+  /* Signature stages (laser cutting, laser engraving): the illustration fills the
+     stage below the badge, as large as the stage allows (container units measure
+     the stage inside its padding). */
+  .lab-a2 .a2-stage-sig {
+    container-type: size;
+    aspect-ratio: 4 / 3;
+    padding: 3.25rem 1rem 1rem;
   }
 
-  .lab-a2 .a2-svc-laser:is(:hover, :focus-within, .is-hover) {
+  /* Still frames on the design-system sheet. */
+  .lab-a2 .a2-sig-frame {
+    container-type: size;
+    aspect-ratio: 16 / 10;
+    padding: 0.875rem;
+  }
+
+  .lab-a2 :is(.a2-stage-sig, .a2-sig-frame) .sig {
+    width: min(100cqw, 100cqh * var(--sig-ratio));
+  }
+
+  .lab-a2 .sig-cut {
+    --sig-ratio: 1.625;
+  }
+
+  .lab-a2 .sig-engrave {
+    --sig-ratio: 1.4286;
+  }
+
+  .lab-a2 .a2-stage-engrave {
+    aspect-ratio: 6 / 5;
+  }
+
+  @media (min-width: 640px) {
+    .lab-a2 .a2-stage-sig {
+      aspect-ratio: 16 / 9;
+      padding: 3.5rem 1.5rem 1.5rem;
+    }
+  }
+
+  /* A stage without a badge (the design-system demos). */
+  .lab-a2 .a2-stage-sig.a2-stage-plain {
+    padding: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .lab-a2 .a2-stage-sig.a2-stage-plain {
+      padding: 1.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .lab-a2 .a2-stage-sig {
+      aspect-ratio: auto;
+      height: 22rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .lab-a2 .a2-stage-sig {
+      height: 26rem;
+    }
+  }
+
+  /* Signature cards: an edge in the service's tone, lift, and the illustration replays */
+  .lab-a2 .a2-svc-sig {
+    --edge: var(--tone);
+  }
+
+  .lab-a2 .a2-svc-sig:is(:hover, :focus-within, .is-hover) {
     box-shadow:
-      0 0 0 1px var(--brand),
+      0 0 0 1px var(--tone),
       var(--sh-hover),
-      0 18px 40px -22px rgb(241 95 34 / 0.55);
+      0 18px 40px -22px color-mix(in srgb, var(--tone) 55%, transparent);
   }
 
   .lab-a2 .a2-spec {

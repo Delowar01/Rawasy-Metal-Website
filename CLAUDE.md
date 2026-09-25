@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-25-modern-commerce-a-v2.md` (earlier:
-  `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
+- Latest report: `docs/reports/2026-09-25-a-v2-signature-correction.md` (earlier:
+  `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
@@ -46,6 +46,12 @@
   "OPTION A V2 / REFINE OPTION A ONLY" brief, report `2026-09-25-modern-commerce-a-v2.md`). Work only
   on A V2 when asked; never on B or C. A stays available for comparison. Never self-approve A V2 and
   never migrate the site to it until the user explicitly approves it.
+- **A V2's signature animations were corrected** (the user's "SIGNATURE ANIMATION CORRECTION" brief,
+  report `2026-09-25-a-v2-signature-correction.md`): the user rejected the star cut and the medallion
+  engraving. The signatures must animate the service pages' own drawings (the Laser Cutting nesting
+  sheet, the Laser Engraving brass plate) inside the A V2 cards: never a decorative star, a logo, a
+  game look, big sparks, a lifted part or a new concept. The corrected version awaits visual review
+  (A V2 as a whole is still not approved).
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
@@ -221,13 +227,23 @@
   the dark theme only redefines names). It reuses A's fonts (`a/fonts.ts`). LabMotion's A V2 extras
   key on new attributes only (`data-parallax`, `data-hero`, `data-ambient`, `details[data-dropdown]`,
   `button[data-toggle]`, `details[data-menu][data-sheet]`), so A, B and C behave as before.
-- Signature illustrations (`signature/`): `LaserCut.tsx` (star kerf, head at constant feed, white-hot
-  tip, sparks, the part lifts, edge cools) and `LaserEngrave.tsx` (brass plate, raster passes behind a
-  scan line, the RAWASY mark only, light sweep). Markup is the finished state; `signature.css` arms
-  the start state only under `.js` + `prefers-reduced-motion: no-preference`; `useSignature` plays
-  once at 50 % in view and replays on host (`[data-sig-host]`) mouse-enter or focus; `sig:replay`
-  (`detail.intro`) forces a run. Every animation of a run shares one clock (`track()`, fill both), so
-  captures pause them all at one `currentTime`. Reusable for the service and capabilities pages.
+- Signature illustrations (`signature/`) animate the service pages' drawings, whose geometry lives in
+  `src/components/service/visuals/nesting-sheet.ts` and `engraved-plate.ts` (shared with
+  `CutPathVisual` and `EngravedPlateVisual`). `LaserCut.tsx`: the nesting sheet appears with one scan
+  pass, nested parts draw in, the head activates at its park spot, then cuts the holes and the slot
+  (pierce, lead-in, contour) before the outer contour from its lead-in, at a steady feed, with a hot
+  point, a trailing glow and a heat tint that settles; interior lead-ins drop out with the slug; the
+  head parks where the service page shows it. `LaserEngrave.tsx`: the brass plate and its reflection,
+  the crosshair moves to the start, engraves the double border and corner marks, the line block, the
+  rosette and the ring (grooves drawn twice, highlight and cut), light crosses, the laser switches off
+  on its rest mark; mirrored in Arabic. Markup is the finished state; `signature.css` arms the start
+  state only under `.js` + `prefers-reduced-motion: no-preference`; `useSignature` plays once at 50 %
+  in view and replays on host (`[data-sig-host]`) mouse-enter or focus (not while running);
+  `sig:replay` (`detail.intro`) forces a run; `freeze` holds a named moment (`initial`, `active`,
+  `finished`) for the sheet's still frames. `animate()` puts every animation on one clock that ends
+  with the run (delay, active window, end delay, fill both), so captures and tests pause them all at
+  one `currentTime`. The two signatures lead the A V2 services grid and the design-system sheet
+  (`SystemSheet`'s optional `lead`).
 - `lab.css` builds Tailwind from lab sources only (`source(none)` + `@source`); `globals.css` has
   `@source not` lines so lab classes never reach the site CSS. Semantic utilities (`bg-surface`,
   `text-ink-2`, `rounded-card`, `shadow-raised`…) resolve to whichever option's tokens are in scope.
@@ -316,3 +332,16 @@
   use `useSyncExternalStore(subscribe, () => true, () => false)`.
 - Inactive-state styles of a script-driven widget (e.g. hidden machine panels) must be scoped to its
   script-ready attribute (`[data-js]`), or the no-JS fallback inherits them.
+- Container query units (`cqw`, `cqh`) measure the container inside its padding; do not subtract the
+  padding again when sizing a child to fit.
+- A line hidden with `stroke-dasharray: 1 1; stroke-dashoffset: 1` still paints its round or square
+  cap at the path's start. Hide it with a dash that ends short of the path (`1 1.1` and `1.05`).
+- WAAPI animations that span a whole run on hold keyframes are sampled every frame (style
+  recalculation); give each one a delay and an end delay around its active window instead.
+- A new child slot in a shared server component (`{lead}`) changes the React payload of every page
+  that uses it, even when empty; render it together with an existing child when it is set.
+- Moving JSX attribute literals into shared numeric constants keeps the HTML identical but changes the
+  React payload (numbers instead of strings, list keys); compare the visible markup separately.
+- `next dev` never fires `load` for a lab page with JavaScript disabled; check no-JS on a build.
+- The `pkill -f "[x]…"` bracket trick fails if the unbracketed text appears anywhere else in the same
+  command (a restart of that server, for example): kill in one command, restart in the next.

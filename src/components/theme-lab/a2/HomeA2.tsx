@@ -559,24 +559,26 @@ function ServiceLink({ label, className = "" }: { label: string; className?: str
   );
 }
 
-/** Featured card: the laser-cutting signature, or a large photo. */
+/** The two laser services carry their signature illustrations. */
+const signature: Partial<Record<ServiceSlug, "cut" | "engrave">> = { "laser-cutting": "cut", "laser-engraving": "engrave" };
+const signatureStage = { cut: "a2-stage-dark", engrave: "a2-stage-brass a2-stage-engrave" };
+
+/** Featured card: a laser signature (cutting, engraving) on its stage, or a large photo. */
 export function ServiceFeatureA2({ service: s, data }: { service: ServiceItem; data: LabData }) {
-  const laser = s.slug === "laser-cutting";
-  const specs = laser ? data.metrics.filter((m) => m.slug === "peak-laser-power" || m.slug === "bevel-cutting") : [];
+  const sig = signature[s.slug];
+  const specs = s.slug === "laser-cutting" ? data.metrics.filter((m) => m.slug === "peak-laser-power" || m.slug === "bevel-cutting") : [];
   return (
-    <article className={`card card-link a2-svc ${laser ? "a2-svc-laser" : "card-edge"}`} data-tone={serviceTone[s.slug]} data-sig-host={laser ? "" : undefined}>
-      <div className={`a2-stage ${laser ? "a2-stage-dark aspect-[16/9]" : "card-media aspect-[16/9] lg:aspect-auto lg:min-h-[17rem] lg:flex-1"}`}>
-        {laser ? (
-          <LaserCut className="relative w-[86%] max-w-[32rem]" />
-        ) : (
-          s.image && <Photo image={s.image} sizes="(min-width: 1024px) 500px, 92vw" />
-        )}
+    <article className={`card card-link a2-svc ${sig ? "a2-svc-sig" : "card-edge"}`} data-tone={serviceTone[s.slug]} data-sig-host={sig ? "" : undefined}>
+      <div className={`a2-stage ${sig ? `a2-stage-sig ${signatureStage[sig]}` : "card-media aspect-[16/9] lg:aspect-auto lg:min-h-[17rem] lg:flex-1"}`}>
+        {sig === "cut" && <LaserCut />}
+        {sig === "engrave" && <LaserEngrave />}
+        {!sig && s.image && <Photo image={s.image} sizes="(min-width: 1024px) 500px, 92vw" />}
         <span className="badge badge-light absolute start-4 top-4 z-[2]">
           <Icon name={serviceIcon[s.slug]} size={14} />
           {s.highlights[0]}
         </span>
       </div>
-      <div className={`flex flex-col p-5 sm:p-6 ${laser ? "flex-1" : ""}`}>
+      <div className={`flex flex-col p-5 sm:p-6 ${sig ? "flex-1" : ""}`}>
         <div className="flex items-center gap-3">
           <span className="icon-chip shrink-0">
             <Icon name={serviceIcon[s.slug]} size={22} />
@@ -606,33 +608,25 @@ export function ServiceFeatureA2({ service: s, data }: { service: ServiceItem; d
           </dl>
         )}
         <ul className="mt-4 flex flex-wrap gap-1.5">
-          {s.highlights.slice(1, laser ? 4 : 4).map((h) => (
+          {s.highlights.slice(1, 4).map((h) => (
             <li key={h} className="tag">
               {h}
             </li>
           ))}
         </ul>
-        <ServiceLink label={data.services.open} className={laser ? "mt-auto pt-5" : "pt-5"} />
+        <ServiceLink label={data.services.open} className={sig ? "mt-auto pt-5" : "pt-5"} />
       </div>
     </article>
   );
 }
 
-/** Standard card: photo (or the engraving signature), icon, name, tagline, one capability tag, link. */
+/** Standard card: photo, icon, name, tagline, one capability tag, link. */
 export function ServiceCardA2({ service: s, open }: { service: ServiceItem; open: string }) {
-  const engraving = s.slug === "laser-engraving";
+  // Metal Fabrication shows its supporting photo: its cover (the workshop) already leads the About panel.
+  const image = s.slug === "fabrication" ? s.support : s.image;
   return (
-    <article className="card card-link card-edge a2-svc" data-tone={serviceTone[s.slug]} data-sig-host={engraving ? "" : undefined}>
-      <div className={`a2-stage aspect-[16/11] ${engraving ? "a2-stage-brass" : "card-media"}`}>
-        {engraving ? (
-          <LaserEngrave className="absolute inset-0 size-full p-2" />
-        ) : (
-          // Metal Fabrication shows its supporting photo: its cover (the workshop) already leads the About panel.
-          (s.slug === "fabrication" ? s.support : s.image) && (
-            <Photo image={(s.slug === "fabrication" ? s.support : s.image)!} sizes="(min-width: 1024px) 300px, (min-width: 640px) 46vw, 48vw" />
-          )
-        )}
-      </div>
+    <article className="card card-link card-edge a2-svc" data-tone={serviceTone[s.slug]}>
+      <div className="a2-stage card-media aspect-[16/11]">{image && <Photo image={image} sizes="(min-width: 1024px) 300px, (min-width: 640px) 46vw, 48vw" />}</div>
       <div className="flex flex-1 flex-col p-3.5 pt-0 sm:p-5 sm:pt-0">
         <span className="icon-chip relative z-[2] -mt-5 size-10 shadow-[var(--sh-card)] [background:linear-gradient(var(--tone-soft),var(--tone-soft)),var(--surface)] sm:-mt-6 sm:size-12">
           <Icon name={serviceIcon[s.slug]} size={22} />
@@ -654,18 +648,19 @@ export function ServiceCardA2({ service: s, open }: { service: ServiceItem; open
 
 function ServicesA2({ data }: Props) {
   const { services, links } = data;
-  const [laser, steel] = (["laser-cutting", "steel-structures"] as const).map((slug) => services.items.find((s) => s.slug === slug)!);
-  const rest = services.items.filter((s) => s !== laser && s !== steel);
+  // The two laser services lead with their signature illustrations; the other four follow as photo cards.
+  const [cutting, engraving] = (["laser-cutting", "laser-engraving"] as const).map((slug) => services.items.find((s) => s.slug === slug)!);
+  const rest = services.items.filter((s) => s !== cutting && s !== engraving);
   return (
     <section id="services" className="sec sec-alt" aria-labelledby="services-title">
       <div className="shell">
         <SectionHead id="services-title" label={services.label} title={services.title} intro={services.intro} action={{ href: links.services, label: services.all }} />
         <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:mt-12 lg:grid-cols-12">
           <li className="col-span-2 lg:col-span-7" data-reveal>
-            <ServiceFeatureA2 service={laser} data={data} />
+            <ServiceFeatureA2 service={cutting} data={data} />
           </li>
           <li className="col-span-2 lg:col-span-5" data-reveal style={delay(80)}>
-            <ServiceFeatureA2 service={steel} data={data} />
+            <ServiceFeatureA2 service={engraving} data={data} />
           </li>
           {rest.map((s, i) => (
             <li key={s.slug} className="col-span-1 lg:col-span-3" data-reveal style={delay(i * 70)}>

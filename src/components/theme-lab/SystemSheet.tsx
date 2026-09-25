@@ -55,6 +55,7 @@ export function SystemSheet({
   header,
   footer,
   cards,
+  lead,
   extra,
 }: {
   data: LabData;
@@ -62,12 +63,21 @@ export function SystemSheet({
   header: ReactNode;
   footer: ReactNode;
   cards: ReactNode;
-  /** Further blocks after the form fields (A V2: motion, signatures, reveal, mobile, tokens). */
+  /** Blocks shown first, before the palette (A V2: the two signature illustrations). */
+  lead?: ReactNode;
+  /** Further blocks after the form fields (A V2: clients, contact, motion, reveal, mobile, tokens). */
   extra?: ReactNode;
 }) {
   const { lab } = data;
   const t = lab.sheet;
   const name = lab.options.find((o) => o.key === data.option)!.name;
+  const intro = (
+    <header className="max-w-[48rem]">
+      <p className="eyebrow">{lab.system}</p>
+      <h1 className="t-h2 mt-4">{name}</h1>
+      <p className="t-lead mt-4">{spec.summary[data.locale]}</p>
+    </header>
+  );
 
   return (
     <>
@@ -79,11 +89,15 @@ export function SystemSheet({
         <div id="top" />
         {header}
         <main id="main" tabIndex={-1} className="shell grid grid-cols-1 gap-14 py-12 outline-none sm:py-16">
-          <header className="max-w-[48rem]">
-            <p className="eyebrow">{lab.system}</p>
-            <h1 className="t-h2 mt-4">{name}</h1>
-            <p className="t-lead mt-4">{spec.summary[data.locale]}</p>
-          </header>
+          {/* Without a lead the sheet's children stay exactly as they were (options A, B and C are unchanged). */}
+          {lead ? (
+            <>
+              {intro}
+              {lead}
+            </>
+          ) : (
+            intro
+          )}
 
           <Block title={t.palette} note={t.paletteNote}>
             <div className="grid grid-cols-1 gap-8">

@@ -14,8 +14,8 @@ is built and approved (see the approval gate in the Phase 1 brief).
 
 **Development is paused for a theme exploration:** Modern Commerce directions are built in the
 [theme lab](#theme-lab) for review. Option A was found closest to the target and is refined as
-**A V2** (signature laser-cutting and laser-engraving illustrations, a fuller header, one motion
-system), which awaits visual review. The current design stays live and unchanged until a theme is
+**A V2** (signature laser-cutting and laser-engraving animations built on the service pages' own
+nesting sheet and engraved plate, a fuller header, one motion system), which awaits visual review. The current design stays live and unchanged until a theme is
 approved.
 
 | | |
@@ -222,8 +222,10 @@ and stylesheet (`src/app/theme-lab/`, `src/components/theme-lab/`), reuses the c
 `noindex` (meta and `X-Robots-Tag`), and never appears in the sitemap or the site navigation. The
 dark bar at the top of each preview switches option, view and language; links in the previews open
 the current site. The signature illustrations live in `src/components/theme-lab/signature/` (SVG and
-the Web Animations API, reusable on later pages). See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`
-and `docs/reports/2026-09-25-modern-commerce-a-v2.md`.
+the Web Animations API, reusable on later pages); they animate the Laser Cutting and Laser Engraving
+pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts`
+and `engraved-plate.ts`. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`,
+`docs/reports/2026-09-25-modern-commerce-a-v2.md` and `docs/reports/2026-09-25-a-v2-signature-correction.md`.
 
 ## Assets
 
@@ -254,8 +256,10 @@ motion, no-JS); `theme-lab.spec.ts` covers the theme lab (isolation from the sit
 redirects, sitemap and navigation, sections, typefaces per option, flagged photos, card link overlays,
 overflow from 360 to 1280 px, no-JS, reduced motion); `theme-lab-a-v2.spec.ts` covers A V2 (header
 and Services menu, scroll-spy, phone menu sheet, EN/AR mirroring, industries by source, the machinery
-selector, the client colour switch, both signature animations and their replays, parallax and ambient
-light, reduced motion, keyboard, no-JS, sheet overflow). In a cloud session Chromium is preinstalled at
+selector, the client colour switch, both signature animations — the service pages' artwork, the cutting
+head's path and order, grooves developing, finished states in EN/AR, readable sizes, replays, one-time
+playback on phones, still frames — parallax and ambient light, reduced motion, keyboard, no-JS, sheet
+overflow). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages

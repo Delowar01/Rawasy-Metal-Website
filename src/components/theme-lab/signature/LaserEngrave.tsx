@@ -1,262 +1,291 @@
 "use client";
 
 import { useId, useRef } from "react";
-import { logoPaths } from "@/components/brand/Logo";
-import { closedPath, polygon, type Pt } from "./geometry";
-import { EASE_IN_OUT, EASE_OUT, animate, track, useSignature, type SignatureSetup, type Stop } from "./useSignature";
+import { BORDER_INNER, BORDER_OUTER, CORNER_MARKS, ENGRAVED_LINES, LASER_MARK, LINE_X, linePath, PLATE_VIEW, ROSETTE } from "@/components/service/visuals/engraved-plate";
+import { EASE_IN_OUT, EASE_OUT, animate, at, samplePath, useSignature, type SignatureSetup, type Stop } from "./useSignature";
 import "./signature.css";
 
 /*
- * Signature illustration — laser engraving. A brass plate; the laser crosshair
- * rasters across a medallion (double ring, eight-point star, the RAWASY mark),
- * revealing the engraved grooves pass by pass behind a glowing scan line, then
- * a highlight crosses the plate as the light catches the fresh engraving.
- * RAWASY's own mark only: no third-party branding, part or serial numbers.
+ * Signature illustration — laser engraving: the Laser Engraving page's brass
+ * plate (same artwork), engraved by the laser. The plate appears and its
+ * reflection settles; the crosshair activates and moves to the start, then
+ * engraves the double border and corner marks, the block of lines and the
+ * guilloche rosette. Each groove is drawn twice (shadow and highlight) so it
+ * reads as cut into the metal. Light crosses the finished grooves and the laser
+ * switches off on its rest mark, where the service page shows it. A layout, not
+ * real text: no brands, part or serial numbers. The markup is the finished
+ * plate (no JavaScript, reduced motion). Decorative: hidden from assistive
+ * technology.
  */
 
-/** Framed tightly on the plate: the illustration fills small cards. */
-const VIEW = { x: 64, y: 22, w: 352, h: 258 };
-const PLATE = { x: 92, y: 40, w: 296, h: 220, r: 16 };
-const CENTER = { x: 240, y: 150 };
-const MEDALLION = 76;
-const SCREWS: Pt[] = [
-  [PLATE.x + 20, PLATE.y + 20],
-  [PLATE.x + PLATE.w - 20, PLATE.y + 20],
-  [PLATE.x + PLATE.w - 20, PLATE.y + PLATE.h - 20],
-  [PLATE.x + 20, PLATE.y + PLATE.h - 20],
-];
-const SQUARE_A = closedPath(polygon(CENTER.x, CENTER.y, 63, 4));
-const SQUARE_B = closedPath(polygon(CENTER.x, CENTER.y, 63, 4, -Math.PI / 4));
-/** The mark (viewBox 70.8 201.37 264.82 × 189.35) scaled to 46 units wide, centred. */
-const MARK_SCALE = 46 / 264.82;
-const MARK = `translate(${CENTER.x} ${CENTER.y}) scale(${MARK_SCALE.toFixed(4)}) translate(-203.21 -296.05)`;
-const PASSES = 8;
-const TOP = CENTER.y - MEDALLION - 1;
-const HEIGHT = (MEDALLION + 1) * 2;
+type Pt = readonly [number, number];
 
-/** Raster pass ends: the head sweeps across the medallion's chord at each depth, alternating sides. */
-const RASTER: Pt[] = Array.from({ length: PASSES + 1 }, (_, i) => {
-  const y = TOP + (i * HEIGHT) / PASSES;
-  const half = Math.sqrt(Math.max((MEDALLION + 4) ** 2 - (y - CENTER.y) ** 2, 0));
-  return [CENTER.x + (i % 2 ? half : -half), y] as const;
-});
+const CORNERS = CORNER_MARKS.split("M")
+  .filter(Boolean)
+  .map((d) => `M${d}`);
+const R = ROSETTE.ring;
+/** The outer ring, drawn from its top — the laser's rest mark — clockwise. */
+const RING = `M0 ${-R}a${R} ${R} 0 1 1 0 ${2 * R}a${R} ${R} 0 1 1 0 ${-2 * R}`;
+const REST: Pt = [LASER_MARK.x, LASER_MARK.y];
+const CENTRE: Pt = [ROSETTE.x, ROSETTE.y];
 
-const at = ([x, y]: Pt) => `translate(${x}px, ${y}px)`;
-const HIDDEN = "inset(0 0 100% 0)";
-const SHOWN = "inset(0 0 0% 0)";
+/** Engraving speed on the line block, in plate units per ms. */
+const LINE_FEED = 1;
+/** Border (both lines together) and ring, in ms. */
+const BORDER = 1000;
+const RING_TIME = 720;
+/** The rosette's ellipses start one after another as the head works round it. */
+const OUTER_STEP = 18;
+const OUTER_DRAW = 640;
+const INNER_STEP = 18;
+const INNER_DRAW = 480;
+const BOSS_TIME = 240;
+/** Undrawn grooves: the dash ends just short of the path, so nothing shows at its start. */
+const HIDE = 1.05;
 
-const setup: SignatureSetup = (svg) => {
-  const $ = (selector: string) => svg.querySelector(selector)!;
+const dist = (a: Pt, b: Pt) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+/** A jump between grooves, beam off. */
+const hop = (a: Pt, b: Pt) => 50 + dist(a, b) * 0.3;
+const onRosette = (r: number, deg: number): Pt => [CENTRE[0] + r * Math.cos((deg * Math.PI) / 180), CENTRE[1] + r * Math.sin((deg * Math.PI) / 180)];
+/** Where along the outer border (clockwise from its top-left corner) the head passes a corner mark. */
+const cornerShare = (d: string) => {
+  const [x, y] = (d.match(/-?[\d.]+/g) ?? []).map(Number);
+  const { width: w, height: h } = BORDER_OUTER;
+  const left = x < PLATE_VIEW.w / 2;
+  const s = y < PLATE_VIEW.h / 2 ? (left ? 0 : w) : left ? 2 * w + h : w + h;
+  return s / (2 * (w + h));
+};
+
+const setup: SignatureSetup = (root) => {
+  const $ = (selector: string) => root.querySelector(selector)!;
+  const $$ = (selector: string) => [...root.querySelectorAll(selector)];
   const plate = $(".sig-plate");
-  const engraving = $(".sig-engr");
-  const scan = $(".sig-scan");
+  const reflect = $(".sig-reflect");
   const sweep = $(".sig-sweep");
+  const layers = $$(".sig-engr");
+  const dots = $$(".sig-dots");
   const head = $(".sig-head");
-  const headIn = $(".sig-head-in");
   const ring = $(".sig-ring");
+  const restBeam = $(".sig-beam-rest");
+  const on = $(".sig-on");
+  const g = (key: string) => $$(`[data-g="${key}"]`);
+  const border = samplePath($('.sig-engr-cut [data-g="bo"]') as SVGGeometryElement, 6);
+  const ringPath = samplePath($('.sig-engr-cut [data-g="ring"]') as SVGGeometryElement, 6).map(([x, y]): Pt => [x + CENTRE[0], y + CENTRE[1]]);
+  const bossPath = samplePath($('.sig-engr-cut [data-g="boss"]') as SVGGeometryElement, 2).map(([x, y]): Pt => [x + CENTRE[0], y + CENTRE[1]]);
+  const dir = root.closest("[dir]")?.getAttribute("dir") === "rtl" ? -1 : 1;
+  const { outer, inner } = ROSETTE;
 
   return (intro) => {
-    // Replay: the engraving fades away first, then the raster runs again, quicker.
-    const clear = intro ? 0 : 200;
-    const on = intro ? 340 : 140;
-    const S = intro ? 480 : 300;
-    const D = intro ? 1200 : 1050;
-    const E = S + D;
-    const T = E + 820;
-    const run = (el: Element, stops: readonly Stop[]) => animate(el, track(T, stops), T);
+    // Intro: the plate and its reflection, then the laser. Replay: the grooves clear, then the same engraving.
+    const leave = intro ? 920 : 420;
+    const start = leave + hop(REST, border[0]) + 180;
+    const borderEnd = start + BORDER;
+
+    let t = borderEnd;
+    let pos: Pt = border[border.length - 1];
+    const lines = ENGRAVED_LINES.map((l) => {
+      const a: Pt = [LINE_X, l.y];
+      const b: Pt = [LINE_X + l.w, l.y];
+      const t0 = t;
+      const ta = t0 + hop(pos, a);
+      const tb = ta + l.w / LINE_FEED;
+      pos = b;
+      t = tb;
+      return { a, b, t0, ta, tb };
+    });
+
+    const outerPts = outer.angles.map((a) => onRosette(outer.rx, a));
+    const innerPts = inner.angles.map((a) => onRosette(inner.rx, a));
+    const rosetteFrom = t;
+    const outerAt = outerPts.map((_, i) => rosetteFrom + hop(pos, outerPts[0]) + i * OUTER_STEP);
+    const outerEnd = outerAt[outerAt.length - 1] + OUTER_STEP;
+    const innerAt = innerPts.map((_, i) => outerEnd + hop(outerPts[outerPts.length - 1], innerPts[0]) + i * INNER_STEP);
+    const innerEnd = innerAt[innerAt.length - 1] + INNER_STEP;
+    const bossStart = innerEnd + hop(innerPts[innerPts.length - 1], bossPath[0]);
+    const bossEnd = bossStart + BOSS_TIME;
+    const ringStart = bossEnd + hop(bossPath[0], REST);
+    const ringEnd = ringStart + RING_TIME;
+    const off = ringEnd + 60;
+    const light = off + 140;
+    const T = light + 860;
+
+    const run = (el: Element, stops: readonly Stop[]) => animate(el, T, stops);
     const o = (opacity: number) => ({ opacity });
-    const sweepAt = (x: number, opacity: number) => ({ opacity, transform: `translateX(${x}px)` });
+    const dash = (offset: number) => ({ strokeDasharray: "1 1.1", strokeDashoffset: offset });
+    const reset: Stop[] = intro ? [] : [[0, dash(0)], [240, dash(HIDE)]];
+    const draw = (key: string, from: number, to: number) => g(key).map((el) => run(el, [...reset, [from - 1, dash(HIDE)], [from, dash(1)], [to, dash(0)]]));
+    const trace = (pts: readonly Pt[], from: number, to: number): Stop[] => pts.map((p, k) => [from + ((to - from) * k) / (pts.length - 1), { transform: at(p) }]);
 
     const keep = intro
       ? [
           run(plate, [
-            [0, { opacity: 0, transform: "translateY(14px) scale(0.985)" }, EASE_OUT],
-            [440, { opacity: 1, transform: "none" }],
+            [0, { opacity: 0, transform: "translateY(12px) scale(0.985)" }, EASE_OUT],
+            [460, { opacity: 1, transform: "none" }],
+          ]),
+          // The surface reflection glides across and settles into the plate's sheen.
+          run(reflect, [
+            [120, { opacity: 0, transform: `translateX(${-45 * dir}%)` }, EASE_OUT],
+            [380, { opacity: 0.9, transform: `translateX(${-18 * dir}%)` }, EASE_OUT],
+            [1100, { opacity: 0, transform: `translateX(${14 * dir}%)` }],
           ]),
         ]
       : [];
 
+    const path: Stop[] = [
+      [0, { transform: at(REST) }],
+      [leave, { transform: at(REST) }, EASE_IN_OUT],
+      [start, { transform: at(border[0]) }],
+      ...trace(border, start, borderEnd),
+    ];
+    lines.forEach(({ a, b, t0, ta, tb }, i) => {
+      path.push([t0, { transform: at(i ? lines[i - 1].b : border[border.length - 1]) }, EASE_IN_OUT], [ta, { transform: at(a) }], [tb, { transform: at(b) }]);
+    });
+    path.push(
+      [rosetteFrom, { transform: at(pos) }, EASE_IN_OUT],
+      ...outerPts.map((p, i): Stop => [outerAt[i], { transform: at(p) }]),
+      [outerEnd, { transform: at(outerPts[outerPts.length - 1]) }, EASE_IN_OUT],
+      ...innerPts.map((p, i): Stop => [innerAt[i], { transform: at(p) }]),
+      [innerEnd, { transform: at(innerPts[innerPts.length - 1]) }, EASE_IN_OUT],
+      ...trace(bossPath, bossStart, bossEnd),
+      [bossEnd, { transform: at(bossPath[bossPath.length - 1]) }, EASE_IN_OUT],
+      ...trace(ringPath, ringStart, ringEnd),
+    );
+
+    // Beam on while engraving, off for the jumps between grooves.
+    const beam: Stop[] = [[0, o(0)], [start - 20, o(0)], [start + 40, o(1)], [borderEnd, o(1)], [borderEnd + 50, o(0)]];
+    lines.forEach(({ ta, tb }) => beam.push([ta - 20, o(0)], [ta + 20, o(1)], [tb, o(1)], [tb + 40, o(0)]));
+    beam.push(
+      [outerAt[0] - 20, o(0)],
+      [outerAt[0] + 20, o(1)],
+      [innerEnd, o(1)],
+      [innerEnd + 40, o(0)],
+      [bossStart - 20, o(0)],
+      [bossStart + 20, o(1)],
+      [bossEnd, o(1)],
+      [bossEnd + 40, o(0)],
+      [ringStart - 20, o(0)],
+      [ringStart + 20, o(1)],
+      [ringEnd, o(1)],
+      [off, o(0)],
+    );
+
     const anims = [
+      ...(intro ? [] : layers.map((layer) => run(layer, [[0, o(1)], [200, o(0)], [250, o(0)], [270, o(1)]]))),
       run(
-        engraving,
+        ring,
         intro
           ? [
-              [0, { clipPath: HIDDEN, opacity: 1 }],
-              [S, { clipPath: HIDDEN, opacity: 1 }],
-              [E, { clipPath: SHOWN, opacity: 1 }],
+              [650, { opacity: 0, transform: "scale(1.8)" }, EASE_OUT],
+              [900, { opacity: 1, transform: "scale(1)" }],
             ]
           : [
-              [0, { clipPath: SHOWN, opacity: 1 }, EASE_IN_OUT],
-              [clear - 10, { clipPath: SHOWN, opacity: 0 }],
-              [clear, { clipPath: HIDDEN, opacity: 1 }],
-              [S, { clipPath: HIDDEN, opacity: 1 }],
-              [E, { clipPath: SHOWN, opacity: 1 }],
+              [0, { opacity: 1, transform: "scale(1)" }, EASE_OUT],
+              [200, { opacity: 1, transform: "scale(1.3)" }, EASE_IN_OUT],
+              [420, { opacity: 1, transform: "scale(1)" }],
             ],
       ),
-      run(scan, [
-        [0, { opacity: 0, transform: `translateY(${TOP}px)` }],
-        [S - 60, { opacity: 0, transform: `translateY(${TOP}px)` }],
-        [S, { opacity: 1, transform: `translateY(${TOP}px)` }],
-        [E, { opacity: 1, transform: `translateY(${TOP + HEIGHT}px)` }],
-        [E + 180, { opacity: 0, transform: `translateY(${TOP + HEIGHT}px)` }],
-      ]),
-      // The crosshair zig-zags pass by pass, level with the scan line.
-      run(head, [[0, { transform: at(RASTER[0]) }], ...RASTER.map((p, i): Stop => [S + (i * D) / PASSES, { transform: at(p) }])]),
-      run(headIn, [[0, o(0)], [on, o(0)], [on + 140, o(1)], [E, o(1)], [E + 200, o(0)]]),
-      run(ring, [
-        [0, { opacity: 0, transform: "scale(2)" }],
-        [on, { opacity: 0, transform: "scale(2)" }, EASE_OUT],
-        [on + 320, { opacity: 1, transform: "scale(1)" }],
-      ]),
+      // The dashed beam of the resting laser: on while it waits, off while it works.
+      run(restBeam, [...(intro ? [[650, o(0)], [900, o(0.8)]] : [[0, o(0.8)]]) as Stop[], [leave, o(0.8)], [leave + 120, o(0)], [off, o(0)], [off + 220, o(0.8)]]),
+      run(head, path),
+      run(on, beam),
+      ...draw("bo", start, borderEnd),
+      ...draw("bi", start, borderEnd),
+      ...CORNERS.flatMap((d, i) => {
+        const at0 = start + cornerShare(d) * BORDER;
+        return draw(`c${i}`, at0, at0 + 170);
+      }),
+      ...lines.flatMap(({ ta, tb }, i) => draw(`l${i}`, ta, tb)),
+      ...outerAt.flatMap((t0, i) => draw(`e${i}`, t0, t0 + OUTER_DRAW)),
+      ...innerAt.flatMap((t0, i) => draw(`f${i}`, t0, t0 + INNER_DRAW)),
+      ...draw("boss", bossStart, bossEnd),
+      ...draw("ring", ringStart, ringEnd),
+      ...dots.map((el) => run(el, [...(intro ? [] : [[0, o(1)], [220, o(0)]] as Stop[]), [ringStart, o(0)], [ringEnd, o(1)]])),
+      // Light crosses the finished grooves.
       run(sweep, [
-        [0, sweepAt(0, 0)],
-        [E + 20, sweepAt(0, 0)],
-        [E + 60, sweepAt(0, 1), EASE_IN_OUT],
-        [E + 780, sweepAt(PLATE.w + 150, 1)],
-        [E + 800, sweepAt(PLATE.w + 150, 0)],
+        [light, { transform: `translateX(${-100 * dir}%)` }, EASE_IN_OUT],
+        [light + 820, { transform: `translateX(${100 * dir}%)` }],
       ]),
+      run(sweep, [[light, o(0)], [light + 120, o(1)], [light + 700, o(1)], [light + 820, o(0)]]),
     ];
-    return { anims, keep, total: T };
+
+    return { anims, keep, total: T, moments: { initial: 940, active: innerAt[Math.floor(innerAt.length / 2)] } };
   };
 };
 
-/** Fine ticks between the two rings, every 15°. */
-const TICKS = Array.from({ length: 24 }, (_, k) => {
-  const a = (k * Math.PI) / 12;
-  const [c, s] = [Math.cos(a), Math.sin(a)];
-  const r1 = MEDALLION - 5;
-  const r2 = MEDALLION - 1.5;
-  return `M${(CENTER.x + r1 * c).toFixed(2)} ${(CENTER.y + r1 * s).toFixed(2)}L${(CENTER.x + r2 * c).toFixed(2)} ${(CENTER.y + r2 * s).toFixed(2)}`;
-}).join("");
-
 function Grooves() {
+  const { outer, inner } = ROSETTE;
   return (
     <>
-      <circle cx={CENTER.x} cy={CENTER.y} r={MEDALLION} />
-      <circle cx={CENTER.x} cy={CENTER.y} r={MEDALLION - 6} />
-      <path d={TICKS} strokeWidth="1" />
-      <path d={SQUARE_A} />
-      <path d={SQUARE_B} />
-      <circle cx={CENTER.x} cy={CENTER.y} r="33" />
+      <rect data-g="bo" {...BORDER_OUTER} pathLength={1} />
+      <rect data-g="bi" {...BORDER_INNER} pathLength={1} />
+      {CORNERS.map((d, i) => (
+        <path key={d} data-g={`c${i}`} d={d} pathLength={1} />
+      ))}
+      {ENGRAVED_LINES.map((l, i) => (
+        <path key={l.y} data-g={`l${i}`} d={linePath(l)} strokeWidth={l.h} pathLength={1} />
+      ))}
+      <g transform={`translate(${ROSETTE.x} ${ROSETTE.y})`}>
+        <path data-g="ring" d={RING} pathLength={1} />
+        <circle className="sig-dots" r={ROSETTE.dotted} strokeDasharray="1.5 3" />
+        {outer.angles.map((a, i) => (
+          <ellipse key={`o${a}`} data-g={`e${i}`} rx={outer.rx} ry={outer.ry} transform={`rotate(${a})`} pathLength={1} />
+        ))}
+        {inner.angles.map((a, i) => (
+          <ellipse key={`i${a}`} data-g={`f${i}`} rx={inner.rx} ry={inner.ry} transform={`rotate(${a})`} pathLength={1} />
+        ))}
+        <circle data-g="boss" r={ROSETTE.boss} pathLength={1} />
+      </g>
     </>
   );
 }
 
-function Mark() {
-  return (
-    <g transform={MARK}>
-      <path d={logoPaths.markTop} />
-      <path d={logoPaths.markBottom} />
-    </g>
-  );
-}
-
-export function LaserEngrave({ className }: { className?: string }) {
-  const ref = useRef<SVGSVGElement>(null);
+export function LaserEngrave({ className = "", freeze }: { className?: string; freeze?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
   const id = `le${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  useSignature(ref, setup);
+  useSignature(ref, setup, freeze);
 
-  const { x, y, w, h, r } = PLATE;
   return (
-    <svg ref={ref} viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} className={`sig sig-engrave ${className ?? ""}`} aria-hidden focusable="false">
-      <defs>
-        <linearGradient id={`${id}-brass`} gradientUnits="userSpaceOnUse" x1={x} y1={y} x2={x + w} y2={y + h}>
-          <stop offset="0" stopColor="#f3e5c0" />
-          <stop offset="0.4" stopColor="#d4b476" />
-          <stop offset="0.63" stopColor="#ead7a6" />
-          <stop offset="1" stopColor="#b99352" />
-        </linearGradient>
-        {/* In plate coordinates, so the cut part carries exactly the sheen of the metal around it. */}
-        <linearGradient id={`${id}-sheen`} gradientUnits="userSpaceOnUse" x1={x} y1={y} x2={x + w} y2={y + h}>
-          <stop offset="0.28" stopColor="#ffffff" stopOpacity="0" />
-          <stop offset="0.46" stopColor="#ffffff" stopOpacity="0.36" />
-          <stop offset="0.6" stopColor="#ffffff" stopOpacity="0" />
-        </linearGradient>
-        <pattern id={`${id}-brush`} width="480" height="3" patternUnits="userSpaceOnUse">
-          <rect width="480" height="1" fill="#ffffff" opacity="0.12" />
-        </pattern>
-        <linearGradient id={`${id}-band`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#fffaf0" stopOpacity="0.62" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={`${id}-scan`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#f15f22" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#f15f22" stopOpacity="0.32" />
-          <stop offset="1" stopColor="#f15f22" stopOpacity="0" />
-        </linearGradient>
-        <radialGradient id={`${id}-halo`}>
-          <stop offset="0" stopColor="#ff7a36" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#ff7a36" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id={`${id}-shadow`}>
-          <stop offset="0" stopColor="#3b2a0c" stopOpacity="0.24" />
-          <stop offset="1" stopColor="#3b2a0c" stopOpacity="0" />
-        </radialGradient>
-        <clipPath id={`${id}-plate`}>
-          <rect x={x} y={y} width={w} height={h} rx={r} />
-        </clipPath>
-        <clipPath id={`${id}-medallion`}>
-          <circle cx={CENTER.x} cy={CENTER.y} r={MEDALLION + 6} />
-        </clipPath>
-      </defs>
-
-      <g className="sig-plate">
-        <ellipse cx={CENTER.x} cy={y + h + 10} rx={w * 0.5} ry="14" fill={`url(#${id}-shadow)`} />
-        <rect x={x} y={y} width={w} height={h} rx={r} fill={`url(#${id}-brass)`} />
-        <rect x={x} y={y} width={w} height={h} rx={r} fill={`url(#${id}-brush)`} />
-        <rect x={x} y={y} width={w} height={h} rx={r} fill={`url(#${id}-sheen)`} />
-        <rect x={x + 0.5} y={y + 0.5} width={w - 1} height={h - 1} rx={r} fill="none" stroke="#9b7a3d" />
-        <path d={`M${x + 1.5} ${y + h - r}V${y + r}a${r - 1.5} ${r - 1.5} 0 0 1 ${r - 1.5} ${-(r - 1.5)}H${x + w - r}`} fill="none" stroke="#fffaf0" strokeOpacity="0.8" strokeWidth="1.2" />
-        {SCREWS.map(([cx, cy]) => (
-          <g key={`${cx}-${cy}`}>
-            <circle cx={cx} cy={cy} r="5.5" fill="#caa865" stroke="#8a6a31" />
-            <path d={`M${cx - 3} ${cy + 3}l6 -6`} stroke="#6f5424" strokeWidth="1.2" strokeLinecap="round" />
-          </g>
-        ))}
-
-        {/* Engraving: a light edge below each groove reads as a cut into the metal */}
-        <g className="sig-engr">
-          <g fill="none" stroke="#fff6dc" strokeOpacity="0.85" strokeWidth="1.2" transform="translate(0.7 0.7)">
+    <div ref={ref} className={`sig sig-engrave ${className}`} aria-hidden>
+      <div className="sig-plate">
+        <span className="sig-rivets" />
+        <svg className="sig-art" viewBox={`0 0 ${PLATE_VIEW.w} ${PLATE_VIEW.h}`} fill="none" focusable="false">
+          <defs>
+            <radialGradient id={`${id}-halo`}>
+              <stop offset="0" stopColor="#ffb25a" stopOpacity="0.95" />
+              <stop offset="0.4" stopColor="#ff7424" stopOpacity="0.45" />
+              <stop offset="1" stopColor="#ff7424" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id={`${id}-beam`} gradientUnits="userSpaceOnUse" x1="0" y1="-60" x2="0" y2="-3">
+              <stop offset="0" stopColor="#f15f22" stopOpacity="0" />
+              <stop offset="1" stopColor="#f15f22" stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+          {/* Each groove twice: a highlight on its lower edge and the cut itself */}
+          <g className="sig-engr sig-engr-hi" transform="translate(0.7 0.7)">
             <Grooves />
           </g>
-          <g fill="none" stroke="#5c4417" strokeWidth="1.5" strokeLinejoin="round">
+          <g className="sig-engr sig-engr-cut">
             <Grooves />
           </g>
-          <g fill="#fff6dc" fillOpacity="0.85" transform="translate(0.7 0.7)">
-            <Mark />
-          </g>
-          <g fill="#5c4417">
-            <Mark />
-          </g>
-        </g>
-
-        {/* Raster line, clipped to the medallion */}
-        <g clipPath={`url(#${id}-medallion)`}>
-          <g className="sig-scan" style={{ transform: `translateY(${TOP}px)` }}>
-            <rect x={CENTER.x - MEDALLION - 8} y="-6" width={(MEDALLION + 8) * 2} height="12" fill={`url(#${id}-scan)`} />
-            <rect x={CENTER.x - MEDALLION - 8} y="-0.7" width={(MEDALLION + 8) * 2} height="1.4" fill="#ff8a4c" />
-          </g>
-        </g>
-
-        {/* Light crossing the fresh engraving */}
-        <g clipPath={`url(#${id}-plate)`}>
-          <path className="sig-sweep" d={`M${x - 120} ${y}h64l-58 ${h}h-64z`} fill={`url(#${id}-band)`} />
-        </g>
-
-        {/* Laser crosshair */}
-        <g className="sig-head" style={{ transform: at(RASTER[0]) }}>
-          <g className="sig-head-in">
-            <circle r="16" fill={`url(#${id}-halo)`} />
-            <g className="sig-ring" fill="none" stroke="#f15f22" strokeWidth="1.2" strokeLinecap="round">
-              <circle r="7.5" />
-              <path d="M0 -10.5V-14M0 10.5V14M-10.5 0H-14M10.5 0H14" />
+          {/* The laser: dashed beam and crosshair at rest; a solid beam and hot point while engraving */}
+          <g className="sig-head" style={{ transform: at(REST) }}>
+            <path className="sig-beam-rest" d={LASER_MARK.beam} transform={`translate(${-REST[0]} ${-REST[1]})`} strokeDasharray="3 3" />
+            <g className="sig-on">
+              <path d="M0 -60V-3" stroke={`url(#${id}-beam)`} strokeWidth="1.6" />
+              <g className="sig-hot">
+                <circle r="7" fill={`url(#${id}-halo)`} />
+                <circle className="sig-core" r="1.7" />
+              </g>
             </g>
-            <circle r="3.4" fill="#ff7a36" />
-            <circle r="1.8" fill="#fff7ea" />
+            <g className="sig-ring">
+              <circle r={LASER_MARK.r} />
+              <path d={LASER_MARK.ticks} transform={`translate(${-REST[0]} ${-REST[1]})`} />
+            </g>
           </g>
-        </g>
-      </g>
-    </svg>
+        </svg>
+        <span className="sig-reflect" />
+        <span className="sig-sweep" />
+      </div>
+    </div>
   );
 }

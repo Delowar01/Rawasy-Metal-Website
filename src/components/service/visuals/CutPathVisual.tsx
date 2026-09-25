@@ -2,6 +2,7 @@ import { MediaFrame } from "@/components/inner/MediaFrame";
 import { Backdrop, ScanLine } from "@/components/visual/Backdrop";
 import { FrameMarks } from "@/components/visual/TechnicalFrame";
 import type { MediaId } from "@/content/types";
+import { CUTTING_HEAD, DIMENSIONS, HOLES, LEAD_IN, NEST_VIEW, NESTED_CIRCLES, NESTED_PART, OUTLINE, PIERCES, SHEET_EDGE, SLOT } from "./nesting-sheet";
 
 /**
  * Laser Cutting hero: the cutting photograph, with a nesting sheet laid over
@@ -37,37 +38,38 @@ export function CutPathVisual({ image, figure, caption }: { image: { id: MediaId
 
 function NestingSheet() {
   return (
-    <svg viewBox="0 0 260 160" className="line-draw relative block w-full" data-reveal="fade" fill="none" aria-hidden focusable={false}>
+    <svg viewBox={`0 0 ${NEST_VIEW.w} ${NEST_VIEW.h}`} className="line-draw relative block w-full" data-reveal="fade" fill="none" aria-hidden focusable={false}>
       {/* Sheet edge and nested parts (steel) */}
       <g stroke="var(--eng)" strokeWidth="1" opacity="0.75">
-        <rect x="6.5" y="6.5" width="247" height="147" strokeDasharray="3 4" />
-        <path d="M194 30h42v40l-22 22h-20Z" />
-        <circle cx="213" cy="52" r="6" />
-        <circle cx="215" cy="126" r="18" />
-        <circle cx="215" cy="126" r="8" />
+        <rect {...SHEET_EDGE} strokeDasharray="3 4" />
+        <path d={NESTED_PART} />
+        {NESTED_CIRCLES.map((c) => (
+          <circle key={`${c.cx}-${c.r}`} {...c} />
+        ))}
       </g>
       {/* Dimension rule over the part (no values) */}
       <g stroke="var(--text-tertiary)" strokeWidth="0.75">
-        <path d="M28 17h148M28 13v8M176 13v8" />
-        <path d="M188 34v88M184 34h8M184 122h8" />
+        {DIMENSIONS.map((d) => (
+          <path key={d} d={d} />
+        ))}
       </g>
       {/* The part being cut: outline, holes and slot, each with a lead-in */}
       <g stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="square">
-        <path d="M18 34h10" pathLength={1} />
-        <path d="M28 34h122l26 26v62h-68a14 14 0 0 1-28 0H28Z" pathLength={1} />
-        <circle cx="52" cy="60" r="9" pathLength={1} />
-        <circle cx="52" cy="98" r="9" pathLength={1} />
-        <circle cx="148" cy="98" r="11" pathLength={1} />
-        <rect x="88" y="52" width="40" height="14" rx="7" pathLength={1} />
+        <path d={LEAD_IN} pathLength={1} />
+        <path d={OUTLINE} pathLength={1} />
+        {HOLES.map((h) => (
+          <circle key={`${h.cx}-${h.cy}`} {...h} pathLength={1} />
+        ))}
+        <rect {...SLOT} pathLength={1} />
       </g>
       {/* Pierce points */}
       <g stroke="var(--accent)" strokeWidth="1">
-        <path d="M49 60h6M52 57v6M49 98h6M52 95v6M145 98h6M148 95v6M105 59h6M108 56v6" />
+        <path d={PIERCES} />
       </g>
       {/* Cutting head position */}
       <g stroke="var(--accent)" strokeWidth="1.2">
-        <circle cx="176" cy="92" r="5" />
-        <path d="M176 80v6M176 98v6M164 92h6M182 92h6" />
+        <circle cx={CUTTING_HEAD.cx} cy={CUTTING_HEAD.cy} r={CUTTING_HEAD.r} />
+        <path d={CUTTING_HEAD.ticks} />
       </g>
     </svg>
   );
