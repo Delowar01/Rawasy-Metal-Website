@@ -6,8 +6,11 @@ import { LaserEngrave } from "../signature/LaserEngrave";
 import { Logo, Photo, delay, statementIcon } from "../ui";
 import { aFontClasses } from "../a/fonts";
 import { ContactRowsA2, FooterA2, HeaderA2, ProjectCardA2, ServiceCardA2, ServiceFeatureA2 } from "./HomeA2";
+import { CursorA2 } from "./Cursor";
+import { HeroPlateA2 } from "./HeroPlate";
 import { MachineShowcase } from "./MachineShowcase";
 import { PhonePreview, ReplayReveal, ReplaySignature } from "./SheetControls";
+import { themeBoot } from "./theme-boot";
 import "./a2.css";
 
 /** Moments of each signature's intro shown as still frames. */
@@ -20,19 +23,19 @@ export function SystemA2({ data }: { data: LabData }) {
   const spec: SystemSpec = {
     root: `lab-a2 ${aFontClasses}`,
     summary: {
-      en: "Option A's bright commercial system, refined: white raised cards on cool grey, visible borders, soft layered shadows and orange actions, with a fuller header, a composed hero, two signature laser illustrations and one motion system. Light theme; every colour is a token ready for the dark theme.",
-      ar: "نظام الخيار A التجاري المشرق بنسخة مطوّرة: بطاقات بيضاء بارزة على رمادي بارد، وحدود ظاهرة، وظلال ناعمة متدرجة، وأزرار إجراء برتقالية، مع ترويسة أشمل، وواجهة متكاملة التكوين، ورسمين توقيعيين لليزر، ونظام حركة واحد. بالوضع الفاتح، وكل لون رمز جاهز للوضع الداكن.",
+      en: "Option A's bright commercial system, refined twice: off-white raised cards on a soft warm mist (blue-charcoal in the dark theme), visible borders, layered shadows with a lit edge, section sheets and orange actions — with the website's laser-cut plate as the hero, two signature laser illustrations, a precision pointer and one quiet motion system. Light and dark themes share every token.",
+      ar: "نظام الخيار A التجاري المشرق بنسخة مطوّرة مرتين: بطاقات بيضاء مكسورة بارزة على ضباب دافئ ناعم (ورمادي فحمي مائل إلى الأزرق في الوضع الداكن)، وحدود ظاهرة، وظلال متدرجة بحافة مضيئة، وأقسام على هيئة ألواح، وأزرار إجراء برتقالية — مع لوح الموقع المقصوص بالليزر في الواجهة، ورسمين توقيعيين لليزر، ومؤشر دقيق، ونظام حركة هادئ واحد. ويشترك الوضعان الفاتح والداكن في كل الرموز.",
     },
     palette: [
       {
-        group: ar ? "الأساسي والمحايد" : "Brand and neutrals",
+        group: ar ? "الأساسي والمحايد · الفاتح" : "Brand and neutrals · light",
         swatches: [
           { name: "RAWASY Orange", value: "#F15F22", role: ar ? "الإجراء الرئيسي والحالة النشطة" : "Primary action, active state" },
-          { name: "Charcoal", value: "#111827", role: ar ? "العناوين والنص على البرتقالي" : "Headings, text on orange" },
-          { name: "Slate text", value: "#454E5C", role: ar ? "نص الفقرات" : "Body text" },
-          { name: "Page grey", value: "#F4F6F9", role: ar ? "خلفية الصفحة" : "Page background" },
-          { name: "Blue-grey", value: "#EBEFF4", role: ar ? "أقسام متبادلة" : "Alternate sections" },
-          { name: "White", value: "#FFFFFF", role: ar ? "البطاقات واللوحات" : "Cards and panels" },
+          { name: "Charcoal ink", value: "#15171A", role: ar ? "العناوين والنص على البرتقالي" : "Headings, text on orange" },
+          { name: "Slate text", value: "#454A50", role: ar ? "نص الفقرات" : "Body text" },
+          { name: "Warm mist", value: "#F4F4F1", role: ar ? "خلفية الصفحة" : "Page background" },
+          { name: "Section grey", value: "#ECECE8", role: ar ? "ألواح الأقسام" : "Section sheets" },
+          { name: "Off-white", value: "#FDFDFB", role: ar ? "البطاقات واللوحات" : "Cards and panels" },
         ],
       },
       {
@@ -41,18 +44,29 @@ export function SystemA2({ data }: { data: LabData }) {
           { name: "Commercial navy", value: "#132039", role: ar ? "لوحات داكنة وتذييل" : "Dark panels, footer" },
           { name: "Steel blue", value: "#2C5E86", role: ar ? "المعدات والمعلومات" : "Machinery, information" },
           { name: "Teal", value: "#1B6F65", role: ar ? "العمليات والدعم الميداني" : "Process, site support" },
-          { name: "Brass", value: "#83642B", role: ar ? "الحِرفية والامتثال" : "Craft, compliance" },
-          { name: "Orange tint", value: "#FFF1E9", role: ar ? "خلفية نشطة" : "Active background" },
-          { name: "Steel tint", value: "#EAF1F7", role: ar ? "مسرح عرض المعدات" : "Machine stage" },
+          { name: "Brass", value: "#7B5C24", role: ar ? "الحِرفية والامتثال" : "Craft, compliance" },
+          { name: "Orange tint", value: "#FDEFE6", role: ar ? "سطح التمييز" : "Accent surface" },
+          { name: "Steel tint", value: "#E9F0F5", role: ar ? "مسرح عرض المعدات" : "Machine stage" },
+        ],
+      },
+      {
+        group: ar ? "الوضع الداكن" : "Dark theme",
+        swatches: [
+          { name: "Blue-charcoal", value: "#131820", role: ar ? "خلفية الصفحة" : "Page background" },
+          { name: "Section", value: "#171D26", role: ar ? "ألواح الأقسام" : "Section sheets" },
+          { name: "Surface", value: "#1C232D", role: ar ? "البطاقات واللوحات" : "Cards and panels" },
+          { name: "Lifted orange", value: "#F26A2E", role: ar ? "الإجراء الرئيسي" : "Primary action" },
+          { name: "Light steel", value: "#7FB0D8", role: ar ? "المعدات والمعلومات" : "Machinery, information" },
+          { name: "Light brass", value: "#D7B273", role: ar ? "الحِرفية والامتثال" : "Craft, compliance" },
         ],
       },
       {
         group: ar ? "أسطح التوقيع البصري" : "Signature surfaces",
         swatches: [
+          { name: "Hero plate", value: "linear-gradient(135deg, #d9dcd9, #f6f7f5 42%, #d9dcd9 68%, #c3c7c4)", role: ar ? "لوح الواجهة الفولاذي المصقول" : "Brushed steel hero plate" },
+          { name: "Hero stage", value: "radial-gradient(60% 52% at 50% 44%, #ffffff, transparent), linear-gradient(180deg, #fcfcfa, #eeefeb)", role: ar ? "منصة اللوح مع شبكة القياس" : "Plate stage, measuring grid" },
           { name: "Laser stage", value: "radial-gradient(70% 90% at 50% 40%, #243452, #121d31 62%, #0d1626)", role: ar ? "مسرح القص بالليزر" : "Laser-cutting stage" },
-          { name: "Nesting sheet", value: "linear-gradient(115deg, #e9edf1, #f7f9fa 42%, #e5e9ed 72%, #f2f5f7)", role: ar ? "لوح القص مع الشبكة الدقيقة" : "Cut sheet, fine grid" },
-          { name: "Cut path", value: "#F15F22", role: ar ? "مسار القص ونقاط الثقب والرأس" : "Cut path, pierce points, head" },
-          { name: "Nested parts", value: "#2C5E86", role: ar ? "القطع الفولاذية المرتّبة على اللوح" : "Nested steel parts" },
+          { name: "Cut path · hot points", value: "#F15F22", role: ar ? "مسار القص ونقاط الثقب والقياس" : "Cut path, pierce and measuring points" },
           { name: "Brass plate", value: "linear-gradient(118deg, #c9ae76, #e6d4a8 40%, #b99a5f 72%, #e6d4a8)", role: ar ? "لوح الحفر" : "Engraving plate" },
           { name: "Groove", value: "rgb(72 52 18 / 0.8)", role: ar ? "الأخاديد المحفورة بحافة مضيئة" : "Engraved grooves, with a light edge" },
         ],
@@ -89,9 +103,10 @@ export function SystemA2({ data }: { data: LabData }) {
       { label: ar ? "الشارات" : "Badges", value: "999px", token: "--r-pill" },
     ],
     borders: [
-      { label: ar ? "خفيف" : "Subtle", value: "1px #E5E9EF", style: "1px solid #E5E9EF" },
-      { label: ar ? "افتراضي" : "Default", value: "1px #D5DBE3", style: "1px solid #D5DBE3" },
-      { label: ar ? "قوي" : "Strong", value: "1px #B9C3CF", style: "1px solid #B9C3CF" },
+      { label: ar ? "خفيف" : "Subtle", value: "1px #E4E4DF", style: "1px solid #E4E4DF" },
+      { label: ar ? "افتراضي" : "Default", value: "1px #D6D6D0", style: "1px solid #D6D6D0" },
+      { label: ar ? "قوي" : "Strong", value: "1px #BAB9B2", style: "1px solid #BAB9B2" },
+      { label: ar ? "الحقول (3:1)" : "Fields (3:1)", value: "1px #87877F", style: "1px solid #87877F" },
       { label: ar ? "نشط" : "Active", value: "2px #F15F22", style: "2px solid #F15F22" },
     ],
     shadows: [
@@ -101,6 +116,7 @@ export function SystemA2({ data }: { data: LabData }) {
       { label: ar ? "عائم" : "Floating", token: "--sh-float", use: ar ? "البطاقات العائمة والقوائم" : "Floating cards, menus" },
       { label: ar ? "صورة" : "Image", token: "--sh-image", use: ar ? "الصور الكبيرة" : "Large photos" },
       { label: ar ? "داخلي" : "Inset", token: "--sh-inset", use: ar ? "حقول الإدخال" : "Form fields" },
+      { label: ar ? "برتقالي" : "Brand", token: "--sh-brand", use: ar ? "الأزرار الرئيسية" : "Primary buttons" },
     ],
     buttons: [
       { label: ar ? "أساسي" : "Primary", className: "btn btn-primary", icon: true },
@@ -149,6 +165,41 @@ export function SystemA2({ data }: { data: LabData }) {
   // The two signatures lead the sheet: a live demo with a replay, then still frames of the intro.
   const lead = (
     <>
+      <Block title={t.plate} note={t.plateNote}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
+          {/* As in the hero: its hot points breathe while on screen (data-ambient). */}
+          <div id="demo-plate" className="lg:col-span-7" data-ambient>
+            <HeroPlateA2 photo={data.hero.image} labels={data.hero.plate} />
+          </div>
+          <div className="lg:col-span-5">
+            <ol className="a2-steps grid gap-2.5">
+              {t.plateSteps.map((step) => (
+                <li key={step} className="flex items-center text-[0.94rem] font-medium">
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5">
+              <ReplaySignature target="demo-plate" label={t.replay} />
+            </div>
+            <div className="mt-4">
+              <Meta>0–760 ms rise · 0.2–1.05 s dimensions · 1.15–2.0 s bolt holes · 2.0–3.0 s star · 3.3–3.75 s slot · 3.9–4.4 s perforation · 4.5–5.2 s nodes · 5.2 s</Meta>
+            </div>
+          </div>
+        </div>
+        <div className="mt-8" data-js-only>
+          <h3 className="t-h4">{t.stills}</h3>
+          <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {STILLS.map((k) => (
+              <li key={k}>
+                <HeroPlateA2 photo={data.hero.image} labels={data.hero.plate} freeze={k} className="a2-plate-still" />
+                <p className="mt-2.5 text-[0.86rem] font-medium text-ink-2">{t.plateStates[k]}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Block>
+
       <Block title={t.cut} note={t.cutNote}>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
           <div id="demo-cut" className="a2-stage a2-stage-sig a2-stage-plain a2-stage-dark rounded-[var(--r-card)] border border-line lg:col-span-7" data-sig-host>
@@ -223,23 +274,259 @@ export function SystemA2({ data }: { data: LabData }) {
     </>
   );
 
-  const tokens: [string, string, string, string][] = [
-    ["--bg", "#F4F6F9", "Page background", "خلفية الصفحة"],
-    ["--bg-alt", "#EBEFF4", "Alternate sections", "أقسام متبادلة"],
-    ["--surface", "#FFFFFF", "Cards, panels", "البطاقات واللوحات"],
-    ["--surface-2", "#F8FAFC", "Inner panels, tags", "لوحات داخلية ووسوم"],
-    ["--ink / --ink-2", "#111827 / #454E5C", "Headings / body text", "العناوين / نص الفقرات"],
-    ["--line", "#D5DBE3", "Card borders", "حدود البطاقات"],
-    ["--brand", "#F15F22", "Primary action, active", "الإجراء الرئيسي والحالة النشطة"],
-    ["--steel / --teal / --brass", "#2C5E86 / #1B6F65 / #83642B", "Supporting tones", "الألوان المساندة"],
-    ["--navy", "#132039", "Dark panels, footer", "اللوحات الداكنة والتذييل"],
-    ["--header-bg-scrolled", "rgb(255 255 255 / 0.84)", "Header after scrolling", "الترويسة بعد التمرير"],
-    ["--glass", "rgb(255 255 255 / 0.95)", "Floating cards", "البطاقات العائمة"],
-    ["--shadow-rgb / --scrim-rgb", "17 24 39 / 9 15 27", "Shadows, photo scrims", "الظلال وتظليل الصور"],
+  const tokens: [string, string, string, string, string][] = [
+    ["--bg / --bg-alt / --bg-deep", "#F4F4F1 / #ECECE8 / #E5E5E0", "#131820 / #171D26 / #0F141B", "Page, section sheets, recessed", "الصفحة، ألواح الأقسام، الشريط الغائر"],
+    ["--surface / -2 / -3", "#FDFDFB / #F7F7F4 / #F0F0EC", "#1C232D / #222A35 / #283140", "Cards, inner panels, muted", "البطاقات واللوحات الداخلية والأسطح الهادئة"],
+    ["--ink / --ink-2 / --ink-3", "#15171A / #454A50 / #5C6168", "#EEF1F4 / #B8C0CA / #9AA3AE", "Headings / body / secondary", "العناوين / الفقرات / النص الثانوي"],
+    ["--line-subtle / --line / --line-strong / --line-ink", "#E4E4DF / #D6D6D0 / #BAB9B2 / #87877F", "#232B35 / #2D3642 / #3F4A57 / #66727F", "Borders, fields (3:1)", "الحدود والحقول (3:1)"],
+    ["--brand / --brand-ink / --brand-soft", "#F15F22 / #B3410D / #FDEFE6", "#F26A2E / #FF9466 / #2E211B", "Primary action, orange text, tint", "الإجراء الرئيسي والنص البرتقالي والتدرّج"],
+    ["--steel / --teal / --brass", "#2C5E86 / #1B6F65 / #7B5C24", "#7FB0D8 / #5CC0B0 / #D7B273", "Supporting tones", "الألوان المساندة"],
+    ["--navy / --dark", "#132039 / #111C30", "#17243B / #0C1016", "Dark panels, footer", "اللوحات الداكنة والتذييل"],
+    ["--focus", "#2C5E86", "#8EBCDF", "Focus ring, field focus", "حلقة التركيز وتركيز الحقول"],
+    ["--hs-* / --plate-*", "#FCFCFA → #EEEFEB · steel #D9DCD9–#F6F7F5", "#1F2733 → #161C25 · steel #434C57–#64707E", "Hero stage and plate", "منصة الواجهة واللوح"],
+    ["--pattern-dot / --pattern-line", "rgb(40 38 30 / 8.5 % · 5 %)", "rgb(200 215 235 / 7.5 % · 4.5 %)", "Dot matrix, measuring grid", "مصفوفة النقاط وشبكة القياس"],
+    ["--glow-warm / --glow-cool / --band-glow", "orange 13 % / steel 10 % / orange 24 %", "orange 13 % / steel 15 % / orange 28 %", "Hero glows, dark bands", "توهج الواجهة والأشرطة الداكنة"],
+    ["--sh-card / --sh-raised / --sh-hover", "lit top edge + warm soft shadow", "faint top edge + deep shadow", "Depth", "العمق"],
   ];
+
+  /* Background roles: token, light, dark (the swatches render the live tokens of each theme). */
+  const backgrounds: [string, string, string][] = [
+    ["--bg", "#F4F4F1", "#131820"],
+    ["--bg-alt", "#ECECE8", "#171D26"],
+    ["--bg-deep", "#E5E5E0", "#0F141B"],
+    ["--surface", "#FDFDFB", "#1C232D"],
+    ["--surface-2", "#F7F7F4 · #F0F0EC", "#222A35 · #283140"],
+    ["--brand-soft", "#FDEFE6", "#2E211B"],
+    ["--hero-top", "#FBFBF9 + grid + glows", "#171D27 + grid + glows"],
+    ["--dark", "#111C30 + band glow", "#0C1016 + band glow"],
+  ];
+
+  /* Measured contrast (light, dark) for t.contrastRows, in order. */
+  const contrast: [number, number][] = [
+    [16.3, 15.71],
+    [8.11, 9.69],
+    [8.78, 8.61],
+    [5.27, 5.13],
+    [4.82, 6.67],
+    [5.07, 6.58],
+    [5.47, 6.05],
+    [9.46, 10.59],
+    [3.55, 3.22],
+    [6.24, 8.83],
+    [3.32, 5.1],
+    [5.4, 5.89],
+  ];
+
+  /* Content width and side margin, before this pass and now. */
+  const layout: [string, string, string][] = [
+    ["1280 px", "1200 / 40", "1178 / 51"],
+    ["1440 px", "1240 / 100", "1325 / 58"],
+    ["1920 px", "1240 / 340", "1400 / 260"],
+    ["2560 px", "1240 / 660", "1400 / 580"],
+  ];
+
+  const cursorStates: { state: string; press?: boolean; dark?: boolean; backdrop: string }[] = [
+    { state: "idle", backdrop: "" },
+    { state: "active", backdrop: "button" },
+    { state: "plate", backdrop: "plate" },
+    { state: "active", press: true, backdrop: "button" },
+    { state: "idle", dark: true, backdrop: "dark" },
+  ];
+
+  const toneName = ar
+    ? { brand: "البرتقالي", steel: "الفولاذي", teal: "الفيروزي", brass: "النحاسي" }
+    : { brand: "Orange", steel: "Steel", teal: "Teal", brass: "Brass" };
+  const themeSample = (theme: "light" | "dark") => (
+    <div className={`a2-theme-${theme} a2-tone-sample rounded-[var(--r-panel)] border border-line p-5 sm:p-6`}>
+      <p className="eyebrow">{theme === "light" ? t.light : t.dark}</p>
+      <p className="t-h3 mt-4">{data.services.title}</p>
+      <p className="t-small mt-2 max-w-[34em]">{data.services.intro}</p>
+      <div className="mt-5 flex flex-wrap gap-2.5">
+        <span className="btn btn-primary btn-sm">
+          {data.ui.requestQuote}
+          <Icon name="arrow" size={15} />
+        </span>
+        <span className="btn btn-secondary btn-sm">{data.services.all}</span>
+      </div>
+      <div className="card mt-5 flex items-start gap-3.5 p-4" data-tone="steel">
+        <span className="icon-chip shrink-0">
+          <Icon name="cnc-bending" size={20} />
+        </span>
+        <span className="min-w-0">
+          <span className="t-h4 block">{services[1].name}</span>
+          <span className="t-small mt-1 block">{services[1].tagline}</span>
+          <span className="tag tag-tone mt-3">{services[1].highlights[0]}</span>
+        </span>
+      </div>
+      <ul className="mt-4 flex flex-wrap gap-2">
+        {(["brand", "steel", "teal", "brass"] as const).map((tone) => (
+          <li key={tone} className="tag tag-tone" data-tone={tone}>
+            {toneName[tone]}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   const extra = (
     <>
+      <Block title={t.backgrounds} note={t.backgroundsNote}>
+        <div className="overflow-x-auto" role="region" aria-label={t.backgrounds} tabIndex={0}>
+          <table className="w-full min-w-[40rem] text-start text-[0.88rem]">
+            <thead>
+              <tr className="border-b border-line text-[0.78rem] text-ink-2">
+                {t.bgHead.map((h) => (
+                  <th key={h} className="py-2 pe-4 text-start font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {backgrounds.map(([token, light, dark], i) => (
+                <tr key={token} className="border-b border-line-subtle">
+                  <th scope="row" className="py-2.5 pe-4 text-start font-semibold">
+                    {t.bgRoles[i]}
+                  </th>
+                  <td className="py-2.5 pe-4">
+                    <Meta>{token}</Meta>
+                  </td>
+                  {([["light", light], ["dark", dark]] as const).map(([theme, value]) => (
+                    <td key={theme} className="py-2.5 pe-4">
+                      <span className="flex items-center gap-2.5">
+                        <span
+                          aria-hidden
+                          className={`a2-theme-${theme} a2-bg-chip ${i === 6 ? "a2-bg-chip-hero" : ""} ${i === 7 ? "a2-bg-chip-dark" : ""}`}
+                          style={i < 6 ? { background: `var(${token})` } : undefined}
+                        />
+                        <Meta>{value}</Meta>
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Block>
+
+      <Block title={t.themes} note={t.themesNote}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {themeSample("light")}
+          {themeSample("dark")}
+        </div>
+      </Block>
+
+      <Block title={t.contrast} note={t.contrastNote}>
+        <div className="overflow-x-auto" role="region" aria-label={t.contrast} tabIndex={0}>
+          <table className="w-full min-w-[34rem] text-start text-[0.88rem]">
+            <thead>
+              <tr className="border-b border-line text-[0.78rem] text-ink-2">
+                {t.contrastHead.map((h) => (
+                  <th key={h} className="py-2 pe-4 text-start font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {t.contrastRows.map((row, i) => (
+                <tr key={row} className="border-b border-line-subtle">
+                  <th scope="row" className="py-2.5 pe-4 text-start font-semibold">
+                    {row}
+                  </th>
+                  {contrast[i].map((ratio, k) => (
+                    <td key={k} className="py-2.5 pe-4">
+                      <span className="inline-flex items-center gap-2">
+                        <Icon name="check" size={15} className="text-teal" />
+                        <Meta>{ratio.toFixed(2)}:1</Meta>
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Block>
+
+      <Block title={t.cursor} note={t.cursorNote}>
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {cursorStates.map((c, i) => (
+            <li key={i}>
+              <div className={`a2-cursor-tile ${c.backdrop ? `a2-cursor-tile-${c.backdrop}` : ""}`}>
+                {c.backdrop === "button" && (
+                  <span className="btn btn-primary btn-sm" aria-hidden>
+                    {data.ui.getQuote}
+                  </span>
+                )}
+                <span className="a2-cursor a2-cursor-spec" data-state={c.state} data-press={c.press ? "" : undefined} data-dark={c.dark ? "" : undefined} aria-hidden>
+                  <span className="a2-cursor-ring" />
+                  <span className="a2-cursor-dot" />
+                </span>
+              </div>
+              <p className="mt-2 text-[0.84rem] font-medium text-ink-2">{t.cursorStates[i]}</p>
+            </li>
+          ))}
+        </ul>
+        <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
+          {t.cursorRules.map((rule) => (
+            <li key={rule} className="flex items-center gap-2.5 text-[0.92rem] font-medium">
+              <Icon name="check" size={16} className="shrink-0 text-teal" />
+              {rule}
+            </li>
+          ))}
+        </ul>
+      </Block>
+
+      <Block title={t.ambient} note={t.ambientNote}>
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {t.ambientSamples.map((label, i) => (
+            <li key={label}>
+              <div className={`a2-amb-sample ${["a2-amb-dots", "a2-amb-hero", "a2-amb-dark a2-dark-amb"][i]}`} aria-hidden>
+                {i === 1 && (
+                  <span className="a2-hero-ambient">
+                    <span className="a2-glow" />
+                  </span>
+                )}
+              </div>
+              <p className="mt-2.5 text-[0.86rem] font-medium text-ink-2">{label}</p>
+            </li>
+          ))}
+        </ul>
+      </Block>
+
+      <Block title={t.layout} note={t.layoutNote}>
+        <div className="overflow-x-auto" role="region" aria-label={t.layout} tabIndex={0}>
+          <table className="w-full min-w-[30rem] text-start text-[0.88rem]">
+            <thead>
+              <tr className="border-b border-line text-[0.78rem] text-ink-2">
+                {t.layoutHead.map((h) => (
+                  <th key={h} className="py-2 pe-4 text-start font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {layout.map(([screen, before, now]) => (
+                <tr key={screen} className="border-b border-line-subtle">
+                  <th scope="row" className="py-2.5 pe-4 text-start font-semibold">
+                    <span dir="ltr">{screen}</span>
+                  </th>
+                  <td className="py-2.5 pe-4">
+                    <Meta>{before}</Meta>
+                  </td>
+                  <td className="py-2.5 pe-4">
+                    <Meta>{now}</Meta>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Block>
+
       <Block title={t.clients} note={t.clientsNote}>
         <div className="flex justify-end">
           <button type="button" className="a2-toggle" data-toggle="colour" aria-pressed="false" aria-controls="sheet-wall" data-js-only>
@@ -352,7 +639,7 @@ export function SystemA2({ data }: { data: LabData }) {
 
       <Block title={t.tokens} note={t.tokensNote}>
         <div className="overflow-x-auto" role="region" aria-label={t.tokens} tabIndex={0}>
-          <table className="w-full min-w-[40rem] text-start text-[0.88rem]">
+          <table className="w-full min-w-[52rem] text-start text-[0.88rem]">
             <thead>
               <tr className="border-b border-line text-[0.78rem] text-ink-2">
                 {t.tokenHead.map((h) => (
@@ -363,13 +650,16 @@ export function SystemA2({ data }: { data: LabData }) {
               </tr>
             </thead>
             <tbody>
-              {tokens.map(([token, value, en, arRole]) => (
+              {tokens.map(([token, light, dark, en, arRole]) => (
                 <tr key={token} className="border-b border-line-subtle">
                   <th scope="row" className="py-2.5 pe-4 text-start">
                     <Meta>{token}</Meta>
                   </th>
                   <td className="py-2.5 pe-4">
-                    <Meta>{value}</Meta>
+                    <Meta>{light}</Meta>
+                  </td>
+                  <td className="py-2.5 pe-4">
+                    <Meta>{dark}</Meta>
                   </td>
                   <td className="py-2.5 text-ink-2">{ar ? arRole : en}</td>
                 </tr>
@@ -381,5 +671,13 @@ export function SystemA2({ data }: { data: LabData }) {
     </>
   );
 
-  return <SystemSheet data={data} spec={spec} header={<HeaderA2 data={data} view="system" />} footer={<FooterA2 data={data} />} cards={cards} lead={lead} extra={extra} />;
+  // The theme is applied before the sheet paints (see theme-boot).
+  const header = (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
+      <HeaderA2 data={data} view="system" />
+      <CursorA2 />
+      </>
+  );
+  return <SystemSheet data={data} spec={spec} header={header} footer={<FooterA2 data={data} />} cards={cards} lead={lead} extra={extra} />;
 }

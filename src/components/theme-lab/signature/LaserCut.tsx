@@ -252,7 +252,7 @@ const setup: SignatureSetup = (root) => {
 export function LaserCut({ className = "", freeze }: { className?: string; freeze?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const id = `lc${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  useSignature(ref, setup, freeze);
+  useSignature(ref, setup, { freeze });
 
   const cutLayer = (layer: string) => (
     <g className={layer}>

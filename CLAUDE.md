@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-25-a-v2-signature-correction.md` (earlier:
-  `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
+- Latest report: `docs/reports/2026-09-26-a-v2-refinement-pass-2.md` (earlier:
+  `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
@@ -46,6 +46,12 @@
   "OPTION A V2 / REFINE OPTION A ONLY" brief, report `2026-09-25-modern-commerce-a-v2.md`). Work only
   on A V2 when asked; never on B or C. A stays available for comparison. Never self-approve A V2 and
   never migrate the site to it until the user explicitly approves it.
+- **A V2 refinement pass 2 is built and awaits visual review** (the user's "MODERN COMMERCE A V2 —
+  REFINEMENT PASS 2" brief, report `2026-09-26-a-v2-refinement-pass-2.md`): the website's approved
+  hero plate reinterpreted as A V2's hero (`a2/HeroPlate.tsx`), a wider content column, softened light
+  and dark backgrounds with a background token system, a dark theme (A V2 only), a precision pointer,
+  section sheets, quiet ambient layers, a contrast audit and an updated sheet. A V2 is still not
+  approved: never migrate it, and no 1E, Phase 2, B or C work.
 - **A V2's signature animations were corrected** (the user's "SIGNATURE ANIMATION CORRECTION" brief,
   report `2026-09-25-a-v2-signature-correction.md`): the user rejected the star cut and the medallion
   engraving. The signatures must animate the service pages' own drawings (the Laser Cutting nesting
@@ -223,10 +229,27 @@
 - A V2 (`a2/`): `HomeA2.tsx` (header with Services dropdown and phone menu sheet, hero, capability
   strip, about, services, machinery, projects, industries by source, clients, compliance, contact,
   footer), `MachineShowcase.tsx` (client; `:target` fallback without JS), `SystemA2.tsx` +
-  `SheetControls.tsx` (replays, phone preview), `a2.css` (`.lab-a2` tokens — every colour a token so
-  the dark theme only redefines names). It reuses A's fonts (`a/fonts.ts`). LabMotion's A V2 extras
+  `SheetControls.tsx` (replays, phone preview), `a2.css` (`.lab-a2` tokens — every colour a token; the
+  dark theme under `html[data-theme="dark"] .lab-a2` redefines the names, `.a2-theme-light/-dark`
+  force either inside the other). It reuses A's fonts (`a/fonts.ts`). LabMotion's A V2 extras
   key on new attributes only (`data-parallax`, `data-hero`, `data-ambient`, `details[data-dropdown]`,
   `button[data-toggle]`, `details[data-menu][data-sheet]`), so A, B and C behave as before.
+- A V2 pass 2: `theme-boot.ts` sets `data-theme` before paint (`?theme=light|dark`, else the stored
+  choice under `rawasy-lab-a2-theme`, else the system; never the site's `rawasy-theme`) and
+  `ThemeSwitch.tsx` changes it (view-transition cross-fade). `HeroPlate.tsx` is the hero: the website
+  plate's geometry (`src/components/home/hero/plate-geometry.ts`) on a stage with a spec bar (children)
+  and a readout; bolt holes pierced, star and slot traced, perforation rows opened, one clock via
+  `useSignature(…, { replay: false })`; the mouse leans it (inline transforms) and reads X / Y.
+  `Cursor.tsx` is the desktop-mouse pointer (`html[data-cursor-on]`, set only once the mouse moves;
+  touch, pens, reduced motion and forced colours keep the system cursor; text fields keep the I-beam).
+  `--shell: min(1400px, 92vw)`; `.sec-sheet` (`.sec-muted`, `.sec-raised`) and the footer are sheets
+  inset `--sheet-m` from the screen edges; ambient: page dot matrix, hero grid and glows, footer grid.
+- A V2 performance rules (measured in pass 2): nothing inside the plate SVG animates continuously (the
+  hot points' breathing is HTML over it) and the SVG carries no filter; the shadow is a static
+  drop-shadow rastered with the plate; no `backdrop-filter` or `will-change` + `filter` on layers that
+  sit under continuous animation (both are re-applied on every compositor frame); the lean is inline
+  transforms on the plate (`will-change: transform`) instead of a custom property on the hero (that
+  restyled the whole SVG per mouse move); write the readout only when it changes.
 - Signature illustrations (`signature/`) animate the service pages' drawings, whose geometry lives in
   `src/components/service/visuals/nesting-sheet.ts` and `engraved-plate.ts` (shared with
   `CutPathVisual` and `EngravedPlateVisual`). `LaserCut.tsx`: the nesting sheet appears with one scan
@@ -344,4 +367,14 @@
   React payload (numbers instead of strings, list keys); compare the visible markup separately.
 - `next dev` never fires `load` for a lab page with JavaScript disabled; check no-JS on a build.
 - The `pkill -f "[x]…"` bracket trick fails if the unbracketed text appears anywhere else in the same
-  command (a restart of that server, for example): kill in one command, restart in the next.
+  command (a restart of that server, for example): kill in one command, restart in the next. To stop
+  one of two `next start` servers, kill the `next-server` whose `/proc/<pid>/cwd` is that checkout.
+- An element positioned with `transform: translate()` and sized with `scale` moves off its point: the
+  `scale` property applies outside `transform`, so it scales the translation. Position with `translate`.
+- `getAnimations({ subtree: true })` includes CSS animations and transitions; to check a Web Animations
+  run, keep `a.constructor === Animation`. Sheet specimens reuse live classes (`.a2-cursor`), so test
+  locators must exclude them (`:not(.a2-cursor-spec)`).
+- Tailwind's opacity modifiers (`bg-surface/85`) compute to `oklab(…)` and `color-mix()` to
+  `color(srgb …)`: tests that read colours should convert them through a 1 × 1 canvas.
+- axe marks text on gradients and photos as "needs review", not as a pass: audit those with a
+  worst-case solid override and with rendered-pixel measurements (the pass-2 report explains both).

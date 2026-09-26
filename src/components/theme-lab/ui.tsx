@@ -114,7 +114,7 @@ export function LabBar({ data, view }: { data: LabData; view: "home" | "system" 
           </a>
         </span>
       </nav>
-      <p className="lab-note">{lab.note}</p>
+      <p className="lab-note">{data.option === "a2" ? lab.noteA2 : lab.note}</p>
     </aside>
   );
 }

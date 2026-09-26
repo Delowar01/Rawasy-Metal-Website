@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Logo as Brand } from "@/components/brand/Logo";
 import type { ServiceSlug } from "@/content/types";
 import type { LabData } from "../data";
@@ -7,7 +7,11 @@ import { LaserCut } from "../signature/LaserCut";
 import { LaserEngrave } from "../signature/LaserEngrave";
 import { LabBar, Logo, Photo, delay, serviceIcon, statementIcon } from "../ui";
 import { aFontClasses } from "../a/fonts";
+import { CursorA2 } from "./Cursor";
+import { HeroPlateA2 } from "./HeroPlate";
 import { MachineShowcase } from "./MachineShowcase";
+import { ThemeSwitchA2 } from "./ThemeSwitch";
+import { themeBoot } from "./theme-boot";
 import "./a2.css";
 
 type Props = { data: LabData };
@@ -73,12 +77,11 @@ const pillarIcon: Record<string, [IconName, Tone]> = {
   "project-execution": ["truck", "teal"],
 };
 
-const depth = (n: number, ms = 0) => ({ ["--depth" as string]: n, ["--d" as string]: `${ms}ms` }) as CSSProperties;
-
 /** Option A V2 — Clean Premium Commerce, refined: homepage preview. */
 export function HomeA2({ data }: Props) {
   return (
     <>
+      <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       <a href="#main" className="skip-link">
         {data.ui.skip}
       </a>
@@ -94,15 +97,19 @@ export function HomeA2({ data }: Props) {
           <MachineryA2 data={data} />
           <ProjectsA2 data={data} />
           <IndustriesA2 data={data} />
-          <ClientsA2 data={data} />
-          <ComplianceA2 data={data} />
+          {/* Clients and compliance share one sheet. */}
+          <div className="sec-sheet sec-muted">
+            <ClientsA2 data={data} />
+            <ComplianceA2 data={data} />
+          </div>
           <ContactA2 data={data} />
         </main>
         <FooterA2 data={data} />
-      </div>
-    </>
-  );
-}
+        <CursorA2 />
+        </div>
+        </>
+        );
+        }
 
 /* ---------------------------------------------------------------- Header */
 
@@ -195,14 +202,7 @@ export function HeaderA2({ data, view }: Props & { view: "home" | "system" }) {
           <a href={lab.switchHref(here)} lang={lab.otherLocale} hrefLang={lab.otherLocale} className="ctl max-[399px]:hidden md:hidden" aria-label={ui.languageSwitch}>
             {lab.otherLocale === "ar" ? "ع" : "EN"}
           </a>
-          <span className="seg max-lg:hidden" role="group" aria-label={ui.theme}>
-            <button type="button" aria-pressed="true" aria-label={ui.light}>
-              <Icon name="sun" size={16} />
-            </button>
-            <button type="button" aria-pressed="false" aria-label={`${ui.dark} — ${lab.darkLater}`} title={lab.darkLater} disabled>
-              <Icon name="moon" size={16} />
-            </button>
-          </span>
+          <ThemeSwitchA2 label={ui.theme} light={ui.light} dark={ui.dark} className="max-lg:hidden" />
           <a href={links.quote} className="a2-head-quote btn btn-primary max-sm:min-h-10 max-sm:px-3 max-sm:text-[0.875rem]">
             {ui.getQuote}
             <Icon name="arrow" size={17} className="max-sm:hidden" />
@@ -265,6 +265,10 @@ export function HeaderA2({ data, view }: Props & { view: "home" | "system" }) {
                     <p className="text-[0.8rem] font-semibold text-ink-2">{ui.language}</p>
                     <LanguageSwitch data={data} here={here} className="mt-2 w-full [&>a]:h-11 [&>a]:flex-1 [&>a]:text-[0.95rem]" />
                   </div>
+                  <div data-js-only>
+                    <p className="text-[0.8rem] font-semibold text-ink-2">{ui.theme}</p>
+                    <ThemeSwitchA2 label={ui.theme} light={ui.light} dark={ui.dark} className="mt-2 w-full [&>button]:h-11 [&>button]:flex-1" />
+                  </div>
                   <div>
                     <p className="text-[0.8rem] font-semibold text-ink-2">{ui.phone}</p>
                     <div className="mt-2 grid grid-cols-2 gap-2">
@@ -299,15 +303,17 @@ export function HeaderA2({ data, view }: Props & { view: "home" | "system" }) {
 /* ---------------------------------------------------------------- Hero */
 
 function HeroA2({ data }: Props) {
-  const { hero, metrics, services, statements } = data;
+  const { hero, metrics, statements, contact, ui } = data;
   const power = metrics.find((m) => m.slug === "peak-laser-power")!;
   const lines = metrics.find((m) => m.slug === "service-lines")!;
-  const trio = (["laser-cutting", "cnc-bending", "fabrication"] as const).map((slug) => services.items.find((s) => s.slug === slug)!);
+
 
   return (
-    <section id="home" className="a2-hero" aria-labelledby="hero-title" data-hero data-parallax data-ambient>
-      <div aria-hidden className="a2-glow" />
-      <div className="shell grid grid-cols-1 items-center gap-12 pb-24 pt-10 sm:pt-14 lg:grid-cols-12 lg:gap-10 lg:pb-28 lg:pt-16">
+    <section id="home" className="a2-hero" aria-labelledby="hero-title" data-hero data-ambient>
+      <div aria-hidden className="a2-hero-ambient">
+        <span className="a2-glow" />
+      </div>
+      <div className="shell grid grid-cols-1 items-center gap-12 pb-24 pt-10 sm:pt-14 lg:grid-cols-12 lg:gap-12 lg:pb-28 lg:pt-14 2xl:gap-16">
         <div className="lg:col-span-6">
           <p className="eyebrow" data-enter>
             {hero.eyebrow} · {hero.location}
@@ -318,7 +324,7 @@ function HeroA2({ data }: Props) {
           <p className="t-lead mt-5 max-w-[34em]" data-enter style={delay(140)}>
             {hero.sub}
           </p>
-          <div className="mt-8 flex flex-wrap gap-3" data-enter style={delay(210)}>
+          <div className="mt-8 flex flex-wrap items-center gap-3" data-enter style={delay(210)}>
             <a href="#contact" className="btn btn-primary btn-lg">
               {hero.primary}
               <Icon name="arrow" size={18} />
@@ -327,11 +333,26 @@ function HeroA2({ data }: Props) {
               {hero.secondary}
             </a>
           </div>
-          <ul className="mt-9 grid grid-cols-1 gap-x-6 gap-y-2.5 border-t border-line pt-6 min-[480px]:grid-cols-2" data-enter style={delay(280)}>
-            {statements.map((s) => (
-              <li key={s.title} className="flex items-center gap-2.5 text-[0.92rem] font-medium">
-                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-teal-soft text-teal">
-                  <Icon name="check" size={13} className="[--icon-stroke:2.4]" />
+          <p className="a2-hero-talk mt-5 flex flex-wrap items-center gap-x-5 gap-y-2" data-enter style={delay(250)}>
+            <a href={contact.phones[0].href} className="a2-talk" data-tone="steel">
+              <span className="icon-chip size-8 rounded-full">
+                <Icon name="phone" size={15} />
+              </span>
+              <span className="sr-only">{ui.call}: </span>
+              <span dir="ltr">{contact.phones[0].display}</span>
+            </a>
+            <a href={contact.whatsappHref} className="a2-talk" data-tone="teal">
+              <span className="icon-chip size-8 rounded-full">
+                <Icon name="chat" size={15} />
+              </span>
+              {ui.whatsapp}
+            </a>
+          </p>
+          <ul className="a2-trust mt-8 grid grid-cols-1 gap-x-6 gap-y-3 pt-6 min-[480px]:grid-cols-2" data-enter style={delay(300)}>
+            {statements.map((s, i) => (
+              <li key={s.title} className="flex items-center gap-3 text-[0.92rem] font-medium">
+                <span className="icon-chip size-8 shrink-0 rounded-[10px] text-ink-2">
+                  <Icon name={statementIcon[i] ?? "check"} size={16} />
                 </span>
                 {s.title}
               </li>
@@ -339,44 +360,26 @@ function HeroA2({ data }: Props) {
           </ul>
         </div>
 
-        <div className="relative lg:col-span-6">
-          <div className="a2-hero-media mx-auto aspect-[6/5] w-full max-w-[36rem] lg:me-0 lg:ms-auto" data-enter="media" data-depth style={depth(-5, 100)}>
-            <Photo image={hero.image} priority sizes="(min-width: 1024px) 576px, 92vw" />
-          </div>
-
-          <div className="a2-float bottom-4 start-3 flex items-center gap-3 p-3 pe-4 sm:bottom-10 sm:start-[-1.5rem] sm:p-3.5 sm:pe-5" data-enter="float" data-depth style={depth(12, 520)}>
-            <span className="icon-chip shrink-0 max-sm:size-10" data-tone="brand">
-              <Icon name="power" size={20} />
-            </span>
-            <span>
-              <span className="t-stat block text-[1.3rem] leading-none sm:text-[1.55rem]">
-                <span dir="ltr">{power.value}</span>
-                <span className="ms-1 text-[0.95rem] font-bold text-ink-2">{power.unit}</span>
-              </span>
-              <span className="mt-1 block text-[0.78rem] leading-snug text-ink-2">{power.label}</span>
-            </span>
-          </div>
-
-          <div className="a2-float end-[-0.75rem] top-[-1.25rem] hidden items-center gap-3 p-3 pe-4 sm:flex" data-enter="float" data-depth style={depth(16, 660)}>
-            <span className="icon-chip size-10 shrink-0" data-tone="steel">
-              <Icon name="grid" size={19} />
-            </span>
-            <span>
-              <span className="t-stat block text-[1.3rem] leading-none">{lines.value}</span>
-              <span className="mt-1 block text-[0.78rem] leading-snug text-ink-2">{lines.label}</span>
-            </span>
-          </div>
-
-          <ul className="a2-float bottom-[-1.75rem] end-6 hidden gap-1.5 p-3 sm:grid" data-enter="float" data-depth style={depth(9, 800)}>
-            {trio.map((s) => (
-              <li key={s.slug} className="flex items-center gap-2 text-[0.84rem] font-semibold">
-                <span className="icon-chip size-7 rounded-lg" data-tone={serviceTone[s.slug]}>
-                  <Icon name={serviceIcon[s.slug]} size={15} />
+        <div className="lg:col-span-6" data-enter style={delay(120)}>
+          <HeroPlateA2 photo={hero.image} labels={hero.plate} className="a2-hero-stage">
+            {[
+              { icon: "power" as const, tone: "brand" as const, value: power.value, unit: power.unit, label: power.label },
+              { icon: "grid" as const, tone: "steel" as const, value: lines.value, unit: undefined, label: lines.label },
+            ].map((m) => (
+              <p key={m.icon} className="a2-spec-cell" data-tone={m.tone}>
+                <span className="icon-chip size-10 shrink-0">
+                  <Icon name={m.icon} size={19} />
                 </span>
-                {s.name}
-              </li>
+                <span className="min-w-0">
+                  <span className="t-stat block text-[1.25rem] leading-none">
+                    <span dir="ltr">{m.value}</span>
+                    {m.unit && <span className="ms-1 text-[0.9rem] font-bold text-ink-2">{m.unit}</span>}
+                  </span>
+                  <span className="mt-1 block text-[0.78rem] leading-snug text-ink-2">{m.label}</span>
+                </span>
+              </p>
             ))}
-          </ul>
+          </HeroPlateA2>
         </div>
       </div>
     </section>
@@ -652,7 +655,7 @@ function ServicesA2({ data }: Props) {
   const [cutting, engraving] = (["laser-cutting", "laser-engraving"] as const).map((slug) => services.items.find((s) => s.slug === slug)!);
   const rest = services.items.filter((s) => s !== cutting && s !== engraving);
   return (
-    <section id="services" className="sec sec-alt" aria-labelledby="services-title">
+    <section id="services" className="sec sec-sheet sec-muted" aria-labelledby="services-title">
       <div className="shell">
         <SectionHead id="services-title" label={services.label} title={services.title} intro={services.intro} action={{ href: links.services, label: services.all }} />
         <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:mt-12 lg:grid-cols-12">
@@ -680,7 +683,7 @@ function MachineryA2({ data }: Props) {
   const order = ["fiber-laser-combo-12kw", "tube-cutting-12kw", "fiber-laser-6kw", "fiber-laser-3kw", "cnc-press-brake", "laser-welding"];
   const items = order.map((slug) => machinery.items.find((m) => m.slug === slug)!).filter(Boolean);
   return (
-    <section id="machinery" className="sec sec-white" aria-labelledby="machinery-title">
+    <section id="machinery" className="sec sec-sheet sec-raised" aria-labelledby="machinery-title">
       <div className="shell">
         <SectionHead
           id="machinery-title"
@@ -747,7 +750,7 @@ function ProjectsA2({ data }: Props) {
 function IndustriesA2({ data }: Props) {
   const { industries, links } = data;
   return (
-    <section id="industries" className="sec sec-white" aria-labelledby="industries-title">
+    <section id="industries" className="sec sec-sheet sec-raised" aria-labelledby="industries-title">
       <div className="shell">
         <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5" data-reveal>
           <div className="max-w-[40rem]">
@@ -803,7 +806,7 @@ function IndustriesA2({ data }: Props) {
 function ClientsA2({ data }: Props) {
   const { clients, links } = data;
   return (
-    <section id="clients" className="sec sec-alt" aria-labelledby="clients-title">
+    <section id="clients" className="sec" aria-labelledby="clients-title">
       <div className="shell">
         <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
           <div className="max-w-[44rem]" data-reveal>
@@ -852,7 +855,7 @@ function ComplianceA2({ data }: Props) {
   const { compliance, links } = data;
   const icons: IconName[] = ["doc", "shield", "doc"];
   return (
-    <section className="sec-alt pb-[var(--sec-y)]" aria-labelledby="compliance-title">
+    <section className="pb-[var(--sec-y)]" aria-labelledby="compliance-title">
       <div className="shell">
         <div className="a2-comp grid grid-cols-1 gap-6 p-5 sm:p-7 lg:grid-cols-12 lg:items-center lg:gap-8" data-tone="brass" data-reveal>
           <div className="lg:col-span-4">

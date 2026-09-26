@@ -242,7 +242,7 @@ function Grooves() {
 export function LaserEngrave({ className = "", freeze }: { className?: string; freeze?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const id = `le${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  useSignature(ref, setup, freeze);
+  useSignature(ref, setup, { freeze });
 
   return (
     <div ref={ref} className={`sig sig-engrave ${className}`} aria-hidden>

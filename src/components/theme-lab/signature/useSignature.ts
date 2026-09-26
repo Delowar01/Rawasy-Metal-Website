@@ -20,15 +20,20 @@ export interface SignatureRun {
   total: number;
   /** Named moments of the intro (ms), for still frames: e.g. `initial`, `active`. `finished` is the end. */
   moments?: Record<string, number>;
+  /** Times (ms) of the run's steps, for a readout that counts them. */
+  marks?: number[];
 }
 
 export type SignatureSetup = (root: HTMLElement) => (intro: boolean) => SignatureRun;
 
-/**
- * `freeze` (design-system sheet): run the intro once and hold it at a named
- * moment — a still frame, so it is shown with reduced motion too.
- */
-export function useSignature(ref: RefObject<HTMLElement | null>, setup: SignatureSetup, freeze?: string) {
+export interface SignatureOptions {
+  /** Design-system sheet: run the intro once and hold it at a named moment — a still frame, shown with reduced motion too. */
+  freeze?: string;
+  /** Replay on hover or focus of the host (default). The hero plate plays once only. */
+  replay?: boolean;
+}
+
+export function useSignature(ref: RefObject<HTMLElement | null>, setup: SignatureSetup, { freeze, replay: replays = true }: SignatureOptions = {}) {
   useEffect(() => {
     const root = ref.current;
     if (!root || typeof root.animate !== "function") return;
@@ -78,7 +83,7 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
 
     const host = root.closest("[data-sig-host]") ?? root;
     const replay = (event: Event) => {
-      if (event.type === "pointerenter" && (event as PointerEvent).pointerType !== "mouse") return;
+      if (!replays || (event.type === "pointerenter" && (event as PointerEvent).pointerType !== "mouse")) return;
       if (!played || performance.now() < busyUntil) return;
       play(false);
     };
@@ -95,7 +100,7 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
       root.removeEventListener("sig:replay", force);
       [...current, ...kept].forEach((a) => a.cancel());
     };
-  }, [ref, setup, freeze]);
+  }, [ref, setup, freeze, replays]);
 }
 
 export type Stop = readonly [ms: number, frame: Keyframe, easing?: string];

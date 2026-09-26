@@ -150,6 +150,8 @@ export async function getLabData(locale: Locale, option: LabOption) {
       secondary: home.hero.primaryCta[locale],
       location: home.hero.location[locale],
       image: image("site/laser-sparks", services[0].coverAlt[locale]),
+      // The website hero's plate labels (A V2's hero plate).
+      plate: { part: home.hero.plate.part[locale], sequence: home.hero.plate.sequence[locale] },
     },
 
     // Plain figures ("4", not the editorial "04").

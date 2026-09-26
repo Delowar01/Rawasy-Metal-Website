@@ -1,12 +1,20 @@
 /*
- * Option A V2 — Clean Premium Commerce, refined.
- * Option A's bright commercial system (white raised cards on cool grey, visible
- * borders, soft layered shadows, orange actions, steel / teal / brass accents)
- * with a fuller header, a composed hero, signature laser illustrations and one
- * motion system. Light theme only: every colour is a token, so a dark theme is
- * a second token set under the same names (see the design-system sheet).
+ * Option A V2 — Clean Premium Commerce, refined (pass 2).
+ * A bright commercial system (off-white raised cards on a soft warm mist, visible
+ * borders, layered shadows with a lit top edge, orange actions, steel / teal /
+ * brass accents) with a signature plate hero, laser signatures and one motion
+ * system. Two themes share every token name: light by default, dark under
+ * html[data-theme="dark"]; `.a2-theme-light` / `.a2-theme-dark` force either
+ * inside the other (design-system samples).
  */
 @layer theme, base, components, utilities;
+
+/* The card light fades in and out (a registered colour can transition). */
+@property --spot {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
 
 /* The machinery spotlight glides to each machine (a registered property can transition). */
 @property --spot-x {
@@ -16,61 +24,224 @@
 }
 
 @layer components {
-  .lab-a2 {
+  /* ---------- Tokens · light theme ---------- */
+  .lab-a2,
+  .lab-a2 .a2-theme-light {
     color-scheme: light;
 
-    /* Palette */
+    /* Brand and supporting tones */
     --brand: #f15f22;
-    --brand-hover: #f8743c;
+    --brand-hover: #f7713a;
     --brand-press: #de5217;
     --brand-ink: #b3410d;
-    --brand-soft: #fff1e9;
-    --brand-line: #f6c3a6;
+    --brand-soft: #fdefe6;
+    --brand-line: #f5c2a3;
+    /* Orange icons on the orange tint: a touch deeper for 3:1 */
+    --brand-icon: #e3561c;
+    --on-brand: #15171a;
+    --steel: #2c5e86;
+    --steel-soft: #e9f0f5;
+    --steel-line: #c3d5e4;
+    --teal: #1b6f65;
+    --teal-soft: #e3f1ee;
+    --teal-line: #b2d8d0;
+    --brass: #7b5c24;
+    --brass-soft: #f6efe1;
+    --brass-line: #e2d1aa;
+    /* Icons on a filled tone chip */
+    --on-tone: #ffffff;
+
+    /* Background system: base page → section → recessed band; elevated card → inner → muted */
+    --bg: #f4f4f1;
+    --bg-alt: #ecece8;
+    --bg-deep: #e5e5e0;
+    --surface: #fdfdfb;
+    --surface-2: #f7f7f4;
+    --surface-3: #f0f0ec;
+    --hero-top: #fbfbf9;
+    /* Ambient layers: pattern ink, soft glows, the lit edge of raised surfaces */
+    --pattern-dot: rgb(40 38 30 / 0.085);
+    --pattern-line: rgb(40 38 30 / 0.05);
+    --glow-warm: rgb(241 95 34 / 0.13);
+    --glow-cool: rgb(44 94 134 / 0.1);
+    --band-glow: rgb(241 95 34 / 0.24);
+    --sheen: rgb(255 255 255 / 0.62);
+    --edge-light: rgb(255 255 255 / 0.9);
+
+    /* Text */
+    --ink: #15171a;
+    --ink-2: #454a50;
+    --ink-3: #5c6168;
+
+    /* Dark bands (contact panel, footer): dark in both themes */
     --navy: #132039;
     --navy-2: #1b2c4a;
-    --steel: #2c5e86;
-    --steel-soft: #eaf1f7;
-    --steel-line: #c2d5e6;
-    --teal: #1b6f65;
-    --teal-soft: #e4f2ef;
-    --teal-line: #b1d8d0;
-    --brass: #83642b;
-    --brass-soft: #f7f0e2;
-    --brass-line: #e2d0aa;
-    --bg: #f4f6f9;
-    --bg-alt: #ebeff4;
-    --surface: #ffffff;
-    --surface-2: #f8fafc;
-    --ink: #111827;
-    --ink-2: #454e5c;
-    --ink-3: #5a6371;
     --dark: #111c30;
     --dark-2: #1a2841;
     --on-dark: #f5f7fa;
     --on-dark-2: #b8c2d0;
     --focus: #2c5e86;
 
-    /* Borders: subtle → default → strong → ink, plus the active edge */
-    --line-subtle: #e5e9ef;
-    --line: #d5dbe3;
-    --line-strong: #b9c3cf;
-    --line-ink: #8b97a6;
+    /* Borders: subtle → default → strong → ink (form fields, 3:1), plus the active edge */
+    --line-subtle: #e4e4df;
+    --line: #d6d6d0;
+    --line-strong: #bab9b2;
+    --line-ink: #87877f;
     --line-active: var(--brand);
 
     /* Translucent surfaces (header, floating cards, photo scrims) */
-    --header-bg: rgb(255 255 255 / 0.97);
-    --header-bg-scrolled: rgb(255 255 255 / 0.84);
-    --glass: rgb(255 255 255 / 0.95);
-    --glass-line: rgb(255 255 255 / 0.75);
+    --header-bg: rgb(251 251 249 / 0.96);
+    --header-bg-scrolled: rgb(251 251 249 / 0.8);
+    --glass: rgb(253 253 251 / 0.9);
+    --glass-line: rgb(255 255 255 / 0.8);
     --scrim-rgb: 9 15 27;
-    --shadow-rgb: 17 24 39;
-    --hero-top: #ffffff;
-    --stage-top: #e8eef5;
-    --stage-bottom: #f5f7fa;
+    --shadow-rgb: 32 30 24;
+
+    /* Stages behind machines and the signatures */
+    --stage-top: #ebede8;
+    --stage-bottom: #f7f7f4;
+    --stage-spot: #ffffff;
     --stage-light: linear-gradient(180deg, var(--stage-top), var(--stage-bottom));
     --stage-dark: radial-gradient(70% 90% at 50% 40%, #243452 0%, #121d31 62%, #0d1626 100%);
-    --stage-brass: radial-gradient(70% 80% at 50% 45%, #ffffff 0%, #fbf6ec 55%, #f2e8d4 100%);
+    --stage-dark-edge: #0d1626;
+    --stage-brass: radial-gradient(70% 80% at 50% 45%, #fffefb 0%, #faf5ea 55%, #f0e6d2 100%);
+    --logo-tile: var(--surface);
 
+    /* Hero plate: brushed steel on a raised stage with a faint measuring grid */
+    --hs-top: #fcfcfa;
+    --hs-bottom: #eeefeb;
+    --hs-spot: #ffffff;
+    --hs-grid: rgb(44 94 134 / 0.08);
+    --hs-line: var(--line);
+    --hs-dim: #a3a6a4;
+    --hs-label: #5c6168;
+    --plate-a: #d9dcd9;
+    --plate-b: #f6f7f5;
+    --plate-c: #c3c7c4;
+    --plate-edge: rgb(40 38 30 / 0.32);
+    --plate-wall: #24272b;
+    --plate-lip: rgb(255 255 255 / 0.9);
+    --plate-shadow: rgb(32 30 24 / 0.42);
+    --plate-sheen: 0.75;
+    --plate-grain: 0.13;
+    --plate-shine: 0.22;
+    --plate-engrave: rgb(40 38 30 / 0.32);
+
+    /* Shadows: contact + soft ambient; raised surfaces carry a lit top edge */
+    --sh-xs: 0 1px 2px rgb(var(--shadow-rgb) / 0.08);
+    --sh-card: inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(var(--shadow-rgb) / 0.06), 0 4px 12px -4px rgb(var(--shadow-rgb) / 0.1);
+    --sh-raised: inset 0 1px 0 var(--edge-light), 0 2px 4px rgb(var(--shadow-rgb) / 0.05), 0 18px 36px -14px rgb(var(--shadow-rgb) / 0.2);
+    --sh-hover: inset 0 1px 0 var(--edge-light), 0 4px 10px rgb(var(--shadow-rgb) / 0.06), 0 26px 48px -16px rgb(var(--shadow-rgb) / 0.28);
+    --sh-image: 0 30px 60px -26px rgb(var(--shadow-rgb) / 0.45);
+    --sh-float: 0 1px 2px rgb(var(--shadow-rgb) / 0.07), 0 22px 48px -14px rgb(var(--shadow-rgb) / 0.32);
+    --sh-inset: inset 0 1px 2px rgb(var(--shadow-rgb) / 0.08);
+    --sh-brand: 0 1px 2px rgb(var(--shadow-rgb) / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.32), 0 10px 22px -10px rgb(241 95 34 / 0.7);
+    --sh-brand-hover: 0 1px 2px rgb(var(--shadow-rgb) / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.36), 0 16px 30px -10px rgb(241 95 34 / 0.78);
+  }
+
+  /* ---------- Tokens · dark theme: blue-charcoal, never black; light text; tones lifted for contrast ---------- */
+  html[data-theme="dark"] .lab-a2,
+  .lab-a2 .a2-theme-dark {
+    color-scheme: dark;
+
+    --brand: #f26a2e;
+    --brand-hover: #ff7d45;
+    --brand-press: #e0591d;
+    --brand-ink: #ff9466;
+    --brand-soft: #2e211b;
+    --brand-line: #5a3524;
+    --brand-icon: #f26a2e;
+    --on-brand: #111418;
+    --steel: #7fb0d8;
+    --steel-soft: #1b2733;
+    --steel-line: #2e4658;
+    --teal: #5cc0b0;
+    --teal-soft: #172a28;
+    --teal-line: #28504a;
+    --brass: #d7b273;
+    --brass-soft: #2a2419;
+    --brass-line: #4d4029;
+    --on-tone: #0f1318;
+
+    --bg: #131820;
+    --bg-alt: #171d26;
+    --bg-deep: #0f141b;
+    --surface: #1c232d;
+    --surface-2: #222a35;
+    --surface-3: #283140;
+    --hero-top: #171d27;
+    --pattern-dot: rgb(200 215 235 / 0.075);
+    --pattern-line: rgb(200 215 235 / 0.045);
+    --glow-warm: rgb(242 106 46 / 0.13);
+    --glow-cool: rgb(80 140 200 / 0.15);
+    --band-glow: rgb(242 106 46 / 0.28);
+    --sheen: rgb(255 255 255 / 0.035);
+    --edge-light: rgb(255 255 255 / 0.055);
+
+    --ink: #eef1f4;
+    --ink-2: #b8c0ca;
+    --ink-3: #9aa3ae;
+
+    --navy: #17243b;
+    --navy-2: #1e2e4a;
+    --dark: #0c1016;
+    --dark-2: #141a23;
+    --on-dark: #f5f7fa;
+    --on-dark-2: #b8c2d0;
+    --focus: #8ebcdf;
+
+    --line-subtle: #232b35;
+    --line: #2d3642;
+    --line-strong: #3f4a57;
+    --line-ink: #66727f;
+
+    --header-bg: rgb(19 24 32 / 0.96);
+    --header-bg-scrolled: rgb(19 24 32 / 0.8);
+    --glass: rgb(30 37 47 / 0.88);
+    --glass-line: rgb(255 255 255 / 0.08);
+    --shadow-rgb: 0 0 0;
+
+    --stage-top: #1e252f;
+    --stage-bottom: #171c24;
+    --stage-spot: rgb(255 255 255 / 0.1);
+    --stage-dark: radial-gradient(70% 90% at 50% 40%, #213150 0%, #111b2e 62%, #0b1322 100%);
+    --stage-dark-edge: #0b1322;
+    --stage-brass: radial-gradient(70% 80% at 50% 45%, #2c261b 0%, #221e16 55%, #1a1712 100%);
+    /* Client logos keep a light plate so dark marks stay legible. */
+    --logo-tile: #e7e9e6;
+
+    --hs-top: #1f2733;
+    --hs-bottom: #161c25;
+    --hs-spot: rgb(140 172 214 / 0.16);
+    --hs-grid: rgb(170 195 230 / 0.07);
+    --hs-line: #2d3642;
+    --hs-dim: #5d6975;
+    --hs-label: #9aa3ae;
+    --plate-a: #434c57;
+    --plate-b: #64707e;
+    --plate-c: #363e48;
+    --plate-edge: rgb(255 255 255 / 0.2);
+    --plate-wall: #0b0e13;
+    --plate-lip: rgb(255 255 255 / 0.22);
+    --plate-shadow: rgb(0 0 0 / 0.72);
+    --plate-sheen: 0.16;
+    --plate-grain: 0.045;
+    --plate-shine: 0.06;
+    --plate-engrave: rgb(255 255 255 / 0.22);
+
+    --sh-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+    --sh-card: inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 16px -6px rgb(0 0 0 / 0.45);
+    --sh-raised: inset 0 1px 0 var(--edge-light), 0 2px 6px rgb(0 0 0 / 0.3), 0 20px 40px -16px rgb(0 0 0 / 0.6);
+    --sh-hover: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.35), 0 28px 52px -18px rgb(0 0 0 / 0.7);
+    --sh-image: 0 30px 60px -24px rgb(0 0 0 / 0.75);
+    --sh-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 24px 50px -14px rgb(0 0 0 / 0.65);
+    --sh-inset: inset 0 1px 2px rgb(0 0 0 / 0.35);
+    --sh-brand: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.28), 0 10px 24px -10px rgb(242 106 46 / 0.55);
+    --sh-brand-hover: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.32), 0 16px 32px -10px rgb(242 106 46 / 0.65);
+  }
+
+  /* ---------- Constants: radius, motion, type, layout (both themes) ---------- */
+  .lab-a2 {
     /* Radius */
     --r-xs: 6px;
     --r-sm: 8px;
@@ -78,16 +249,6 @@
     --r-card: 16px;
     --r-panel: 24px;
     --r-pill: 999px;
-
-    /* Shadows: contact + soft ambient */
-    --sh-xs: 0 1px 2px rgb(var(--shadow-rgb) / 0.07);
-    --sh-card: 0 1px 2px rgb(var(--shadow-rgb) / 0.05), 0 3px 10px -3px rgb(var(--shadow-rgb) / 0.09);
-    --sh-raised: 0 2px 4px rgb(var(--shadow-rgb) / 0.04), 0 16px 32px -12px rgb(var(--shadow-rgb) / 0.18);
-    --sh-hover: 0 4px 8px rgb(var(--shadow-rgb) / 0.05), 0 22px 40px -14px rgb(var(--shadow-rgb) / 0.26);
-    --sh-image: 0 28px 56px -24px rgb(var(--shadow-rgb) / 0.42);
-    --sh-float: 0 1px 2px rgb(var(--shadow-rgb) / 0.06), 0 20px 44px -12px rgb(var(--shadow-rgb) / 0.3);
-    --sh-inset: inset 0 1px 2px rgb(var(--shadow-rgb) / 0.07);
-    --sh-brand: 0 1px 2px rgb(var(--shadow-rgb) / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.28), 0 8px 18px -8px rgb(241 95 34 / 0.65);
 
     /* Motion: 180 / 320 / 600 / 900 ms; one ease for movement, one for state */
     --dur-1: 180ms;
@@ -98,23 +259,33 @@
     --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
     --lift: -3px;
 
-    /* Type, icons, layout */
+    /* Type, icons, layout. The content column grows with the screen up to 1400px. */
     --ff-display: var(--font-a-display), ui-sans-serif, system-ui, sans-serif;
     --ff-body: var(--font-a-body), ui-sans-serif, system-ui, sans-serif;
     --ff-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
     --icon-stroke: 1.75;
     --duo-opacity: 0.18;
-    --shell: 1240px;
+    --shell: min(1400px, 92vw);
     --gutter: clamp(1rem, 4vw, 2.5rem);
     --sec-y: clamp(3rem, 1.6rem + 4vw, 6.5rem);
+    --sheet-m: clamp(0.5rem, 1.1vw, 1.25rem);
+    --sheet-r: clamp(1.25rem, 0.9rem + 1.4vw, 2.25rem);
     --hh: 4.5rem;
 
     min-height: 100vh;
-    background: var(--bg);
+    background:
+      radial-gradient(var(--pattern-dot) 1px, transparent 1.3px) 0 0 / 22px 22px,
+      var(--bg);
     color: var(--ink);
     font-family: var(--ff-body);
     font-size: 1rem;
     line-height: 1.6;
+  }
+
+  /* Forced samples carry their own page colours. */
+  .lab-a2 :is(.a2-theme-light, .a2-theme-dark) {
+    background: var(--bg);
+    color: var(--ink);
   }
 
   .lab-a2:lang(ar),
@@ -140,16 +311,16 @@
   }
 
   /* Tones: colour through surfaces, edges and icons — never paragraphs */
-  .lab-a2 [data-tone="brand"] { --tone: var(--brand); --tone-ink: var(--brand-ink); --tone-soft: var(--brand-soft); --tone-line: var(--brand-line); }
-  .lab-a2 [data-tone="steel"] { --tone: var(--steel); --tone-ink: var(--steel); --tone-soft: var(--steel-soft); --tone-line: var(--steel-line); }
-  .lab-a2 [data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); --tone-line: var(--teal-line); }
-  .lab-a2 [data-tone="brass"] { --tone: var(--brass); --tone-ink: var(--brass); --tone-soft: var(--brass-soft); --tone-line: var(--brass-line); }
+  .lab-a2 [data-tone="brand"] { --tone: var(--brand); --tone-ink: var(--brand-ink); --tone-icon: var(--brand-icon); --tone-soft: var(--brand-soft); --tone-line: var(--brand-line); }
+  .lab-a2 [data-tone="steel"] { --tone: var(--steel); --tone-ink: var(--steel); --tone-icon: var(--steel); --tone-soft: var(--steel-soft); --tone-line: var(--steel-line); }
+  .lab-a2 [data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-icon: var(--teal); --tone-soft: var(--teal-soft); --tone-line: var(--teal-line); }
+  .lab-a2 [data-tone="brass"] { --tone: var(--brass); --tone-ink: var(--brass); --tone-icon: var(--brass); --tone-soft: var(--brass-soft); --tone-line: var(--brass-line); }
 
   /* ---------- Type ---------- */
   .lab-a2 .t-display {
     font-family: var(--ff-display);
     font-weight: 800;
-    font-size: clamp(2.45rem, 1.4rem + 3.3vw, 4rem);
+    font-size: clamp(2.45rem, 1.2rem + 3.4vw, 4.5rem);
     line-height: 1.04;
     letter-spacing: -0.028em;
     text-wrap: balance;
@@ -204,7 +375,7 @@
   }
 
   .lab-a2 .t-display:lang(ar) {
-    font-size: clamp(2.25rem, 1.4rem + 2.8vw, 3.6rem);
+    font-size: clamp(2.25rem, 1.3rem + 2.9vw, 4rem);
     line-height: 1.32;
   }
 
@@ -313,23 +484,40 @@
   }
 
   .lab-a2 .btn-primary {
-    background: var(--brand);
-    color: var(--ink);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: var(--brand);
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 60%);
+    color: var(--on-brand);
     box-shadow: var(--sh-brand);
+  }
+
+  /* A light passes across the button on hover (never with reduced motion). */
+  .lab-a2 .btn-primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.3) 50%, transparent 70%);
+    translate: calc(-110% * var(--dir, 1)) 0;
+    pointer-events: none;
+  }
+
+  .lab-a2 .btn-primary:is(:hover, .is-hover)::after {
+    translate: calc(110% * var(--dir, 1)) 0;
+    transition: translate 0.75s var(--ease);
   }
 
   .lab-a2 .btn-primary:hover,
   .lab-a2 .btn-primary.is-hover {
-    background: var(--brand-hover);
+    background-color: var(--brand-hover);
     translate: 0 -1px;
-    box-shadow:
-      0 1px 2px rgb(var(--shadow-rgb) / 0.14),
-      inset 0 1px 0 rgb(255 255 255 / 0.3),
-      0 12px 24px -8px rgb(241 95 34 / 0.7);
+    box-shadow: var(--sh-brand-hover);
   }
 
   .lab-a2 .btn-primary:active:not(:disabled) {
-    background: var(--brand-press);
+    background-color: var(--brand-press);
     translate: none;
   }
 
@@ -370,7 +558,7 @@
   .lab-a2 .btn-steel.is-hover {
     background: var(--steel);
     border-color: var(--steel);
-    color: #ffffff;
+    color: var(--on-tone);
   }
 
   .lab-a2 .btn-on-dark {
@@ -446,6 +634,17 @@
     box-shadow: var(--sh-hover);
   }
 
+  /* A soft light in the card's tone follows the mouse inside it (the pointer sets --mx / --my). */
+  .lab-a2 :is(.card-link:not(.a2-proj), .a2-quick, .contact-row) {
+    background-image: radial-gradient(22rem circle at var(--mx, 50%) var(--my, -30%), var(--spot), transparent 72%);
+    transition-property: translate, box-shadow, border-color, background-color, --spot;
+    transition-duration: var(--dur-2);
+  }
+
+  .lab-a2 :is(.card-link:not(.a2-proj), .a2-quick, .contact-row):hover {
+    --spot: color-mix(in srgb, var(--tone, var(--brand)) 9%, transparent);
+  }
+
   /* Accent edge: a tone line along the top that draws in on hover and focus */
   .lab-a2 .card-edge::before {
     content: "";
@@ -511,7 +710,7 @@
     border: 1px solid var(--tone-line, var(--line));
     border-radius: 12px;
     background: var(--tone-soft, var(--surface-2));
-    color: var(--tone, var(--ink));
+    color: var(--tone-icon, var(--ink));
     transition:
       background-color var(--dur-2) ease,
       border-color var(--dur-2) ease,
@@ -570,7 +769,7 @@
     width: 100%;
     min-height: 2.875rem;
     padding: 0.65rem 0.875rem;
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line-ink);
     border-radius: var(--r-sm);
     background: var(--surface);
     box-shadow: var(--sh-inset);
@@ -582,7 +781,7 @@
   }
 
   .lab-a2 .field:hover {
-    border-color: var(--line-ink);
+    border-color: var(--ink-2);
   }
 
   .lab-a2 .field:disabled {
@@ -596,8 +795,8 @@
   .lab-a2 .field:focus,
   .lab-a2 .field.is-focus {
     outline: none;
-    border-color: var(--steel);
-    box-shadow: 0 0 0 4px rgb(44 94 134 / 0.16);
+    border-color: var(--focus);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 20%, transparent);
   }
 
   /* ---------- Sections ---------- */
@@ -613,6 +812,39 @@
   .lab-a2 .sec-white {
     background: var(--surface);
     border-block: 1px solid var(--line-subtle);
+  }
+
+  /* Section sheets: alternate sections are plates laid on the page — inset a little from the
+     screen edges, rounded, with the page's dot matrix showing between them. */
+  .lab-a2 .sec-sheet {
+    position: relative;
+    margin-inline: var(--sheet-m);
+    border-radius: var(--sheet-r);
+    overflow: clip;
+  }
+
+  .lab-a2 .sec-sheet + .sec-sheet {
+    margin-top: var(--sheet-m);
+  }
+
+  /* Muted: a recessed tint with a lit top edge */
+  .lab-a2 .sec-muted {
+    background:
+      linear-gradient(180deg, var(--sheen), transparent 7rem),
+      var(--bg-alt);
+    box-shadow:
+      inset 0 0 0 1px var(--line-subtle),
+      inset 0 1px 0 var(--edge-light);
+  }
+
+  /* Raised: an elevated plate with a border and a soft ambient shadow */
+  .lab-a2 .sec-raised {
+    overflow: visible;
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, var(--sheen), transparent 9rem),
+      linear-gradient(180deg, var(--surface), var(--surface-2));
+    box-shadow: var(--sh-raised);
   }
 
   /* ---------- Header ---------- */
@@ -745,7 +977,7 @@
   .lab-a2 .a2-dd-item:hover .icon-chip {
     border-color: var(--tone);
     background: var(--tone);
-    color: #ffffff;
+    color: var(--on-tone);
   }
 
   /* Controls: language and theme */
@@ -957,62 +1189,398 @@
     background: linear-gradient(180deg, var(--hero-top) 0%, var(--bg) 92%);
   }
 
+  /* Hero ambient: a faint measuring grid that fades out downwards, and two soft glows drifting slowly. */
+  .lab-a2 .a2-hero-ambient {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* The grid is its own layer: a static mask over nothing that moves. */
+  .lab-a2 .a2-hero-ambient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to right, var(--pattern-line) 1px, transparent 1px) 50% 0 / 56px 56px,
+      linear-gradient(to bottom, var(--pattern-line) 1px, transparent 1px) 50% 0 / 56px 56px;
+    mask-image: radial-gradient(90% 75% at 70% 30%, #000 20%, transparent 80%);
+  }
+
   .lab-a2 .a2-glow {
     position: absolute;
-    top: 38%;
+    top: 30%;
     inset-inline-end: -20%;
-    z-index: -1;
-    width: 110%;
-    height: 70%;
+    width: 120%;
+    height: 80%;
     background:
-      radial-gradient(closest-side at 62% 38%, rgb(241 95 34 / 0.14), transparent 72%),
-      radial-gradient(closest-side at 26% 76%, rgb(44 94 134 / 0.11), transparent 72%);
-    pointer-events: none;
+      radial-gradient(closest-side at 62% 38%, var(--glow-warm), transparent 72%),
+      radial-gradient(closest-side at 26% 76%, var(--glow-cool), transparent 72%);
   }
 
   @media (min-width: 64rem) {
     .lab-a2 .a2-glow {
-      top: -12%;
-      inset-inline-end: -8%;
-      width: 64%;
-      height: 110%;
+      top: -14%;
+      inset-inline-end: -10%;
+      width: 70%;
+      height: 120%;
     }
   }
 
-  .lab-a2 .a2-hero-media {
+  /* Beside the text, the plate's area follows the screen height, so the hero fits the first view. */
+  @media (min-width: 64rem) {
+    .lab-a2 .a2-hero-stage .a2-plate-area {
+      height: clamp(26rem, calc(100svh - var(--hh) - 14rem), 34rem);
+    }
+  }
+
+  /* Quick contact under the calls to action */
+  .lab-a2 .a2-talk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.75rem;
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    transition: color var(--dur-1) ease;
+  }
+
+  .lab-a2 .a2-talk:hover {
+    color: var(--tone-ink);
+  }
+
+  .lab-a2 .a2-talk:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  .lab-a2 .a2-trust {
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---------- Hero plate: the website's laser-cut plate, on a stage ---------- */
+  .lab-a2 .a2-plate-stage {
     position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    border: 1px solid var(--glass-line);
-    border-radius: var(--r-panel);
-    background: var(--navy);
-    box-shadow: var(--sh-image);
+    border: 1px solid var(--hs-line);
+    border-radius: calc(var(--r-panel) + 4px);
+    background:
+      radial-gradient(60% 52% at 50% 44%, var(--hs-spot) 0%, transparent 100%),
+      linear-gradient(180deg, var(--hs-top), var(--hs-bottom));
+    box-shadow: var(--sh-image), inset 0 1px 0 var(--edge-light);
   }
 
-  /* A thin orange light along the frame's top edge */
-  .lab-a2 .a2-hero-media::after {
-    content: "";
+  /* A faint measuring grid, fading towards the stage's edges (static: nothing inside it moves). */
+  .lab-a2 .a2-plate-grid {
     position: absolute;
-    top: 0;
-    inset-inline-end: 12%;
-    width: 28%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--brand), transparent);
-    opacity: 0.9;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(to right, var(--hs-grid) 1px, transparent 1px) 50% 50% / 32px 32px,
+      linear-gradient(to bottom, var(--hs-grid) 1px, transparent 1px) 50% 50% / 32px 32px;
+    mask-image: radial-gradient(closest-side at 50% 46%, #000 35%, transparent 100%);
   }
 
-  .lab-a2 .a2-float {
+  /* The plate's area: it sizes the plate (container units) above the stage's bar. */
+  .lab-a2 .a2-plate-area {
+    position: relative;
+    isolation: isolate;
+    flex: 1 1 auto;
+    height: clamp(20rem, 96vw, 30rem);
+    container-type: size;
+  }
+
+  .lab-a2 .a2-plate {
     position: absolute;
-    z-index: 2;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--glass);
-    box-shadow: var(--sh-float);
+    inset: 0;
+    display: grid;
+    place-items: center;
+    direction: ltr;
   }
 
-  .lab-a2 [data-depth] {
-    translate: calc(var(--px, 0) * var(--depth) * 1px) calc(var(--py, 0) * var(--depth) * 1px);
-    transition: translate 0.9s var(--ease);
+  .lab-a2 .a2-plate-tilt {
+    position: relative;
+    width: min(96cqw, calc(96cqh * 640 / 760));
+    aspect-ratio: 640 / 760;
+    /* At rest; the plate sets its own lean under the mouse (HeroPlate). will-change keeps one raster of the
+       plate while it leans (without it, every new lean re-rasters the drawing at a new scale). */
+    transform: perspective(1600px);
+    transition: transform 1s var(--ease);
+    will-change: transform;
   }
+
+  .lab-a2 .a2-plate-svg {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* The plate's cast shadow: a static drop-shadow, rastered with the plate (no SVG filter in the moving drawing). */
+  .lab-a2 .a2-plate-shadow {
+    position: absolute;
+    inset: 0;
+    filter: drop-shadow(12px 20px 20px var(--plate-shadow));
+  }
+
+  .lab-a2 .a2-plate-shadow > span {
+    position: absolute;
+    inset: 0;
+    background: #000;
+  }
+
+  @container (max-width: 30rem) {
+    .lab-a2 .a2-plate-shadow {
+      filter: drop-shadow(8px 13px 13px var(--plate-shadow));
+    }
+  }
+
+  /* The workshop behind the openings, warmed so it reads as heat through the cuts. */
+  .lab-a2 .a2-plate-photo {
+    position: absolute;
+    overflow: hidden;
+    background: #0d0f12;
+  }
+
+  .lab-a2 .a2-plate-photo img {
+    object-position: 60% 45%;
+    filter: brightness(1.18) saturate(1.25) contrast(1.05);
+  }
+
+  /* Heat behind the star and along the perforation rows */
+  .lab-a2 .a2-plate-heat {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(46% 30% at 50% 39%, rgb(255 138 62 / 0.4), transparent 72%),
+      radial-gradient(60% 12% at 50% 84%, rgb(255 120 40 / 0.55), transparent 80%),
+      radial-gradient(40% 8% at 50% 69%, rgb(255 138 62 / 0.4), transparent 80%);
+    mix-blend-mode: screen;
+  }
+
+  /* A soft reflection that follows the pointer. */
+  /* Over the plate's rectangle; the highlight inside moves by translate (compositor), so the plate never repaints for it. */
+  .lab-a2 .a2-plate-shine {
+    position: absolute;
+    inset: 7.895% 9.375%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .lab-a2 .a2-plate-shine > span {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(40% 30% at 50% 40%, rgb(255 255 255 / var(--plate-shine)), transparent 70%);
+    transition: translate 1s var(--ease);
+    will-change: translate;
+  }
+
+  /* Brushed grain: fine lines, quieter on the dark plate. */
+  .lab-a2 .a2-plate-grain-hi {
+    fill: #fff;
+    fill-opacity: var(--plate-grain, 0.13);
+  }
+
+  .lab-a2 .a2-plate-grain-lo {
+    fill: #000;
+    fill-opacity: 0.025;
+  }
+
+  .lab-a2 .a2-plate-engraving {
+    stroke: var(--plate-engrave);
+    fill: var(--plate-engrave);
+  }
+
+  .lab-a2 .a2-plate-engraving g {
+    fill: none;
+  }
+
+  .lab-a2 .a2-plate-engraving text {
+    stroke: none;
+    font: 500 14px var(--ff-mono);
+    letter-spacing: 0.14em;
+  }
+
+  /* Dimensions and axes: thin, quiet, behind the story. */
+  .lab-a2 .a2-plate-dims {
+    stroke: var(--hs-dim);
+    stroke-width: 0.9;
+  }
+
+  .lab-a2 .a2-plate-axis {
+    stroke-dasharray: 10 4 2 4;
+    opacity: 0.7;
+  }
+
+  .lab-a2 .a2-plate-label {
+    fill: var(--hs-label);
+    stroke: none;
+    font: 500 15px var(--ff-mono);
+    letter-spacing: 0.06em;
+  }
+
+  /* Orange nodes at the measurement anchors: the plate's hot points. */
+  .lab-a2 :is(.a2-plate-node, .a2-plate-pierce, .a2-plate-hot) {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .lab-a2 .a2-plate-node-halo {
+    fill: var(--brand);
+    opacity: 0.22;
+  }
+
+  .lab-a2 .a2-plate-node-dot {
+    fill: var(--brand);
+    stroke: var(--hs-top);
+    stroke-width: 1.6;
+  }
+
+  /* The hot points' breathing halo: HTML over the SVG, so it animates on the compositor. */
+  .lab-a2 .a2-plate-pulse {
+    position: absolute;
+    width: 4.4%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    pointer-events: none;
+  }
+
+  .lab-a2 .a2-plate-pulse > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand) 45%, transparent) 0 35%, transparent 72%);
+    opacity: 0.55;
+  }
+
+  .lab-a2 .a2-plate-core {
+    fill: #fff3dc;
+    stroke: #ff7424;
+    stroke-width: 0.8;
+  }
+
+  /* Kerfs: a hot line with a glow, drawn behind the laser (hidden once cooled). */
+  .lab-a2 .a2-plate-glow {
+    stroke: rgb(255 116 36 / 0.3);
+    stroke-width: 7;
+  }
+
+  .lab-a2 .a2-plate-cut {
+    stroke: #ffb45e;
+    stroke-width: 1.6;
+  }
+
+  /* The finished plate: every opening cut, the laser off. */
+  .lab-a2 :is(.a2-plate-slug, .a2-plate-pierce, .a2-plate-hot, .a2-plate-glow, .a2-plate-cut) {
+    opacity: 0;
+  }
+
+  /* The stage's bar: key figures and the readout, on glass. */
+  .lab-a2 .a2-plate-bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--hs-line);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+  }
+
+  .lab-a2 .a2-spec-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .lab-a2 .a2-spec-cell + .a2-spec-cell {
+    border-inline-start: 1px solid var(--line-subtle);
+  }
+
+  /* Readout: the part and its cut count (X / Y under the mouse). A row of its own on phones. */
+  .lab-a2 .a2-plate-read {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.55rem 1rem;
+    border-top: 1px solid var(--line-subtle);
+    color: var(--ink-2);
+    font: 500 0.75rem/1.2 var(--ff-mono);
+    white-space: nowrap;
+  }
+
+  @media (min-width: 40rem) {
+    .lab-a2 .a2-plate-bar:has(.a2-spec-cell) {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    }
+
+    .lab-a2 .a2-plate-bar:has(.a2-spec-cell) .a2-plate-read {
+      grid-column: auto;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+      padding-inline: 1.1rem 1.25rem;
+      border-top: 0;
+      border-inline-start: 1px solid var(--line-subtle);
+    }
+
+    .lab-a2 .a2-plate-bar:has(.a2-spec-cell) .a2-plate-sep {
+      display: none;
+    }
+  }
+
+  .lab-a2 .a2-plate-count {
+    display: inline-flex;
+    gap: 0.45rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lab-a2 .a2-plate-read[data-pointer] .a2-plate-seq {
+    display: none;
+  }
+
+  /* Arabic words take the body face (a monospace fallback would space them out); figures stay mono. */
+  .lab-a2 .a2-plate-read :is(.a2-plate-part, .a2-plate-seq):lang(ar) {
+    font-family: var(--ff-body);
+    font-size: 0.8125rem;
+  }
+
+  .lab-a2 .a2-plate-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .lab-a2 .a2-plate-led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent);
+  }
+
+  .lab-a2 .a2-plate-read[data-running] .a2-plate-led {
+    background: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 26%, transparent);
+  }
+
+  .lab-a2 .a2-plate-sep {
+    width: 1px;
+    height: 0.8rem;
+    background: var(--line-strong);
+  }
+
+
 
   /* Capability strip: the six services, one tap away */
   .lab-a2 .a2-strip {
@@ -1049,7 +1617,7 @@
   }
 
   .lab-a2 .a2-quick:hover {
-    background: var(--tone-soft);
+    background-color: var(--tone-soft);
   }
 
   .lab-a2 .a2-quick:hover::after,
@@ -1060,7 +1628,7 @@
   .lab-a2 .a2-quick:hover .icon-chip {
     border-color: var(--tone);
     background: var(--tone);
-    color: #ffffff;
+    color: var(--on-tone);
   }
 
   .lab-a2 .a2-quick .go {
@@ -1111,7 +1679,7 @@
   .lab-a2 .a2-pillar:hover .icon-chip {
     border-color: var(--tone);
     background: var(--tone);
-    color: #ffffff;
+    color: var(--on-tone);
   }
 
   /* ---------- Services ---------- */
@@ -1132,7 +1700,7 @@
 
   .lab-a2 .a2-stage-dark {
     background: var(--stage-dark);
-    border-bottom-color: #0d1626;
+    border-bottom-color: var(--stage-dark-edge);
   }
 
   .lab-a2 .a2-stage-dark::before {
@@ -1240,7 +1808,7 @@
     border: 1px solid var(--line);
     border-radius: var(--r-panel);
     background:
-      radial-gradient(55% 60% at var(--spot-x) 56%, #ffffff 0%, rgb(255 255 255 / 0) 72%),
+      radial-gradient(55% 60% at var(--spot-x) 56%, var(--stage-spot) 0%, transparent 72%),
       linear-gradient(180deg, var(--stage-top), var(--stage-bottom));
     box-shadow: var(--sh-raised);
     transition: --spot-x var(--dur-4) var(--ease);
@@ -1369,7 +1937,7 @@
   .lab-a2 .a2-mx-pick:is(:hover, [aria-current="true"]) .badge-power {
     border-color: var(--brand);
     background: var(--brand);
-    color: var(--ink);
+    color: var(--on-brand);
   }
 
   /* ---------- Projects ---------- */
@@ -1469,7 +2037,7 @@
   .lab-a2 .a2-ind:hover .icon-chip {
     border-color: var(--tone);
     background: var(--tone);
-    color: #ffffff;
+    color: var(--on-tone);
   }
 
   /* ---------- Clients ---------- */
@@ -1480,7 +2048,7 @@
     padding: clamp(0.5rem, 0.3rem + 0.8vw, 0.9rem) clamp(0.5rem, 0.3rem + 1vw, 1rem);
     border: 1px solid var(--line);
     border-radius: 12px;
-    background: var(--surface);
+    background: var(--logo-tile);
     box-shadow: var(--sh-xs);
     transition:
       border-color var(--dur-2) ease,
@@ -1570,7 +2138,7 @@
     border: 1px solid var(--line);
     border-radius: var(--r-panel);
     background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0)),
+      linear-gradient(180deg, var(--sheen), transparent),
       var(--brass-soft);
   }
 
@@ -1596,11 +2164,21 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: linear-gradient(100deg, rgb(19 32 57 / 0.97) 34%, rgb(19 32 57 / 0.74) 68%, rgb(19 32 57 / 0.42));
+    background: linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--navy) 97%, transparent) 34%,
+      color-mix(in srgb, var(--navy) 74%, transparent) 68%,
+      color-mix(in srgb, var(--navy) 42%, transparent)
+    );
   }
 
   [dir="rtl"] .lab-a2 .a2-cta-dark::before {
-    background: linear-gradient(260deg, rgb(19 32 57 / 0.97) 34%, rgb(19 32 57 / 0.74) 68%, rgb(19 32 57 / 0.42));
+    background: linear-gradient(
+      260deg,
+      color-mix(in srgb, var(--navy) 97%, transparent) 34%,
+      color-mix(in srgb, var(--navy) 74%, transparent) 68%,
+      color-mix(in srgb, var(--navy) 42%, transparent)
+    );
   }
 
   .lab-a2 .step-num {
@@ -1611,7 +2189,7 @@
     flex: none;
     border-radius: 50%;
     background: var(--brand);
-    color: var(--ink);
+    color: var(--on-brand);
     font-size: 0.8125rem;
     font-weight: 700;
   }
@@ -1640,10 +2218,109 @@
   .lab-a2 a.contact-row:hover .icon-chip {
     border-color: var(--tone);
     background: var(--tone);
-    color: #ffffff;
+    color: var(--on-tone);
   }
 
   /* ---------- Design-system sheet ---------- */
+  /* Hero plate still frames: a compact stage. */
+  .lab-a2 .a2-plate-still .a2-plate-area {
+    height: auto;
+    aspect-ratio: 1 / 1.02;
+  }
+
+  /* Background roles: a live swatch of each theme's token. */
+  .lab-a2 .a2-bg-chip {
+    display: inline-block;
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .lab-a2 .a2-bg-chip-hero {
+    background:
+      linear-gradient(to right, var(--pattern-line) 1px, transparent 1px) 0 0 / 7px 7px,
+      radial-gradient(closest-side at 70% 30%, var(--glow-warm), transparent),
+      linear-gradient(180deg, var(--hero-top), var(--bg));
+  }
+
+  .lab-a2 .a2-bg-chip-dark {
+    background:
+      radial-gradient(closest-side at 80% 10%, var(--band-glow), transparent),
+      var(--dark);
+  }
+
+  /* Pointer specimens: the pointer's own classes, drawn in place on small tiles. */
+  .lab-a2 .a2-cursor-tile {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 7.5rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background:
+      radial-gradient(var(--pattern-dot) 1px, transparent 1.3px) 0 0 / 14px 14px,
+      var(--bg);
+  }
+
+  .lab-a2 .a2-cursor-tile-plate {
+    background:
+      repeating-linear-gradient(0deg, rgb(255 255 255 / var(--plate-grain)) 0 1px, transparent 1px 3px),
+      linear-gradient(135deg, var(--plate-a), var(--plate-b) 42%, var(--plate-a) 68%, var(--plate-c));
+  }
+
+  .lab-a2 .a2-cursor-tile-dark {
+    border-color: var(--stage-dark-edge);
+    background: var(--stage-dark);
+  }
+
+  html .lab-a2 .a2-cursor.a2-cursor-spec {
+    display: block;
+    position: absolute;
+    inset: 50% auto auto 50%;
+    z-index: 2;
+    width: 0;
+    height: 0;
+    overflow: visible;
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  /* Ambient samples */
+  .lab-a2 .a2-amb-sample {
+    position: relative;
+    isolation: isolate;
+    height: 9rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+  }
+
+  .lab-a2 .a2-amb-dots {
+    background:
+      radial-gradient(var(--pattern-dot) 1px, transparent 1.3px) 0 0 / 22px 22px,
+      var(--bg);
+  }
+
+  .lab-a2 .a2-amb-hero {
+    background: linear-gradient(180deg, var(--hero-top) 0%, var(--bg) 92%);
+  }
+
+  .lab-a2 .a2-amb-hero .a2-glow {
+    top: -20%;
+    inset-inline-end: -10%;
+    width: 90%;
+    height: 140%;
+  }
+
+  .lab-a2 .a2-amb-dark {
+    border-color: transparent;
+    background: var(--dark);
+  }
+
+
   .lab-a2 .a2-phone {
     width: min(24.5rem, 100%);
     height: 46rem;
@@ -1676,10 +2353,121 @@
     font-weight: 700;
   }
 
+  /* ---------- Pointer: a laser point and a precision ring (desktop mouse only; see Cursor.tsx) ---------- */
+  .lab-a2 .a2-cursor {
+    display: none;
+    --cursor-ink: 21 23 26;
+  }
+
+  html[data-cursor-on] .lab-a2 .a2-cursor {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-1) ease;
+    }
+
+  html[data-cursor-on] .lab-a2 .a2-cursor[data-shown] {
+    opacity: 1;
+  }
+
+  .lab-a2 .a2-cursor[data-dark] {
+    --cursor-ink: 238 241 244;
+  }
+
+  .lab-a2 :is(.a2-cursor-dot, .a2-cursor-ring) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 50%;
+    will-change: translate;
+    }
+
+  /* The point: orange with a thin light rim, so it also shows on orange buttons. */
+  .lab-a2 .a2-cursor-dot {
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    background: var(--brand);
+    box-shadow:
+      0 0 0 1.5px rgb(255 255 255 / 0.92),
+      0 0 10px 1px rgb(241 95 34 / 0.5);
+    transition: scale var(--dur-1) var(--ease);
+  }
+
+  .lab-a2 .a2-cursor-ring {
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+    border: 1.5px solid rgb(var(--cursor-ink) / 0.3);
+    scale: 0.78;
+    transition:
+      scale var(--dur-2) var(--ease),
+      border-color var(--dur-2) ease,
+      background-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease;
+  }
+
+  /* Links, buttons, cards: the laser is active — an orange halo. */
+  .lab-a2 .a2-cursor[data-state="active"] .a2-cursor-ring {
+    scale: 1.22;
+    border-color: var(--brand);
+    background: rgb(241 95 34 / 0.08);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.55);
+  }
+
+  .lab-a2 .a2-cursor[data-state="active"] .a2-cursor-dot {
+    scale: 1.25;
+  }
+
+  /* The hero plate: a crosshair, read against the X / Y readout. */
+  .lab-a2 .a2-cursor[data-state="plate"] .a2-cursor-ring {
+    scale: 1.1;
+    border-color: transparent;
+    background:
+      linear-gradient(90deg, var(--brand) 0 34%, transparent 34% 66%, var(--brand) 66%) 50% 50% / 100% 1.5px no-repeat,
+      linear-gradient(180deg, var(--brand) 0 34%, transparent 34% 66%, var(--brand) 66%) 50% 50% / 1.5px 100% no-repeat;
+  }
+
+  .lab-a2 .a2-cursor[data-press] .a2-cursor-ring {
+    scale: 0.62;
+  }
+
+  .lab-a2 .a2-cursor[data-press] .a2-cursor-dot {
+    scale: 0.8;
+  }
+
   /* ---------- Footer ---------- */
+  /* The footer: a dark sheet with its own ambient layer (a faint grid, a warm glow at the top). */
   .lab-a2 .a2-footer {
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    margin: 0 var(--sheet-m) var(--sheet-m);
+    border-radius: var(--sheet-r);
     background: var(--dark);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
     color: var(--on-dark-2);
+  }
+
+  .lab-a2 :is(.a2-footer, .a2-dark-amb)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(50% 70% at 88% 0%, var(--band-glow), transparent 70%),
+      radial-gradient(40% 60% at 6% 100%, rgb(80 140 200 / 0.14), transparent 70%),
+      linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px) 0 0 / 56px 56px,
+      linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px) 0 0 / 56px 56px;
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .lab-a2 :is(.a2-footer, .a2-dark-amb)::before {
+    scale: -1 1;
   }
 
   .lab-a2 .a2-footer a {
@@ -1703,6 +2491,30 @@
       transform: translateY(-8px);
     }
   }
+}
+
+/* The page behind A V2 follows its theme (overscroll, scrollbars, form controls). */
+html:has(.lab-a2) body {
+  background: #f4f4f1;
+}
+
+html[data-theme="dark"]:has(.lab-a2) {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"]:has(.lab-a2) body {
+  background: #131820;
+}
+
+/* The custom pointer replaces the system cursor inside A V2 (outside the layer, so no utility brings it back);
+   text fields keep the I-beam, and the lab bar keeps the system cursor. */
+html[data-cursor-on] .lab-a2,
+html[data-cursor-on] .lab-a2 * {
+  cursor: none;
+}
+
+html[data-cursor-on] .lab-a2 :is(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"]), textarea, [contenteditable="true"]) {
+  cursor: text;
 }
 
 /* Focus rings (outside the layer so utilities cannot remove them) */
@@ -1733,19 +2545,7 @@ html:not(.js) .lab-a2 [data-js-only] {
     animation-delay: var(--d, 0ms);
   }
 
-  .js .lab-a2 [data-enter="media"] {
-    animation-name: a2-frame;
-    animation-duration: 1.2s;
-  }
 
-  .js .lab-a2 [data-enter="media"] img {
-    animation: a2-settle 1.8s var(--ease) both;
-    animation-delay: var(--d, 0ms);
-  }
-
-  .js .lab-a2 [data-enter="float"] {
-    animation-name: a2-float-in;
-  }
 
   .lab-a2 .a2-glow {
     animation: a2-drift 18s ease-in-out infinite alternate;
@@ -1756,6 +2556,41 @@ html:not(.js) .lab-a2 [data-js-only] {
     animation-play-state: running;
   }
 
+  /* Hero plate, armed from the first paint (script and motion only): uncut, undrawn, still to rise. */
+  .js .lab-a2 .a2-plate {
+    opacity: 0;
+  }
+
+  .js .lab-a2 .a2-plate .a2-plate-slug {
+    opacity: 1;
+  }
+
+  .js .lab-a2 .a2-plate :is(.a2-plate-label, .a2-plate-node, .a2-plate-pulse) {
+    opacity: 0;
+  }
+
+  .js .lab-a2 .a2-plate .a2-plate-dim {
+    stroke-dasharray: 1 1.1;
+    stroke-dashoffset: 1.05;
+  }
+
+  /* Once cut, the hot points breathe softly while the hero is on screen (transform and opacity only). */
+  .lab-a2 .a2-plate-pulse > span {
+    animation: a2-node 3.6s ease-in-out calc(var(--i, 0) * -0.9s) infinite;
+    animation-play-state: paused;
+  }
+
+  .lab-a2 [data-live] .a2-plate-pulse > span {
+    animation-play-state: running;
+  }
+
+  @keyframes a2-node {
+    50% {
+      opacity: 0.12;
+      transform: scale(1.8);
+    }
+  }
+
   @keyframes a2-rise {
     from {
       opacity: 0;
@@ -1763,30 +2598,7 @@ html:not(.js) .lab-a2 [data-js-only] {
     }
   }
 
-  @keyframes a2-frame {
-    from {
-      opacity: 0;
-      clip-path: inset(7% 7% 7% 7% round var(--r-panel));
-    }
 
-    to {
-      opacity: 1;
-      clip-path: inset(0 round var(--r-panel));
-    }
-  }
-
-  @keyframes a2-settle {
-    from {
-      scale: 1.1;
-    }
-  }
-
-  @keyframes a2-float-in {
-    from {
-      opacity: 0;
-      transform: translate3d(0, 14px, 0) scale(0.96);
-    }
-  }
 
   @keyframes a2-drift {
     to {
@@ -1806,8 +2618,12 @@ html:not(.js) .lab-a2 [data-js-only] {
     scale: none;
   }
 
-  .lab-a2 [data-depth] {
-    translate: none;
+  .lab-a2 .a2-plate-tilt {
+    transition: none;
+  }
+
+  .lab-a2 .btn-primary::after {
+    display: none;
   }
 
   .lab-a2 details[open] > :is(.a2-dd-panel, .a2-sheet) {

@@ -14,9 +14,10 @@ is built and approved (see the approval gate in the Phase 1 brief).
 
 **Development is paused for a theme exploration:** Modern Commerce directions are built in the
 [theme lab](#theme-lab) for review. Option A was found closest to the target and is refined as
-**A V2** (signature laser-cutting and laser-engraving animations built on the service pages' own
-nesting sheet and engraved plate, a fuller header, one motion system), which awaits visual review. The current design stays live and unchanged until a theme is
-approved.
+**A V2** (the website's laser-cut plate as the hero, signature laser-cutting and laser-engraving
+animations built on the service pages' own nesting sheet and engraved plate, light and dark themes, a
+precision pointer, a fuller header, one motion system). Its second refinement pass awaits visual
+review. The current design stays live and unchanged until a theme is approved.
 
 | | |
 | --- | --- |
@@ -208,7 +209,8 @@ reapplies the theme and motion settings, so it still matches the rest of the sit
 ## Theme lab
 
 Isolated Modern Commerce explorations of the homepage, each with a design-system sheet, in English
-and Arabic (light theme). A V2 refines A; A stays for side-by-side comparison:
+and Arabic (light theme; A V2 also dark, from the header switch or `?theme=dark`). A V2 refines A; A
+stays for side-by-side comparison:
 
 | Option | Homepage | Design system |
 | --- | --- | --- |
@@ -224,8 +226,10 @@ dark bar at the top of each preview switches option, view and language; links in
 the current site. The signature illustrations live in `src/components/theme-lab/signature/` (SVG and
 the Web Animations API, reusable on later pages); they animate the Laser Cutting and Laser Engraving
 pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts`
-and `engraved-plate.ts`. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`,
-`docs/reports/2026-09-25-modern-commerce-a-v2.md` and `docs/reports/2026-09-25-a-v2-signature-correction.md`.
+and `engraved-plate.ts`. A V2's hero plate (`src/components/theme-lab/a2/HeroPlate.tsx`) redraws the
+website hero's plate from `src/components/home/hero/plate-geometry.ts`. See
+`docs/reports/2026-09-25-modern-commerce-theme-lab.md`, `docs/reports/2026-09-25-modern-commerce-a-v2.md`,
+`docs/reports/2026-09-25-a-v2-signature-correction.md` and `docs/reports/2026-09-26-a-v2-refinement-pass-2.md`.
 
 ## Assets
 
@@ -258,8 +262,10 @@ overflow from 360 to 1280 px, no-JS, reduced motion); `theme-lab-a-v2.spec.ts` c
 and Services menu, scroll-spy, phone menu sheet, EN/AR mirroring, industries by source, the machinery
 selector, the client colour switch, both signature animations — the service pages' artwork, the cutting
 head's path and order, grooves developing, finished states in EN/AR, readable sizes, replays, one-time
-playback on phones, still frames — parallax and ambient light, reduced motion, keyboard, no-JS, sheet
-overflow). In a cloud session Chromium is preinstalled at
+playback on phones, still frames — the hero plate's cut order, readout and X / Y, the pointer on
+desktop and its absence on touch, the theme switch and `?theme=`, text contrast in both themes and
+languages, overflow from 360 to 1920 px in both themes, ambient layers behind the content, reduced
+motion, keyboard, no-JS, sheet overflow). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages
