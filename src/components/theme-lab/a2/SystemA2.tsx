@@ -6,6 +6,7 @@ import { LaserEngrave } from "../signature/LaserEngrave";
 import { Logo, Photo, delay, statementIcon } from "../ui";
 import { aFontClasses } from "../a/fonts";
 import { ContactRowsA2, FooterA2, HeaderA2, ProjectCardA2, ServiceCardA2, ServiceFeatureA2 } from "./HomeA2";
+import { AmbientA2 } from "./Ambient";
 import { CursorA2 } from "./Cursor";
 import { HeroPlateA2 } from "./HeroPlate";
 import { MachineShowcase } from "./MachineShowcase";
@@ -15,6 +16,9 @@ import "./a2.css";
 
 /** Moments of each signature's intro shown as still frames. */
 const STILLS = ["initial", "active", "finished"] as const;
+
+/** Background motion frames: as reduced motion shows it, then the light sweep entering, crossing and leaving (seconds). */
+const AMBIENT_FRAMES = ["still", 8, 11, 14] as const;
 
 /** Option A V2 — Clean Premium Commerce, refined: design-system sheet. */
 export function SystemA2({ data }: { data: LabData }) {
@@ -284,7 +288,9 @@ export function SystemA2({ data }: { data: LabData }) {
     ["--navy / --dark", "#132039 / #111C30", "#17243B / #0C1016", "Dark panels, footer", "اللوحات الداكنة والتذييل"],
     ["--focus", "#2C5E86", "#8EBCDF", "Focus ring, field focus", "حلقة التركيز وتركيز الحقول"],
     ["--hs-* / --plate-*", "#FCFCFA → #EEEFEB · steel #D9DCD9–#F6F7F5", "#1F2733 → #161C25 · steel #434C57–#64707E", "Hero stage and plate", "منصة الواجهة واللوح"],
-    ["--pattern-dot / --pattern-line", "rgb(40 38 30 / 8.5 % · 5 %)", "rgb(200 215 235 / 7.5 % · 4.5 %)", "Dot matrix, measuring grid", "مصفوفة النقاط وشبكة القياس"],
+    ["--amb-dot / --amb-sweep", "ink 12 % / orange 60 %", "steel-white 10 % / warm light 50 %", "Micro-dots, the light sweep", "النقاط الدقيقة ومسح الضوء"],
+    ["--amb-warm / --amb-cool / --amb-teal", "orange 12 % / steel 11 % / teal 7.5 %", "orange 10 % / steel 16 % / teal 7 %", "Page colour fields", "حقول اللون في الصفحة"],
+    ["--sheet-muted-a / --sheet-raised-a", "70 % / 72 %", "68 % / 72 %", "Section sheet opacity", "عتامة ألواح الأقسام"],
     ["--glow-warm / --glow-cool / --band-glow", "orange 13 % / steel 10 % / orange 24 %", "orange 13 % / steel 15 % / orange 28 %", "Hero glows, dark bands", "توهج الواجهة والأشرطة الداكنة"],
     ["--sh-card / --sh-raised / --sh-hover", "lit top edge + warm soft shadow", "faint top edge + deep shadow", "Depth", "العمق"],
   ];
@@ -297,8 +303,8 @@ export function SystemA2({ data }: { data: LabData }) {
     ["--surface", "#FDFDFB", "#1C232D"],
     ["--surface-2", "#F7F7F4 · #F0F0EC", "#222A35 · #283140"],
     ["--brand-soft", "#FDEFE6", "#2E211B"],
-    ["--hero-top", "#FBFBF9 + grid + glows", "#171D27 + grid + glows"],
-    ["--dark", "#111C30 + band glow", "#0C1016 + band glow"],
+    ["--hero-top", "#FBFBF9 wash + glows", "#171D27 wash + glows"],
+    ["--dark", "#111C30 + dots + band glow", "#0C1016 + dots + band glow"],
   ];
 
   /* Measured contrast (light, dark) for t.contrastRows, in order. */
@@ -410,6 +416,74 @@ export function SystemA2({ data }: { data: LabData }) {
         </div>
       </Block>
 
+      <Block title={t.bgMotion} note={t.bgMotionNote}>
+        {(["light", "dark"] as const).map((theme) => (
+          <div key={theme} className="mb-8">
+            <p className="text-[0.9rem] font-semibold">{theme === "light" ? t.light : t.dark}</p>
+            <ul className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {AMBIENT_FRAMES.map((frame, i) => (
+                <li key={frame}>
+                  <div className={`a2-theme-${theme} a2-amb-frame`} aria-hidden>
+                    <AmbientA2 frame={frame} />
+                  </div>
+                  <p className="mt-2 text-[0.84rem] font-medium text-ink-2">{t.bgMotionFrames[i]}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <div className="overflow-x-auto" role="region" aria-label={t.bgMotion} tabIndex={0}>
+          <table className="w-full min-w-[54rem] text-start text-[0.86rem]">
+            <thead>
+              <tr className="border-b border-line text-[0.78rem] text-ink-2">
+                {t.bgMotionHead.map((h) => (
+                  <th key={h} className="py-2 pe-4 text-start font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {t.bgMotionRows.map(([layer, ...cells]) => (
+                <tr key={layer} className="border-b border-line-subtle">
+                  <th scope="row" className="py-2.5 pe-4 text-start font-semibold">
+                    {layer}
+                  </th>
+                  {cells.map((cell, j) => (
+                    <td key={j} className="py-2.5 pe-4">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-6 overflow-x-auto" role="region" aria-label={t.bgSurfaceHead[0]} tabIndex={0}>
+          <table className="w-full min-w-[34rem] text-start text-[0.86rem]">
+            <thead>
+              <tr className="border-b border-line text-[0.78rem] text-ink-2">
+                {t.bgSurfaceHead.map((h) => (
+                  <th key={h} className="py-2 pe-4 text-start font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {t.bgSurfaceRows.map(([surface, seen]) => (
+                <tr key={surface} className="border-b border-line-subtle">
+                  <th scope="row" className="py-2.5 pe-4 text-start font-semibold">
+                    {surface}
+                  </th>
+                  <td className="py-2.5 pe-4">{seen}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Block>
+
       <Block title={t.themes} note={t.themesNote}>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {themeSample("light")}
@@ -474,23 +548,6 @@ export function SystemA2({ data }: { data: LabData }) {
             <li key={rule} className="flex items-center gap-2.5 text-[0.92rem] font-medium">
               <Icon name="check" size={16} className="shrink-0 text-teal" />
               {rule}
-            </li>
-          ))}
-        </ul>
-      </Block>
-
-      <Block title={t.ambient} note={t.ambientNote}>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {t.ambientSamples.map((label, i) => (
-            <li key={label}>
-              <div className={`a2-amb-sample ${["a2-amb-dots", "a2-amb-hero", "a2-amb-dark a2-dark-amb"][i]}`} aria-hidden>
-                {i === 1 && (
-                  <span className="a2-hero-ambient">
-                    <span className="a2-glow" />
-                  </span>
-                )}
-              </div>
-              <p className="mt-2.5 text-[0.86rem] font-medium text-ink-2">{label}</p>
             </li>
           ))}
         </ul>
@@ -675,6 +732,7 @@ export function SystemA2({ data }: { data: LabData }) {
   const header = (
     <>
       <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
+      <AmbientA2 />
       <HeaderA2 data={data} view="system" />
       <CursorA2 />
       </>

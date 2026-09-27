@@ -59,7 +59,7 @@ export const labCopy = {
       contact: "Contact blocks",
       motion: "Motion",
       motionNote:
-        "One motion system: content fades and rises as it enters, cards lift 3 px, photos zoom 3.5 %, arrows move 3–4 px. Transform and opacity only. Only the hero's light and its hot points loop, and both pause off screen. With reduced motion every final state shows at once.",
+        "One motion system: content fades and rises as it enters, cards lift 3 px, photos zoom 3.5 %, arrows move 3–4 px. Transform and opacity only. Only the background loops: the page ambient moves slowly all the time (see Background motion), the hero's light and its hot points only while the hero is on screen. With reduced motion every final state shows at once and nothing loops.",
       motionRows: [
         ["Quick", "180 ms", "Colour, borders, press feedback"],
         ["Standard", "320 ms", "Card lift, arrows, menus"],
@@ -68,7 +68,7 @@ export const labCopy = {
         ["Ease out", "cubic-bezier(0.22, 1, 0.36, 1)", "Everything that moves"],
         ["Ease in-out", "cubic-bezier(0.65, 0, 0.35, 1)", "Signature replays"],
         ["Hero plate", "≈ 5 s, once", "Pierce, trace and raster; never loops"],
-        ["Ambient", "18 s drift · 3.6 s breathe", "Hero glows and plate nodes, on screen only"],
+        ["Background", "26–40 s · 30 s · 3.6 s", "Page ambient (always), hero glows and plate nodes (on screen)"],
         ["Pointer", "0.24 per frame", "The ring trails the point (desktop mouse)"],
       ],
       motionHead: ["Token", "Value", "Use"],
@@ -191,10 +191,28 @@ export const labCopy = {
         "Text fields keep the I-beam; the lab bar keeps the arrow",
         "Transform only; the ring's loop stops once it catches up",
       ],
-      ambient: "Ambient background",
-      ambientNote:
-        "Very quiet: a dot matrix on the page, a faint measuring grid and two soft glows in the hero, a grid and a warm glow on the dark footer. The hero glows drift slowly (18 s) and the plate's nodes breathe (3.6 s) only while the hero is on screen; with reduced motion nothing moves. Masks sit only on layers that never move.",
-      ambientSamples: ["Page · dot matrix", "Hero · grid and glows", "Dark band · grid and warm glow"],
+      bgMotion: "Background motion",
+      bgMotionNote:
+        "A minimal but visible background that is always on, behind every section: sparse micro-dots (layer A); three large soft colour fields — warm orange, steel blue, muted teal — that drift and breathe (layer B); and one precision motif (layer C), a soft band of light that passes behind the dots every 26 s, so the dots it crosses light up like light behind a perforated sheet. Transform and opacity only, run by the compositor: no work on the main thread. It changes only a few times a second — the dots and fields in steps well under a pixel, the light twenty times a second — so the screen is not redrawn sixty times a second for motion this slow, and it rests while the page scrolls. Section sheets let about a third of it through and cards stay opaque. With reduced motion it holds still (the first frame); phones get a lighter version. The frames below are the live layers held at a moment.",
+      bgMotionFrames: ["Still · reduced motion", "8 s · the light enters", "11 s · mid-screen", "14 s · leaving"],
+      bgMotionHead: ["Layer", "Light", "Dark", "Movement", "Timing", "Phones"],
+      bgMotionRows: [
+        ["A · Micro-dots", "Ink 12 %", "Steel-white 10 %", "12 × 7 px drift", "30 s, back and forth", "Still"],
+        ["B · Warm field", "Orange 12 % × 0.55–1", "Orange 10 % × 0.55–1", "Up to 66 × 44 px, scale 1.06", "32 s, back and forth", "70 %, ≈ 28 × 19 px"],
+        ["B · Steel field", "Steel 11 % × 0.55–1", "Steel 16 % × 0.55–1", "Up to 60 × 42 px, scale 1.05", "40 s, back and forth", "70 %, ≈ 26 × 18 px"],
+        ["B · Teal field", "Teal 7.5 % × 0.45–1", "Teal 7 % × 0.45–1", "Up to 40 × 28 px, scale 1.08", "28 s, back and forth", "Off"],
+        ["C · Light sweep", "Orange 60 %, through the dots", "Warm light 50 %, through the dots", "Crosses the screen in 13 s", "Every 26 s; rests off screen", "Wider band"],
+        ["Hero glows (local)", "Orange 13 %, steel 10 %", "Orange 13 %, steel 15 %", "≈ 50 × 38 px, scale 1.05", "30 s, on screen only", "Same"],
+      ],
+      bgSurfaceHead: ["Surface", "Background seen"],
+      bgSurfaceRows: [
+        ["Hero", "All of it, plus the hero's own two glows: the strongest point"],
+        ["Page sections (about, projects, contact)", "All of it"],
+        ["Section sheets (services, clients and compliance · machinery, industries)", "About 30 % · 28 % (light), 32 % · 28 % (dark)"],
+        ["Cards and panels", "None: they stay opaque"],
+        ["Dark contact panel", "Its own still micro-dots, 7 %"],
+        ["Footer", "Its own layer: micro-dots and a warm glow"],
+      ],
       layout: "Layout width",
       layoutNote:
         "The content column grows with the screen — min(1400 px, 92 vw) instead of a fixed 1240 px — and alternate sections are sheets inset 8–20 px from the screen edges, so large screens carry less empty margin without going edge to edge.",
@@ -246,7 +264,7 @@ export const labCopy = {
       contact: "عناصر التواصل",
       motion: "الحركة",
       motionNote:
-        "نظام حركة واحد: يظهر المحتوى بتلاشٍ وصعود خفيف عند دخوله الشاشة، وترتفع البطاقات 3 بكسل، وتقترب الصور بنسبة 3.5٪، وتتحرك الأسهم 3–4 بكسل. الحركة بالتحويل والشفافية فقط، ولا يتكرر إلا ضوء الواجهة ونقاطها المتوهجة، ويتوقف كلاهما خارج الشاشة. ومع خيار تقليل الحركة تظهر الحالة النهائية مباشرة.",
+        "نظام حركة واحد: يظهر المحتوى بتلاشٍ وصعود خفيف عند دخوله الشاشة، وترتفع البطاقات 3 بكسل، وتقترب الصور بنسبة 3.5٪، وتتحرك الأسهم 3–4 بكسل. الحركة بالتحويل والشفافية فقط، ولا يتكرر إلا الخلفية: تتحرك أجواء الصفحة ببطء طوال الوقت (انظر حركة الخلفية)، ويتحرك ضوء الواجهة ونقاطها المتوهجة ما دامت الواجهة ظاهرة فقط. ومع خيار تقليل الحركة تظهر الحالة النهائية مباشرة ولا يتكرر شيء.",
       motionRows: [
         ["سريع", "180 ms", "الألوان والحدود والاستجابة عند الضغط"],
         ["قياسي", "320 ms", "ارتفاع البطاقات والأسهم والقوائم"],
@@ -255,7 +273,7 @@ export const labCopy = {
         ["تباطؤ في النهاية", "cubic-bezier(0.22, 1, 0.36, 1)", "كل ما يتحرك"],
         ["تسارع ثم تباطؤ", "cubic-bezier(0.65, 0, 0.35, 1)", "إعادة تشغيل التوقيع البصري"],
         ["لوح الواجهة", "≈ 5 ثوانٍ، مرة واحدة", "ثقب ورسم ومسح صفّي، دون تكرار"],
-        ["الأجواء", "انجراف 18 ثانية · نبض 3.6 ثانية", "توهج الواجهة ونقاط اللوح، على الشاشة فقط"],
+        ["الخلفية", "26–40 ثانية · 30 ثانية · 3.6 ثانية", "أجواء الصفحة (دائمًا)، وتوهج الواجهة ونقاط اللوح (أثناء ظهورها)"],
         ["المؤشر", "0.24 لكل إطار", "تتبع الحلقة النقطة (فأرة سطح المكتب)"],
       ],
       motionHead: ["الرمز", "القيمة", "الاستخدام"],
@@ -378,10 +396,28 @@ export const labCopy = {
         "حقول النص تحتفظ بمؤشر الكتابة، وشريط المختبر بالسهم",
         "بالتحويل فقط، وتتوقف حركة الحلقة حين تلحق بالنقطة",
       ],
-      ambient: "الخلفية المحيطة",
-      ambientNote:
-        "هادئة جدًا: مصفوفة نقاط على الصفحة، وشبكة قياس خفيفة وتوهجان ناعمان في الواجهة، وشبكة وتوهج دافئ في التذييل الداكن. يتحرك توهج الواجهة ببطء (18 ثانية) وتنبض نقاط اللوح (3.6 ثانية) ما دامت الواجهة ظاهرة فقط، ومع تقليل الحركة لا يتحرك شيء. ولا توضع الأقنعة إلا على طبقات لا تتحرك.",
-      ambientSamples: ["الصفحة · مصفوفة نقاط", "الواجهة · شبكة وتوهج", "الشريط الداكن · شبكة وتوهج دافئ"],
+      bgMotion: "حركة الخلفية",
+      bgMotionNote:
+        "خلفية هادئة لكنها ظاهرة، تعمل دائمًا خلف كل الأقسام: نقاط دقيقة متباعدة (الطبقة A)، وثلاثة حقول لونية واسعة ناعمة — برتقالي دافئ وأزرق فولاذي وأخضر مزرق هادئ — تنساب وتتنفس ببطء (الطبقة B)، وعنصر دقة واحد (الطبقة C): شريط ضوء ناعم يمر خلف النقاط كل 26 ثانية فتضيء النقاط التي يعبرها، كضوء خلف لوح معدني مثقّب. الحركة بالتحويل والشفافية فقط ويتولاها مُركّب المتصفح دون أي عمل على الخيط الرئيسي. ولا تتغير إلا بضع مرات في الثانية — النقاط والحقول بخطوات أصغر كثيرًا من البكسل، والضوء عشرين مرة في الثانية — فلا تُعاد رسم الشاشة ستين مرة في الثانية لحركة بهذا البطء، وتتوقف أثناء التمرير. تُظهر ألواح الأقسام نحو ثلثها، وتبقى البطاقات معتمة. ومع تقليل الحركة تثبت كما في الإطار الأول، وللهواتف نسخة أخف. الإطارات أدناه هي الطبقات الحية نفسها موقوفة عند لحظة.",
+      bgMotionFrames: ["ثابتة · مع تقليل الحركة", "8 ثوانٍ · يدخل الضوء", "11 ثانية · منتصف الشاشة", "14 ثانية · يغادر"],
+      bgMotionHead: ["الطبقة", "الفاتح", "الداكن", "الحركة", "التوقيت", "الهواتف"],
+      bgMotionRows: [
+        ["A · النقاط الدقيقة", "حبر 12٪", "أبيض فولاذي 10٪", "انسياب 12 × 7 بكسل", "30 ثانية ذهابًا وإيابًا", "ثابتة"],
+        ["B · الحقل الدافئ", "برتقالي 12٪ × 0.55–1", "برتقالي 10٪ × 0.55–1", "حتى 66 × 44 بكسل، تكبير 1.06", "32 ثانية ذهابًا وإيابًا", "70٪، نحو 28 × 19 بكسل"],
+        ["B · الحقل الفولاذي", "أزرق فولاذي 11٪ × 0.55–1", "أزرق فولاذي 16٪ × 0.55–1", "حتى 60 × 42 بكسل، تكبير 1.05", "40 ثانية ذهابًا وإيابًا", "70٪، نحو 26 × 18 بكسل"],
+        ["B · الحقل الأخضر المزرق", "أخضر مزرق 7.5٪ × 0.45–1", "أخضر مزرق 7٪ × 0.45–1", "حتى 40 × 28 بكسل، تكبير 1.08", "28 ثانية ذهابًا وإيابًا", "متوقف"],
+        ["C · مسح الضوء", "برتقالي 60٪ عبر النقاط", "ضوء دافئ 50٪ عبر النقاط", "يعبر الشاشة في 13 ثانية", "كل 26 ثانية، ويستقر خارج الشاشة", "شريط أعرض"],
+        ["توهج الواجهة (محلي)", "برتقالي 13٪، فولاذي 10٪", "برتقالي 13٪، فولاذي 15٪", "نحو 50 × 38 بكسل، تكبير 1.05", "30 ثانية، أثناء ظهورها فقط", "كما هو"],
+      ],
+      bgSurfaceHead: ["السطح", "ما يظهر من الخلفية"],
+      bgSurfaceRows: [
+        ["الواجهة", "كاملة، مع توهجين خاصين بها: أقوى نقطة فيها"],
+        ["أقسام الصفحة (من نحن، المشاريع، التواصل)", "كاملة"],
+        ["ألواح الأقسام (الخدمات، والعملاء والامتثال · المعدات والقطاعات)", "نحو 30٪ · 28٪ (الفاتح)، و32٪ · 28٪ (الداكن)"],
+        ["البطاقات واللوحات", "لا شيء: تبقى معتمة"],
+        ["لوحة التواصل الداكنة", "نقاطها الدقيقة الثابتة، 7٪"],
+        ["التذييل", "طبقته الخاصة: نقاط دقيقة وتوهج دافئ"],
+      ],
       layout: "عرض التخطيط",
       layoutNote:
         "يتسع عمود المحتوى مع الشاشة — ‎min(1400 px, 92 vw)‎ بدل 1240 بكسل ثابتة — وتصبح الأقسام المتبادلة ألواحًا تبعد 8–20 بكسل عن حواف الشاشة، فتقل المساحات الفارغة على الشاشات الكبيرة دون أن يمتد المحتوى من الحافة إلى الحافة.",

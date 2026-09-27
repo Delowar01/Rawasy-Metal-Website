@@ -59,14 +59,21 @@
     --surface-2: #f7f7f4;
     --surface-3: #f0f0ec;
     --hero-top: #fbfbf9;
-    /* Ambient layers: pattern ink, soft glows, the lit edge of raised surfaces */
-    --pattern-dot: rgb(40 38 30 / 0.085);
-    --pattern-line: rgb(40 38 30 / 0.05);
+    /* Hero and dark-band glows, the lit edge of raised surfaces */
     --glow-warm: rgb(241 95 34 / 0.13);
     --glow-cool: rgb(44 94 134 / 0.1);
     --band-glow: rgb(241 95 34 / 0.24);
     --sheen: rgb(255 255 255 / 0.62);
     --edge-light: rgb(255 255 255 / 0.9);
+    /* Site-wide ambient (Ambient.tsx): micro-dot ink, the light that passes behind the dots, three soft colour fields */
+    --amb-dot: rgb(40 38 30 / 0.12);
+    --amb-sweep: rgb(241 95 34 / 0.6);
+    --amb-warm: rgb(241 95 34 / 0.12);
+    --amb-cool: rgb(44 94 134 / 0.11);
+    --amb-teal: rgb(27 111 101 / 0.075);
+    /* Section surfaces let a little of the ambient through (cards stay opaque) */
+    --sheet-muted-a: 70%;
+    --sheet-raised-a: 72%;
 
     /* Text */
     --ink: #15171a;
@@ -170,13 +177,18 @@
     --surface-2: #222a35;
     --surface-3: #283140;
     --hero-top: #171d27;
-    --pattern-dot: rgb(200 215 235 / 0.075);
-    --pattern-line: rgb(200 215 235 / 0.045);
     --glow-warm: rgb(242 106 46 / 0.13);
     --glow-cool: rgb(80 140 200 / 0.15);
     --band-glow: rgb(242 106 46 / 0.28);
     --sheen: rgb(255 255 255 / 0.035);
     --edge-light: rgb(255 255 255 / 0.055);
+    --amb-dot: rgb(200 215 235 / 0.1);
+    --amb-sweep: rgb(255 184 140 / 0.5);
+    --amb-warm: rgb(242 106 46 / 0.1);
+    --amb-cool: rgb(80 140 200 / 0.16);
+    --amb-teal: rgb(92 192 176 / 0.07);
+    --sheet-muted-a: 68%;
+    --sheet-raised-a: 72%;
 
     --ink: #eef1f4;
     --ink-2: #b8c0ca;
@@ -273,9 +285,9 @@
     --hh: 4.5rem;
 
     min-height: 100vh;
-    background:
-      radial-gradient(var(--pattern-dot) 1px, transparent 1.3px) 0 0 / 22px 22px,
-      var(--bg);
+    /* The page colour; the site-wide ambient (fixed, z-index -1) sits above it and below every section. */
+    isolation: isolate;
+    background: var(--bg);
     color: var(--ink);
     font-family: var(--ff-body);
     font-size: 1rem;
@@ -831,7 +843,7 @@
   .lab-a2 .sec-muted {
     background:
       linear-gradient(180deg, var(--sheen), transparent 7rem),
-      var(--bg-alt);
+      color-mix(in srgb, var(--bg-alt) var(--sheet-muted-a), transparent);
     box-shadow:
       inset 0 0 0 1px var(--line-subtle),
       inset 0 1px 0 var(--edge-light);
@@ -843,8 +855,110 @@
     border: 1px solid var(--line);
     background:
       linear-gradient(180deg, var(--sheen), transparent 9rem),
-      linear-gradient(180deg, var(--surface), var(--surface-2));
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--surface) var(--sheet-raised-a), transparent),
+        color-mix(in srgb, var(--surface-2) var(--sheet-raised-a), transparent)
+      );
     box-shadow: var(--sh-raised);
+  }
+
+  /* ---------- Site-wide ambient (Ambient.tsx) ----------
+     Page colour → this layer → section surfaces → cards and text → header and pointer. The layer is a size container,
+     so the same sizes (cq units) serve the screen and the design-system frames. */
+  .lab-a2 .a2-ambient {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+    container-type: size;
+  }
+
+  /* Layer C: a soft band of light that passes behind the dots now and then (it rests off screen). */
+  .lab-a2 .a2-ambient-sweep {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 60cqw;
+    background: linear-gradient(100deg, transparent 16%, var(--amb-sweep) 50%, transparent 84%);
+    transform: translate3d(-100%, 0, 0);
+  }
+
+  [dir="rtl"] .lab-a2 .a2-ambient-sweep {
+    right: 0;
+    left: auto;
+    background: linear-gradient(260deg, transparent 16%, var(--amb-sweep) 50%, transparent 84%);
+    transform: translate3d(100%, 0, 0);
+  }
+
+  /* Layer A: sparse micro-dots (2.3 px every 24 px), drawn as a page-colour sheet perforated with them, so the
+     light beneath shows only through the dots. The sheet drifts a few pixels. */
+  .lab-a2 .a2-ambient-pattern {
+    position: absolute;
+    inset: -24px;
+    background: radial-gradient(circle, var(--amb-dot) 1.15px, var(--bg) 1.75px) 0 0 / 24px 24px;
+  }
+
+  /* Layer B: three large soft colour fields, drawn once and moved on the compositor. */
+  .lab-a2 .a2-ambient-glow {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) var(--amb-glow, 100%), transparent), transparent);
+  }
+
+  .lab-a2 .a2-ambient-warm {
+    --glow: var(--amb-warm);
+    top: -22cqmax;
+    inset-inline-end: -16cqmax;
+    width: 64cqmax;
+    height: 64cqmax;
+  }
+
+  .lab-a2 .a2-ambient-cool {
+    --glow: var(--amb-cool);
+    --d: -12s;
+    bottom: -30cqmax;
+    inset-inline-start: -22cqmax;
+    width: 72cqmax;
+    height: 72cqmax;
+  }
+
+  .lab-a2 .a2-ambient-teal {
+    --glow: var(--amb-teal);
+    --d: -7s;
+    top: 34%;
+    inset-inline-start: 52%;
+    width: 42cqmax;
+    height: 42cqmax;
+  }
+
+  /* Phones: a lighter version — the dots hold still, the teal field rests, the two other fields are smaller and
+     fainter (their movement already scales with the screen), and the light band is wider for the narrow screen. */
+  @media (max-width: 40rem) {
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) {
+      --amb-glow: 70%;
+    }
+
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-teal {
+      display: none;
+    }
+
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-warm {
+      width: 56cqmax;
+      height: 56cqmax;
+    }
+
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-cool {
+      width: 60cqmax;
+      height: 60cqmax;
+    }
+
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-sweep {
+      width: 80cqw;
+    }
   }
 
   /* ---------- Header ---------- */
@@ -1186,27 +1300,17 @@
     position: relative;
     isolation: isolate;
     overflow: clip;
-    background: linear-gradient(180deg, var(--hero-top) 0%, var(--bg) 92%);
+    /* A light wash under the header; the site-wide ambient shows through the rest. */
+    background: linear-gradient(180deg, color-mix(in srgb, var(--hero-top) 50%, transparent), transparent 32rem);
   }
 
-  /* Hero ambient: a faint measuring grid that fades out downwards, and two soft glows drifting slowly. */
+  /* Hero ambient: two soft glows of its own, drifting slowly over the site-wide ambient (the hero is its strongest point). */
   .lab-a2 .a2-hero-ambient {
     position: absolute;
     inset: 0;
     z-index: -1;
     overflow: hidden;
     pointer-events: none;
-  }
-
-  /* The grid is its own layer: a static mask over nothing that moves. */
-  .lab-a2 .a2-hero-ambient::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(to right, var(--pattern-line) 1px, transparent 1px) 50% 0 / 56px 56px,
-      linear-gradient(to bottom, var(--pattern-line) 1px, transparent 1px) 50% 0 / 56px 56px;
-    mask-image: radial-gradient(90% 75% at 70% 30%, #000 20%, transparent 80%);
   }
 
   .lab-a2 .a2-glow {
@@ -2164,21 +2268,25 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: linear-gradient(
-      100deg,
-      color-mix(in srgb, var(--navy) 97%, transparent) 34%,
-      color-mix(in srgb, var(--navy) 74%, transparent) 68%,
-      color-mix(in srgb, var(--navy) 42%, transparent)
-    );
+    background:
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      linear-gradient(
+        100deg,
+        color-mix(in srgb, var(--navy) 97%, transparent) 34%,
+        color-mix(in srgb, var(--navy) 74%, transparent) 68%,
+        color-mix(in srgb, var(--navy) 42%, transparent)
+      );
   }
 
   [dir="rtl"] .lab-a2 .a2-cta-dark::before {
-    background: linear-gradient(
-      260deg,
-      color-mix(in srgb, var(--navy) 97%, transparent) 34%,
-      color-mix(in srgb, var(--navy) 74%, transparent) 68%,
-      color-mix(in srgb, var(--navy) 42%, transparent)
-    );
+    background:
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      linear-gradient(
+        260deg,
+        color-mix(in srgb, var(--navy) 97%, transparent) 34%,
+        color-mix(in srgb, var(--navy) 74%, transparent) 68%,
+        color-mix(in srgb, var(--navy) 42%, transparent)
+      );
   }
 
   .lab-a2 .step-num {
@@ -2240,13 +2348,14 @@
 
   .lab-a2 .a2-bg-chip-hero {
     background:
-      linear-gradient(to right, var(--pattern-line) 1px, transparent 1px) 0 0 / 7px 7px,
+      radial-gradient(circle, var(--amb-dot) 0.9px, transparent 1.3px) 0 0 / 7px 7px,
       radial-gradient(closest-side at 70% 30%, var(--glow-warm), transparent),
       linear-gradient(180deg, var(--hero-top), var(--bg));
   }
 
   .lab-a2 .a2-bg-chip-dark {
     background:
+      radial-gradient(circle, rgb(200 215 235 / 0.16) 0.9px, transparent 1.3px) 0 0 / 7px 7px,
       radial-gradient(closest-side at 80% 10%, var(--band-glow), transparent),
       var(--dark);
   }
@@ -2261,7 +2370,7 @@
     border: 1px solid var(--line);
     border-radius: var(--r-card);
     background:
-      radial-gradient(var(--pattern-dot) 1px, transparent 1.3px) 0 0 / 14px 14px,
+      radial-gradient(circle, var(--amb-dot) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
       var(--bg);
   }
 
@@ -2288,38 +2397,20 @@
     pointer-events: none;
   }
 
-  /* Ambient samples */
-  .lab-a2 .a2-amb-sample {
+  /* Background motion frames: the site ambient inside a panel, as a small screen. */
+  .lab-a2 .a2-amb-frame {
     position: relative;
     isolation: isolate;
-    height: 9rem;
+    aspect-ratio: 16 / 10;
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--r-card);
   }
 
-  .lab-a2 .a2-amb-dots {
-    background:
-      radial-gradient(var(--pattern-dot) 1px, transparent 1.3px) 0 0 / 22px 22px,
-      var(--bg);
+  .lab-a2 .a2-ambient.a2-ambient-frame {
+    position: absolute;
+    z-index: 0;
   }
-
-  .lab-a2 .a2-amb-hero {
-    background: linear-gradient(180deg, var(--hero-top) 0%, var(--bg) 92%);
-  }
-
-  .lab-a2 .a2-amb-hero .a2-glow {
-    top: -20%;
-    inset-inline-end: -10%;
-    width: 90%;
-    height: 140%;
-  }
-
-  .lab-a2 .a2-amb-dark {
-    border-color: transparent;
-    background: var(--dark);
-  }
-
 
   .lab-a2 .a2-phone {
     width: min(24.5rem, 100%);
@@ -2441,7 +2532,7 @@
   }
 
   /* ---------- Footer ---------- */
-  /* The footer: a dark sheet with its own ambient layer (a faint grid, a warm glow at the top). */
+  /* The footer: a dark sheet with its own ambient layer (the site's micro-dots, a warm glow at the top). */
   .lab-a2 .a2-footer {
     position: relative;
     isolation: isolate;
@@ -2453,7 +2544,7 @@
     color: var(--on-dark-2);
   }
 
-  .lab-a2 :is(.a2-footer, .a2-dark-amb)::before {
+  .lab-a2 .a2-footer::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -2461,12 +2552,11 @@
     background:
       radial-gradient(50% 70% at 88% 0%, var(--band-glow), transparent 70%),
       radial-gradient(40% 60% at 6% 100%, rgb(80 140 200 / 0.14), transparent 70%),
-      linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px) 0 0 / 56px 56px,
-      linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px) 0 0 / 56px 56px;
+      radial-gradient(circle, rgb(200 215 235 / 0.09) 1.15px, transparent 1.75px) 0 0 / 24px 24px;
     pointer-events: none;
   }
 
-  [dir="rtl"] .lab-a2 :is(.a2-footer, .a2-dark-amb)::before {
+  [dir="rtl"] .lab-a2 .a2-footer::before {
     scale: -1 1;
   }
 
@@ -2538,8 +2628,127 @@ html:not(.js) .lab-a2 [data-js-only] {
   display: none !important;
 }
 
+/* ---------- Site-wide ambient motion: broad and slow, transform and opacity only ----------
+   Each layer runs on its own period, so the composition never repeats quickly. The fields and the dots alternate
+   (no reset jump); the fields travel up to 66 × 44 px, less on smaller screens (cqmin).
+   Stepped timing on one clock: the dots and the fields change four times a second, in steps well under a pixel,
+   and the light twenty times a second while it crosses, so the screen is redrawn only when something changes
+   (motion this slow gains nothing from 60 redraws a second). */
+
+/* The light band: it rests off screen, crosses in half the period at a steady pace, then rests past the other
+   edge; the loop restarts off screen, so there is no visible jump. Arabic mirrors it (right to left). */
+@keyframes a2-amb-sweep {
+  0%,
+  20% {
+    transform: translate3d(-100%, 0, 0);
+  }
+
+  70%,
+  100% {
+    transform: translate3d(100cqw, 0, 0);
+  }
+}
+
+@keyframes a2-amb-sweep-rtl {
+  0%,
+  20% {
+    transform: translate3d(100%, 0, 0);
+  }
+
+  70%,
+  100% {
+    transform: translate3d(-100cqw, 0, 0);
+  }
+}
+
+@keyframes a2-amb-dots {
+  to {
+    transform: translate3d(12px, 7px, 0);
+  }
+}
+
+@keyframes a2-amb-warm {
+  from {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(max(-7.3cqmin, -66px), min(4.9cqmin, 44px), 0) scale(1.06);
+  }
+}
+
+@keyframes a2-amb-cool {
+  to {
+    opacity: 0.55;
+    transform: translate3d(min(6.7cqmin, 60px), max(-4.7cqmin, -42px), 0) scale(1.05);
+  }
+}
+
+@keyframes a2-amb-teal {
+  from {
+    opacity: 0.45;
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(max(-4.4cqmin, -40px), max(-3.1cqmin, -28px), 0) scale(1.08);
+  }
+}
+
+.lab-a2 .a2-ambient-sweep {
+  --amb-anim: a2-amb-sweep 26s steps(260);
+  --amb-dir: normal;
+}
+
+[dir="rtl"] .lab-a2 .a2-ambient-sweep {
+  --amb-anim: a2-amb-sweep-rtl 26s steps(260);
+}
+
+.lab-a2 .a2-ambient-pattern {
+  --amb-anim: a2-amb-dots 30s steps(120);
+}
+
+.lab-a2 .a2-ambient-warm {
+  --amb-anim: a2-amb-warm 32s steps(128);
+}
+
+.lab-a2 .a2-ambient-cool {
+  --amb-anim: a2-amb-cool 40s steps(160);
+}
+
+.lab-a2 .a2-ambient-teal {
+  --amb-anim: a2-amb-teal 28s steps(112);
+}
+
+/* Design-system frames: the same motion held still at a moment (--at), with or without reduced motion;
+   the still frame shows what reduced motion shows. */
+.lab-a2 .a2-ambient-frame > * {
+  animation: var(--amb-anim) calc(var(--d, 0s) - var(--at, 0s)) infinite var(--amb-dir, alternate) both paused;
+}
+
+.lab-a2 .a2-ambient-frame.a2-ambient-still > * {
+  animation: none;
+}
+
 /* ---------- Motion: entrance, ambient light, reveals — never with reduced motion ---------- */
 @media (prefers-reduced-motion: no-preference) {
+  .lab-a2 .a2-ambient:not(.a2-ambient-frame) > * {
+    animation: var(--amb-anim) var(--d, 0s) infinite var(--amb-dir, alternate) both;
+  }
+
+  /* Phones: the dots hold still (one layer fewer in motion). */
+  @media (max-width: 40rem) {
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-pattern {
+      animation: none;
+    }
+  }
+
+  /* While the page scrolls the ambient rests where it is (LabMotion sets data-scrolling), then carries on. */
+  html[data-scrolling] .lab-a2 .a2-ambient:not(.a2-ambient-frame) > * {
+    animation-play-state: paused;
+  }
+
   .js .lab-a2 [data-enter] {
     animation: a2-rise var(--dur-4) var(--ease) both;
     animation-delay: var(--d, 0ms);
@@ -2548,7 +2757,7 @@ html:not(.js) .lab-a2 [data-js-only] {
 
 
   .lab-a2 .a2-glow {
-    animation: a2-drift 18s ease-in-out infinite alternate;
+    animation: a2-drift 30s ease-in-out infinite alternate;
     animation-play-state: paused;
   }
 

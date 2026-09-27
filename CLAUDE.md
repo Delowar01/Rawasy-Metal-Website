@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-26-a-v2-refinement-pass-2.md` (earlier:
-  `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
+- Latest report: `docs/reports/2026-09-27-a-v2-background-motion.md` (earlier:
+  `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
@@ -52,6 +52,12 @@
   and dark backgrounds with a background token system, a dark theme (A V2 only), a precision pointer,
   section sheets, quiet ambient layers, a contrast audit and an updated sheet. A V2 is still not
   approved: never migrate it, and no 1E, Phase 2, B or C work.
+- **A V2's background motion was corrected and awaits visual review** (the user's "BACKGROUND MOTION
+  CORRECTION ONLY" brief, report `2026-09-27-a-v2-background-motion.md`): pass 2's background was rejected
+  as static. The target is "visible + minimal, not strong + distracting" across the whole page: micro-dots,
+  2–3 large soft colour fields and ONE precision motif (a light sweep behind the dots). Never a
+  blueprint, CAD, technical-grid or architecture look; no canvas, WebGL, particles or animated filters.
+  Nothing else in A V2 was to be redesigned.
 - **A V2's signature animations were corrected** (the user's "SIGNATURE ANIMATION CORRECTION" brief,
   report `2026-09-25-a-v2-signature-correction.md`): the user rejected the star cut and the medallion
   engraving. The signatures must animate the service pages' own drawings (the Laser Cutting nesting
@@ -243,13 +249,35 @@
   `Cursor.tsx` is the desktop-mouse pointer (`html[data-cursor-on]`, set only once the mouse moves;
   touch, pens, reduced motion and forced colours keep the system cursor; text fields keep the I-beam).
   `--shell: min(1400px, 92vw)`; `.sec-sheet` (`.sec-muted`, `.sec-raised`) and the footer are sheets
-  inset `--sheet-m` from the screen edges; ambient: page dot matrix, hero grid and glows, footer grid.
+  inset `--sheet-m` from the screen edges. (Pass 2's page dot matrix, hero grid and footer grid were replaced
+  by the site-wide ambient below.)
+- A V2 site-wide ambient (`a2/Ambient.tsx`, "Site-wide ambient" in `a2.css`): one fixed layer inside
+  `.lab-a2` (isolated) at `z-index: -1`, so page colour → ambient → sections → content → header/pointer.
+  Layers: `-sweep` (C: a band of light that rests off screen and crosses every 26 s, mirrored in Arabic),
+  `-pattern` (A: a page-colour sheet perforated with 2.3 px dots every 24 px, so the sweep beneath shows only
+  through the dots; drifts 12 × 7 px), `-warm` / `-cool` / `-teal` (B: large radial fields that move up to
+  66 × 44 px and breathe). Tokens `--amb-dot/-sweep/-warm/-cool/-teal`; sections see it through translucent
+  sheets (`--sheet-muted-a` / `--sheet-raised-a`, about 30 % through); cards stay opaque; the dark contact
+  panel and the footer carry their own still dots. The layer is a size container: sizes and distances use
+  `cq*` units (capped in px), so the same CSS drives the screen and the sheet's frames (`<AmbientA2
+  frame={seconds | "still"} />`, held with `--at`). Timing is `steps()` on one clock (dots and fields 4
+  changes/s, the sweep 20/s while crossing) so the compositor redraws only when something changes; it rests
+  while the page scrolls (LabMotion sets `html[data-scrolling]`, cleared 200 ms after the last scroll);
+  phones drop the teal field, keep the dots still and fade the fields to 70 %; reduced motion holds it all
+  still (dots and fields stay, the sweep rests off screen).
 - A V2 performance rules (measured in pass 2): nothing inside the plate SVG animates continuously (the
   hot points' breathing is HTML over it) and the SVG carries no filter; the shadow is a static
   drop-shadow rastered with the plate; no `backdrop-filter` or `will-change` + `filter` on layers that
   sit under continuous animation (both are re-applied on every compositor frame); the lean is inline
   transforms on the plate (`will-change: transform`) instead of a custom property on the hero (that
   restyled the whole SVG per mouse move); write the readout only when it changes.
+- Ambient performance (measured in the background-motion pass, headless Chromium = software compositing,
+  the worst case): an animated fixed layer between the page colour and the content moves the page content
+  into its own composited layer (reason "Overlap"); the root keeps only the solid page colour. Running
+  layers cost far more than still or paused ones while scrolling; paused animations stay composited;
+  `steps()` on one clock cut idle redraws from 60 to 4–20 a second. Keyframes with `var()`, `%` and `cq*`
+  units still run on the compositor (0 main-thread style recalcs). Layer "memory" from layer bounds is
+  misleading (Chromium rasters tiles near the viewport only, and solid-colour layers need none).
 - Signature illustrations (`signature/`) animate the service pages' drawings, whose geometry lives in
   `src/components/service/visuals/nesting-sheet.ts` and `engraved-plate.ts` (shared with
   `CutPathVisual` and `EngravedPlateVisual`). `LaserCut.tsx`: the nesting sheet appears with one scan
@@ -378,3 +406,10 @@
   `color(srgb …)`: tests that read colours should convert them through a 1 × 1 canvas.
 - axe marks text on gradients and photos as "needs review", not as a pass: audit those with a
   worst-case solid override and with rendered-pixel measurements (the pass-2 report explains both).
+- axe (and `document.elementsFromPoint`) skip `pointer-events: none` layers, so axe never sees A V2's ambient:
+  audit it by painting its worst-case colour on the page itself, and measure rendered pixels.
+- `offsetTop` is relative to the offset parent (A V2's sheets are positioned, so `#clients` reads 0). To jump in
+  scripts and tests use `el.scrollIntoView({ behavior: "instant" })`; a smooth scroll through Services also
+  starts the signatures, so idle measurements must jump and wait out one-time runs.
+- Playwright's attribute polling can miss an attribute that lives ~200 ms (`data-scrolling`); sample it inside
+  the page (in the scroll event) instead. Wait for `data-live` on the A V2 hero before relying on LabMotion.

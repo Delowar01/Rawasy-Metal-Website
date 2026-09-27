@@ -729,6 +729,8 @@ test.describe("A V2 · pointer", () => {
     await page.mouse.up();
     await expect(cursor).not.toHaveAttribute("data-press");
 
+    // Once the plate's one-time cut sequence is over, so its openings no longer change under a still pointer.
+    await expect.poll(async () => (await signatureAnimations(page, ".a2-hero .a2-plate")).every((a) => a.state === "finished"), { timeout: 15000 }).toBe(true);
     await page.locator(".a2-hero .a2-plate").hover();
     await expect(cursor).toHaveAttribute("data-state", "plate");
     await page.locator("#services article:has(.sig-cut)").hover();
@@ -848,5 +850,271 @@ test.describe("A V2 · light and dark", () => {
       };
     });
     expect(ambient).toEqual({ hidden: "true", events: "none", z: "-1", top: true, footer: ["none", "-1"], grid: ["-1"] });
+  });
+});
+
+/** The live site-wide ambient (not the design-system frames). */
+const AMBIENT = ".a2-ambient:not(.a2-ambient-frame)";
+
+test.describe("A V2 · background motion", () => {
+  test.use({ contextOptions: { reducedMotion: "no-preference" } });
+
+  test("one fixed ambient sits behind every section, hidden from assistive technology and out of the pointer's way", async ({ page }) => {
+    for (const locale of LOCALES) {
+      for (const path of [home(locale), system(locale)]) {
+        await page.goto(path, { waitUntil: "networkidle" });
+        const layer = await page.evaluate((sel) => {
+          const live = [...document.querySelectorAll<HTMLElement>(sel)];
+          const el = live[0];
+          const cs = getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          const h1 = document.querySelector("h1")!.getBoundingClientRect();
+          const probes = [
+            [4, innerHeight - 4],
+            [innerWidth / 2, innerHeight / 2],
+          ].map(([x, y]) => document.elementFromPoint(x, y)?.closest(".a2-ambient") ?? null);
+          return {
+            count: live.length,
+            hidden: el.getAttribute("aria-hidden"),
+            position: cs.position,
+            z: cs.zIndex,
+            events: cs.pointerEvents,
+            fills: [r.x, r.y, r.width, r.height].map(Math.round).join() === [0, 0, document.documentElement.clientWidth, innerHeight].join(),
+            layers: [...el.children].map((c) => c.className),
+            isolated: getComputedStyle(el.parentElement!).isolation,
+            h1OnTop: document.elementFromPoint(h1.x + h1.width / 2, h1.y + h1.height / 2)?.closest("h1") !== null,
+            hits: probes.filter(Boolean).length,
+          };
+        }, AMBIENT);
+        expect(layer, path).toEqual({
+          count: 1,
+          hidden: "true",
+          position: "fixed",
+          z: "-1",
+          events: "none",
+          fills: true,
+          layers: ["a2-ambient-sweep", "a2-ambient-pattern", "a2-ambient-glow a2-ambient-warm", "a2-ambient-glow a2-ambient-cool", "a2-ambient-glow a2-ambient-teal"],
+          isolated: "isolate",
+          h1OnTop: true,
+          hits: 0,
+        });
+      }
+    }
+  });
+
+  test("it moves slowly on the compositor: dots 30 s, colour fields 28–40 s, a light sweep every 26 s, within small distances", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    const anims = await page.evaluate((sel) =>
+      document
+        .querySelector(sel)!
+        .getAnimations({ subtree: true })
+        .map((a) => {
+          const t = a.effect!.getTiming();
+          return { name: (a as CSSAnimation).animationName, state: a.playState, duration: t.duration, direction: t.direction, iterations: t.iterations };
+        }),
+    AMBIENT);
+    expect(anims.map((a) => a.name).sort()).toEqual(["a2-amb-cool", "a2-amb-dots", "a2-amb-sweep", "a2-amb-teal", "a2-amb-warm"]);
+    for (const a of anims) {
+      expect(a.state, a.name).toBe("running");
+      expect(a.iterations, a.name).toBe(Infinity);
+      expect(a.duration, a.name).toBeGreaterThanOrEqual(24000);
+      expect(a.duration, a.name).toBeLessThanOrEqual(45000);
+      // The fields and the dots go back and forth (no reset jump); the sweep restarts while off screen.
+      expect(a.direction, a.name).toBe(a.name === "a2-amb-sweep" ? "normal" : "alternate");
+    }
+    // Each layer held at a moment: where it is and how far it has moved.
+    const at = (layer: string, seconds: number) =>
+      page.evaluate(
+        ([sel, ms]) => {
+          const el = document.querySelector(sel)!;
+          const a = el.getAnimations()[0];
+          a.pause();
+          a.currentTime = ms;
+          const m = new DOMMatrix(getComputedStyle(el).transform);
+          const r = el.getBoundingClientRect();
+          return { x: Math.round(m.e), y: Math.round(m.f), left: r.left, right: r.right, screen: document.documentElement.clientWidth };
+        },
+        [`${AMBIENT} ${layer}`, seconds * 1000] as const,
+      );
+    // The light rests off screen, crosses at a steady pace, and has left by the end of its pass.
+    expect((await at(".a2-ambient-sweep", 2)).right).toBeLessThanOrEqual(1);
+    const mid = await at(".a2-ambient-sweep", 11.7);
+    expect(Math.abs((mid.left + mid.right) / 2 - mid.screen / 2)).toBeLessThan(24);
+    const gone = await at(".a2-ambient-sweep", 19);
+    expect(gone.left).toBeGreaterThanOrEqual(gone.screen - 1);
+    // The dots drift 12 × 7 px; the fields move up to 66 × 44 px (never more than 80).
+    expect(await at(".a2-ambient-pattern", 30)).toMatchObject({ x: 12, y: 7 });
+    for (const [layer, end] of [
+      [".a2-ambient-warm", 32],
+      [".a2-ambient-cool", 28],
+      [".a2-ambient-teal", 21],
+    ] as const) {
+      const moved = await at(layer, end);
+      expect(Math.max(Math.abs(moved.x), Math.abs(moved.y)), layer).toBeGreaterThan(20);
+      expect(Math.max(Math.abs(moved.x), Math.abs(moved.y)), layer).toBeLessThanOrEqual(80);
+    }
+  });
+
+  test("the motion costs the main thread nothing once the page is still", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    // After the hero's one-time intro, jump (no smooth scroll) to a section with no one-time run left to play.
+    await page.waitForTimeout(6000);
+    await page.evaluate(() => document.querySelector("#clients")!.scrollIntoView({ behavior: "instant", block: "start" }));
+    await page.waitForTimeout(2500);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Performance.enable");
+    const metrics = async () => Object.fromEntries((await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]));
+    const before = await metrics();
+    await page.waitForTimeout(2000);
+    const after = await metrics();
+    // The hero's own loops have paused off screen; the five ambient layers keep running.
+    await expect(page.locator(".a2-hero")).not.toHaveAttribute("data-live", "");
+    expect(await page.evaluate((sel) => document.querySelector(sel)!.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length, AMBIENT)).toBe(5);
+    // About 120 frames of motion in 2 s, none of them restyled or laid out on the main thread (a still page without
+    // the ambient shows the same handful of style checks).
+    expect(after.RecalcStyleCount - before.RecalcStyleCount).toBeLessThanOrEqual(20);
+    expect(after.LayoutCount - before.LayoutCount).toBeLessThanOrEqual(3);
+  });
+
+  test("it rests while the page scrolls and carries on from where it stopped", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    // LabMotion is running once it has marked the hero as on screen.
+    await expect(page.locator(".a2-hero")).toHaveAttribute("data-live", "");
+    // Scrolled from inside the page every 50 ms for half a second, sampled after each step: whenever the page is
+    // marked as scrolling, every layer is paused and its clock holds.
+    const samples = await page.evaluate(
+      (sel) =>
+        new Promise<{ marked: boolean; states: string[]; times: number[] }[]>((resolve) => {
+          const take = () => {
+            const anims = document.querySelector(sel)!.getAnimations({ subtree: true });
+            return { marked: document.documentElement.hasAttribute("data-scrolling"), states: anims.map((a) => a.playState), times: anims.map((a) => Number(a.currentTime)) };
+          };
+          addEventListener(
+            "scroll",
+            async () => {
+              const out = [take()];
+              for (let i = 0; i < 10; i++) {
+                scrollBy(0, 40);
+                await new Promise((r) => setTimeout(r, 50));
+                out.push(take());
+              }
+              resolve(out);
+            },
+            { once: true },
+          );
+          scrollBy(0, 300);
+        }),
+      AMBIENT,
+    );
+    const marked = samples.filter((s) => s.marked);
+    expect(marked.length).toBeGreaterThan(3);
+    for (const s of marked) expect(s.states).toEqual(Array(5).fill("paused"));
+    for (let i = 1; i < samples.length; i++) {
+      if (samples[i - 1].marked && samples[i].marked) samples[i].times.forEach((t, k) => expect(t).toBe(samples[i - 1].times[k]));
+    }
+    // Then, once the (smooth) scrolling has settled, they carry on from there.
+    await expect
+      .poll(() => page.evaluate((sel) => document.querySelector(sel)!.getAnimations({ subtree: true }).map((a) => a.playState), AMBIENT))
+      .toEqual(Array(5).fill("running"));
+    await expect(page.locator("html")).not.toHaveAttribute("data-scrolling", "");
+  });
+
+  test("section sheets let about a third of it through; cards stay opaque", async ({ page }) => {
+    for (const theme of ["light", "dark"]) {
+      await page.goto(`${home("en")}?theme=${theme}`, { waitUntil: "networkidle" });
+      const alphas = await page.evaluate(() => {
+        const alpha = (colour: string) => {
+          const m = colour.match(/\/\s*([\d.]+)\s*\)$/) ?? colour.match(/^rgba\([^)]*,\s*([\d.]+)\)$/);
+          return m ? Number(m[1]) : 1;
+        };
+        const raised = getComputedStyle(document.querySelector(".sec-raised")!).backgroundImage.match(/color\(srgb[^)]*\)/g) ?? [];
+        return {
+          muted: alpha(getComputedStyle(document.querySelector(".sec-muted")!).backgroundColor),
+          raised: raised.map(alpha),
+          card: alpha(getComputedStyle(document.querySelector("#services .card-link")!).backgroundColor),
+        };
+      });
+      expect(alphas.muted, theme).toBeGreaterThanOrEqual(0.65);
+      expect(alphas.muted, theme).toBeLessThanOrEqual(0.8);
+      expect(alphas.raised.length, theme).toBe(2);
+      for (const a of alphas.raised) expect(a, theme).toBe(0.72);
+      expect(alphas.card, theme).toBe(1);
+    }
+  });
+
+  test("the design-system sheet shows it as frames: still, 8, 11 and 14 s in both themes, the light crossing from the reading side", async ({ page }) => {
+    for (const locale of LOCALES) {
+      await page.goto(system(locale), { waitUntil: "networkidle" });
+      await page.locator(".a2-amb-frame").first().scrollIntoViewIfNeeded();
+      const frames = await page.locator(".a2-amb-frame").evaluateAll((els) =>
+        els.map((el) => {
+          const amb = el.querySelector(".a2-ambient-frame")!;
+          const sweep = amb.querySelector(".a2-ambient-sweep")!.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          return {
+            theme: el.classList.contains("a2-theme-dark") ? "dark" : "light",
+            hidden: el.getAttribute("aria-hidden"),
+            running: amb.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length,
+            centre: Math.round((((sweep.left + sweep.right) / 2 - box.left) / box.width) * 100) / 100,
+          };
+        }),
+      );
+      expect(frames.map((f) => f.theme)).toEqual(["light", "light", "light", "light", "dark", "dark", "dark", "dark"]);
+      expect(frames.every((f) => f.hidden === "true" && f.running === 0)).toBe(true);
+      // Where the band's centre sits across the frame (0 = left edge, 1 = right edge); Arabic mirrors it.
+      for (const row of [frames.slice(0, 4), frames.slice(4)]) {
+        const along = row.map((f) => (locale === "ar" ? 1 - f.centre : f.centre));
+        expect(along[0], "still: off screen").toBeLessThan(0);
+        expect(along[1], "8 s: entering").toBeGreaterThan(-0.1);
+        expect(along[1], "8 s: entering").toBeLessThan(0.2);
+        expect(along[2], "11 s: mid-screen").toBeGreaterThan(0.3);
+        expect(along[2], "11 s: mid-screen").toBeLessThan(0.55);
+        expect(along[3], "14 s: leaving").toBeGreaterThan(0.65);
+        expect(along[3], "14 s: leaving").toBeLessThan(0.9);
+      }
+    }
+  });
+});
+
+test.describe("A V2 · background motion on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
+
+  test("phones get a lighter version: still dots, no teal field, fainter fields; the light still passes", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    const phone = await page.evaluate((sel) => {
+      const el = document.querySelector(sel)!;
+      return {
+        running: el
+          .getAnimations({ subtree: true })
+          .map((a) => (a as CSSAnimation).animationName)
+          .sort(),
+        teal: getComputedStyle(el.querySelector(".a2-ambient-teal")!).display,
+        dots: getComputedStyle(el.querySelector(".a2-ambient-pattern")!).backgroundImage.includes("radial-gradient"),
+        strength: getComputedStyle(el).getPropertyValue("--amb-glow").trim(),
+      };
+    }, AMBIENT);
+    expect(phone).toEqual({ running: ["a2-amb-cool", "a2-amb-sweep", "a2-amb-warm"], teal: "none", dots: true, strength: "70%" });
+  });
+});
+
+test.describe("A V2 · background motion, reduced", () => {
+  test.use({ contextOptions: { reducedMotion: "reduce" } });
+
+  test("with reduced motion the background holds still and stays visible", async ({ page }) => {
+    for (const theme of ["light", "dark"]) {
+      await page.goto(`${home("en")}?theme=${theme}`, { waitUntil: "networkidle" });
+      await page.waitForTimeout(500);
+      const still = await page.evaluate((sel) => {
+        const el = document.querySelector(sel)!;
+        const css = (s: string) => getComputedStyle(el.querySelector(s)!);
+        return {
+          animations: el.getAnimations({ subtree: true }).length,
+          dots: css(".a2-ambient-pattern").backgroundImage.includes("radial-gradient"),
+          fields: [...el.querySelectorAll(".a2-ambient-glow")].map((g) => getComputedStyle(g).opacity),
+          sweepOff: el.querySelector(".a2-ambient-sweep")!.getBoundingClientRect().right <= 0,
+        };
+      }, AMBIENT);
+      expect(still, theme).toEqual({ animations: 0, dots: true, fields: ["1", "1", "1"], sweepOff: true });
+    }
   });
 });

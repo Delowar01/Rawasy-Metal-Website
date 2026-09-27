@@ -7,6 +7,7 @@ import { LaserCut } from "../signature/LaserCut";
 import { LaserEngrave } from "../signature/LaserEngrave";
 import { LabBar, Logo, Photo, delay, serviceIcon, statementIcon } from "../ui";
 import { aFontClasses } from "../a/fonts";
+import { AmbientA2 } from "./Ambient";
 import { CursorA2 } from "./Cursor";
 import { HeroPlateA2 } from "./HeroPlate";
 import { MachineShowcase } from "./MachineShowcase";
@@ -87,6 +88,7 @@ export function HomeA2({ data }: Props) {
       </a>
       <LabBar data={data} view="home" />
       <div className={`lab-a2 ${aFontClasses}`}>
+        <AmbientA2 />
         <div id="top" />
         <HeaderA2 data={data} view="home" />
         <main id="main" tabIndex={-1} className="outline-none">

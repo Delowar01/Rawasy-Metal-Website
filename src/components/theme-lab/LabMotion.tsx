@@ -8,7 +8,8 @@ import { useEffect } from "react";
  * section in view, and closes the mobile menu after a link is chosen.
  * A V2 adds, through its own attributes (A, B and C do not use them): a pointer
  * parallax (`data-parallax`), a header shadow once past the hero (`data-hero`),
- * ambient motion only while on screen (`data-ambient`), dropdowns
+ * ambient motion only while on screen (`data-ambient`), a scrolling state that
+ * rests its site-wide ambient (`data-scrolling` on the root), dropdowns
  * (`details[data-dropdown]`), toggle buttons (`data-toggle`) and a full-height
  * menu sheet (`details[data-menu][data-sheet]`).
  * Everything works without it; it only adds motion and state.
@@ -35,10 +36,22 @@ export function LabMotion() {
     document.querySelectorAll("[data-reveal]").forEach((el) => reveal.observe(el));
     cleanups.push(() => reveal.disconnect());
 
-    const onScroll = () => root.toggleAttribute("data-scrolled", window.scrollY > 8);
-    onScroll();
+    const scrolled = () => root.toggleAttribute("data-scrolled", window.scrollY > 8);
+    scrolled();
+    // While the page scrolls, A V2's site-wide ambient rests; it resumes 200 ms after the last scroll event.
+    let settle = 0;
+    const onScroll = () => {
+      scrolled();
+      if (!root.hasAttribute("data-scrolling")) root.setAttribute("data-scrolling", "");
+      clearTimeout(settle);
+      settle = window.setTimeout(() => root.removeAttribute("data-scrolling"), 200);
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
-    cleanups.push(() => window.removeEventListener("scroll", onScroll));
+    cleanups.push(() => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(settle);
+      root.removeAttribute("data-scrolling");
+    });
 
     const links = new Map<string, HTMLElement[]>();
     document.querySelectorAll<HTMLElement>("[data-spy-link]").forEach((link) => {

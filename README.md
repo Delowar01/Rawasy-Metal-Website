@@ -227,9 +227,12 @@ the current site. The signature illustrations live in `src/components/theme-lab/
 the Web Animations API, reusable on later pages); they animate the Laser Cutting and Laser Engraving
 pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts`
 and `engraved-plate.ts`. A V2's hero plate (`src/components/theme-lab/a2/HeroPlate.tsx`) redraws the
-website hero's plate from `src/components/home/hero/plate-geometry.ts`. See
-`docs/reports/2026-09-25-modern-commerce-theme-lab.md`, `docs/reports/2026-09-25-modern-commerce-a-v2.md`,
-`docs/reports/2026-09-25-a-v2-signature-correction.md` and `docs/reports/2026-09-26-a-v2-refinement-pass-2.md`.
+website hero's plate from `src/components/home/hero/plate-geometry.ts`. Its site-wide background
+(`src/components/theme-lab/a2/Ambient.tsx`) is one fixed layer behind every section: micro-dots, three soft
+colour fields and a light sweep behind the dots, moved on the compositor, resting while the page scrolls and
+still with reduced motion. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`,
+`docs/reports/2026-09-25-modern-commerce-a-v2.md`, `docs/reports/2026-09-25-a-v2-signature-correction.md`,
+`docs/reports/2026-09-26-a-v2-refinement-pass-2.md` and `docs/reports/2026-09-27-a-v2-background-motion.md`.
 
 ## Assets
 
@@ -264,8 +267,9 @@ selector, the client colour switch, both signature animations — the service pa
 head's path and order, grooves developing, finished states in EN/AR, readable sizes, replays, one-time
 playback on phones, still frames — the hero plate's cut order, readout and X / Y, the pointer on
 desktop and its absence on touch, the theme switch and `?theme=`, text contrast in both themes and
-languages, overflow from 360 to 1920 px in both themes, ambient layers behind the content, reduced
-motion, keyboard, no-JS, sheet overflow). In a cloud session Chromium is preinstalled at
+languages, overflow from 360 to 1920 px in both themes, ambient layers behind the content, the
+site-wide background's layers, timing, distances, scroll pause, main-thread cost, sheets, phone version
+and design-system frames, reduced motion, keyboard, no-JS, sheet overflow). In a cloud session Chromium is preinstalled at
 `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages
