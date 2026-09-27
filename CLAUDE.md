@@ -273,9 +273,11 @@
   restyled the whole SVG per mouse move); write the readout only when it changes.
 - Ambient performance (measured in the background-motion pass, headless Chromium = software compositing,
   the worst case): an animated fixed layer between the page colour and the content moves the page content
-  into its own composited layer (reason "Overlap"); the root keeps only the solid page colour. Running
-  layers cost far more than still or paused ones while scrolling; paused animations stay composited;
-  `steps()` on one clock cut idle redraws from 60 to 4–20 a second. Keyframes with `var()`, `%` and `cq*`
+  into its own composited layer (reason "Overlap"); the root keeps only the solid page colour. Scrolling at
+  1440 px fell from ~60 to 31–38 fps there (phones stay at 60). Pausing at runtime does not help (paused
+  animations stay composited); dropping the animations during a scroll does (~44 fps) but repaints the
+  whole background at every scroll start, so it was not adopted. `steps()` on one clock cut idle redraws
+  from 60 to 4–20 a second. Keyframes with `var()`, `%` and `cq*`
   units still run on the compositor (0 main-thread style recalcs). Layer "memory" from layer bounds is
   misleading (Chromium rasters tiles near the viewport only, and solid-colour layers need none).
 - Signature illustrations (`signature/`) animate the service pages' drawings, whose geometry lives in

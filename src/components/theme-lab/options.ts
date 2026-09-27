@@ -211,7 +211,7 @@ export const labCopy = {
         ["Section sheets (services, clients and compliance · machinery, industries)", "About 30 % · 28 % (light), 32 % · 28 % (dark)"],
         ["Cards and panels", "None: they stay opaque"],
         ["Dark contact panel", "Its own still micro-dots, 7 %"],
-        ["Footer", "Its own layer: micro-dots and a warm glow"],
+        ["Footer", "Its own layer: micro-dots, a warm glow and a steel glow"],
       ],
       layout: "Layout width",
       layoutNote:
@@ -416,7 +416,7 @@ export const labCopy = {
         ["ألواح الأقسام (الخدمات، والعملاء والامتثال · المعدات والقطاعات)", "نحو 30٪ · 28٪ (الفاتح)، و32٪ · 28٪ (الداكن)"],
         ["البطاقات واللوحات", "لا شيء: تبقى معتمة"],
         ["لوحة التواصل الداكنة", "نقاطها الدقيقة الثابتة، 7٪"],
-        ["التذييل", "طبقته الخاصة: نقاط دقيقة وتوهج دافئ"],
+        ["التذييل", "طبقته الخاصة: نقاط دقيقة وتوهج دافئ وآخر فولاذي"],
       ],
       layout: "عرض التخطيط",
       layoutNote:
