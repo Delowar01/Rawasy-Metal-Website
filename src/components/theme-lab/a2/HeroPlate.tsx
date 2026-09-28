@@ -13,11 +13,14 @@ import { Photo } from "../ui";
  * into place and its dimensions draw in; the four bolt holes are pierced, the
  * laser traces the eight-point star and the slot, then opens the perforation
  * field row by row. Every opening shows the workshop glowing behind the plate,
- * and orange nodes mark the measurement anchors. It plays once (about 5 s)
- * on its stage, a raised panel that follows the theme. The mouse tilts the
- * plate, moves its reflection and reads X / Y in plate millimetres. The markup
- * is the finished plate (no JavaScript, reduced motion). Decorative: hidden
- * from assistive technology.
+ * and orange nodes mark the measurement anchors. The whole sequence repeats
+ * every 10 s while the plate is on screen: about 5 s of cutting, the finished
+ * plate held, then its openings close and its measurements fade for the next
+ * cycle (the plate rises only the first time). It sits on its stage, a raised
+ * panel that follows the theme. The mouse tilts the plate, moves its
+ * reflection and reads X / Y in plate millimetres. The markup is the finished
+ * plate (no JavaScript, reduced motion). Decorative: hidden from assistive
+ * technology.
  */
 
 type Pt = readonly [number, number];
@@ -93,6 +96,10 @@ const PLATE_CLIP = `polygon(${(
   .join(", ")})`;
 
 const HIDE = 1.05;
+/** One cycle, start to start: the cut (about 5.3 s), the finished plate held, then the reset. */
+const LOOP = 10_000;
+/** The reset: the openings close and the measurements fade (450 ms), so the cycle ends on the blank plate it starts with. */
+const RESET = 9_400;
 const dist = (a: Pt, b: Pt) => Math.hypot(b[0] - a[0], b[1] - a[1]);
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -113,7 +120,7 @@ const setup: SignatureSetup = (root) => {
     return { slug: $(`[data-slug="${c.id}"]`), kerfs: $$(`[data-kerf="${c.id}"]`), route: samplePath(kerf, 3), length: kerf.getTotalLength() };
   });
 
-  return () => {
+  return (intro) => {
     // Bolt holes: four pierce points, one after another; each hole opens as its flash fades.
     const holeAt = HOLES.map((_, i) => 1150 + i * 120);
     // Then the laser traces the star and the slot at its feed rate.
@@ -133,7 +140,10 @@ const setup: SignatureSetup = (root) => {
     const perfTo = perfFrom + 480;
     const T = perfTo + 880;
 
-    const run = (el: Element, stops: readonly Stop[]) => animate(el, T, stops);
+    // Every animation of a cycle is on the loop's clock (it ends at LOOP), so the cycle restarts as one.
+    const run = (el: Element, stops: readonly Stop[]) => animate(el, LOOP, stops);
+    // The reset overrides the cut only from its own first frame (fill forwards), so each cycle starts from the cut's first frame.
+    const reset = (el: Element, stops: readonly Stop[]) => animate(el, LOOP, stops, "forwards");
     const o = (opacity: number) => ({ opacity });
     const dash = (offset: number) => ({ strokeDasharray: "1 1.1", strokeDashoffset: offset });
 
@@ -156,11 +166,17 @@ const setup: SignatureSetup = (root) => {
     plan.forEach((p) => beam.push([p.tp - 10, o(0)], [p.tp + 30, o(1)], [p.te, o(1)], [p.te + 60, o(0)]));
     beam.push([perfFrom - 10, o(0)], [perfFrom + 30, o(1)], [perfTo, o(1)], [perfTo + 180, o(0)]);
 
+    // The plate rises onto its stage the first time only, on its own short clock; later cycles start from the blank
+    // plate in place.
+    const keep = intro
+      ? [
+          animate(root, 760, [
+            [0, { opacity: 0, transform: "translateY(28px)" }, EASE_OUT],
+            [760, { opacity: 1, transform: "none" }],
+          ]),
+        ]
+      : [];
     const anims = [
-      run(root, [
-        [0, { opacity: 0, transform: "translateY(28px)" }, EASE_OUT],
-        [760, { opacity: 1, transform: "none" }],
-      ]),
       ...dims.map((d, i) => run(d, [[200 + i * 70 - 1, dash(HIDE)], [200 + i * 70, dash(1), EASE_OUT], [700 + i * 70, dash(0)]])),
       ...labels.map((l, i) => run(l, [[620 + i * 50, o(0)], [940 + i * 50, o(1)]])),
       ...pierces.flatMap((p, i) => [
@@ -197,11 +213,30 @@ const setup: SignatureSetup = (root) => {
       ...nodes.map((n, i) => run(n, [[perfTo + 140 + i * 90, { opacity: 0, transform: "scale(0.4)" }, EASE_OUT], [perfTo + 540 + i * 90, { opacity: 1, transform: "none" }]])),
       ...pulses.map((p, i) => run(p, [[perfTo + 340 + i * 90, o(0)], [perfTo + 610 + i * 90, o(1)]])),
     ];
+    // The finished plate holds until RESET; then a new blank: the nodes go out, the measurements fade and the openings
+    // close, ending on the frame the next cycle starts with (the laser is already off and parks unseen).
+    const blank = (s: Element) => {
+      const row = ROWS.find((_, r) => s.getAttribute("data-slug") === `r${r}`);
+      // A cut row is clipped away and a dropped slug has moved: both come back whole while still transparent.
+      const whole = row ? { clipPath: row.ltr ? "inset(0 0 0 0%)" : "inset(0 0% 0 0)" } : { transform: "none" };
+      return reset(s, [
+        [RESET + 120, { opacity: 0, ...whole }, EASE_IN_OUT],
+        [RESET + 450, { opacity: 1, ...whole }],
+      ]);
+    };
+    const resets = [
+      ...nodes.map((n, i) => reset(n, [[RESET + i * 30, { opacity: 1, transform: "none" }, EASE_IN_OUT], [RESET + 260 + i * 30, { opacity: 0, transform: "scale(0.4)" }]])),
+      ...pulses.map((p, i) => reset(p, [[RESET + i * 30, o(1), EASE_IN_OUT], [RESET + 220 + i * 30, o(0)]])),
+      ...[...dims, ...labels].map((d) => reset(d, [[RESET + 60, o(1), EASE_IN_OUT], [RESET + 340, o(0)]])),
+      ...[...holeSlugs, ...traced.map((c) => c.slug), ...rowSlugs].map(blank),
+    ];
     return {
-      anims,
+      anims: [...anims, ...resets],
+      keep,
       total: T,
       moments: { initial: 1140, active: plan[0].tc + (plan[0].te - plan[0].tc) * 0.62 },
       marks: [...holeAt, ...plan.map((p) => p.tc), perfFrom],
+      loop: LOOP,
     };
   };
 };
@@ -223,12 +258,16 @@ export function HeroPlateA2({
   const ref = useRef<HTMLDivElement>(null);
   const readRef = useRef<HTMLSpanElement>(null);
   const done = `${pad(STEPS)}/${pad(STEPS)}`;
+  // The count the readout shows when the pointer is not reading X / Y (the pointer puts it back when it leaves).
+  const counter = useRef(done);
   // Unique ids for the SVG paint servers: the design-system sheet shows several plates.
   const uid = useId().replace(/[^\w-]/g, "");
   const id = (name: string) => `a2p-${uid}-${name}`;
   const url = (name: string) => `url(#${id(name)})`;
 
-  // The readout counts the cuts while the sequence runs (and shows the count of a still frame).
+  // The readout counts the cuts in each cycle and returns to zero with the reset; its light is orange while the laser
+  // cuts. It sleeps between changes (a timer, then the next frame, so the animation clock has moved on) instead of
+  // reading the clock every frame; a still frame shows its own count.
   const counted = useCallback<SignatureSetup>(
     (root) => {
       const run = setup(root);
@@ -236,36 +275,45 @@ export function HeroPlateA2({
         const result = run(intro);
         const clock = result.anims[0];
         const marks = result.marks ?? [];
+        const changes = [...marks, result.total, RESET].sort((a, b) => a - b);
+        let timer = 0;
         let frame = 0;
         const tick = () => {
+          clearTimeout(timer);
+          cancelAnimationFrame(frame);
           const now = Number(clock.currentTime ?? 0);
-          const running = clock.playState === "running";
+          const going = clock.playState === "running";
           const read = readRef.current;
           const line = read?.closest("p");
-          if (line && line.hasAttribute("data-running") !== running) line.toggleAttribute("data-running", running);
-          const text = `${pad(marks.filter((m) => now >= m).length)}/${pad(STEPS)}`;
+          const cutting = going && now < result.total;
+          if (line && line.hasAttribute("data-running") !== cutting) line.toggleAttribute("data-running", cutting);
+          const text = `${pad(now >= RESET ? 0 : marks.filter((m) => now >= m).length)}/${pad(STEPS)}`;
+          counter.current = text;
           // Only on change: a text write every frame would lay the page out every frame.
           if (read && !line?.hasAttribute("data-pointer") && read.textContent !== text) read.textContent = text;
-          if (running) frame = requestAnimationFrame(tick);
+          const next = changes.find((m) => m > now);
+          if (going && next !== undefined) timer = window.setTimeout(() => (frame = requestAnimationFrame(tick)), next - now);
         };
+        result.onChange = tick;
         frame = requestAnimationFrame(tick);
-        clock.addEventListener("finish", () => {
+        clock.addEventListener("cancel", () => {
+          clearTimeout(timer);
           cancelAnimationFrame(frame);
-          tick();
         });
-        clock.addEventListener("cancel", () => cancelAnimationFrame(frame));
         return result;
       };
     },
     [],
-    );
+  );
   useSignature(ref, counted, { freeze, replay: false });
 
   // Armed (script and motion): the count starts from zero until the plate is cut.
   useEffect(() => {
     const read = readRef.current;
-    if (read && freeze === undefined && !matchMedia("(prefers-reduced-motion: reduce)").matches) read.textContent = `${pad(0)}/${pad(STEPS)}`;
-    }, [freeze]);
+    if (!read || freeze !== undefined || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    counter.current = `${pad(0)}/${pad(STEPS)}`;
+    read.textContent = counter.current;
+  }, [freeze]);
 
   // Desktop mouse: X / Y in plate millimetres, and the plate leans towards the pointer while its reflection
   // follows it — inline transforms on two elements, eased on the compositor (no restyle of the plate).
@@ -285,9 +333,10 @@ export function HeroPlateA2({
       tilt.style.transform = `perspective(1600px) rotateX(${(-ny * 4).toFixed(2)}deg) rotateY(${(nx * 5).toFixed(2)}deg)`;
       shine.style.translate = `${(nx * 22).toFixed(1)}% ${(ny * 18).toFixed(1)}%`;
     };
+    // Back to the count where the cycle is now (the loop keeps counting while the pointer reads X / Y).
     const count = () => {
       line.removeAttribute("data-pointer");
-      read.textContent = done;
+      read.textContent = counter.current;
     };
     const onLeave = () => {
       cancelAnimationFrame(frame);
@@ -320,7 +369,7 @@ export function HeroPlateA2({
       stage.removeEventListener("pointermove", onMove);
       stage.removeEventListener("pointerleave", onLeave);
     };
-  }, [freeze, done]);
+  }, [freeze]);
 
   const material = (d: string) => (
     <>

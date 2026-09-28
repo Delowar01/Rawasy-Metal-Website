@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-28-a-v2-background-optimization.md` (earlier:
-  `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
+- Latest report: `docs/reports/2026-09-28-a-v2-hero-loop.md` (earlier:
+  `2026-09-28-a-v2-background-optimization.md`, `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
@@ -64,6 +64,11 @@
   to 31–38 fps, and lit dots behind text dropped local contrast to 2.4–3.5:1). Targets: ≥ 55 fps (at least
   consistently > 50) in the same software benchmark, 1–2 moving full-screen layers, and no ambient under body
   text below AA per pixel (not averaged). Keep it visible; never go back to a static background.
+- **A V2's hero cutting animation now loops and awaits visual review** (the user's "HERO CUTTING ANIMATION LOOP
+  CORRECTION" brief, report `2026-09-28-a-v2-hero-loop.md`): the whole plate sequence (dimensions, holes, star, slot,
+  perforation, head, readout, finished plate) repeats every 10 s start to start: about 5 s of cutting, the finished
+  plate held about 4 s, a 0.45 s reset. It runs only while the plate is on screen and the page is visible, rests
+  where it is otherwise, and does not loop with reduced motion. Keep the hero's design, geometry and interactions.
 - **A V2's signature animations were corrected** (the user's "SIGNATURE ANIMATION CORRECTION" brief,
   report `2026-09-25-a-v2-signature-correction.md`): the user rejected the star cut and the medallion
   engraving. The signatures must animate the service pages' own drawings (the Laser Cutting nesting
@@ -251,7 +256,15 @@
   `ThemeSwitch.tsx` changes it (view-transition cross-fade). `HeroPlate.tsx` is the hero: the website
   plate's geometry (`src/components/home/hero/plate-geometry.ts`) on a stage with a spec bar (children)
   and a readout; bolt holes pierced, star and slot traced, perforation rows opened, one clock via
-  `useSignature(…, { replay: false })`; the mouse leans it (inline transforms) and reads X / Y.
+  `useSignature(…, { replay: false })`; the mouse leans it (inline transforms) and reads X / Y. The cut loops
+  (`loop: 10000` in its run): every animation spans exactly one cycle (`animate(el, LOOP, …)`), resets
+  (`fill: "forwards"`, from `RESET` = 9.4 s) close the openings and fade the measurements back to the first frame,
+  and on the clock's `finish` the hook restarts the same Animation objects with `startTime = last start + loop`
+  (phase-locked, no drift; more than 250 ms late starts now). The plate's rise is intro-only (`keep`, its own
+  760 ms). `data-cycle` counts cycles. The readout sleeps between changes (the marks, the end of the cut, the
+  reset) with a timer, then the next frame; the hook calls `onChange` at each start, and at each rest and resume
+  once it has taken effect (`Animation.ready`: a pause lands on the next frame, so reading the clock at once is a
+  step behind).
   `Cursor.tsx` is the desktop-mouse pointer (`html[data-cursor-on]`, set only once the mouse moves;
   touch, pens, reduced motion and forced colours keep the system cursor; text fields keep the I-beam).
   `--shell: min(1400px, 92vw)`; `.sec-sheet` (`.sec-muted`, `.sec-raised`) and the footer are sheets
@@ -307,7 +320,9 @@
   rosette and the ring (grooves drawn twice, highlight and cut), light crosses, the laser switches off
   on its rest mark; mirrored in Arabic. Markup is the finished state; `signature.css` arms the start
   state only under `.js` + `prefers-reduced-motion: no-preference`; `useSignature` plays once at 50 %
-  in view and replays on host (`[data-sig-host]`) mouse-enter or focus (not while running);
+  in view and replays on host (`[data-sig-host]`) mouse-enter or focus (not while running), or, for a run
+  with `loop` (the hero plate), repeats while on screen and the page is visible (IntersectionObserver at 0 and
+  0.5, `visibilitychange`), pausing every animation where it is otherwise;
   `sig:replay` (`detail.intro`) forces a run; `freeze` holds a named moment (`initial`, `active`,
   `finished`) for the sheet's still frames. `animate()` puts every animation on one clock that ends
   with the run (delay, active window, end delay, fill both), so captures and tests pause them all at
@@ -439,3 +454,11 @@
   starts the signatures, so idle measurements must jump and wait out one-time runs.
 - Playwright's attribute polling can miss an attribute that lives ~200 ms (`data-scrolling`); sample it inside
   the page (in the scroll event) instead. Wait for `data-live` on the A V2 hero before relying on LabMotion.
+- A finished filling Web Animation that a later filling animation fully overrides on the same element (the plate's
+  cut and its reset) is removed by the browser ("replaced"), so replaying it later does nothing: call `persist()`
+  on animations a loop reuses. Chromium keeps a finished animation's `startTime`, and setting it plays it again.
+- Readouts that change for ~120 ms (the plate's 01–04/07) are too short for Playwright's polling; wait with
+  `waitForFunction(…, { polling: "raf" })` or record changes inside the page (MutationObserver in an init script).
+- Chromium moves the animation clock on with each new task, so the first style read of a script task re-samples every
+  running animation (the hero entrance, the plate): a trace measuring what one change restyles must read styles once
+  before its first marker.

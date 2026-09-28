@@ -98,6 +98,147 @@ async function expectPlateFinished(page: Page) {
   expect(plate.count).toBe("07/07");
 }
 
+/** The hero plate loop's clock (its first animation: every animation of a cycle shares its timing) and its cycle number. */
+const plateClock = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const root = document.querySelector(sel)!;
+    const clock = root.querySelector(".a2-plate-dim")!.getAnimations().find((a) => a.constructor === Animation)!;
+    return { time: Math.round(Number(clock.currentTime)), state: clock.playState, cycle: root.getAttribute("data-cycle") };
+  }, selector);
+
+/**
+ * The readout's text and the count it should show for the plate's clock: the steps whose time has come (each bolt
+ * hole's pierce, the start of the star's and the slot's kerf, the first perforation row), or 00 once the reset begins.
+ */
+const plateCount = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const root = document.querySelector(sel)!;
+    const first = (el: Element) => el.getAnimations().find((a) => a.constructor === Animation)!.effect!.getTiming().delay as number;
+    const t = Number(root.querySelector(".a2-plate-dim")!.getAnimations()[0].currentTime);
+    const marks = [
+      ...[...root.querySelectorAll(".a2-plate-pierce")].map(first),
+      ...["star", "slot"].map((id) => first(root.querySelector(`[data-kerf="${id}"]`)!) + 1),
+      first(root.querySelector('[data-slug="r0"]')!),
+    ];
+    const n = t >= 9400 ? 0 : marks.filter((m) => t >= m).length;
+    return { text: root.closest(".a2-plate-stage")!.querySelector(".a2-plate-read [dir=ltr]")!.textContent, expected: `${String(n).padStart(2, "0")}/07`, t };
+  }, selector);
+
+/** The hero plate loop's own animations (the plate's one-time rise onto its stage is not part of the loop). */
+const plateLoop = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const root = document.querySelector(sel)!;
+    return root
+      .getAnimations({ subtree: true })
+      .filter((a) => a.constructor === Animation && (a.effect as KeyframeEffect).target !== root)
+      .map((a) => ({ state: a.playState, end: a.effect!.getComputedTiming().endTime as number, iterations: a.effect!.getComputedTiming().iterations as number }));
+  }, selector);
+
+interface PlateState {
+  /** Openings cut, dimensions drawn, nodes and hot points lit, laser points lit. */
+  open: number;
+  dims: number;
+  nodes: number;
+  laser: number;
+}
+
+interface PlateLog {
+  cycles: ({ n: number; t: number; start: number } & PlateState)[];
+  reads: { t: number; text: string }[];
+  leds: ({ t: number; on: boolean } & PlateState)[];
+  shifts: { t: number; value: number; input: boolean }[];
+}
+
+/**
+ * Records the hero plate's loop inside the page as it runs, in real time: each cycle start (with its clock's start
+ * time and the plate's state), every readout text, the laser light going on and off (with the plate's state), and
+ * layout shifts.
+ */
+const recordPlate = (page: Page, selector = ".a2-hero .a2-plate") =>
+  page.addInitScript((sel) => {
+    const log: PlateLog = { cycles: [], reads: [], leds: [], shifts: [] };
+    (window as unknown as { __plate: PlateLog }).__plate = log;
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean })[])
+        log.shifts.push({ t: e.startTime, value: e.value, input: e.hadRecentInput });
+    }).observe({ type: "layout-shift", buffered: true });
+    const watch = () => {
+      const root = document.querySelector(sel);
+      const line = root?.closest(".a2-plate-stage")?.querySelector(".a2-plate-read");
+      const read = line?.querySelector("[dir=ltr]");
+      if (!root || !line || !read) return void requestAnimationFrame(watch);
+      const count = (q: string, lit: (c: CSSStyleDeclaration) => boolean) => [...root.querySelectorAll(q)].filter((el) => lit(getComputedStyle(el))).length;
+      const state = (): PlateState => ({
+        open: count("[data-slug]", (c) => parseFloat(c.opacity) < 0.5 || c.clipPath.includes("100%")),
+        dims: count(".a2-plate-dim", (c) => parseFloat(c.opacity) > 0.5 && parseFloat(c.strokeDashoffset) < 0.5),
+        nodes: count(".a2-plate-node, .a2-plate-pulse", (c) => parseFloat(c.opacity) > 0.01),
+        laser: count(".a2-plate-hot, .a2-plate-pierce", (c) => parseFloat(c.opacity) > 0.01),
+      });
+      new MutationObserver(() => {
+        const clock = root.querySelector(".a2-plate-dim")!.getAnimations().find((a) => a.constructor === Animation)!;
+        const cycle = { n: Number(root.getAttribute("data-cycle")), t: performance.now(), start: Number(clock.startTime), ...state() };
+        log.cycles.push(cycle);
+        // The first cycle is logged as it is scheduled: its clock starts on the next frame.
+        if (clock.startTime == null) clock.ready.then(() => (cycle.start = Number(clock.startTime)));
+      }).observe(root, { attributes: true, attributeFilter: ["data-cycle"] });
+      new MutationObserver(() => log.reads.push({ t: performance.now(), text: read.textContent ?? "" })).observe(read, { childList: true, characterData: true, subtree: true });
+      new MutationObserver(() => log.leds.push({ t: performance.now(), on: line.hasAttribute("data-running"), ...state() })).observe(line, {
+        attributes: true,
+        attributeFilter: ["data-running"],
+      });
+    };
+    document.addEventListener("DOMContentLoaded", watch);
+  }, selector);
+
+const plateLog = (page: Page) => page.evaluate(() => (window as unknown as { __plate: PlateLog }).__plate);
+
+/**
+ * The first `n` cycles of a recorded loop, each against the next: 10 s apart start to start, each starting from the
+ * blank plate, counting 01–07 as it cuts, holding the finished plate with the light off, then resetting to 00; and no
+ * layout shift once the loop runs.
+ */
+function expectCycles(log: PlateLog, n: number) {
+  const cycles = log.cycles.slice(0, n);
+  expect(cycles.map((c) => c.n)).toEqual(Array.from({ length: n }, (_, i) => i + 1));
+  // Each cycle starts from the blank plate: nothing cut, no measurements, no nodes, the laser off.
+  for (const c of cycles) expect([c.open, c.dims, c.nodes, c.laser]).toEqual([0, 0, 0, 0]);
+  // Start to start, on the clock (the timeline shares performance.now()'s origin): one period exactly, cycle after
+  // cycle, so the loop never drifts (a restart that came late would start afresh instead).
+  for (let i = 1; i < n; i++) {
+    expect(cycles[i].start - cycles[i - 1].start).toBeGreaterThan(9999);
+    expect(cycles[i].start - cycles[i - 1].start).toBeLessThan(10300);
+  }
+  for (let i = 0; i + 1 < n; i++) {
+    // Changes logged between this cycle's start and the next one's, timed from the clock's start.
+    const [from, to, start] = [cycles[i].t, cycles[i + 1].t, cycles[i].start];
+    // The count: up from 01 to 07 as the cuts are made, then back to 00 before the next cycle. (It shows the count at
+    // the frame it draws: a frame that comes more than 120 ms late on a loaded machine can skip a hole's step.)
+    const reads = log.reads.filter((r) => r.t > from && r.t < to);
+    const counts = reads.map((r) => Number(r.text.slice(0, 2)));
+    expect(reads.every((r) => /^0[0-7]\/07$/.test(r.text))).toBe(true);
+    expect(counts.slice(-2)).toEqual([7, 0]);
+    expect(counts.slice(0, -1).every((c, k) => c > (counts[k - 1] ?? 0))).toBe(true);
+    expect(counts.length).toBeGreaterThanOrEqual(6);
+    // The light: on while the laser cuts, off for the hold.
+    const leds = log.leds.filter((l) => l.t >= from && l.t < to);
+    expect(leds.map((l) => l.on)).toEqual([true, false]);
+    const [done, reset, rest] = [reads[reads.length - 2].t - start, reads[reads.length - 1].t - start, leds[1]];
+    // About 5 s of cutting: the perforation field from 3.9 s, the light off at 5.26 s with every opening cut, the
+    // measurements drawn and the nodes lit ...
+    expect(done).toBeGreaterThan(3890);
+    expect(done).toBeLessThan(4600);
+    expect(rest.t - start).toBeGreaterThan(5250);
+    expect(rest.t - start).toBeLessThan(6000);
+    expect([rest.open, rest.dims, rest.nodes, rest.laser]).toEqual([10, 6, 8, 0]);
+    // ... then the finished plate holds for about 4 s, until the reset at 9.4 s.
+    expect(reset).toBeGreaterThan(9395);
+    expect(reset).toBeLessThan(10000);
+    expect(reads[reads.length - 1].t - rest.t).toBeGreaterThan(3600);
+  }
+  // Nothing moves the layout once the loop runs.
+  expect(log.shifts.filter((s) => s.t > cycles[0].t + 1000 && !s.input).reduce((sum, s) => sum + s.value, 0)).toBe(0);
+}
+
 /** WCAG contrast of an element's text against the solid colours behind it (alpha-blended up to the page). */
 const textContrast = (page: Page, selector: string) =>
   page.locator(selector).evaluateAll((els) => {
@@ -495,12 +636,16 @@ test.describe("A V2 · signature illustrations and motion", () => {
     // The three signature blocks lead the sheet: the hero plate, then the two laser illustrations.
     const firstBlocks = await page.locator("main > section").evaluateAll((els) => els.slice(0, 3).map((el) => el.querySelector("[id^=demo-]")?.id));
     expect(firstBlocks).toEqual(["demo-plate", "demo-cut", "demo-engrave"]);
-    // The plate: a live run with a replay, and still frames with no, some and every opening cut.
+    // The plate: the hero's loop with a replay from the start, and still frames with no, some and every opening cut.
     await inView(page, "#demo-plate");
-    await expect.poll(async () => (await signatureAnimations(page, "#demo-plate .a2-plate")).length).toBeGreaterThan(30);
-    await expect.poll(async () => (await signatureAnimations(page, "#demo-plate .a2-plate")).every((a) => a.state === "finished"), { timeout: 15000 }).toBe(true);
+    await expect.poll(async () => (await signatureAnimations(page, "#demo-plate .a2-plate")).length).toBeGreaterThan(60);
+    await expect(page.locator("#demo-plate .a2-plate-read [dir=ltr]")).toHaveText("07/07", { timeout: 12000 });
     await page.locator("section", { has: page.locator("#demo-plate") }).locator("button.sig-replay").click();
-    await expect.poll(async () => (await signatureAnimations(page, "#demo-plate .a2-plate")).some((a) => a.state === "running")).toBe(true);
+    // Back to the first cycle: the plate rises again and the count starts from zero.
+    await expect(page.locator("#demo-plate .a2-plate-read [dir=ltr]")).toHaveText("00/07");
+    await expect(page.locator("#demo-plate .a2-plate")).toHaveAttribute("data-cycle", "1");
+    expect((await plateClock(page, "#demo-plate .a2-plate")).time).toBeLessThan(1150);
+    await expect.poll(async () => (await plateLoop(page, "#demo-plate .a2-plate")).every((a) => a.state === "running")).toBe(true);
     const cuts = await page
       .locator("section", { has: page.locator("#demo-plate") })
       .locator(".a2-plate[data-frozen]")
@@ -562,6 +707,11 @@ test.describe("A V2 · reduced motion", () => {
         expect(await signatureAnimations(page, sel)).toEqual([]);
       }
       await expectFinished(page);
+      await expectPlateFinished(page);
+      // The hero plate does not loop: no cycle, no animation, the finished plate held.
+      await page.waitForTimeout(1200);
+      expect(await page.locator(".a2-hero .a2-plate").getAttribute("data-cycle")).toBeNull();
+      expect(await signatureAnimations(page, ".a2-hero .a2-plate")).toEqual([]);
       await expectPlateFinished(page);
       // No hero entrance, no parallax, no signature runs; and the system cursor stays.
       expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length)).toBe(0);
@@ -637,18 +787,24 @@ test.describe("A V2 · hero plate", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
   const plate = ".a2-hero .a2-plate";
 
-  test("the plate cuts once — bolt holes, then the star, the slot and the perforation rows — and the readout counts to 07/07", async ({ page }) => {
+  test("each cycle cuts in order — bolt holes, the star, the slot, the perforation rows — holds the finished plate, then resets to the blank plate", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto(home("en"), { waitUntil: "networkidle" });
-    await expect.poll(async () => (await signatureAnimations(page, plate)).length).toBeGreaterThan(30);
-    await expect.poll(async () => (await signatureAnimations(page, plate)).every((a) => a.state === "finished"), { timeout: 15000 }).toBe(true);
+    await expect(page.locator(plate)).toHaveAttribute("data-cycle", "1");
+    // The finished plate holds, the laser off and the count complete.
+    const read = page.locator(".a2-hero .a2-plate-read");
+    await expect(read.locator("[dir=ltr]")).toHaveText("07/07", { timeout: 12000 });
+    await expect(read).not.toHaveAttribute("data-running", "", { timeout: 4000 });
     await expectPlateFinished(page);
-    // Hovering the finished plate does not play it again.
+    // Hovering the plate reads it; it does not restart the cycle.
+    const before = await plateClock(page, plate);
     await page.locator(plate).hover();
     await page.waitForTimeout(500);
-    expect((await signatureAnimations(page, plate)).every((a) => a.state === "finished")).toBe(true);
+    const after = await plateClock(page, plate);
+    expect(after.cycle).toBe(before.cycle);
+    expect(after.time).toBeGreaterThan(before.time + 300);
 
-    // One clock for the whole run: step through it and read which openings are cut.
+    // One clock for the whole cycle: step through it and read which openings are cut.
     const opened = (time: number) =>
       page.evaluate(
         ([sel, t]) => {
@@ -666,31 +822,111 @@ test.describe("A V2 · hero plate", () => {
         },
         [plate, time] as const,
       );
+    expect(await opened(0)).toEqual([]);
     expect(await opened(1100)).toEqual([]);
     expect(await opened(2600)).toEqual(["h0", "h1", "h2", "h3"]);
     expect(await opened(3700)).toEqual(["h0", "h1", "h2", "h3", "star"]);
     expect(await opened(4200)).toEqual(["h0", "h1", "h2", "h3", "star", "slot", "r0", "r1"]);
-    const end = (await signatureAnimations(page, plate))[0].end;
-    expect(end).toBeGreaterThan(4500);
-    expect(end).toBeLessThan(6000);
-    expect(await opened(end)).toHaveLength(10);
+    expect(await opened(5300)).toHaveLength(10);
+    expect(await opened(9300)).toHaveLength(10);
+    // The reset closes every opening and takes the measurements away: the cycle ends on the frame it starts with.
+    expect(await opened(9900)).toEqual([]);
+    const blank = await page.evaluate((sel) => {
+      const root = document.querySelector(sel)!;
+      const css = (el: Element) => getComputedStyle(el);
+      return {
+        dims: [...root.querySelectorAll(".a2-plate-dim, .a2-plate-label")].map((d) => css(d).opacity),
+        nodes: [...root.querySelectorAll(".a2-plate-node, .a2-plate-pulse")].map((n) => css(n).opacity),
+        laser: [...root.querySelectorAll(".a2-plate-hot, .a2-plate-pierce")].map((n) => css(n).opacity),
+      };
+    }, plate);
+    expect(new Set([...blank.dims, ...blank.nodes, ...blank.laser])).toEqual(new Set(["0"]));
+    // Every animation of the loop spans exactly one 10 s cycle.
+    const runs = await plateLoop(page, plate);
+    expect(runs.length).toBeGreaterThan(60);
+    expect(new Set(runs.map((a) => Math.round(a.end)))).toEqual(new Set([10000]));
+    expect(runs.every((a) => a.iterations === 1)).toBe(true);
     expect(errors).toEqual([]);
   });
 
-  test("the mouse tilts the plate and reads X / Y in plate millimetres; the count returns when it leaves", async ({ page }) => {
+  test("the whole sequence repeats every 10 s, start to start, without drifting; the readout counts each cycle and resets; nothing shifts", async ({ page }) => {
+    test.setTimeout(75_000);
+    const errors = trackErrors(page);
+    await recordPlate(page);
     await page.goto(home("en"), { waitUntil: "networkidle" });
-    await expect.poll(async () => (await signatureAnimations(page, plate)).every((a) => a.state === "finished"), { timeout: 15000 }).toBe(true);
-    const box = (await page.locator(`${plate} svg`).boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
-    const read = page.locator(".a2-hero .a2-plate-read");
-    await expect(read).toHaveAttribute("data-pointer", "");
-    await expect(read.locator("[dir=ltr]")).toHaveText(/^X \d{3}\.\d · Y \d{3}\.\d$/);
-    await page.mouse.move(20, 400, { steps: 4 });
-    await expect(read).not.toHaveAttribute("data-pointer");
-    await expect(read.locator("[dir=ltr]")).toHaveText("07/07");
+    await expect.poll(async () => (await plateLog(page)).cycles.length, { timeout: 45_000, intervals: [1000] }).toBeGreaterThanOrEqual(4);
+    const log = await plateLog(page);
+    expectCycles(log, 4);
+    expect(await horizontalOverflow(page)).toBe(0);
+    expect(errors).toEqual([]);
   });
 
-  test("the plate is an object: never mirrored in Arabic, where its readout words keep the Arabic face and no letter-spacing", async ({ page }) => {
+  test("off screen, or in a hidden tab, the loop rests where it is, and carries on from the same frame when it returns", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    const read = page.locator(".a2-hero .a2-plate-read");
+    // While the laser traces the star.
+    await page.waitForFunction(() => document.querySelector(".a2-hero .a2-plate-read [dir=ltr]")?.textContent === "05/07", null, { polling: "raf", timeout: 12000 });
+    // Scrolled away: every animation of the loop pauses, the count and the laser light hold, the time stands still.
+    await page.evaluate(() => document.querySelector("#contact")!.scrollIntoView({ behavior: "instant", block: "start" }));
+    await expect.poll(async () => (await plateLoop(page, plate)).filter((a) => a.state !== "paused").length).toBe(0);
+    const rested = await plateClock(page, plate);
+    const text = await read.locator("[dir=ltr]").textContent();
+    await expect(read).not.toHaveAttribute("data-running");
+    // The count is the one for the frame it rests at, not one step behind.
+    const resting = await plateCount(page, plate);
+    expect(resting.text).toBe(resting.expected);
+    await page.waitForTimeout(1500);
+    expect(await plateClock(page, plate)).toEqual(rested);
+    expect(await read.locator("[dir=ltr]").textContent()).toBe(text);
+    // Back on screen: the same cycle carries on from the frame it rested at.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await expect.poll(async () => (await plateClock(page, plate)).state).toBe("running");
+    const resumed = await plateClock(page, plate);
+    expect(resumed.cycle).toBe(rested.cycle);
+    expect(resumed.time).toBeGreaterThanOrEqual(rested.time);
+    expect(resumed.time).toBeLessThan(rested.time + 1000);
+    expect((await plateLoop(page, plate)).every((a) => a.state === "running")).toBe(true);
+    await expect(read).toHaveAttribute("data-running", "");
+    await expect.poll(async () => { const c = await plateCount(page, plate); return c.text === c.expected; }).toBe(true);
+    // A hidden page rests it too.
+    const visibility = (state: "hidden" | "visible") =>
+      page.evaluate((v) => {
+        Object.defineProperty(document, "visibilityState", { configurable: true, get: () => v });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }, state);
+    await visibility("hidden");
+    await expect.poll(async () => (await plateClock(page, plate)).state).toBe("paused");
+    await visibility("visible");
+    await expect.poll(async () => (await plateClock(page, plate)).state).toBe("running");
+  });
+
+  test("the mouse tilts the plate and reads X / Y while the loop carries on underneath; the live count returns when it leaves", async ({ page }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    await expect(page.locator(plate)).toHaveAttribute("data-cycle", "1");
+    const read = page.locator(".a2-hero .a2-plate-read");
+    const box = (await page.locator(`${plate} svg`).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+    await expect(read).toHaveAttribute("data-pointer", "");
+    await expect(read.locator("[dir=ltr]")).toHaveText(/^X \d{3}\.\d · Y \d{3}\.\d$/);
+    await expect.poll(async () => page.locator(".a2-hero .a2-plate-tilt").evaluate((el) => el.style.transform)).toContain("rotateY");
+    // The pointer stays on the plate through the reset and into the next cycle: the reading holds, the light and
+    // the loop carry on.
+    await page.waitForFunction((sel) => document.querySelector(sel)!.getAttribute("data-cycle") === "2", plate, { polling: "raf", timeout: 15000 });
+    await expect(read).toHaveAttribute("data-running", "");
+    await expect(read).toHaveAttribute("data-pointer", "");
+    await expect(read.locator("[dir=ltr]")).toHaveText(/^X /);
+    // Leaving early in the new cycle shows its count (reset to zero), not the count the pointer covered.
+    await page.mouse.move(20, 400, { steps: 2 });
+    await expect(read).not.toHaveAttribute("data-pointer");
+    await expect(read.locator("[dir=ltr]")).toHaveText("00/07");
+    // ... and it carries on counting.
+    await expect(read.locator("[dir=ltr]")).toHaveText(/^0[1-7]\/07$/, { timeout: 3000 });
+  });
+
+  test("Arabic: the same loop; the plate is an object, never mirrored, its readout words in the Arabic face with no letter-spacing", async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await recordPlate(page);
     await page.goto(home("ar"), { waitUntil: "networkidle" });
     expect(await page.locator(plate).evaluate((el) => getComputedStyle(el).direction)).toBe("ltr");
     const words = await page.locator(".a2-hero .a2-plate-read :is(.a2-plate-part, .a2-plate-seq)").evaluateAll((els) =>
@@ -701,6 +937,37 @@ test.describe("A V2 · hero plate", () => {
       expect(["normal", "0px"]).toContain(w.spacing);
       expect(w.font).not.toMatch(/^ui-monospace/);
     }
+    await expect.poll(async () => (await plateLog(page)).cycles.length, { timeout: 25_000, intervals: [1000] }).toBeGreaterThanOrEqual(2);
+    expectCycles(await plateLog(page), 2);
+    expect(await horizontalOverflow(page)).toBe(0);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("A V2 · hero plate on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
+
+  test("the same 10 s loop once the plate is in view; a tap never reads X / Y; the readout never overflows and nothing shifts", async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await recordPlate(page);
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    // Below the fold on a phone: the first cycle waits until half the plate is in view.
+    await page.waitForTimeout(600);
+    expect(await page.locator(".a2-hero .a2-plate").getAttribute("data-cycle")).toBeNull();
+    await page.evaluate(() => document.querySelector(".a2-hero .a2-plate")!.scrollIntoView({ behavior: "instant", block: "center" }));
+    await expect(page.locator(".a2-hero .a2-plate")).toHaveAttribute("data-cycle", "1");
+    const read = page.locator(".a2-hero .a2-plate-read");
+    const fits = () => read.evaluate((el) => ({ over: el.scrollWidth - el.clientWidth, height: Math.round(el.getBoundingClientRect().height) }));
+    const counting = await fits();
+    await page.locator(".a2-hero .a2-plate").tap();
+    await expect(read).not.toHaveAttribute("data-pointer");
+    await expect.poll(async () => (await plateLog(page)).cycles.length, { timeout: 25_000, intervals: [1000] }).toBeGreaterThanOrEqual(2);
+    expectCycles(await plateLog(page), 2);
+    expect(await fits()).toEqual(counting);
+    expect(counting.over).toBeLessThanOrEqual(0);
+    expect(await horizontalOverflow(page)).toBe(0);
+    expect(errors).toEqual([]);
   });
 });
 
@@ -731,8 +998,10 @@ test.describe("A V2 · pointer", () => {
     await page.mouse.up();
     await expect(cursor).not.toHaveAttribute("data-press");
 
-    // Once the plate's one-time cut sequence is over, so its openings no longer change under a still pointer.
-    await expect.poll(async () => (await signatureAnimations(page, ".a2-hero .a2-plate")).every((a) => a.state === "finished"), { timeout: 15000 }).toBe(true);
+    // Over the plate while it holds the finished cut. The click above followed the button's link down to #contact,
+    // where the plate's loop rests: back to the hero, where it carries on.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await expect(page.locator(".a2-hero .a2-plate-read [dir=ltr]")).toHaveText("07/07", { timeout: 12000 });
     await page.locator(".a2-hero .a2-plate").hover();
     await expect(cursor).toHaveAttribute("data-state", "plate");
     await page.locator("#services article:has(.sig-cut)").hover();
@@ -1078,7 +1347,8 @@ test.describe("A V2 · background motion", () => {
 
   test("the motion costs the main thread nothing once the page is still", async ({ page }) => {
     await page.goto(home("en"), { waitUntil: "networkidle" });
-    // After the hero's one-time intro, jump (no smooth scroll) to a section with no one-time run left to play.
+    // After the hero's intro, jump (no smooth scroll) to a section with no one-time run left to play (the hero plate's
+    // loop rests off screen).
     await page.waitForTimeout(6000);
     await page.evaluate(() => document.querySelector("#clients")!.scrollIntoView({ behavior: "instant", block: "start" }));
     await page.waitForTimeout(2500);
@@ -1088,8 +1358,10 @@ test.describe("A V2 · background motion", () => {
     const before = await metrics();
     await page.waitForTimeout(2000);
     const after = await metrics();
-    // The hero's own loops have paused off screen; the ambient's four animations (two per layer) keep running.
+    // The hero's own loops have paused off screen (the plate's cut loop and its hot points); the ambient's four
+    // animations (two per layer) keep running.
     await expect(page.locator(".a2-hero")).not.toHaveAttribute("data-live", "");
+    expect((await plateLoop(page, ".a2-hero .a2-plate")).filter((a) => a.state === "running")).toEqual([]);
     expect((await ambientAnimations(page)).filter((a) => a.state === "running")).toHaveLength(4);
     // Motion without restyling or laying out on the main thread (a still page shows the same handful of style checks).
     expect(after.RecalcStyleCount - before.RecalcStyleCount).toBeLessThanOrEqual(20);
@@ -1140,9 +1412,12 @@ test.describe("A V2 · background motion", () => {
   test("marking the page as scrolling restyles only the two moving layers, not the page", async ({ page, browser }) => {
     await page.goto(home("en"), { waitUntil: "networkidle" });
     await browser.startTracing(page, { categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] });
-    // Four changes of the attribute, each followed by a style read, between two markers in the trace.
+    // Four changes of the attribute, each followed by a style read, between two markers in the trace. A read before the
+    // first marker brings every running animation up to date first (the page's clock moves on with each new task, and
+    // the hero's entrance and its plate are running then), so the markers hold only what the attribute changes.
     await page.evaluate((sel) => {
       const band = document.querySelector(sel)!.querySelector(".a2-ambient-sweep")!;
+      void getComputedStyle(band).animationPlayState;
       console.timeStamp("scrolling-start");
       for (let i = 0; i < 4; i++) {
         document.documentElement.toggleAttribute("data-scrolling");

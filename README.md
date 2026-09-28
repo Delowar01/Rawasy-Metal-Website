@@ -227,7 +227,8 @@ the current site. The signature illustrations live in `src/components/theme-lab/
 the Web Animations API, reusable on later pages); they animate the Laser Cutting and Laser Engraving
 pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts`
 and `engraved-plate.ts`. A V2's hero plate (`src/components/theme-lab/a2/HeroPlate.tsx`) redraws the
-website hero's plate from `src/components/home/hero/plate-geometry.ts`. Its site-wide background
+website hero's plate from `src/components/home/hero/plate-geometry.ts`; its cut repeats every 10 s while it is on
+screen (about 5 s of cutting, the finished plate held, then a quick reset). Its site-wide background
 (`src/components/theme-lab/a2/Ambient.tsx`) is fixed behind every section: one opaque surface (page colour,
 micro-dots and colour) and a band of light on the dot grid, moved on the compositor in whole-pixel steps, kept out
 from under text by reading zones and near-opaque sheets, resting while the page scrolls and still with reduced
@@ -267,7 +268,8 @@ overflow from 360 to 1280 px, no-JS, reduced motion); `theme-lab-a-v2.spec.ts` c
 and Services menu, scroll-spy, phone menu sheet, EN/AR mirroring, industries by source, the machinery
 selector, the client colour switch, both signature animations — the service pages' artwork, the cutting
 head's path and order, grooves developing, finished states in EN/AR, readable sizes, replays, one-time
-playback on phones, still frames — the hero plate's cut order, readout and X / Y, the pointer on
+playback on phones, still frames — the hero plate's cut order, its 10 s loop (period, readout reset, hold, rest off
+screen, phone, Arabic, no layout shift), readout and X / Y, the pointer on
 desktop and its absence on touch, the theme switch and `?theme=`, text contrast in both themes and
 languages, overflow from 360 to 1920 px in both themes, ambient layers behind the content, the
 site-wide background's layers, whole-pixel steps, timing, scroll pause, main-thread cost, sheets, reading

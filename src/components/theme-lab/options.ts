@@ -59,7 +59,7 @@ export const labCopy = {
       contact: "Contact blocks",
       motion: "Motion",
       motionNote:
-        "One motion system: content fades and rises as it enters, cards lift 3 px, photos zoom 3.5 %, arrows move 3–4 px. Transform and opacity only. Only the background loops: the page ambient moves slowly all the time, in whole-pixel steps (see Background motion), and the hero plate's hot points breathe while the hero is on screen. With reduced motion every final state shows at once and nothing loops.",
+        "One motion system: content fades and rises as it enters, cards lift 3 px, photos zoom 3.5 %, arrows move 3–4 px. Transform and opacity only. Two things loop: the page ambient moves slowly all the time, in whole-pixel steps (see Background motion), and the hero plate is cut again every 10 s while the hero is on screen (its hot points breathe meanwhile). With reduced motion every final state shows at once and nothing loops.",
       motionRows: [
         ["Quick", "180 ms", "Colour, borders, press feedback"],
         ["Standard", "320 ms", "Card lift, arrows, menus"],
@@ -67,7 +67,7 @@ export const labCopy = {
         ["Entrance", "900 ms", "Hero entrance, photo settle"],
         ["Ease out", "cubic-bezier(0.22, 1, 0.36, 1)", "Everything that moves"],
         ["Ease in-out", "cubic-bezier(0.65, 0, 0.35, 1)", "Signature replays"],
-        ["Hero plate", "≈ 5 s, once", "Pierce, trace and raster; never loops"],
+        ["Hero plate", "10 s loop · ≈ 5 s cut", "Pierce, trace and raster, hold, reset; on screen only"],
         ["Background", "26 s · 28–32 s · 3.6 s", "The light and the colour field (always), the plate's hot points (on screen)"],
         ["Pointer", "0.24 per frame", "The ring trails the point (desktop mouse)"],
       ],
@@ -115,7 +115,7 @@ export const labCopy = {
       replayReveal: "Replay the reveal",
       mobile: "Mobile components",
       mobileNote:
-        "The real homepage at phone width: a full-height menu with large rows and the quote button always in reach, a 2 × 3 service strip, two-column mini cards, swipe rails for the pillars, machines and projects, and laser illustrations that play once.",
+        "The real homepage at phone width: a full-height menu with large rows and the quote button always in reach, a 2 × 3 service strip, two-column mini cards, swipe rails for the pillars, machines and projects, the hero plate cut every 10 s and laser illustrations that play once.",
       mobileFrame: "Homepage preview at phone width",
       mobileRules: [
         "Tap targets of 44 px and more",
@@ -129,15 +129,16 @@ export const labCopy = {
       tokenHead: ["Token", "Light", "Dark", "Role"],
       plate: "Signature · Hero plate",
       plateNote:
-        "The website's approved hero plate, redrawn in A V2's language: a brushed steel plate with one laser-cut corner and the same geometry — 520 × 640, the eight-point star, the slot, four bolt holes and the perforation field — with its dimensions and measurement nodes. It rises onto its stage, the bolt holes are pierced, the laser traces the star and the slot at a steady feed and opens the perforation field row by row; the workshop glows through every opening. Orange nodes mark the measurement anchors and breathe softly while the hero is on screen. The mouse tilts the plate, moves its reflection and reads X / Y in plate millimetres; the readout counts the cuts. It plays once (about 5 s) and never loops; with reduced motion or without JavaScript the finished plate shows. SVG, CSS and the Web Animations API only.",
+        "The website's approved hero plate, redrawn in A V2's language: a brushed steel plate with one laser-cut corner and the same geometry — 520 × 640, the eight-point star, the slot, four bolt holes and the perforation field — with its dimensions and measurement nodes. It rises onto its stage, the bolt holes are pierced, the laser traces the star and the slot at a steady feed and opens the perforation field row by row; the workshop glows through every opening. Orange nodes mark the measurement anchors and breathe softly while the hero is on screen. The mouse tilts the plate, moves its reflection and reads X / Y in plate millimetres; the readout counts the cuts in each cycle. The sequence repeats every 10 s, start to start: about 5 s of cutting, the finished plate held for about 4 s, then its openings close and its measurements fade, and the next cycle begins (the plate rises only the first time). It runs only while the hero is on screen and the page is visible, and rests where it is otherwise; with reduced motion or without JavaScript the finished plate shows and nothing loops. SVG, CSS and the Web Animations API only.",
       plateSteps: [
-        "Plate rises; dimensions draw in",
+        "Plate rises (first cycle); dimensions draw in",
         "Four bolt holes pierced",
         "Star traced at a steady feed",
         "Slot traced",
         "Perforation field, row by row",
         "Nodes mark the anchors",
         "Readout: cut sequence 07/07",
+        "Held, then reset: again every 10 s",
       ],
       plateStates: {
         initial: "Initial · plate in place, dimensions drawn",
@@ -275,7 +276,7 @@ export const labCopy = {
       contact: "عناصر التواصل",
       motion: "الحركة",
       motionNote:
-        "نظام حركة واحد: يظهر المحتوى بتلاشٍ وصعود خفيف عند دخوله الشاشة، وترتفع البطاقات 3 بكسل، وتقترب الصور بنسبة 3.5٪، وتتحرك الأسهم 3–4 بكسل. الحركة بالتحويل والشفافية فقط، ولا يتكرر إلا الخلفية: تتحرك أجواء الصفحة ببطء طوال الوقت بخطوات من بكسلات كاملة (انظر حركة الخلفية)، وتتوهج نقاط لوح الواجهة ما دامت الواجهة ظاهرة فقط. ومع خيار تقليل الحركة تظهر الحالة النهائية مباشرة ولا يتكرر شيء.",
+        "نظام حركة واحد: يظهر المحتوى بتلاشٍ وصعود خفيف عند دخوله الشاشة، وترتفع البطاقات 3 بكسل، وتقترب الصور بنسبة 3.5٪، وتتحرك الأسهم 3–4 بكسل. الحركة بالتحويل والشفافية فقط، ويتكرر أمران فقط: تتحرك أجواء الصفحة ببطء طوال الوقت بخطوات من بكسلات كاملة (انظر حركة الخلفية)، ويُعاد قص لوح الواجهة كل 10 ثوانٍ ما دامت الواجهة ظاهرة، وتتوهج نقاطه في أثناء ذلك. ومع خيار تقليل الحركة تظهر الحالة النهائية مباشرة ولا يتكرر شيء.",
       motionRows: [
         ["سريع", "180 ms", "الألوان والحدود والاستجابة عند الضغط"],
         ["قياسي", "320 ms", "ارتفاع البطاقات والأسهم والقوائم"],
@@ -283,7 +284,7 @@ export const labCopy = {
         ["دخول", "900 ms", "دخول الواجهة واستقرار الصورة"],
         ["تباطؤ في النهاية", "cubic-bezier(0.22, 1, 0.36, 1)", "كل ما يتحرك"],
         ["تسارع ثم تباطؤ", "cubic-bezier(0.65, 0, 0.35, 1)", "إعادة تشغيل التوقيع البصري"],
-        ["لوح الواجهة", "≈ 5 ثوانٍ، مرة واحدة", "ثقب ورسم ومسح صفّي، دون تكرار"],
+        ["لوح الواجهة", "دورة 10 ثوانٍ · قص نحو 5 ثوانٍ", "ثقب ورسم ومسح صفّي، ثم تثبيت وإعادة؛ أثناء ظهوره فقط"],
         ["الخلفية", "26 ثانية · 28–32 ثانية · 3.6 ثانية", "الضوء والحقل اللوني (دائمًا)، ونقاط اللوح المتوهجة (أثناء ظهورها)"],
         ["المؤشر", "0.24 لكل إطار", "تتبع الحلقة النقطة (فأرة سطح المكتب)"],
       ],
@@ -331,7 +332,7 @@ export const labCopy = {
       replayReveal: "إعادة الظهور",
       mobile: "مكوّنات الجوال",
       mobileNote:
-        "الصفحة الرئيسية الفعلية بعرض الجوال: قائمة بكامل الارتفاع بصفوف كبيرة وزر طلب عرض السعر في المتناول دائمًا، وشريط خدمات 2 × 3، وبطاقات مصغّرة في عمودين، وشرائح أفقية لمزايا رواسي والمعدات والمشاريع، ورسوم ليزر تعمل مرة واحدة.",
+        "الصفحة الرئيسية الفعلية بعرض الجوال: قائمة بكامل الارتفاع بصفوف كبيرة وزر طلب عرض السعر في المتناول دائمًا، وشريط خدمات 2 × 3، وبطاقات مصغّرة في عمودين، وشرائح أفقية لمزايا رواسي والمعدات والمشاريع، ولوح واجهة يُقص كل 10 ثوانٍ، ورسوم ليزر تعمل مرة واحدة.",
       mobileFrame: "معاينة الصفحة الرئيسية بعرض الجوال",
       mobileRules: [
         "مساحات لمس 44 بكسل فأكثر",
@@ -345,15 +346,16 @@ export const labCopy = {
       tokenHead: ["الرمز", "الفاتح", "الداكن", "الدور"],
       plate: "التوقيع البصري · لوح الواجهة",
       plateNote:
-        "لوح الواجهة المعتمد في الموقع، بإعادة رسم تناسب لغة A V2: لوح فولاذي مصقول بزاوية مشطوفة بالليزر وبالهندسة نفسها — 520 × 640، والنجمة الثمانية، والفتحة، وأربعة ثقوب تثبيت، وحقل الثقوب الدقيقة — مع أبعاده ونقاط القياس. يرتفع اللوح إلى منصته، ثم تُثقب ثقوب التثبيت، ويرسم الليزر النجمة والفتحة بسرعة تغذية ثابتة، ويفتح حقل الثقوب صفًّا بعد صف، فتظهر الورشة متوهجة عبر كل فتحة. تحدد نقاط برتقالية مواضع القياس، وتنبض بهدوء ما دامت الواجهة ظاهرة. وتُميل الفأرة اللوح وتحرّك انعكاسه وتعرض الإحداثيين X / Y بالمليمتر، ويعدّ المؤشر عمليات القص. يعمل مرة واحدة (نحو 5 ثوانٍ) ولا يتكرر؛ ومع تقليل الحركة أو دون JavaScript يظهر اللوح مكتملًا. رسم SVG وCSS وواجهة Web Animations فقط.",
+        "لوح الواجهة المعتمد في الموقع، بإعادة رسم تناسب لغة A V2: لوح فولاذي مصقول بزاوية مشطوفة بالليزر وبالهندسة نفسها — 520 × 640، والنجمة الثمانية، والفتحة، وأربعة ثقوب تثبيت، وحقل الثقوب الدقيقة — مع أبعاده ونقاط القياس. يرتفع اللوح إلى منصته، ثم تُثقب ثقوب التثبيت، ويرسم الليزر النجمة والفتحة بسرعة تغذية ثابتة، ويفتح حقل الثقوب صفًّا بعد صف، فتظهر الورشة متوهجة عبر كل فتحة. تحدد نقاط برتقالية مواضع القياس، وتنبض بهدوء ما دامت الواجهة ظاهرة. وتُميل الفأرة اللوح وتحرّك انعكاسه وتعرض الإحداثيين X / Y بالمليمتر، ويعدّ المؤشر عمليات القص في كل دورة. يتكرر التسلسل كل 10 ثوانٍ من بداية إلى بداية: نحو 5 ثوانٍ من القص، ثم يثبت اللوح مكتملًا نحو 4 ثوانٍ، ثم تُغلق فتحاته وتتلاشى أبعاده وتبدأ الدورة التالية (يرتفع اللوح في المرة الأولى فقط). ولا يعمل إلا والواجهة ظاهرة والصفحة معروضة، ويتوقف في موضعه في غير ذلك؛ ومع تقليل الحركة أو دون JavaScript يظهر اللوح مكتملًا دون تكرار. رسم SVG وCSS وواجهة Web Animations فقط.",
       plateSteps: [
-        "ارتفاع اللوح ورسم الأبعاد",
+        "ارتفاع اللوح (في الدورة الأولى) ورسم الأبعاد",
         "ثقب فتحات التثبيت الأربع",
         "رسم النجمة بسرعة تغذية ثابتة",
         "رسم الفتحة",
         "حقل الثقوب صفًّا بعد صف",
         "تحديد نقاط القياس",
         "المؤشر: تسلسل القص 07/07",
+        "تثبيت ثم إعادة: دورة كل 10 ثوانٍ",
       ],
       plateStates: {
         initial: "الحالة الابتدائية · اللوح في موضعه والأبعاد مرسومة",

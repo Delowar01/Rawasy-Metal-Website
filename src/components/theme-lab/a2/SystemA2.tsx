@@ -166,7 +166,7 @@ export function SystemA2({ data }: { data: LabData }) {
     </div>
   );
 
-  // The two signatures lead the sheet: a live demo with a replay, then still frames of the intro.
+  // The two signatures lead the sheet: a live demo with a replay (the plate loops, as in the hero), then still frames of the intro.
   const lead = (
     <>
       <Block title={t.plate} note={t.plateNote}>
@@ -187,7 +187,7 @@ export function SystemA2({ data }: { data: LabData }) {
               <ReplaySignature target="demo-plate" label={t.replay} />
             </div>
             <div className="mt-4">
-              <Meta>0–760 ms rise · 0.2–1.05 s dimensions · 1.15–2.0 s bolt holes · 2.0–3.0 s star · 3.3–3.75 s slot · 3.9–4.4 s perforation · 4.5–5.2 s nodes · 5.2 s</Meta>
+              <Meta>0–760 ms rise (first cycle) · 0.2–1.05 s dimensions · 1.15–2.0 s bolt holes · 2.0–3.0 s star · 3.3–3.75 s slot · 3.9–4.4 s perforation · 4.5–5.26 s nodes · 5.26–9.4 s held · 9.4–9.85 s reset · every 10 s</Meta>
             </div>
           </div>
         </div>
