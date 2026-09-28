@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-28-a-v2-hero-loop.md` (earlier:
+- Latest report: `docs/reports/2026-09-28-tm1-homepage-migration.md` (earlier: `2026-09-28-a-v2-hero-loop.md`,
   `2026-09-28-a-v2-background-optimization.md`, `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
@@ -33,58 +33,41 @@
   `2026-09-25-stage-1D-service-pages.md`). Never self-approve a stage. Do not start 1E (Capabilities &
   Machinery), 1F (project detail pages), 1G or later until the user says so; project detail pages
   and Capabilities stay `planned`. Do not start Phase 2 (admin panel) during Phase 1.
-- **Development is stopped for a theme exploration** (the user's "STOP FURTHER DEVELOPMENT — MODERN
-  COMMERCE THEME EXPLORATION ONLY" brief). The user finds the current direction too much like
-  architecture / engineering editorial; the target is modern commerce × premium industrial B2B ×
-  manufacturing (a company selling capabilities, not ecommerce). The theme lab holds three isolated
-  homepage previews with design-system sheets (report `2026-09-25-modern-commerce-theme-lab.md`):
-  A · Clean Premium Commerce, B · Bold Industrial Commerce, C · Minimal Luxury Commerce, light theme
-  only. **Never choose the winner, and do nothing further until the user selects one**: no 1E–1J, no
-  Phase 2, no new pages or features, no changes to the live routes. The current design stays live
-  until a theme is approved; after that the dark equivalent comes next (the user's order).
-- **A is the closest direction but not approved; A V2 is built and awaits visual review** (the user's
-  "OPTION A V2 / REFINE OPTION A ONLY" brief, report `2026-09-25-modern-commerce-a-v2.md`). Work only
-  on A V2 when asked; never on B or C. A stays available for comparison. Never self-approve A V2 and
-  never migrate the site to it until the user explicitly approves it.
-- **A V2 refinement pass 2 is built and awaits visual review** (the user's "MODERN COMMERCE A V2 —
-  REFINEMENT PASS 2" brief, report `2026-09-26-a-v2-refinement-pass-2.md`): the website's approved
-  hero plate reinterpreted as A V2's hero (`a2/HeroPlate.tsx`), a wider content column, softened light
-  and dark backgrounds with a background token system, a dark theme (A V2 only), a precision pointer,
-  section sheets, quiet ambient layers, a contrast audit and an updated sheet. A V2 is still not
-  approved: never migrate it, and no 1E, Phase 2, B or C work.
-- **A V2's background motion was corrected and awaits visual review** (the user's "BACKGROUND MOTION
-  CORRECTION ONLY" brief, report `2026-09-27-a-v2-background-motion.md`): pass 2's background was rejected
-  as static. The target is "visible + minimal, not strong + distracting" across the whole page: micro-dots,
-  2–3 large soft colour fields and ONE precision motif (a light sweep behind the dots). Never a
-  blueprint, CAD, technical-grid or architecture look; no canvas, WebGL, particles or animated filters.
-  Nothing else in A V2 was to be redesigned.
-- **A V2's background was then optimized and awaits visual review** (the user's "BACKGROUND MOTION —
-  PERFORMANCE + CONTRAST OPTIMIZATION" brief, report `2026-09-28-a-v2-background-optimization.md`): the
-  concept is directionally approved, the five-layer build was not (software-compositing scroll at 1440 px fell
-  to 31–38 fps, and lit dots behind text dropped local contrast to 2.4–3.5:1). Targets: ≥ 55 fps (at least
-  consistently > 50) in the same software benchmark, 1–2 moving full-screen layers, and no ambient under body
-  text below AA per pixel (not averaged). Keep it visible; never go back to a static background.
-- **A V2's hero cutting animation now loops and awaits visual review** (the user's "HERO CUTTING ANIMATION LOOP
-  CORRECTION" brief, report `2026-09-28-a-v2-hero-loop.md`): the whole plate sequence (dimensions, holes, star, slot,
-  perforation, head, readout, finished plate) repeats every 10 s start to start: about 5 s of cutting, the finished
-  plate held about 4 s, a 0.45 s reset. It runs only while the plate is on screen and the page is visible, rests
-  where it is otherwise, and does not loop with reduced motion. Keep the hero's design, geometry and interactions.
-- **A V2's signature animations were corrected** (the user's "SIGNATURE ANIMATION CORRECTION" brief,
-  report `2026-09-25-a-v2-signature-correction.md`): the user rejected the star cut and the medallion
-  engraving. The signatures must animate the service pages' own drawings (the Laser Cutting nesting
-  sheet, the Laser Engraving brass plate) inside the A V2 cards: never a decorative star, a logo, a
-  game look, big sparks, a lifted part or a new concept. The corrected version awaits visual review
-  (A V2 as a whole is still not approved).
+- **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
+  COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
+  company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
+  create another theme or reinterpret the direction; A, B and C stay in the lab for comparison only (no work on B
+  or C). Everything the A V2 briefs settled is accepted and binding for the migrated pages:
+  - hero plate (`commerce/hero/HeroPlate.tsx`, the website's plate geometry): the whole sequence (dimensions, holes,
+    star, slot, perforation, head, readout, finished plate) repeats every 10 s start to start — cut 0–5.26 s, hold
+    to 9.40 s, reset to 9.85 s — only while on screen and the page is visible, resting where it is otherwise, never
+    looping with reduced motion (static finished plate), no drift. Never restore the one-time playback. The plate's
+    rise plays in cycle 1 only; the user has not decided whether it should repeat, so leave it until they say.
+  - signatures: animate the service pages' own drawings (the Laser Cutting nesting sheet, the Laser Engraving brass
+    plate), never a decorative star, logo, game look, big sparks, lifted part, medallion or new concept.
+  - ambient: "visible + minimal", micro-dots, soft warm/steel colour with restrained teal and ONE precision motif
+    (the periodic light sweep); never a blueprint, CAD, technical-grid or architecture look; no canvas, WebGL,
+    particles or animated filters. Two moving full-screen layers at most (never the five-layer build), ≥ 55 fps in
+    the software-compositing scroll benchmark at 1440 px, no ambient under body text below AA per pixel. Keep it
+    visible; never go back to a static background.
+  - pointer (desktop mouse only), softer light/dark themes (dark = blue-charcoal), modern cards/borders/shadows.
+- **Stage TM-1 (homepage + design foundation) is built and awaits the user's visual review** (report
+  `2026-09-28-tm1-homepage-migration.md`): `/en` and `/ar` run the Modern Commerce design on the website's real
+  routes; every other page keeps the previous design, unchanged (proved against the checkpoint build). Never
+  self-approve. **Do not migrate the inner pages until the user explicitly approves the homepage, and do not start
+  1E.** Rollback checkpoint: local tag `pre-tm1-a-v2-migration` and GitHub branch `preserve/pre-tm1-a-v2-migration`
+  (both at `3260415`, the last commit before TM-1); the previous homepage's page code is parked, unrouted, in
+  `src/components/home/LegacyHomePage.tsx` (delete it once the new homepage is approved). Do not deploy.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
   `published`.
-- Unless a brief asks for homepage work (as 1C-V and V2 did, below the hero only), the approved
-  homepage must not change except for a genuine shared-component bug. (V2's Sora headline and orange
-  primary buttons also reach the hero: both were the user's instructions, and the hero markup is
-  byte-identical to 1C-V.) After shared changes, compare it with
-  the approved build: server HTML (normalise `/_next/static` paths), aria snapshots and screenshots
-  at the five widths, EN/AR, light/dark.
+- The pages still in the previous design must not change (except for a genuine shared-component bug) until their
+  own migration is approved. After any shared change, compare them with the checkpoint build (a `git worktree` of
+  `3260415` with `cp -al node_modules`): visible server HTML (scripts removed, `/_next/static` paths and the
+  `next-size-adjust` meta position normalised), the site CSS bytes, the RSC payloads resolved into one tree (Flight
+  rows get renumbered and re-chunked when any prop changes, so compare resolved trees, not files) and screenshots in
+  EN/AR, light/dark.
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
@@ -104,6 +87,8 @@
   or testimonials (V2 brief). The homepage marquee shows no count either.
 
 ## Visual system (V2, on top of 1C-V)
+
+The previous design's visual system: every page except the migrated homepage, until each is migrated.
 
 - Direction: precision engineering × metal fabrication × architectural detail. Premium, engineered,
   layered metal plates; colourful but controlled; clear boxes and panels so each section, service
@@ -180,6 +165,9 @@
 
 ## Typography rules (1B correction, English changed in V2)
 
+These are the previous design's rules (every page except the migrated homepage). Pages in the Modern Commerce
+design use A V2's faces (see "Modern Commerce design in production" below).
+
 - English (V2): **Sora** for display and headings (H1, major H2, key statements), **Manrope** for
   body, navigation, forms and buttons, **Geist Mono** for technical labels only (machine data,
   references, dimensions). Arabic display, headings, navigation and buttons: **Noto Kufi Arabic** (hero and
@@ -203,7 +191,9 @@
 - Media registry: `src/content/media.generated.ts`. It is generated, so never edit it by hand; run
   `npm run assets:extract -- <profile.pdf>`.
 - Routes: `src/i18n/routes.ts`. Publishing, indexing and the sitemap: `src/lib/page-meta.ts`.
-- Design tokens and motion CSS: `src/app/globals.css`. Homepage sections: `src/components/home/*`.
+- Design tokens and motion CSS of the previous design: `src/app/globals.css`. The homepage (Modern Commerce):
+  `src/app/(commerce)/[locale]/`, `src/components/commerce/*` (see below). `src/components/home/*` holds the previous
+  homepage's sections (parked with `LegacyHomePage.tsx`) and the hero plate geometry (`hero/plate-geometry.ts`).
 - Inner pages: shared system in `src/components/inner/*` and `src/lib/inner-page.ts` (metadata,
   breadcrumb trail, JSON-LD); page components in `src/components/{about,services,projects,industries,
   clients,certificates,contact,legal}`; shared cards in `src/components/cards/*` and teasers in
@@ -231,7 +221,64 @@
   sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`. An axe-core audit (installed
   in the scratchpad, not the project) is a cheap extra check.
 
+## Modern Commerce design in production (Stage TM-1)
+
+- Two designs, two root layouts. `src/app/(commerce)/[locale]/layout.tsx` + `page.tsx` serve the migrated pages
+  (the homepage) with their own stylesheet, fonts, boot script, ambient, pointer and motion controller;
+  `src/app/[locale]/layout.tsx` still serves every other page in the previous design. Moving between them is a full
+  page load (Next.js: navigating across root layouts), so no CSS, font or script ever crosses over. To migrate a
+  page later: move its route into `(commerce)/[locale]/`, add its key to `commerceRoutes` in
+  `src/i18n/routes.ts`, and extend the Tailwind `@source` lines if its components live elsewhere.
+- `commerceRoutes` + `crossDesignLink(href)` (`src/i18n/routes.ts`): every `<Link>` in the previous design's shell
+  (header, footer, breadcrumbs, `ButtonLink`, CTA, placeholder) spreads `{...crossDesignLink(href)}`, which adds
+  `prefetch={false}` for a page in the new design (and nothing otherwise, so other links' payloads are unchanged).
+  A prefetch across designs can never be used, and its RSC payload carries the other design's font preload hints:
+  React added Inter and Plus Jakarta Sans preloads (~75 KB) to every old page before this.
+- Styles: `src/app/(commerce)/commerce.css` (Tailwind `source(none)` with `@source` on `components/commerce` and the
+  route group; base layer, reveals, view transitions, `.shell`, `.mc-icon`, skip link) and
+  `src/components/commerce/system.css` (A V2's `a2.css` converted: every token and component scoped to `.mc` on
+  `<body>`, dark tokens under `html[data-theme="dark"] .mc`, lab-only parts — sheet frames, forced-theme samples,
+  replay buttons — left out, nav active state keyed on `aria-current="page"`). Class names keep the `a2-` prefix
+  shared with the lab. `globals.css` has `@source not` lines for `(commerce)` and `components/commerce`, so the
+  previous design's CSS stays byte-identical. `Icon` renders `mc-icon lab-icon` (each design styles its own class;
+  drop `lab-icon` when the lab is deleted).
+- Fonts (`src/app/(commerce)/fonts.ts`): Plus Jakarta Sans (English display) and Inter (English text) preloaded;
+  Tajawal 500/700/800 (Arabic display) and IBM Plex Sans Arabic 400/500 (Arabic text) not preloaded (one root layout
+  serves both languages); technical figures use the system monospace stack. Variables `--font-mc-*`. Arabic is never
+  letter-spaced (`:lang(ar)` rule in `commerce.css`). `global-not-found.tsx` uses its own non-preloading copies of
+  the previous design's fonts (`src/app/global-not-found-fonts.ts`); with `experimental.globalNotFound` its preloads
+  otherwise reached every page (six unused files on the new homepage and the lab).
+- Theme: `src/lib/commerce-boot.ts` (inline in `<head>`) sets `js`, applies the stored theme under the website's key
+  `rawasy-theme` (shared with the previous design, so a choice carries across both) or the system setting, and marks
+  the session's intro as seen (`rawasy-intro`), so the previous design's loader does not play after the homepage.
+  Page colours `PAGE_COLORS` in `components/commerce/data.ts` (light `#f4f4f1`, dark `#131820`) feed the viewport
+  `themeColor`, and `ThemeSwitch` updates `meta[name="theme-color"]`. Without JavaScript the page is light.
+- Shell (`components/commerce/shell/`): `Header` (real routes, Services menu of the six services + "All services" +
+  quote, `aria-current="page"`, language, theme, quote, phone menu sheet), `Footer` (real routes, both phones,
+  email, WhatsApp, address, legal pages, back to top), `PageShell` (skip link, header, `<main id="main">`, footer),
+  `LocaleLink` (a plain `<a>` to the same page in the other language that sets the `NEXT_LOCALE` cookie).
+  `getShellView(locale, { route, path })` builds everything the shell needs from the content layer. Every quote
+  action goes to `href(locale, "contact", { hash: "quote" })`; the hero's own two actions stay in-page as in the lab.
+- Homepage sections (`components/commerce/home/`): Hero (+ capability strip), About, Services (the two signatures
+  lead), Machinery (`MachineShowcase`), Projects, Industries, Clients + Compliance (one sheet), Contact;
+  `getHomeView(locale)` in `home/data.ts`. Markup follows the lab's `HomeA2.tsx` one to one (proved by diffing the
+  server HTML: only routes, `aria-current`, the added footer WhatsApp link and the copyright period differ).
+- Motion: `components/commerce/Motion.tsx` is the production controller (reveals, `data-scrolled`,
+  `data-scrolling` cleared 200 ms after the last scroll, menus and dropdowns with Escape / outside click / focus
+  return and closing when keyboard focus leaves them, the sheet's `--menu-top`, toggles, `data-past-hero`, `data-live` on `[data-ambient]`); no scroll-spy or
+  parallax (the header links pages now). `Ambient`, `Cursor` (scoped to `.mc`), `HeroPlate`, the signatures
+  (`useSignature`, `LaserCut`, `LaserEngrave`, `signature.css`), `MachineShowcase`, `ThemeSwitch`, `Icon` and `ui`
+  live in `components/commerce/` and the lab re-exports them: one implementation, one animation controller.
+- Tests: `e2e/commerce-home.spec.ts` (the homepage) with probes shared with the lab spec in `e2e/a2-helpers.ts`.
+  The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` now run on inner pages.
+
 ## Theme lab (Modern Commerce exploration)
+
+- Since TM-1 the A V2 modules the homepage uses live in `src/components/commerce/` (paths below such as
+  `a2/HeroPlate.tsx`, `a2/Ambient.tsx`, `a2/Cursor.tsx`, `a2/ThemeSwitch.tsx`, `a2/MachineShowcase.tsx`, `Icon.tsx`,
+  `ui.tsx` and `signature/` are now the lab's re-exports: edit the commerce files). `lab.css` lists them with
+  `@source` so the lab's utilities stay complete. Keep the lab working for comparison until the site carries the
+  new design everywhere.
 
 - Routes: `/theme-lab/{en|ar}/modern-commerce-{a|a-v2|b|c}` and `…/system`, under their own root layout
   (`src/app/theme-lab/[locale]/layout.tsx`, `lab.css`), so no site header, footer, loader or site CSS.
@@ -462,3 +509,16 @@
 - Chromium moves the animation clock on with each new task, so the first style read of a script task re-samples every
   running animation (the hero entrance, the plate): a trace measuring what one change restyles must read styles once
   before its first marker.
+- A `<Link>` prefetch of a page under another root layout still runs, is never used (the navigation is a full page
+  load) and its RSC payload carries that layout's font preload hints, which React adds to the current page's
+  `<head>`. Links from the previous design to a Modern Commerce page go through `crossDesignLink()`.
+- Moving a component out of the lab's folder takes its utilities out of `lab.css` (Tailwind scans only the listed
+  sources): the lab's stylesheet shrank 2 KB until the moved files were added back with `@source`. Check a moved
+  component's CSS bytes against the previous build.
+- Flight payloads (`.rsc` files and the inline `self.__next_f` scripts) renumber and re-chunk their rows when any prop
+  changes; to prove "only this prop changed", resolve each payload into one tree (inline `$L`/`$` row references,
+  name client modules by id and export, keep `$<row>:path` back-references by path) and compare the trees. Parse
+  rows as `<hex id>:` up to the newline, except text rows `<id>:T<hex length>,` (byte length) and hint rows with an
+  empty id (`:HL[…]`).
+- The `pkill -f` self-kill also happens when the pattern appears anywhere in the same command, a heredoc included
+  (`pkill -f difflib` in a script that uses difflib killed its own shell).

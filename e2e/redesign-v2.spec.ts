@@ -359,17 +359,3 @@ test.describe("about page", () => {
     }
   });
 });
-
-test("the homepage introduction explains the company: six service lines, site support, vision and two ways on", async ({ page }) => {
-  await page.goto("/en", { waitUntil: "networkidle" });
-  const intro = page.locator("#intro");
-  await expect(intro.locator("ul a[href^='/en/services/']")).toHaveCount(6);
-  for (const name of ["Formwork systems", "Wood & steel props", "Rental services", "Installation & dismantling", "Transportation"]) {
-    await expect(intro.getByText(name, { exact: true })).toHaveCount(1);
-  }
-  await expect(intro.locator("blockquote")).toContainText("leading force");
-  await expect(intro.getByRole("link", { name: "About RAWASY" })).toHaveAttribute("href", "/en/about");
-  await expect(intro.getByRole("link", { name: "Explore services" })).toHaveAttribute("href", "/en/services");
-  // The homepage keeps its logo marquee, without a count.
-  expect(await page.locator("#clients").innerText()).not.toMatch(/\b21\b/);
-});

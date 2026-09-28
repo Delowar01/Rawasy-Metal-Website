@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Locale } from "@/i18n/config";
+import { crossDesignLink } from "@/i18n/routes";
 import { Logo } from "@/components/brand/Logo";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { CloseIcon, MailIcon, MenuIcon, PhoneIcon, WhatsAppIcon } from "@/components/ui/Icons";
@@ -147,7 +148,7 @@ export function SiteHeader({ locale, homeHref, items, quote, contact, labels }: 
         )}
       />
       <div className="container-x relative flex h-[var(--header-h)] items-center gap-6">
-        <Link href={homeHref} aria-label={labels.homeLink} className="shrink-0 text-ink transition-opacity hover:opacity-80">
+        <Link href={homeHref} {...crossDesignLink(homeHref)} aria-label={labels.homeLink} className="shrink-0 text-ink transition-opacity hover:opacity-80">
           <Logo className="h-9 w-auto sm:h-10" title={labels.homeLink} />
         </Link>
 
@@ -164,6 +165,7 @@ export function SiteHeader({ locale, homeHref, items, quote, contact, labels }: 
                 <li key={item.key} className="relative">
                   <Link
                     href={item.href}
+                    {...crossDesignLink(item.href)}
                     aria-current={active ? "page" : undefined}
                     onMouseEnter={(e) => moveIndicator(e.currentTarget)}
                     onFocus={(e) => moveIndicator(e.currentTarget)}
@@ -223,6 +225,7 @@ export function SiteHeader({ locale, homeHref, items, quote, contact, labels }: 
                   <li key={item.key} className="border-b border-line" style={{ ["--i" as string]: i }}>
                     <Link
                       href={item.href}
+                      {...crossDesignLink(item.href)}
                       aria-current={active ? "page" : undefined}
                       className="menu-item group flex items-baseline gap-5 py-3.5 sm:py-4"
                     >

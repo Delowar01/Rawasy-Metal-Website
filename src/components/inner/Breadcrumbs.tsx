@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { crossDesignLink } from "@/i18n/routes";
 import { ChevronIcon } from "@/components/ui/Icons";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ export function Breadcrumbs({ items, label, className }: { items: Crumb[]; label
                   {item.label}
                 </span>
               ) : (
-                <Link href={item.href} className="link-line transition-colors hover:text-ink">
+                <Link href={item.href} {...crossDesignLink(item.href)} className="link-line transition-colors hover:text-ink">
                   {item.label}
                 </Link>
               )}

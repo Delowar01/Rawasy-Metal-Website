@@ -12,19 +12,20 @@ engraving, scaffolding), is built and awaits visual approval.** The remaining ro
 pages, capabilities) are set up and localized, and show an "in development" page until their stage
 is built and approved (see the approval gate in the Phase 1 brief).
 
-**Development is paused for a theme exploration:** Modern Commerce directions are built in the
-[theme lab](#theme-lab) for review. Option A was found closest to the target and is refined as
-**A V2** (the website's laser-cut plate as the hero, signature laser-cutting and laser-engraving
-animations built on the service pages' own nesting sheet and engraved plate, light and dark themes, a
-precision pointer, a fuller header, one motion system). Its second refinement pass awaits visual
-review. The current design stays live and unchanged until a theme is approved.
+**Modern Commerce migration (Stage TM-1):** of the directions explored in the [theme lab](#theme-lab),
+**A V2** was approved as the master design (the website's laser-cut plate as the hero, cutting on a 10 s
+loop, signature laser-cutting and laser-engraving animations built on the service pages' own nesting
+sheet and engraved plate, light and dark themes, a precision pointer, a site-wide ambient background).
+The migration is controlled: **the homepage (`/en`, `/ar`) now runs in the new design and awaits visual
+review**; every other page keeps the previous design, unchanged, until the homepage is approved. The
+theme lab stays for comparison.
 
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
-| Styling | Tailwind CSS v4 + semantic CSS tokens (`src/app/globals.css`) |
+| Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/globals.css` (previous design), `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css` (Modern Commerce) |
 | Motion | GSAP 3 + ScrollTrigger (hero, scroll scenes), CSS/IntersectionObserver for reveals |
-| Fonts | Sora (English display), Manrope (English text and UI), Noto Kufi Arabic (Arabic display), IBM Plex Sans Arabic (Arabic text), Geist Mono (technical labels), all self-hosted via `next/font` |
+| Fonts | Modern Commerce pages: Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text). Previous design: Sora, Manrope, Noto Kufi Arabic, IBM Plex Sans Arabic, Geist Mono. All self-hosted via `next/font` |
 | Rendering | Static pages for every route in both languages (109 site pages + 16 theme-lab previews at build time) |
 
 ## Getting started
@@ -46,8 +47,9 @@ Optional environment variable: `NEXT_PUBLIC_SITE_URL` (canonical origin, default
 src/
   proxy.ts                 Locale negotiation: cookie → Accept-Language → /en
   app/
-    [locale]/layout.tsx    Root layout: <html lang dir>, fonts, theme boot, header/footer
-    [locale]/page.tsx      Homepage (13 sections)
+    (commerce)/[locale]/   Root layout + homepage in the Modern Commerce design (Stage TM-1): own
+                           stylesheet, fonts, theme boot, ambient, pointer and motion controller
+    [locale]/layout.tsx    Root layout of the pages still in the previous design: fonts, theme boot, header/footer
     [locale]/…             about, services, services/[slug], capabilities, projects,
                            projects/[slug], industries, clients, certificates, contact,
                            privacy, terms, not-found, [...rest] (localized 404)
@@ -58,7 +60,10 @@ src/
   components/
     brand/                 Vector logo (from the official master artwork)
     layout/                Header, mobile menu, footer, language + theme controls, 404
-    home/                  Homepage sections (hero plate, explorers, statement, …)
+    commerce/              Modern Commerce design: shell (header, phone menu, footer), homepage sections,
+                           hero plate, signature illustrations, ambient, pointer, theme switch, motion
+                           (shared with the theme lab's A V2, which re-exports them)
+    home/                  Previous homepage's sections (parked for rollback) and the hero plate geometry
     inner/                 Inner-page system: hero variants, breadcrumbs, editorial section, media frame, CTA
     about/ services/ industries/ clients/ certificates/ contact/ legal/ projects/
                            Page-specific components for the stage 1C pages and the projects overview
@@ -70,12 +75,12 @@ src/
     motion/                Loader, reveal and live observers, custom cursor, page transition
     ui/                    Button, section header, image, icons
   lib/                     SEO helpers, inner-page metadata, theme engine, boot script, GSAP setup
-e2e/                       Playwright browser tests (site shell + homepage, inner pages, V2, service pages)
+e2e/                       Playwright browser tests (homepage, site shell, inner pages, V2, service pages, theme lab)
 scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-09-25, stage 1D service pages)
+docs/reports/                Stage reports (latest: 2026-09-28, Stage TM-1 homepage migration)
 ```
 
 ### Languages and RTL
@@ -223,19 +228,22 @@ Replace `en` with `ar` for Arabic; `/theme-lab` redirects to A V2. The lab has i
 and stylesheet (`src/app/theme-lab/`, `src/components/theme-lab/`), reuses the content layer, is
 `noindex` (meta and `X-Robots-Tag`), and never appears in the sitemap or the site navigation. The
 dark bar at the top of each preview switches option, view and language; links in the previews open
-the current site. The signature illustrations live in `src/components/theme-lab/signature/` (SVG and
+the current site. A V2 was approved and its components moved to `src/components/commerce/` in Stage TM-1
+(the lab's files re-export them, so the lab and the homepage run the same code). The signature
+illustrations live in `src/components/commerce/signature/` (SVG and
 the Web Animations API, reusable on later pages); they animate the Laser Cutting and Laser Engraving
 pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts`
-and `engraved-plate.ts`. A V2's hero plate (`src/components/theme-lab/a2/HeroPlate.tsx`) redraws the
+and `engraved-plate.ts`. A V2's hero plate (`src/components/commerce/hero/HeroPlate.tsx`) redraws the
 website hero's plate from `src/components/home/hero/plate-geometry.ts`; its cut repeats every 10 s while it is on
 screen (about 5 s of cutting, the finished plate held, then a quick reset). Its site-wide background
-(`src/components/theme-lab/a2/Ambient.tsx`) is fixed behind every section: one opaque surface (page colour,
+(`src/components/commerce/Ambient.tsx`) is fixed behind every section: one opaque surface (page colour,
 micro-dots and colour) and a band of light on the dot grid, moved on the compositor in whole-pixel steps, kept out
 from under text by reading zones and near-opaque sheets, resting while the page scrolls and still with reduced
 motion. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`,
 `docs/reports/2026-09-25-modern-commerce-a-v2.md`, `docs/reports/2026-09-25-a-v2-signature-correction.md`,
 `docs/reports/2026-09-26-a-v2-refinement-pass-2.md`, `docs/reports/2026-09-27-a-v2-background-motion.md` and
-`docs/reports/2026-09-28-a-v2-background-optimization.md`.
+`docs/reports/2026-09-28-a-v2-background-optimization.md`, `docs/reports/2026-09-28-a-v2-hero-loop.md` and
+`docs/reports/2026-09-28-tm1-homepage-migration.md`.
 
 ## Assets
 
@@ -251,9 +259,15 @@ proxy, prefix it with `NODE_USE_ENV_PROXY=1`.
 ## Testing
 
 `npm run test:e2e` runs the Playwright suites in `e2e/` against the production build (it starts
-`next start` on port 3400, or set `E2E_BASE_URL`). `site.spec.ts` covers the shell and homepage
-(loader, theme, language switching, mobile menu, explorers, transitions, reduced motion, no-JS,
-internal links); `stage-1c.spec.ts` covers the inner pages (routes, language and direction, SEO and
+`next start` on port 3400, or set `E2E_BASE_URL`). `commerce-home.spec.ts` covers the homepage in the
+Modern Commerce design (sections, landmarks and headings, its own stylesheet and typefaces, the header's
+real routes and Services menu, every quote action, the handover to and from the pages in the previous
+design, the language switch and cookie, RTL, the footer's links, the phone menu, touch, the shared theme
+set before first paint, overflow from 360 to 1920 px in both themes, the 10 s hero loop in both
+languages, its rest off screen and in a hidden tab, both signatures, the ambient, the pointer, keyboard,
+reduced motion, no-JS and search metadata; probes shared with the lab spec are in `a2-helpers.ts`);
+`site.spec.ts` covers the shell of the pages in the previous design (loader, theme, language switching,
+mobile menu, transitions, reduced motion, no-JS) and internal links on every page; `stage-1c.spec.ts` covers the inner pages (routes, language and direction, SEO and
 the noindex gate, breadcrumbs, clients, certificate dialog, quote form, legal pages, 404, overflow at
 360/390/834 px, keyboard, reduced motion, no-JS); `visual-system.spec.ts` covers the visual system
 (ambient motion only on screen, reduced motion and touch, active rows and contents, focus frames,

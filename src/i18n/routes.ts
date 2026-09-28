@@ -53,6 +53,21 @@ export function href(locale: Locale, key: RouteKey, params?: { slug?: string; ha
   return params?.hash ? `${base}#${params.hash}` : base;
 }
 
+/**
+ * Pages in the Modern Commerce design (Stage TM-1: the homepage). They have their own root layout
+ * (src/app/(commerce)), so a link to one from a page in the previous design is always a full page load.
+ */
+export const commerceRoutes: readonly RouteKey[] = ["home"];
+
+/**
+ * Link props for a page in the previous design: never prefetch a page in the Modern Commerce design. The prefetch could
+ * not be used (the navigation is a full page load) and it would download that design's fonts on a page without them.
+ */
+export function crossDesignLink(target: string): { prefetch?: false } {
+  const base = target.split(/[?#]/)[0];
+  return commerceRoutes.some((key) => locales.some((locale) => href(locale, key) === base)) ? { prefetch: false } : {};
+}
+
 /** Swap the locale segment of a pathname: "/en/projects/x" → "/ar/projects/x". */
 export function switchLocalePath(pathname: string, target: Locale): string {
   const segments = pathname.split("/");

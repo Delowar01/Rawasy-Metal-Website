@@ -1,0 +1,2715 @@
+/*
+ * Modern Commerce (A V2) — the website's design system, approved as the master design direction (Stage TM-1).
+ * A bright commercial system (off-white raised cards on a soft warm mist, visible borders, layered shadows with a lit
+ * top edge, orange actions, steel / teal / brass accents) with the signature plate hero, the laser signatures, one
+ * motion system, the site-wide ambient and the laser pointer. Two themes share every token name: light by default,
+ * dark under html[data-theme="dark"].
+ *
+ * Scope: `.mc`, set on <body> by the Modern Commerce root layout (src/app/(commerce)/[locale]/layout.tsx). Pages
+ * not yet migrated keep the previous design (src/app/globals.css) under their own root layout, so the two systems
+ * never share a document. Component classes keep the approved design's `a2-` prefix (they are shared with the theme
+ * lab's reference copy until the lab is removed).
+ */
+@layer theme, base, components, utilities;
+
+/* The card light fades in and out (a registered colour can transition). */
+@property --spot {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+/* The machinery spotlight glides to each machine (a registered property can transition). */
+@property --spot-x {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+
+@layer components {
+  /* ---------- Tokens · light theme ---------- */
+  .mc {
+    color-scheme: light;
+
+    /* Brand and supporting tones */
+    --brand: #f15f22;
+    --brand-hover: #f7713a;
+    --brand-press: #de5217;
+    --brand-ink: #b3410d;
+    --brand-soft: #fdefe6;
+    --brand-line: #f5c2a3;
+    /* Orange icons on the orange tint: a touch deeper for 3:1 */
+    --brand-icon: #e3561c;
+    --on-brand: #15171a;
+    --steel: #2c5e86;
+    --steel-soft: #e9f0f5;
+    --steel-line: #c3d5e4;
+    --teal: #1b6f65;
+    --teal-soft: #e3f1ee;
+    --teal-line: #b2d8d0;
+    --brass: #7b5c24;
+    --brass-soft: #f6efe1;
+    --brass-line: #e2d1aa;
+    /* Icons on a filled tone chip */
+    --on-tone: #ffffff;
+
+    /* Background system: base page → section → recessed band; elevated card → inner → muted */
+    --bg: #f4f4f1;
+    --bg-alt: #ecece8;
+    --bg-deep: #e5e5e0;
+    --surface: #fdfdfb;
+    --surface-2: #f7f7f4;
+    --surface-3: #f0f0ec;
+    --hero-top: #fbfbf9;
+    /* Hero and dark-band glows, the lit edge of raised surfaces */
+    --glow-warm: rgb(241 95 34 / 0.13);
+    --glow-cool: rgb(44 94 134 / 0.1);
+    --band-glow: rgb(241 95 34 / 0.24);
+    --sheen: rgb(255 255 255 / 0.62);
+    --edge-light: rgb(255 255 255 / 0.9);
+    /* Site-wide ambient (Ambient.tsx): micro-dot ink (× 0.7–1 as the surface breathes), the light, three soft colour fields */
+    --amb-dot: rgb(40 38 30 / 0.13);
+    /* The light: orange dots on the 24 px grid, 60 % at the band's centre, fading to nothing at its edges */
+    --amb-sweep-img: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%' height='24'%3E%3Cdefs%3E%3Cpattern id='d' width='24' height='24' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='12' cy='12' r='1.45' fill='rgb(241,95,34)'/%3E%3C/pattern%3E%3ClinearGradient id='f'%3E%3Cstop offset='.16' stop-color='white' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='white' stop-opacity='.6'/%3E%3Cstop offset='.84' stop-color='white' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='100%' height='24' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='100%' height='24' fill='url(%23d)' mask='url(%23m)'/%3E%3C/svg%3E");
+    --amb-warm: rgb(241 95 34 / 0.12);
+    --amb-cool: rgb(44 94 134 / 0.11);
+    --amb-teal: rgb(27 111 101 / 0.075);
+    /* Section sheets let a little of the ambient through (cards stay opaque) */
+    --sheet-muted-a: 90%;
+    --sheet-raised-a: 92%;
+
+    /* Text */
+    --ink: #15171a;
+    --ink-2: #454a50;
+    --ink-3: #5c6168;
+
+    /* Dark bands (contact panel, footer): dark in both themes */
+    --navy: #132039;
+    --navy-2: #1b2c4a;
+    --dark: #111c30;
+    --dark-2: #1a2841;
+    --on-dark: #f5f7fa;
+    --on-dark-2: #b8c2d0;
+    --focus: #2c5e86;
+
+    /* Borders: subtle → default → strong → ink (form fields, 3:1), plus the active edge */
+    --line-subtle: #e4e4df;
+    --line: #d6d6d0;
+    --line-strong: #bab9b2;
+    --line-ink: #87877f;
+    --line-active: var(--brand);
+
+    /* Translucent surfaces (header, floating cards, photo scrims) */
+    --header-bg: rgb(251 251 249 / 0.96);
+    --header-bg-scrolled: rgb(251 251 249 / 0.8);
+    --glass: rgb(253 253 251 / 0.9);
+    --glass-line: rgb(255 255 255 / 0.8);
+    --scrim-rgb: 9 15 27;
+    --shadow-rgb: 32 30 24;
+
+    /* Stages behind machines and the signatures */
+    --stage-top: #ebede8;
+    --stage-bottom: #f7f7f4;
+    --stage-spot: #ffffff;
+    --stage-light: linear-gradient(180deg, var(--stage-top), var(--stage-bottom));
+    --stage-dark: radial-gradient(70% 90% at 50% 40%, #243452 0%, #121d31 62%, #0d1626 100%);
+    --stage-dark-edge: #0d1626;
+    --stage-brass: radial-gradient(70% 80% at 50% 45%, #fffefb 0%, #faf5ea 55%, #f0e6d2 100%);
+    --logo-tile: var(--surface);
+
+    /* Hero plate: brushed steel on a raised stage with a faint measuring grid */
+    --hs-top: #fcfcfa;
+    --hs-bottom: #eeefeb;
+    --hs-spot: #ffffff;
+    --hs-grid: rgb(44 94 134 / 0.08);
+    --hs-line: var(--line);
+    --hs-dim: #a3a6a4;
+    --hs-label: #5c6168;
+    --plate-a: #d9dcd9;
+    --plate-b: #f6f7f5;
+    --plate-c: #c3c7c4;
+    --plate-edge: rgb(40 38 30 / 0.32);
+    --plate-wall: #24272b;
+    --plate-lip: rgb(255 255 255 / 0.9);
+    --plate-shadow: rgb(32 30 24 / 0.42);
+    --plate-sheen: 0.75;
+    --plate-grain: 0.13;
+    --plate-shine: 0.22;
+    --plate-engrave: rgb(40 38 30 / 0.32);
+
+    /* Shadows: contact + soft ambient; raised surfaces carry a lit top edge */
+    --sh-xs: 0 1px 2px rgb(var(--shadow-rgb) / 0.08);
+    --sh-card: inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(var(--shadow-rgb) / 0.06), 0 4px 12px -4px rgb(var(--shadow-rgb) / 0.1);
+    --sh-raised: inset 0 1px 0 var(--edge-light), 0 2px 4px rgb(var(--shadow-rgb) / 0.05), 0 18px 36px -14px rgb(var(--shadow-rgb) / 0.2);
+    --sh-hover: inset 0 1px 0 var(--edge-light), 0 4px 10px rgb(var(--shadow-rgb) / 0.06), 0 26px 48px -16px rgb(var(--shadow-rgb) / 0.28);
+    --sh-image: 0 30px 60px -26px rgb(var(--shadow-rgb) / 0.45);
+    --sh-float: 0 1px 2px rgb(var(--shadow-rgb) / 0.07), 0 22px 48px -14px rgb(var(--shadow-rgb) / 0.32);
+    --sh-inset: inset 0 1px 2px rgb(var(--shadow-rgb) / 0.08);
+    --sh-brand: 0 1px 2px rgb(var(--shadow-rgb) / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.32), 0 10px 22px -10px rgb(241 95 34 / 0.7);
+    --sh-brand-hover: 0 1px 2px rgb(var(--shadow-rgb) / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.36), 0 16px 30px -10px rgb(241 95 34 / 0.78);
+  }
+
+  /* ---------- Tokens · dark theme: blue-charcoal, never black; light text; tones lifted for contrast ---------- */
+  html[data-theme="dark"] .mc {
+    color-scheme: dark;
+
+    --brand: #f26a2e;
+    --brand-hover: #ff7d45;
+    --brand-press: #e0591d;
+    --brand-ink: #ff9466;
+    --brand-soft: #2e211b;
+    --brand-line: #5a3524;
+    --brand-icon: #f26a2e;
+    --on-brand: #111418;
+    --steel: #7fb0d8;
+    --steel-soft: #1b2733;
+    --steel-line: #2e4658;
+    --teal: #5cc0b0;
+    --teal-soft: #172a28;
+    --teal-line: #28504a;
+    --brass: #d7b273;
+    --brass-soft: #2a2419;
+    --brass-line: #4d4029;
+    --on-tone: #0f1318;
+
+    --bg: #131820;
+    --bg-alt: #171d26;
+    --bg-deep: #0f141b;
+    --surface: #1c232d;
+    --surface-2: #222a35;
+    --surface-3: #283140;
+    --hero-top: #171d27;
+    --glow-warm: rgb(242 106 46 / 0.13);
+    --glow-cool: rgb(80 140 200 / 0.15);
+    --band-glow: rgb(242 106 46 / 0.28);
+    --sheen: rgb(255 255 255 / 0.035);
+    --edge-light: rgb(255 255 255 / 0.055);
+    --amb-dot: rgb(200 215 235 / 0.115);
+    --amb-sweep-img: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%' height='24'%3E%3Cdefs%3E%3Cpattern id='d' width='24' height='24' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='12' cy='12' r='1.45' fill='rgb(255,184,140)'/%3E%3C/pattern%3E%3ClinearGradient id='f'%3E%3Cstop offset='.16' stop-color='white' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='white' stop-opacity='.5'/%3E%3Cstop offset='.84' stop-color='white' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='100%' height='24' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='100%' height='24' fill='url(%23d)' mask='url(%23m)'/%3E%3C/svg%3E");
+    --amb-warm: rgb(242 106 46 / 0.1);
+    --amb-cool: rgb(80 140 200 / 0.16);
+    --amb-teal: rgb(92 192 176 / 0.07);
+    --sheet-muted-a: 88%;
+    --sheet-raised-a: 90%;
+
+    --ink: #eef1f4;
+    --ink-2: #b8c0ca;
+    --ink-3: #9aa3ae;
+
+    --navy: #17243b;
+    --navy-2: #1e2e4a;
+    --dark: #0c1016;
+    --dark-2: #141a23;
+    --on-dark: #f5f7fa;
+    --on-dark-2: #b8c2d0;
+    --focus: #8ebcdf;
+
+    --line-subtle: #232b35;
+    --line: #2d3642;
+    --line-strong: #3f4a57;
+    --line-ink: #66727f;
+
+    --header-bg: rgb(19 24 32 / 0.96);
+    --header-bg-scrolled: rgb(19 24 32 / 0.8);
+    --glass: rgb(30 37 47 / 0.88);
+    --glass-line: rgb(255 255 255 / 0.08);
+    --shadow-rgb: 0 0 0;
+
+    --stage-top: #1e252f;
+    --stage-bottom: #171c24;
+    --stage-spot: rgb(255 255 255 / 0.1);
+    --stage-dark: radial-gradient(70% 90% at 50% 40%, #213150 0%, #111b2e 62%, #0b1322 100%);
+    --stage-dark-edge: #0b1322;
+    --stage-brass: radial-gradient(70% 80% at 50% 45%, #2c261b 0%, #221e16 55%, #1a1712 100%);
+    /* Client logos keep a light plate so dark marks stay legible. */
+    --logo-tile: #e7e9e6;
+
+    --hs-top: #1f2733;
+    --hs-bottom: #161c25;
+    --hs-spot: rgb(140 172 214 / 0.16);
+    --hs-grid: rgb(170 195 230 / 0.07);
+    --hs-line: #2d3642;
+    --hs-dim: #5d6975;
+    --hs-label: #9aa3ae;
+    --plate-a: #434c57;
+    --plate-b: #64707e;
+    --plate-c: #363e48;
+    --plate-edge: rgb(255 255 255 / 0.2);
+    --plate-wall: #0b0e13;
+    --plate-lip: rgb(255 255 255 / 0.22);
+    --plate-shadow: rgb(0 0 0 / 0.72);
+    --plate-sheen: 0.16;
+    --plate-grain: 0.045;
+    --plate-shine: 0.06;
+    --plate-engrave: rgb(255 255 255 / 0.22);
+
+    --sh-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+    --sh-card: inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 16px -6px rgb(0 0 0 / 0.45);
+    --sh-raised: inset 0 1px 0 var(--edge-light), 0 2px 6px rgb(0 0 0 / 0.3), 0 20px 40px -16px rgb(0 0 0 / 0.6);
+    --sh-hover: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 4px 12px rgb(0 0 0 / 0.35), 0 28px 52px -18px rgb(0 0 0 / 0.7);
+    --sh-image: 0 30px 60px -24px rgb(0 0 0 / 0.75);
+    --sh-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 24px 50px -14px rgb(0 0 0 / 0.65);
+    --sh-inset: inset 0 1px 2px rgb(0 0 0 / 0.35);
+    --sh-brand: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.28), 0 10px 24px -10px rgb(242 106 46 / 0.55);
+    --sh-brand-hover: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.32), 0 16px 32px -10px rgb(242 106 46 / 0.65);
+  }
+
+  /* ---------- Constants: radius, motion, type, layout (both themes) ---------- */
+  .mc {
+    /* Radius */
+    --r-xs: 6px;
+    --r-sm: 8px;
+    --r-btn: 10px;
+    --r-card: 16px;
+    --r-panel: 24px;
+    --r-pill: 999px;
+
+    /* Motion: 180 / 320 / 600 / 900 ms; one ease for movement, one for state */
+    --dur-1: 180ms;
+    --dur-2: 320ms;
+    --dur-3: 600ms;
+    --dur-4: 900ms;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+    --lift: -3px;
+
+    /* Type, icons, layout. The content column grows with the screen up to 1400px. */
+    --ff-display: var(--font-mc-display), ui-sans-serif, system-ui, sans-serif;
+    --ff-body: var(--font-mc-body), ui-sans-serif, system-ui, sans-serif;
+    --ff-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --icon-stroke: 1.75;
+    --duo-opacity: 0.18;
+    --shell: min(1400px, 92vw);
+    --gutter: clamp(1rem, 4vw, 2.5rem);
+    --sec-y: clamp(3rem, 1.6rem + 4vw, 6.5rem);
+    --sheet-m: clamp(0.5rem, 1.1vw, 1.25rem);
+    /* Reading zones under text on the open sections: the page colour at this strength (see "Reading zones") */
+    --read-a: 90%;
+    --sheet-r: clamp(1.25rem, 0.9rem + 1.4vw, 2.25rem);
+    --hh: 4.5rem;
+
+    min-height: 100vh;
+    /* The page colour; the site-wide ambient (fixed, z-index -1) sits above it and below every section. */
+    isolation: isolate;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--ff-body);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .mc:lang(ar),
+  .mc [lang|="ar"] {
+    --ff-display: var(--font-mc-display-ar), var(--font-mc-display), ui-sans-serif, sans-serif;
+    --ff-body: var(--font-mc-body-ar), var(--font-mc-body), ui-sans-serif, sans-serif;
+    font-family: var(--ff-body);
+  }
+
+  /* Plex Arabic is used at 400/500 only: Arabic UI set semibold or bold takes the Tajawal display face. */
+  .mc :is(.btn, .eyebrow, .tag-tone, .badge, .nav-link, .ctl, .step-num, .a2-quick, .a2-lang a, .font-semibold, .font-bold, strong, th):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  .mc [lang="en"] {
+    --ff-display: var(--font-mc-display), ui-sans-serif, system-ui, sans-serif;
+    --ff-body: var(--font-mc-body), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--ff-body);
+  }
+
+  [dir="rtl"] .mc {
+    --dir: -1;
+  }
+
+  /* Tones: colour through surfaces, edges and icons — never paragraphs */
+  .mc [data-tone="brand"] { --tone: var(--brand); --tone-ink: var(--brand-ink); --tone-icon: var(--brand-icon); --tone-soft: var(--brand-soft); --tone-line: var(--brand-line); }
+  .mc [data-tone="steel"] { --tone: var(--steel); --tone-ink: var(--steel); --tone-icon: var(--steel); --tone-soft: var(--steel-soft); --tone-line: var(--steel-line); }
+  .mc [data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-icon: var(--teal); --tone-soft: var(--teal-soft); --tone-line: var(--teal-line); }
+  .mc [data-tone="brass"] { --tone: var(--brass); --tone-ink: var(--brass); --tone-icon: var(--brass); --tone-soft: var(--brass-soft); --tone-line: var(--brass-line); }
+
+  /* ---------- Type ---------- */
+  .mc .t-display {
+    font-family: var(--ff-display);
+    font-weight: 800;
+    font-size: clamp(2.45rem, 1.2rem + 3.4vw, 4.5rem);
+    line-height: 1.04;
+    letter-spacing: -0.028em;
+    text-wrap: balance;
+  }
+
+  .mc .t-h2 {
+    font-family: var(--ff-display);
+    font-weight: 760;
+    font-size: clamp(1.75rem, 1.28rem + 1.45vw, 2.45rem);
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+
+  .mc .t-h3 {
+    font-family: var(--ff-display);
+    font-weight: 700;
+    font-size: 1.2rem;
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+  }
+
+  .mc .t-h4 {
+    font-family: var(--ff-display);
+    font-weight: 700;
+    font-size: 1.02rem;
+    line-height: 1.35;
+    letter-spacing: -0.006em;
+  }
+
+  .mc .t-lead {
+    font-size: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+    line-height: 1.65;
+    color: var(--ink-2);
+  }
+
+  .mc .t-body {
+    color: var(--ink-2);
+  }
+
+  .mc .t-small {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+
+  .mc .t-stat {
+    font-family: var(--ff-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .t-display:lang(ar) {
+    font-size: clamp(2.25rem, 1.3rem + 2.9vw, 4rem);
+    line-height: 1.32;
+  }
+
+  .mc .t-h2:lang(ar) {
+    font-weight: 800;
+    font-size: clamp(1.65rem, 1.22rem + 1.3vw, 2.3rem);
+    line-height: 1.45;
+  }
+
+  .mc .t-h3:lang(ar) {
+    font-weight: 800;
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .mc .t-h4:lang(ar) {
+    font-weight: 700;
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+
+  .mc :is(p, li, dd):lang(ar) {
+    line-height: 1.85;
+  }
+
+  /* Section label: a small badge with the tone dot */
+  .mc .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.75rem 0.3rem 0.625rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mc .eyebrow::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--tone, var(--brand));
+    box-shadow: 0 0 0 3px var(--tone-soft, var(--brand-soft));
+  }
+
+  .mc .eyebrow-dark {
+    border-color: rgb(255 255 255 / 0.2);
+    background: rgb(255 255 255 / 0.08);
+    box-shadow: none;
+    color: #ffffff;
+  }
+
+  /* ---------- Buttons: fill transition, arrow motion, press feedback ---------- */
+  .mc .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 2.75rem;
+    padding: 0 1.125rem;
+    border: 1px solid transparent;
+    border-radius: var(--r-btn);
+    font-family: var(--ff-body);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color var(--dur-1) ease,
+      border-color var(--dur-1) ease,
+      color var(--dur-1) ease,
+      box-shadow var(--dur-2) ease,
+      translate var(--dur-2) var(--ease),
+      scale var(--dur-1) ease;
+  }
+
+  .mc .btn .mc-icon {
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .btn:is(:hover, .is-hover) .mc-icon:last-child:not(:first-child) {
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  .mc .btn:active:not(:disabled) {
+    scale: 0.98;
+  }
+
+  .mc .btn-lg {
+    min-height: 3.25rem;
+    padding: 0 1.5rem;
+    font-size: 1rem;
+  }
+
+  .mc .btn-sm {
+    min-height: 2.25rem;
+    padding: 0 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  .mc .btn-primary {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: var(--brand);
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 60%);
+    color: var(--on-brand);
+    box-shadow: var(--sh-brand);
+  }
+
+  /* A light passes across the button on hover (never with reduced motion). */
+  .mc .btn-primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.3) 50%, transparent 70%);
+    translate: calc(-110% * var(--dir, 1)) 0;
+    pointer-events: none;
+  }
+
+  .mc .btn-primary:is(:hover, .is-hover)::after {
+    translate: calc(110% * var(--dir, 1)) 0;
+    transition: translate 0.75s var(--ease);
+  }
+
+  .mc .btn-primary:hover,
+  .mc .btn-primary.is-hover {
+    background-color: var(--brand-hover);
+    translate: 0 -1px;
+    box-shadow: var(--sh-brand-hover);
+  }
+
+  .mc .btn-primary:active:not(:disabled) {
+    background-color: var(--brand-press);
+    translate: none;
+  }
+
+  .mc .btn-secondary {
+    background: var(--surface);
+    border-color: var(--line-strong);
+    color: var(--ink);
+    box-shadow: var(--sh-xs);
+  }
+
+  .mc .btn-secondary:hover,
+  .mc .btn-secondary.is-hover {
+    border-color: var(--ink);
+    background: var(--surface-2);
+    translate: 0 -1px;
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .btn-dark {
+    background: var(--navy);
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgb(var(--shadow-rgb) / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  .mc .btn-dark:hover,
+  .mc .btn-dark.is-hover {
+    background: var(--navy-2);
+    translate: 0 -1px;
+  }
+
+  .mc .btn-steel {
+    background: var(--steel-soft);
+    border-color: var(--steel-line);
+    color: var(--steel);
+  }
+
+  .mc .btn-steel:hover,
+  .mc .btn-steel.is-hover {
+    background: var(--steel);
+    border-color: var(--steel);
+    color: var(--on-tone);
+  }
+
+  .mc .btn-on-dark {
+    background: rgb(255 255 255 / 0.06);
+    border-color: rgb(255 255 255 / 0.3);
+    color: #ffffff;
+  }
+
+  .mc .btn-on-dark:hover,
+  .mc .btn-on-dark.is-hover {
+    background: rgb(255 255 255 / 0.14);
+    border-color: rgb(255 255 255 / 0.62);
+  }
+
+  .mc .btn[aria-disabled="true"],
+  .mc .btn:disabled {
+    background: var(--bg-alt);
+    border-color: var(--line);
+    color: var(--ink-3);
+    box-shadow: none;
+    translate: none;
+    cursor: not-allowed;
+  }
+
+  .mc .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--ink);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.3em;
+    transition: text-decoration-color var(--dur-1) ease;
+  }
+
+  .mc .link-arrow:hover {
+    text-decoration-color: var(--brand);
+  }
+
+  .mc .link-arrow .mc-icon {
+    color: var(--brand-ink);
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .link-arrow:hover .mc-icon {
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  /* ---------- Cards: border, lift, shadow, image zoom, accent edge ---------- */
+  .mc .card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .card-link {
+    position: relative;
+    transition:
+      translate var(--dur-2) var(--ease),
+      box-shadow var(--dur-2) var(--ease),
+      border-color var(--dur-2) ease;
+  }
+
+  .mc .card-link:hover,
+  .mc .card-link:focus-within,
+  .mc .card-link.is-hover {
+    translate: 0 var(--lift);
+    border-color: var(--edge, var(--line-strong));
+    box-shadow: var(--sh-hover);
+  }
+
+  /* A soft light in the card's tone follows the mouse inside it (the pointer sets --mx / --my). */
+  .mc :is(.card-link:not(.a2-proj), .a2-quick, .contact-row) {
+    background-image: radial-gradient(22rem circle at var(--mx, 50%) var(--my, -30%), var(--spot), transparent 72%);
+    transition-property: translate, box-shadow, border-color, background-color, --spot;
+    transition-duration: var(--dur-2);
+  }
+
+  .mc :is(.card-link:not(.a2-proj), .a2-quick, .contact-row):hover {
+    --spot: color-mix(in srgb, var(--tone, var(--brand)) 9%, transparent);
+  }
+
+  /* Accent edge: a tone line along the top that draws in on hover and focus */
+  .mc .card-edge::before {
+    content: "";
+    position: absolute;
+    inset-inline: -1px;
+    top: -1px;
+    z-index: 3;
+    height: 3px;
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    background: var(--tone, var(--brand));
+    transform: scaleX(0);
+    transform-origin: var(--edge-from, left);
+    transition: transform var(--dur-3) var(--ease);
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .mc .card-edge::before {
+    --edge-from: right;
+  }
+
+  .mc .card-edge:is(:hover, :focus-within, .is-hover)::before {
+    transform: scaleX(1);
+  }
+
+  .mc .card-media {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-alt);
+  }
+
+  .mc .card-media img {
+    transition: scale 0.9s var(--ease);
+  }
+
+  .mc .card-link:is(:hover, .is-hover) .card-media img {
+    scale: 1.035;
+  }
+
+  .mc .go {
+    transition:
+      translate var(--dur-2) var(--ease),
+      color var(--dur-1) ease;
+  }
+
+  .mc .card-link:is(:hover, :focus-within, .is-hover) .go {
+    translate: calc(4px * var(--dir, 1)) 0;
+  }
+
+  /* Whole-card link: the heading link stretches over its (positioned) card */
+  .mc .stretch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+
+  .mc .icon-chip {
+    display: inline-grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--tone-line, var(--line));
+    border-radius: 12px;
+    background: var(--tone-soft, var(--surface-2));
+    color: var(--tone-icon, var(--ink));
+    transition:
+      background-color var(--dur-2) ease,
+      border-color var(--dur-2) ease,
+      color var(--dur-2) ease;
+  }
+
+  .mc .icon-chip-lg {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 14px;
+  }
+
+  .mc .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 1.75rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--line-subtle);
+    border-radius: var(--r-xs);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .mc .tag-tone {
+    border-color: var(--tone-line);
+    background: var(--tone-soft);
+    color: var(--tone-ink);
+    font-weight: 600;
+  }
+
+  .mc .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--r-pill);
+    background: var(--navy);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mc .badge-light {
+    border: 1px solid var(--glass-line);
+    background: var(--glass);
+    box-shadow: var(--sh-xs);
+    color: var(--ink);
+  }
+
+  .mc .field {
+    width: 100%;
+    min-height: 2.875rem;
+    padding: 0.65rem 0.875rem;
+    border: 1px solid var(--line-ink);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    box-shadow: var(--sh-inset);
+    color: var(--ink);
+    font: inherit;
+    transition:
+      border-color var(--dur-1) ease,
+      box-shadow var(--dur-1) ease;
+  }
+
+  .mc .field:hover {
+    border-color: var(--ink-2);
+  }
+
+  .mc .field:disabled {
+    border-color: var(--line);
+    background: var(--bg-alt);
+    box-shadow: none;
+    color: var(--ink-3);
+    cursor: not-allowed;
+  }
+
+  .mc .field:focus,
+  .mc .field.is-focus {
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 20%, transparent);
+  }
+
+  /* ---------- Sections ---------- */
+  .mc .sec {
+    position: relative;
+    padding-block: var(--sec-y);
+  }
+
+  .mc .sec-alt {
+    background: var(--bg-alt);
+  }
+
+  .mc .sec-white {
+    background: var(--surface);
+    border-block: 1px solid var(--line-subtle);
+  }
+
+  /* Section sheets: alternate sections are plates laid on the page — inset a little from the
+     screen edges, rounded, with the page's dot matrix showing between them. */
+  .mc .sec-sheet {
+    position: relative;
+    margin-inline: var(--sheet-m);
+    border-radius: var(--sheet-r);
+    overflow: clip;
+  }
+
+  .mc .sec-sheet + .sec-sheet {
+    margin-top: var(--sheet-m);
+  }
+
+  /* Muted: a recessed tint with a lit top edge */
+  .mc .sec-muted {
+    background:
+      linear-gradient(180deg, var(--sheen), transparent 7rem),
+      color-mix(in srgb, var(--bg-alt) var(--sheet-muted-a), transparent);
+    box-shadow:
+      inset 0 0 0 1px var(--line-subtle),
+      inset 0 1px 0 var(--edge-light);
+  }
+
+  /* Raised: an elevated plate with a border and a soft ambient shadow */
+  .mc .sec-raised {
+    overflow: visible;
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, var(--sheen), transparent 9rem),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--surface) var(--sheet-raised-a), transparent),
+        color-mix(in srgb, var(--surface-2) var(--sheet-raised-a), transparent)
+      );
+    box-shadow: var(--sh-raised);
+  }
+
+  /* ---------- Site-wide ambient (Ambient.tsx) ----------
+     Page colour → this layer → section surfaces → cards and text → header and pointer. Built to stay cheap without a
+     GPU: two layers move, both in whole-pixel steps (a sub-pixel move turns every frame into a filtered redraw), and the
+     first is opaque, so the screen is composited as one background layer plus the light. The layer is a size container,
+     so the colour scales with the screen. */
+  .mc .a2-ambient {
+    --sw-w: 864px;
+    --sw-n: 196;
+    --sw-steps: steps(196);
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+    container-type: size;
+  }
+
+  /* The surface: the page colour, the micro-dots (2.3 px every 24 px) and the colour — warm orange, steel blue and a
+     touch of teal — in one opaque layer (warm high on the far side, steel low on the near side; mirrored in Arabic). It
+     reaches 48 px past the screen, so it can drift without showing an edge; 48 is two dot columns, so the dots keep
+     their grid. */
+  .mc .a2-ambient-field {
+    --warm: color-mix(in srgb, var(--amb-warm) var(--amb-k, 100%), transparent);
+    --cool: color-mix(in srgb, var(--amb-cool) var(--amb-k, 100%), transparent);
+    --teal: color-mix(in srgb, var(--amb-teal) var(--amb-kt, 100%), transparent);
+    position: absolute;
+    inset: -48px;
+    background:
+      radial-gradient(circle 32cqmax at calc(100% - 48px - 16cqmax) calc(48px + 10cqmax), var(--warm), transparent),
+      radial-gradient(circle 36cqmax at calc(48px + 14cqmax) calc(100% - 48px - 6cqmax), var(--cool), transparent),
+      radial-gradient(circle 21cqmax at calc(48px + 52cqw + 21cqmax) calc(48px + 34cqh + 21cqmax), var(--teal), transparent),
+      radial-gradient(circle, var(--amb-dot) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      var(--bg);
+  }
+
+  [dir="rtl"] .mc .a2-ambient-field {
+    background:
+      radial-gradient(circle 32cqmax at calc(48px + 16cqmax) calc(48px + 10cqmax), var(--warm), transparent),
+      radial-gradient(circle 36cqmax at calc(100% - 48px - 14cqmax) calc(100% - 48px - 6cqmax), var(--cool), transparent),
+      radial-gradient(circle 21cqmax at calc(100% - 48px - 52cqw - 21cqmax) calc(48px + 34cqh + 21cqmax), var(--teal), transparent),
+      radial-gradient(circle, var(--amb-dot) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      var(--bg);
+  }
+
+  /* The light: a band of orange dots on the same grid, above the surface, so moving it one dot column (24 px) at a time
+     lights the dots it crosses. It drifts with the surface (the same clock) and rests off screen between passes. */
+  .mc .a2-ambient-sweep {
+    position: absolute;
+    top: -48px;
+    bottom: -48px;
+    left: 0;
+    width: var(--sw-w);
+    background: var(--amb-sweep-img) 0 0 / var(--sw-w) 24px repeat-y;
+    transform: translateX(calc(var(--sw-w) * -1));
+  }
+
+  /* The light crosses in whole dot columns: its width and the number of 24 px steps suit the screen width. */
+  @media (max-width: 2560px) {
+    .mc .a2-ambient {
+      --sw-n: 143;
+      --sw-steps: steps(143);
+    }
+  }
+
+  @media (max-width: 1920px) {
+    .mc .a2-ambient {
+      --sw-n: 116;
+      --sw-steps: steps(116);
+    }
+  }
+
+  @media (max-width: 1440px) {
+    .mc .a2-ambient {
+      --sw-n: 96;
+      --sw-steps: steps(96);
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .mc .a2-ambient {
+      --sw-w: 384px;
+      --sw-n: 59;
+      --sw-steps: steps(59);
+    }
+  }
+
+  /* Phones: a lighter version — the colour at 70 %, no teal, half the drift (motion rules), a narrower band. */
+  @media (max-width: 40rem) {
+    .mc .a2-ambient {
+      --sw-w: 384px;
+      --sw-n: 43;
+      --sw-steps: steps(43);
+    }
+
+    .mc .a2-ambient {
+      --amb-k: 70%;
+      --amb-kt: 0%;
+    }
+  }
+
+  /* Reading zones: a soft patch of page colour under text blocks on plain sections (feathered at the edges, almost
+     invisible), so the dots, the light and the strongest colour stay in the empty space around the text. The zone
+     reaches past the text by its feather, never further than the page gutter (so never past the screen). */
+  .mc .a2-read {
+    --read-x: min(1.5rem, var(--gutter));
+    position: relative;
+    isolation: isolate;
+  }
+
+  .mc .a2-read::before {
+    content: "";
+    position: absolute;
+    inset: -1rem calc(var(--read-x) * -1);
+    z-index: -1;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--bg) var(--read-a), transparent);
+    mask:
+      linear-gradient(90deg, transparent, #000 var(--read-x), #000 calc(100% - var(--read-x)), transparent),
+      linear-gradient(transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+    mask-composite: intersect;
+  }
+
+  /* ---------- Header ---------- */
+  .mc .a2-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--line-subtle);
+    background: var(--header-bg);
+    transition:
+      background-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease,
+      border-color var(--dur-2) ease;
+  }
+
+  html[data-scrolled] .mc .a2-header {
+    background: var(--header-bg-scrolled);
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  }
+
+  html[data-past-hero] .mc .a2-header {
+    border-color: var(--line);
+    box-shadow: 0 12px 32px -20px rgb(var(--shadow-rgb) / 0.4);
+  }
+
+  .mc .nav-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 2.5rem;
+    padding: 0 0.7rem;
+    border-radius: var(--r-sm);
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      color var(--dur-1) ease,
+      background-color var(--dur-1) ease;
+  }
+
+  .mc .nav-link:hover,
+  .mc details[open] > .nav-link {
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .mc .nav-link[aria-current="page"] {
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-weight: 600;
+  }
+
+  /* The current page's bar sits on the header's bottom edge */
+  .mc .a2-nav .nav-link::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0.7rem;
+    bottom: calc((var(--hh) - 2.5rem) / -2);
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: var(--brand);
+    opacity: 0;
+    scale: 0.3 1;
+    transition:
+      opacity var(--dur-2) ease,
+      scale var(--dur-3) var(--ease);
+  }
+
+  .mc .a2-nav .nav-link[aria-current="page"]::after {
+    opacity: 1;
+    scale: 1 1;
+  }
+
+  .mc .nav-link .chev {
+    transition: rotate var(--dur-2) var(--ease);
+  }
+
+  .mc details[open] > .nav-link .chev {
+    rotate: 180deg;
+  }
+
+  .mc :is(details[data-menu], details[data-dropdown]) > summary {
+    list-style: none;
+  }
+
+  .mc :is(details[data-menu], details[data-dropdown]) > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Services dropdown (desktop) */
+  .mc .a2-dd {
+    position: relative;
+  }
+
+  .mc .a2-dd-panel {
+    position: absolute;
+    inset-inline-start: -1.25rem;
+    top: calc(100% + 0.9rem);
+    z-index: 60;
+    width: min(44rem, 70vw);
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    box-shadow: var(--sh-float);
+  }
+
+  .mc details[open] > .a2-dd-panel {
+    animation: a2-pop var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-dd-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 0.75rem;
+    border-radius: 14px;
+    transition: background-color var(--dur-1) ease;
+  }
+
+  .mc .a2-dd-item:hover,
+  .mc .a2-dd-item:focus-visible {
+    background: var(--tone-soft);
+  }
+
+  .mc .a2-dd-item:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  /* Controls: language and theme */
+  .mc .ctl {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-1) ease,
+      background-color var(--dur-1) ease;
+  }
+
+  .mc .ctl:hover {
+    border-color: var(--line-ink);
+    background: var(--surface-2);
+  }
+
+  .mc .a2-lang {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--bg);
+  }
+
+  .mc .a2-lang a {
+    display: grid;
+    place-items: center;
+    min-width: 2.4rem;
+    height: 2rem;
+    padding: 0 0.55rem;
+    border-radius: 7px;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition:
+      background-color var(--dur-1) ease,
+      color var(--dur-1) ease,
+      box-shadow var(--dur-1) ease;
+  }
+
+  .mc .a2-lang a:hover {
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .mc .a2-lang a[aria-current] {
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+    color: var(--brand-ink);
+  }
+
+  .mc .seg {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
+    background: var(--bg);
+  }
+
+  .mc .seg button {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 7px;
+    color: var(--ink-3);
+  }
+
+  .mc .seg button[aria-pressed="true"] {
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+    color: var(--brand-ink);
+  }
+
+  .mc .seg button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  /* Mobile menu: a full-height sheet under the header, large rows, quote button always in reach */
+  .mc .a2-burger {
+    position: relative;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+  }
+
+  .mc .a2-burger span {
+    position: absolute;
+    inset-inline-start: 50%;
+    width: 1.125rem;
+    height: 2px;
+    margin-inline-start: -0.5625rem;
+    border-radius: 2px;
+    background: currentColor;
+    transition:
+      translate var(--dur-2) var(--ease),
+      rotate var(--dur-2) var(--ease),
+      opacity var(--dur-1) ease;
+  }
+
+  .mc .a2-burger span:nth-child(1) {
+    top: calc(50% - 6px);
+  }
+
+  .mc .a2-burger span:nth-child(2) {
+    top: calc(50% - 1px);
+  }
+
+  .mc .a2-burger span:nth-child(3) {
+    top: calc(50% + 4px);
+  }
+
+  .mc details[open] > .a2-burger {
+    border-color: var(--ink);
+  }
+
+  .mc details[open] > .a2-burger span:nth-child(1) {
+    translate: 0 5px;
+    rotate: 45deg;
+  }
+
+  .mc details[open] > .a2-burger span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .mc details[open] > .a2-burger span:nth-child(3) {
+    translate: 0 -5px;
+    rotate: -45deg;
+  }
+
+  .mc .a2-sheet {
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--menu-top, var(--hh)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--line-subtle);
+    background: var(--surface);
+  }
+
+  .mc details[open] > .a2-sheet {
+    animation: a2-sheet var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-sheet-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 3.5rem;
+    padding: 0 0.25rem;
+    border-bottom: 1px solid var(--line-subtle);
+    color: var(--ink);
+    font-family: var(--ff-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .mc .a2-sheet-row[aria-current="page"] {
+    color: var(--brand-ink);
+  }
+
+  .mc .a2-sheet-row .mc-icon {
+    color: var(--ink-3);
+    transition:
+      rotate var(--dur-2) var(--ease),
+      translate var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-sheet-row:hover .mc-icon {
+    color: var(--brand-ink);
+  }
+
+  .mc details[open] > .a2-sheet-row .chev {
+    rotate: 180deg;
+  }
+
+  .mc .a2-sheet-foot {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    border-top: 1px solid var(--line);
+    background: var(--glass);
+    box-shadow: 0 -12px 24px -18px rgb(var(--shadow-rgb) / 0.35);
+  }
+
+  /* ---------- Hero ---------- */
+  .mc .a2-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    /* A light wash under the header; the site-wide ambient shows through the rest. */
+    background: linear-gradient(180deg, color-mix(in srgb, var(--hero-top) 50%, transparent), transparent 32rem);
+  }
+
+  /* Hero ambient: two soft glows of its own over the site-wide ambient (the hero is its strongest point). Still: the
+     site-wide colour already moves, so a second moving layer here would only cost. */
+  .mc .a2-hero-ambient {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .mc .a2-glow {
+    position: absolute;
+    top: 30%;
+    inset-inline-end: -20%;
+    width: 120%;
+    height: 80%;
+    background:
+      radial-gradient(closest-side at 62% 38%, var(--glow-warm), transparent 72%),
+      radial-gradient(closest-side at 26% 76%, var(--glow-cool), transparent 72%);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .a2-glow {
+      top: -14%;
+      inset-inline-end: -10%;
+      width: 70%;
+      height: 120%;
+    }
+  }
+
+  /* Beside the text, the plate's area follows the screen height, so the hero fits the first view. */
+  @media (min-width: 64rem) {
+    .mc .a2-hero-stage .a2-plate-area {
+      height: clamp(26rem, calc(100svh - var(--hh) - 14rem), 34rem);
+    }
+  }
+
+  /* Quick contact under the calls to action */
+  .mc .a2-talk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.75rem;
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    transition: color var(--dur-1) ease;
+  }
+
+  .mc .a2-talk:hover {
+    color: var(--tone-ink);
+  }
+
+  .mc .a2-talk:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  .mc .a2-trust {
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---------- Hero plate: the website's laser-cut plate, on a stage ---------- */
+  .mc .a2-plate-stage {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--hs-line);
+    border-radius: calc(var(--r-panel) + 4px);
+    background:
+      radial-gradient(60% 52% at 50% 44%, var(--hs-spot) 0%, transparent 100%),
+      linear-gradient(180deg, var(--hs-top), var(--hs-bottom));
+    box-shadow: var(--sh-image), inset 0 1px 0 var(--edge-light);
+  }
+
+  /* A faint measuring grid, fading towards the stage's edges (static: nothing inside it moves). */
+  .mc .a2-plate-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(to right, var(--hs-grid) 1px, transparent 1px) 50% 50% / 32px 32px,
+      linear-gradient(to bottom, var(--hs-grid) 1px, transparent 1px) 50% 50% / 32px 32px;
+    mask-image: radial-gradient(closest-side at 50% 46%, #000 35%, transparent 100%);
+  }
+
+  /* The plate's area: it sizes the plate (container units) above the stage's bar. */
+  .mc .a2-plate-area {
+    position: relative;
+    isolation: isolate;
+    flex: 1 1 auto;
+    height: clamp(20rem, 96vw, 30rem);
+    container-type: size;
+  }
+
+  .mc .a2-plate {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    direction: ltr;
+  }
+
+  .mc .a2-plate-tilt {
+    position: relative;
+    width: min(96cqw, calc(96cqh * 640 / 760));
+    aspect-ratio: 640 / 760;
+    /* At rest; the plate sets its own lean under the mouse (HeroPlate). will-change keeps one raster of the
+       plate while it leans (without it, every new lean re-rasters the drawing at a new scale). */
+    transform: perspective(1600px);
+    transition: transform 1s var(--ease);
+    will-change: transform;
+  }
+
+  .mc .a2-plate-svg {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* The plate's cast shadow: a static drop-shadow, rastered with the plate (no SVG filter in the moving drawing). */
+  .mc .a2-plate-shadow {
+    position: absolute;
+    inset: 0;
+    filter: drop-shadow(12px 20px 20px var(--plate-shadow));
+  }
+
+  .mc .a2-plate-shadow > span {
+    position: absolute;
+    inset: 0;
+    background: #000;
+  }
+
+  @container (max-width: 30rem) {
+    .mc .a2-plate-shadow {
+      filter: drop-shadow(8px 13px 13px var(--plate-shadow));
+    }
+  }
+
+  /* The workshop behind the openings, warmed so it reads as heat through the cuts. */
+  .mc .a2-plate-photo {
+    position: absolute;
+    overflow: hidden;
+    background: #0d0f12;
+  }
+
+  .mc .a2-plate-photo img {
+    object-position: 60% 45%;
+    filter: brightness(1.18) saturate(1.25) contrast(1.05);
+  }
+
+  /* Heat behind the star and along the perforation rows */
+  .mc .a2-plate-heat {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(46% 30% at 50% 39%, rgb(255 138 62 / 0.4), transparent 72%),
+      radial-gradient(60% 12% at 50% 84%, rgb(255 120 40 / 0.55), transparent 80%),
+      radial-gradient(40% 8% at 50% 69%, rgb(255 138 62 / 0.4), transparent 80%);
+    mix-blend-mode: screen;
+  }
+
+  /* A soft reflection that follows the pointer. */
+  /* Over the plate's rectangle; the highlight inside moves by translate (compositor), so the plate never repaints for it. */
+  .mc .a2-plate-shine {
+    position: absolute;
+    inset: 7.895% 9.375%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .mc .a2-plate-shine > span {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(40% 30% at 50% 40%, rgb(255 255 255 / var(--plate-shine)), transparent 70%);
+    transition: translate 1s var(--ease);
+    will-change: translate;
+  }
+
+  /* Brushed grain: fine lines, quieter on the dark plate. */
+  .mc .a2-plate-grain-hi {
+    fill: #fff;
+    fill-opacity: var(--plate-grain, 0.13);
+  }
+
+  .mc .a2-plate-grain-lo {
+    fill: #000;
+    fill-opacity: 0.025;
+  }
+
+  .mc .a2-plate-engraving {
+    stroke: var(--plate-engrave);
+    fill: var(--plate-engrave);
+  }
+
+  .mc .a2-plate-engraving g {
+    fill: none;
+  }
+
+  .mc .a2-plate-engraving text {
+    stroke: none;
+    font: 500 14px var(--ff-mono);
+    letter-spacing: 0.14em;
+  }
+
+  /* Dimensions and axes: thin, quiet, behind the story. */
+  .mc .a2-plate-dims {
+    stroke: var(--hs-dim);
+    stroke-width: 0.9;
+  }
+
+  .mc .a2-plate-axis {
+    stroke-dasharray: 10 4 2 4;
+    opacity: 0.7;
+  }
+
+  .mc .a2-plate-label {
+    fill: var(--hs-label);
+    stroke: none;
+    font: 500 15px var(--ff-mono);
+    letter-spacing: 0.06em;
+  }
+
+  /* Orange nodes at the measurement anchors: the plate's hot points. */
+  .mc :is(.a2-plate-node, .a2-plate-pierce, .a2-plate-hot) {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .mc .a2-plate-node-halo {
+    fill: var(--brand);
+    opacity: 0.22;
+  }
+
+  .mc .a2-plate-node-dot {
+    fill: var(--brand);
+    stroke: var(--hs-top);
+    stroke-width: 1.6;
+  }
+
+  /* The hot points' breathing halo: HTML over the SVG, so it animates on the compositor. */
+  .mc .a2-plate-pulse {
+    position: absolute;
+    width: 4.4%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    pointer-events: none;
+  }
+
+  .mc .a2-plate-pulse > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand) 45%, transparent) 0 35%, transparent 72%);
+    opacity: 0.55;
+  }
+
+  .mc .a2-plate-core {
+    fill: #fff3dc;
+    stroke: #ff7424;
+    stroke-width: 0.8;
+  }
+
+  /* Kerfs: a hot line with a glow, drawn behind the laser (hidden once cooled). */
+  .mc .a2-plate-glow {
+    stroke: rgb(255 116 36 / 0.3);
+    stroke-width: 7;
+  }
+
+  .mc .a2-plate-cut {
+    stroke: #ffb45e;
+    stroke-width: 1.6;
+  }
+
+  /* The finished plate: every opening cut, the laser off. */
+  .mc :is(.a2-plate-slug, .a2-plate-pierce, .a2-plate-hot, .a2-plate-glow, .a2-plate-cut) {
+    opacity: 0;
+  }
+
+  /* The stage's bar: key figures and the readout, on glass. */
+  .mc .a2-plate-bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--hs-line);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+  }
+
+  .mc .a2-spec-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .mc .a2-spec-cell + .a2-spec-cell {
+    border-inline-start: 1px solid var(--line-subtle);
+  }
+
+  /* Readout: the part and its cut count (X / Y under the mouse). A row of its own on phones. */
+  .mc .a2-plate-read {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.55rem 1rem;
+    border-top: 1px solid var(--line-subtle);
+    color: var(--ink-2);
+    font: 500 0.75rem/1.2 var(--ff-mono);
+    white-space: nowrap;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .a2-plate-bar:has(.a2-spec-cell) {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    }
+
+    .mc .a2-plate-bar:has(.a2-spec-cell) .a2-plate-read {
+      grid-column: auto;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+      padding-inline: 1.1rem 1.25rem;
+      border-top: 0;
+      border-inline-start: 1px solid var(--line-subtle);
+    }
+
+    .mc .a2-plate-bar:has(.a2-spec-cell) .a2-plate-sep {
+      display: none;
+    }
+  }
+
+  .mc .a2-plate-count {
+    display: inline-flex;
+    gap: 0.45rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .a2-plate-read[data-pointer] .a2-plate-seq {
+    display: none;
+  }
+
+  /* Arabic words take the body face (a monospace fallback would space them out); figures stay mono. */
+  .mc .a2-plate-read :is(.a2-plate-part, .a2-plate-seq):lang(ar) {
+    font-family: var(--ff-body);
+    font-size: 0.8125rem;
+  }
+
+  .mc .a2-plate-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mc .a2-plate-led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent);
+  }
+
+  .mc .a2-plate-read[data-running] .a2-plate-led {
+    background: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 26%, transparent);
+  }
+
+  .mc .a2-plate-sep {
+    width: 1px;
+    height: 0.8rem;
+    background: var(--line-strong);
+  }
+
+
+
+  /* Capability strip: the six services, one tap away */
+  .mc .a2-strip {
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    box-shadow: var(--sh-raised);
+  }
+
+  .mc .a2-quick {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    height: 100%;
+    padding: 0.95rem 0.95rem;
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+    transition: background-color var(--dur-2) ease;
+  }
+
+  .mc .a2-quick::after {
+    content: "";
+    position: absolute;
+    inset-inline: 1rem;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--tone);
+    transform: scaleX(0);
+    transition: transform var(--dur-3) var(--ease);
+  }
+
+  .mc .a2-quick:hover {
+    background-color: var(--tone-soft);
+  }
+
+  .mc .a2-quick:hover::after,
+  .mc .a2-quick:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  .mc .a2-quick:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  .mc .a2-quick .go {
+    margin-inline-start: auto;
+    color: var(--ink-3);
+  }
+
+  .mc .a2-quick:hover .go {
+    color: var(--tone-ink);
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  /* Six across: every name on one line. The tint, filled icon and tone bar mark the link, so the arrow steps aside. */
+  @media (min-width: 80rem) {
+    .mc .a2-quick {
+      gap: 0.6rem;
+      padding-inline: 0.8rem;
+      font-size: 0.9rem;
+    }
+
+    .mc .a2-quick .go {
+      display: none;
+    }
+  }
+
+  /* ---------- About ---------- */
+  .mc .a2-panel {
+    border: 1px solid var(--line);
+    border-radius: calc(var(--r-panel) + 4px);
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    box-shadow: var(--sh-raised);
+  }
+
+  .mc .a2-photo {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-card);
+    background: var(--bg-alt);
+  }
+
+  .mc .a2-pillar .icon-chip {
+    transition:
+      background-color var(--dur-2) ease,
+      color var(--dur-2) ease,
+      border-color var(--dur-2) ease;
+  }
+
+  .mc .a2-pillar:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  /* ---------- Services ---------- */
+  .mc .a2-svc {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .mc .a2-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .a2-stage-dark {
+    background: var(--stage-dark);
+    border-bottom-color: var(--stage-dark-edge);
+  }
+
+  .mc .a2-stage-dark::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1.4px);
+    background-size: 18px 18px;
+  }
+
+  .mc .a2-stage-brass {
+    background: var(--stage-brass);
+  }
+
+  /* Signature stages (laser cutting, laser engraving): the illustration fills the
+     stage below the badge, as large as the stage allows (container units measure
+     the stage inside its padding). */
+  .mc .a2-stage-sig {
+    container-type: size;
+    aspect-ratio: 4 / 3;
+    padding: 3.25rem 1rem 1rem;
+  }
+
+  .mc .a2-stage-sig .sig {
+    width: min(100cqw, 100cqh * var(--sig-ratio));
+  }
+
+  .mc .sig-cut {
+    --sig-ratio: 1.625;
+  }
+
+  .mc .sig-engrave {
+    --sig-ratio: 1.4286;
+  }
+
+  .mc .a2-stage-engrave {
+    aspect-ratio: 6 / 5;
+  }
+
+  @media (min-width: 640px) {
+    .mc .a2-stage-sig {
+      aspect-ratio: 16 / 9;
+      padding: 3.5rem 1.5rem 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mc .a2-stage-sig {
+      aspect-ratio: auto;
+      height: 22rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .mc .a2-stage-sig {
+      height: 26rem;
+    }
+  }
+
+  /* Signature cards: an edge in the service's tone, lift, and the illustration replays */
+  .mc .a2-svc-sig {
+    --edge: var(--tone);
+  }
+
+  .mc .a2-svc-sig:is(:hover, :focus-within, .is-hover) {
+    box-shadow:
+      0 0 0 1px var(--tone),
+      var(--sh-hover),
+      0 18px 40px -22px color-mix(in srgb, var(--tone) 55%, transparent);
+  }
+
+  .mc .a2-spec {
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+  }
+
+  /* ---------- Machinery ---------- */
+  .mc .a2-mx-stage {
+    position: relative;
+    display: grid;
+    overflow: hidden;
+    min-height: 23rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background:
+      radial-gradient(55% 60% at var(--spot-x) 56%, var(--stage-spot) 0%, transparent 72%),
+      linear-gradient(180deg, var(--stage-top), var(--stage-bottom));
+    box-shadow: var(--sh-raised);
+    transition: --spot-x var(--dur-4) var(--ease);
+  }
+
+  .mc .a2-mx-panel {
+    grid-area: 1 / 1;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity var(--dur-3) var(--ease),
+      visibility 0s linear var(--dur-3);
+  }
+
+  .mc .a2-mx-panel.is-active,
+  .mc .a2-mx-stage:not([data-js]):not(:has(.a2-mx-panel:target)) .a2-mx-panel:first-child,
+  .mc .a2-mx-stage:not([data-js]) .a2-mx-panel:target {
+    visibility: visible;
+    opacity: 1;
+    transition:
+      opacity var(--dur-3) var(--ease),
+      visibility 0s;
+  }
+
+  .mc .a2-mx-img {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 2.5rem 1.5rem 1rem;
+  }
+
+  .mc .a2-mx-img::after {
+    content: "";
+    position: absolute;
+    inset-inline: 22%;
+    bottom: 10%;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(var(--shadow-rgb) / 0.2), transparent);
+  }
+
+  .mc .a2-mx-img img {
+    position: relative;
+    z-index: 1;
+    transition:
+      scale var(--dur-4) var(--ease),
+      translate var(--dur-4) var(--ease);
+  }
+
+  /* Inactive panels only exist once the script runs; without it the shown panel is complete. */
+  .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-img img {
+    scale: 0.94;
+    translate: 0 10px;
+  }
+
+  .mc .a2-mx-stage:hover .a2-mx-panel.is-active .a2-mx-img img {
+    scale: 1.025;
+  }
+
+  .mc .a2-mx-spec {
+    transition:
+      opacity var(--dur-3) var(--ease) 0.12s,
+      translate var(--dur-3) var(--ease) 0.12s;
+  }
+
+  .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-spec {
+    opacity: 0;
+    translate: 0 8px;
+  }
+
+  .mc .a2-mx-pick {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    padding: 0.55rem 0.9rem 0.55rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+    text-align: start;
+    transition:
+      border-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease,
+      translate var(--dur-2) var(--ease),
+      background-color var(--dur-2) ease;
+  }
+
+  .mc .a2-mx-pick:hover {
+    translate: 0 -2px;
+    border-color: var(--line-strong);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .a2-mx-pick[aria-current="true"] {
+    border-color: var(--brand);
+    background: linear-gradient(90deg, var(--brand-soft), var(--surface) 70%);
+    box-shadow: 0 0 0 1px var(--brand), var(--sh-card);
+  }
+
+  [dir="rtl"] .mc .a2-mx-pick[aria-current="true"] {
+    background: linear-gradient(270deg, var(--brand-soft), var(--surface) 70%);
+  }
+
+  .mc .a2-mx-thumb {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 5.25rem;
+    height: 3.5rem;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--stage-light);
+  }
+
+  .mc .a2-mx-pick .badge-power {
+    transition:
+      background-color var(--dur-2) ease,
+      color var(--dur-2) ease,
+      border-color var(--dur-2) ease;
+  }
+
+  .mc .a2-mx-pick:is(:hover, [aria-current="true"]) .badge-power {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--on-brand);
+  }
+
+  /* ---------- Projects ---------- */
+  .mc .a2-proj {
+    display: block;
+    height: 100%;
+    overflow: hidden;
+    isolation: isolate;
+    border-color: var(--line-subtle);
+  }
+
+  .mc .a2-proj .card-media {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+  }
+
+  .mc .a2-proj::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(180deg, rgb(var(--scrim-rgb) / 0) 42%, rgb(var(--scrim-rgb) / 0.5) 70%, rgb(var(--scrim-rgb) / 0.86));
+  }
+
+  .mc .a2-proj .a2-proj-line {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--brand);
+    transform: scaleX(0);
+    transform-origin: var(--edge-from, left);
+    transition: transform var(--dur-3) var(--ease);
+  }
+
+  [dir="rtl"] .mc .a2-proj .a2-proj-line {
+    --edge-from: right;
+  }
+
+  .mc .a2-proj-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #ffffff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    opacity: 0;
+    translate: 0 6px;
+    transition:
+      opacity var(--dur-2) ease,
+      translate var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-proj-title {
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-proj:is(:hover, :focus-within, .is-hover) .a2-proj-line {
+    transform: scaleX(1);
+  }
+
+  .mc .a2-proj:is(:hover, :focus-within, .is-hover) .a2-proj-cta {
+    opacity: 1;
+    translate: none;
+  }
+
+  @media (hover: none) {
+    .mc .a2-proj-cta {
+      opacity: 1;
+      translate: none;
+    }
+  }
+
+  /* ---------- Industries ---------- */
+  .mc .a2-ind {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    height: 100%;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--surface);
+    transition:
+      border-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease,
+      translate var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-ind:hover {
+    translate: 0 -2px;
+    border-color: var(--tone-line);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .a2-ind:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  /* ---------- Clients ---------- */
+  .mc .logo-tile {
+    display: grid;
+    place-items: center;
+    height: clamp(4.25rem, 3.4rem + 2.4vw, 5.75rem);
+    padding: clamp(0.5rem, 0.3rem + 0.8vw, 0.9rem) clamp(0.5rem, 0.3rem + 1vw, 1rem);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--logo-tile);
+    box-shadow: var(--sh-xs);
+    transition:
+      border-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease,
+      translate var(--dur-2) var(--ease);
+  }
+
+  .mc .logo-tile img {
+    max-height: 3.4rem;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    filter: grayscale(1) contrast(1.1);
+    opacity: 0.84;
+    transition:
+      filter var(--dur-3) ease,
+      opacity var(--dur-3) ease;
+  }
+
+  .mc .logo-tile:hover {
+    translate: 0 -2px;
+    border-color: var(--line-strong);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .logo-tile:hover img,
+  .mc [data-colour] .logo-tile img {
+    filter: none;
+    opacity: 1;
+  }
+
+  .mc .a2-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 2.5rem;
+    padding: 0 0.9rem 0 0.4rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-1) ease,
+      box-shadow var(--dur-1) ease;
+  }
+
+  .mc .a2-toggle:hover {
+    border-color: var(--line-ink);
+    box-shadow: var(--sh-xs);
+  }
+
+  .mc .a2-toggle .knob {
+    position: relative;
+    width: 2.25rem;
+    height: 1.35rem;
+    border-radius: var(--r-pill);
+    background: var(--line-strong);
+    transition: background-color var(--dur-2) ease;
+  }
+
+  .mc .a2-toggle .knob::after {
+    content: "";
+    position: absolute;
+    top: 0.175rem;
+    inset-inline-start: 0.175rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: var(--sh-xs);
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .a2-toggle[aria-pressed="true"] .knob {
+    background: var(--teal);
+  }
+
+  .mc .a2-toggle[aria-pressed="true"] .knob::after {
+    translate: calc(0.9rem * var(--dir, 1)) 0;
+  }
+
+  /* ---------- Compliance ---------- */
+  .mc .a2-comp {
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background:
+      linear-gradient(180deg, var(--sheen), transparent),
+      var(--brass-soft);
+  }
+
+  /* ---------- Contact ---------- */
+  .mc .a2-cta {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--r-panel) + 4px);
+    background: var(--surface);
+    box-shadow: var(--sh-raised);
+  }
+
+  .mc .a2-cta-dark {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--navy);
+    color: var(--on-dark);
+  }
+
+  .mc .a2-cta-dark::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      linear-gradient(
+        100deg,
+        color-mix(in srgb, var(--navy) 97%, transparent) 34%,
+        color-mix(in srgb, var(--navy) 74%, transparent) 68%,
+        color-mix(in srgb, var(--navy) 42%, transparent)
+      );
+  }
+
+  [dir="rtl"] .mc .a2-cta-dark::before {
+    background:
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      linear-gradient(
+        260deg,
+        color-mix(in srgb, var(--navy) 97%, transparent) 34%,
+        color-mix(in srgb, var(--navy) 74%, transparent) 68%,
+        color-mix(in srgb, var(--navy) 42%, transparent)
+      );
+  }
+
+  .mc .step-num {
+    display: inline-grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    border-radius: 50%;
+    background: var(--brand);
+    color: var(--on-brand);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .mc .contact-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    transition:
+      border-color var(--dur-1) ease,
+      box-shadow var(--dur-2) ease,
+      translate var(--dur-2) var(--ease);
+  }
+
+  .mc a.contact-row:hover {
+    translate: 0 -2px;
+    border-color: var(--tone-line, var(--line-strong));
+    box-shadow: var(--sh-card);
+  }
+
+  .mc a.contact-row:hover .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  /* ---------- Pointer: a laser point and a precision ring (desktop mouse only; see Cursor.tsx) ---------- */
+  .mc .a2-cursor {
+    display: none;
+    --cursor-ink: 21 23 26;
+  }
+
+  html[data-cursor-on] .mc .a2-cursor {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-1) ease;
+    }
+
+  html[data-cursor-on] .mc .a2-cursor[data-shown] {
+    opacity: 1;
+  }
+
+  .mc .a2-cursor[data-dark] {
+    --cursor-ink: 238 241 244;
+  }
+
+  .mc :is(.a2-cursor-dot, .a2-cursor-ring) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 50%;
+    will-change: translate;
+    }
+
+  /* The point: orange with a thin light rim, so it also shows on orange buttons. */
+  .mc .a2-cursor-dot {
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    background: var(--brand);
+    box-shadow:
+      0 0 0 1.5px rgb(255 255 255 / 0.92),
+      0 0 10px 1px rgb(241 95 34 / 0.5);
+    transition: scale var(--dur-1) var(--ease);
+  }
+
+  .mc .a2-cursor-ring {
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+    border: 1.5px solid rgb(var(--cursor-ink) / 0.3);
+    scale: 0.78;
+    transition:
+      scale var(--dur-2) var(--ease),
+      border-color var(--dur-2) ease,
+      background-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease;
+  }
+
+  /* Links, buttons, cards: the laser is active — an orange halo. */
+  .mc .a2-cursor[data-state="active"] .a2-cursor-ring {
+    scale: 1.22;
+    border-color: var(--brand);
+    background: rgb(241 95 34 / 0.08);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.55);
+  }
+
+  .mc .a2-cursor[data-state="active"] .a2-cursor-dot {
+    scale: 1.25;
+  }
+
+  /* The hero plate: a crosshair, read against the X / Y readout. */
+  .mc .a2-cursor[data-state="plate"] .a2-cursor-ring {
+    scale: 1.1;
+    border-color: transparent;
+    background:
+      linear-gradient(90deg, var(--brand) 0 34%, transparent 34% 66%, var(--brand) 66%) 50% 50% / 100% 1.5px no-repeat,
+      linear-gradient(180deg, var(--brand) 0 34%, transparent 34% 66%, var(--brand) 66%) 50% 50% / 1.5px 100% no-repeat;
+  }
+
+  .mc .a2-cursor[data-press] .a2-cursor-ring {
+    scale: 0.62;
+  }
+
+  .mc .a2-cursor[data-press] .a2-cursor-dot {
+    scale: 0.8;
+  }
+
+  /* ---------- Footer ---------- */
+  /* The footer: a dark sheet with its own ambient layer (the site's micro-dots, a warm glow at the top). */
+  .mc .a2-footer {
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    margin: 0 var(--sheet-m) var(--sheet-m);
+    border-radius: var(--sheet-r);
+    background: var(--dark);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    color: var(--on-dark-2);
+  }
+
+  .mc .a2-footer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(50% 70% at 88% 0%, var(--band-glow), transparent 70%),
+      radial-gradient(40% 60% at 6% 100%, rgb(80 140 200 / 0.14), transparent 70%),
+      radial-gradient(circle, rgb(200 215 235 / 0.09) 1.15px, transparent 1.75px) 0 0 / 24px 24px;
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .mc .a2-footer::before {
+    scale: -1 1;
+  }
+
+  .mc .a2-footer a {
+    transition: color var(--dur-1) ease;
+  }
+
+  .mc .a2-footer a:hover {
+    color: #ffffff;
+  }
+
+  @keyframes a2-pop {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.985);
+    }
+  }
+
+  @keyframes a2-sheet {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+}
+
+/* The page behind A V2 follows its theme (overscroll, scrollbars, form controls). */
+html:has(.mc) body {
+  background: #f4f4f1;
+}
+
+html[data-theme="dark"]:has(.mc) {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"]:has(.mc) body {
+  background: #131820;
+}
+
+/* The custom pointer replaces the system cursor inside A V2 (outside the layer, so no utility brings it back);
+   text fields keep the I-beam. */
+html[data-cursor-on] .mc,
+html[data-cursor-on] .mc * {
+  cursor: none;
+}
+
+html[data-cursor-on] .mc :is(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"]), textarea, [contenteditable="true"]) {
+  cursor: text;
+}
+
+/* Focus rings (outside the layer so utilities cannot remove them) */
+.mc .stretch:focus-visible::after {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.mc .btn.is-focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Scroll lock while the mobile menu is open (it only exists below 1280px). */
+html:has(.mc details[data-menu][open]) {
+  overflow: hidden;
+}
+
+/* A script-only control stays out of view without script. */
+html:not(.js) .mc [data-js-only] {
+  display: none !important;
+}
+
+/* ---------- Site-wide ambient motion: slow, in whole-pixel steps, transform and opacity only ----------
+   The surface drifts 48 × 24 px in 24 steps of 2 × 1 px (one every 1.33 s) and breathes in 28 steps (one a second);
+   the light drifts with it and crosses one dot column (24 px) at a time. Back and forth, or restarting off screen: no
+   visible jump. */
+@keyframes a2-amb-sweep {
+  0%,
+  20% {
+    transform: translateX(calc(var(--sw-w) * -1));
+  }
+
+  70%,
+  100% {
+    transform: translateX(calc(var(--sw-n) * 24px - var(--sw-w)));
+  }
+}
+
+@keyframes a2-amb-drift {
+  to {
+    translate: -48px 24px;
+  }
+}
+
+@keyframes a2-amb-drift-rtl {
+  to {
+    translate: 48px 24px;
+  }
+}
+
+@keyframes a2-amb-drift-sm {
+  to {
+    translate: -24px 12px;
+  }
+}
+
+@keyframes a2-amb-drift-sm-rtl {
+  to {
+    translate: 24px 12px;
+  }
+}
+
+@keyframes a2-amb-breathe {
+  from {
+    opacity: 0.7;
+  }
+}
+
+/* ---------- Motion: entrance, ambient light, reveals — never with reduced motion ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* The ambient: the surface drifts and breathes (half the drift on phones); the light crosses every 26 s (reversed in
+     Arabic, so it enters from the reading side) and drifts with the surface on the same clock, so it stays on the dots. */
+  .mc .a2-ambient .a2-ambient-field {
+    animation:
+      a2-amb-drift 32s steps(24) infinite alternate both,
+      a2-amb-breathe 28s steps(28) infinite alternate both;
+  }
+
+  .mc .a2-ambient .a2-ambient-sweep {
+    animation:
+      a2-amb-sweep 26s var(--sw-steps) infinite both,
+      a2-amb-drift 32s steps(24) infinite alternate both;
+  }
+
+  [dir="rtl"] .mc .a2-ambient .a2-ambient-field {
+    animation-name: a2-amb-drift-rtl, a2-amb-breathe;
+  }
+
+  [dir="rtl"] .mc .a2-ambient .a2-ambient-sweep {
+    animation-name: a2-amb-sweep, a2-amb-drift-rtl;
+    animation-direction: reverse, alternate;
+  }
+
+  @media (max-width: 40rem) {
+    .mc .a2-ambient .a2-ambient-field {
+      animation:
+        a2-amb-drift-sm 32s steps(12) infinite alternate both,
+        a2-amb-breathe 28s steps(28) infinite alternate both;
+    }
+
+    .mc .a2-ambient .a2-ambient-sweep {
+      animation:
+        a2-amb-sweep 26s var(--sw-steps) infinite both,
+        a2-amb-drift-sm 32s steps(12) infinite alternate both;
+    }
+
+    [dir="rtl"] .mc .a2-ambient .a2-ambient-field {
+      animation-name: a2-amb-drift-sm-rtl, a2-amb-breathe;
+    }
+
+    [dir="rtl"] .mc .a2-ambient .a2-ambient-sweep {
+      animation-name: a2-amb-sweep, a2-amb-drift-sm-rtl;
+      animation-direction: reverse, alternate;
+    }
+  }
+
+  /* While the page scrolls the ambient rests where it is (Motion.tsx sets data-scrolling), then carries on. The rule names the
+     two layers: ending it in a universal selector made every change of the attribute restyle the whole page. */
+  html[data-scrolling] .mc .a2-ambient > :is(.a2-ambient-sweep, .a2-ambient-field) {
+    animation-play-state: paused;
+  }
+
+  .js .mc [data-enter] {
+    animation: a2-rise var(--dur-4) var(--ease) both;
+    animation-delay: var(--d, 0ms);
+  }
+
+  /* Hero plate, armed from the first paint (script and motion only): uncut, undrawn, still to rise. */
+  .js .mc .a2-plate {
+    opacity: 0;
+  }
+
+  .js .mc .a2-plate .a2-plate-slug {
+    opacity: 1;
+  }
+
+  .js .mc .a2-plate :is(.a2-plate-label, .a2-plate-node, .a2-plate-pulse) {
+    opacity: 0;
+  }
+
+  .js .mc .a2-plate .a2-plate-dim {
+    stroke-dasharray: 1 1.1;
+    stroke-dashoffset: 1.05;
+  }
+
+  /* Once cut, the hot points breathe softly while the hero is on screen (transform and opacity only). */
+  .mc .a2-plate-pulse > span {
+    animation: a2-node 3.6s ease-in-out calc(var(--i, 0) * -0.9s) infinite;
+    animation-play-state: paused;
+  }
+
+  .mc [data-live] .a2-plate-pulse > span {
+    animation-play-state: running;
+  }
+
+  @keyframes a2-node {
+    50% {
+      opacity: 0.12;
+      transform: scale(1.8);
+    }
+  }
+
+  @keyframes a2-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 18px, 0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc :is(.card-link, .btn, .logo-tile, .contact-row, .a2-ind, .a2-mx-pick, .go, .a2-quick .go),
+  .mc :is(.card-link, .btn, .logo-tile, .contact-row, .a2-ind, .a2-mx-pick):is(:hover, :focus-within) {
+    translate: none;
+  }
+
+  .mc .card-link:hover .card-media img,
+  .mc .a2-mx-stage:hover .a2-mx-panel.is-active .a2-mx-img img {
+    scale: none;
+  }
+
+  .mc .a2-plate-tilt {
+    transition: none;
+  }
+
+  .mc .btn-primary::after {
+    display: none;
+  }
+
+  .mc details[open] > :is(.a2-dd-panel, .a2-sheet) {
+    animation: none;
+  }
+
+  /* The machine selector switches instantly. */
+  .mc :is(.a2-mx-panel, .a2-mx-img img, .a2-mx-spec, .a2-mx-stage) {
+    transition: none;
+  }
+
+  .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) :is(.a2-mx-img img, .a2-mx-spec) {
+    scale: none;
+    translate: none;
+  }
+
+  /* Decorative lines, knobs and icons change state without moving. */
+  .mc .a2-nav .nav-link::after,
+  .mc .card-edge::before,
+  .mc .a2-quick::after,
+  .mc .a2-proj .a2-proj-line,
+  .mc .a2-proj-cta,
+  .mc .a2-toggle .knob::after,
+  .mc .a2-burger span,
+  .mc .nav-link .chev,
+  .mc .a2-sheet-row .mc-icon {
+    transition: none;
+  }
+}

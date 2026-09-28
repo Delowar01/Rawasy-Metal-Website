@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { crossDesignLink } from "@/i18n/routes";
 import { ArrowIcon } from "@/components/ui/Icons";
 import { Phrases } from "@/components/ui/Phrases";
 import { Backdrop, ScanLine } from "@/components/visual/Backdrop";
@@ -51,7 +52,7 @@ export function InnerCTA({
         <ul className="border-t border-band-line lg:col-span-6 lg:col-start-7">
           {links.map((link, i) => (
             <li key={link.href} className="act-row border-b border-band-line" data-reveal style={{ ["--d" as string]: 80 * i }}>
-              <Link href={link.href} className="group flex items-center gap-5 py-5 ps-4 sm:gap-6 sm:py-6 sm:ps-5">
+              <Link href={link.href} {...crossDesignLink(link.href)} className="group flex items-center gap-5 py-5 ps-4 sm:gap-6 sm:py-6 sm:ps-5">
                 {numbered && <span className="t-num w-6 shrink-0 text-xs text-band-ink-2">{String(i + 1).padStart(2, "0")}</span>}
                 <span className="min-w-0 flex-1">
                   <span className="block font-display text-[1.15rem] font-semibold leading-snug transition-colors group-hover:text-accent sm:text-[1.3rem]">

@@ -1,3 +1,9 @@
+/*
+ * The homepage before Stage TM-1 (the V2 website design), moved here from src/app/[locale]/page.tsx when the
+ * homepage was migrated to the Modern Commerce design (src/app/(commerce)/[locale]/page.tsx). It is not routed. It
+ * stays, with the components in this folder, while the migrated homepage is under review, so the previous homepage
+ * can be restored by moving this file back (and removing the new route); delete both once the migration is approved.
+ */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { whatsappUrl } from "@/content/company";

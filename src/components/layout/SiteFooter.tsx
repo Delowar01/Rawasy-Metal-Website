@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Locale } from "@/i18n/config";
+import { crossDesignLink } from "@/i18n/routes";
 import { Logo, logoPaths } from "@/components/brand/Logo";
 import { ArrowIcon, ArrowUpIcon, FacebookIcon, MailIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/ui/Icons";
 import { Phrases } from "@/components/ui/Phrases";
@@ -67,7 +68,7 @@ export function SiteFooter({
           <p className="footer-statement max-w-[12em] text-ink" data-reveal>
             <Phrases>{statement}</Phrases>
           </p>
-          <Link href={cta.href} className="link-arrow shrink-0 text-ink">
+          <Link href={cta.href} {...crossDesignLink(cta.href)} className="link-arrow shrink-0 text-ink">
             <span className="link-line">{cta.label}</span>
             <ArrowIcon className="arrow rtl:-scale-x-100" />
           </Link>
@@ -76,7 +77,7 @@ export function SiteFooter({
         {/* Columns */}
         <nav aria-label={labels.footerNav} className="grid grid-cols-2 gap-x-6 gap-y-12 py-14 lg:grid-cols-12 lg:gap-8">
           <div className="col-span-2 lg:col-span-4">
-            <Link href={homeHref} aria-label={labels.homeLink} className="inline-block text-ink">
+            <Link href={homeHref} {...crossDesignLink(homeHref)} aria-label={labels.homeLink} className="inline-block text-ink">
               <Logo className="h-11 w-auto" title={labels.homeLink} />
             </Link>
             <p className="t-body mt-6 max-w-sm">{companyStatement}</p>
@@ -96,7 +97,7 @@ export function SiteFooter({
             <ul className="mt-5 grid gap-2.5">
               {services.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="link-line text-[0.94rem] text-ink-2 transition-colors hover:text-ink">
+                  <Link href={link.href} {...crossDesignLink(link.href)} className="link-line text-[0.94rem] text-ink-2 transition-colors hover:text-ink">
                     {link.label}
                   </Link>
                 </li>
@@ -110,7 +111,7 @@ export function SiteFooter({
               <ul className="mt-5 grid gap-2.5">
                 {group.links.map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} className="link-line text-[0.94rem] text-ink-2 transition-colors hover:text-ink">
+                    <Link href={link.href} {...crossDesignLink(link.href)} className="link-line text-[0.94rem] text-ink-2 transition-colors hover:text-ink">
                       {link.label}
                     </Link>
                   </li>
@@ -173,7 +174,7 @@ export function SiteFooter({
           <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-2" aria-label={legal.title}>
             {legal.links.map((link) => (
               <li key={link.href}>
-                <Link href={link.href} className="link-line transition-colors hover:text-ink">
+                <Link href={link.href} {...crossDesignLink(link.href)} className="link-line transition-colors hover:text-ink">
                   {link.label}
                 </Link>
               </li>

@@ -1,7 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { skipIntro, trackErrors } from "./helpers";
 
-/** Stage 1C-V visual system: ambient layers, active states, the pointer light and decoration semantics. */
+/**
+ * Stage 1C-V visual system: ambient layers, active states, the pointer light and decoration semantics, on the pages
+ * still in that design (the homepage moved to the Modern Commerce design in Stage TM-1).
+ */
 
 test.beforeEach(async ({ context }) => {
   await skipIntro(context);
@@ -43,7 +46,7 @@ function exposedDecoration(page: Page) {
 
 test("decorative layers are hidden from assistive technology", async ({ page }) => {
   test.setTimeout(120_000);
-  for (const path of ["/en", "/ar", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact", "/ar/privacy"]) {
+  for (const path of ["/en/services/laser-cutting", "/ar/industries", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact", "/ar/privacy"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     expect(await exposedDecoration(page), path).toEqual([]);
   }
@@ -94,8 +97,6 @@ test.describe("ambient motion", () => {
   test("line work draws itself once revealed, without a resize", async ({ page }) => {
     // Regression: `[data-revealed] [pathLength]` selectors never restyled the SVG paths in Chromium.
     for (const [path, host] of [
-      ["/en", ".beam-draw"],
-      ["/en", ".pillar"],
       ["/en/about", ".line-draw"],
       ["/en/services/cnc-bending", ".line-draw"],
       ["/ar/services/laser-engraving", ".line-draw"],
@@ -113,11 +114,11 @@ test.describe("ambient motion", () => {
     }
   });
 
-  test("the pointer light follows a mouse over the machinery stage", async ({ page }) => {
-    await page.goto("/en", { waitUntil: "networkidle" });
-    const stage = page.locator("#machinery .machine-stage");
+  test("the pointer light follows a mouse over the services plate", async ({ page }) => {
+    await page.goto("/en/services", { waitUntil: "networkidle" });
+    const stage = page.locator(".plate-sheet");
     await stage.evaluate((el) => el.scrollIntoView({ block: "center" }));
-    const light = stage.locator(".plight");
+    const light = stage.locator(":scope > .plight");
     await expect(light).not.toHaveAttribute("data-on", "");
 
     const box = (await stage.boundingBox())!;
@@ -129,40 +130,27 @@ test.describe("ambient motion", () => {
     await page.mouse.move(4, 4);
     await expect(light).not.toHaveAttribute("data-on", "");
   });
-
-  test("changing service on the homepage runs a cutting line with the wipe", async ({ page }) => {
-    await page.goto("/en", { waitUntil: "networkidle" });
-    const figure = page.locator("#services figure").first();
-    await expect(figure.locator(".wipe-line")).toHaveCount(0);
-    await page.locator("#services ul li[data-row] a").nth(2).hover();
-    await expect(figure.locator(".wipe-line")).toHaveCount(1);
-    await expect(page.locator("#services ul li[data-row][data-active]")).toHaveCount(1);
-  });
 });
 
 test.describe("ambient motion with reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
   test("layers stay still, scan lines are hidden and the pointer light never switches on", async ({ page }) => {
-    await page.goto("/en", { waitUntil: "networkidle" });
-    const grid = page.locator("#capabilities .backdrop[data-drift]");
+    await page.goto("/en/services", { waitUntil: "networkidle" });
+    const grid = page.locator("main .backdrop[data-drift]").first();
     await grid.evaluate((el) => el.scrollIntoView({ block: "center" }));
     await page.waitForTimeout(400);
     expect(await page.locator('[data-live="on"]').count()).toBe(0);
     expect(await grid.evaluate((el) => getComputedStyle(el, "::before").animationName)).toBe("none");
-    await expect(page.locator("#metrics .scan")).toBeHidden();
+    await expect(page.locator("main .scan").first()).toBeHidden();
 
-    const stage = page.locator("#machinery .machine-stage");
+    const stage = page.locator(".plate-sheet");
     await stage.evaluate((el) => el.scrollIntoView({ block: "center" }));
     const box = (await stage.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
     await page.waitForTimeout(300);
-    await expect(stage.locator(".plight")).not.toHaveAttribute("data-on", "");
-    await expect(stage.locator(".plight")).toBeHidden();
-
-    // The explorer swaps figures without the cutting line.
-    await page.locator("#services ul li[data-row] a").nth(3).hover();
-    await expect(page.locator("#services .wipe-line")).toBeHidden();
+    await expect(stage.locator(":scope > .plight")).not.toHaveAttribute("data-on", "");
+    await expect(stage.locator(":scope > .plight")).toBeHidden();
   });
 });
 
@@ -205,8 +193,8 @@ test.describe("active states", () => {
   });
 
   test("focus shows the same frame as hover", async ({ page }) => {
-    await page.goto("/en", { waitUntil: "networkidle" });
-    const link = page.locator("#projects ul li a").first();
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
+    const link = page.locator('main a[href^="/en/projects/"]:has(.tf-host .tf-hl)').first();
     await link.focus();
     const frame = link.locator(".tf-host");
     // Corner marks appear and the accent edge draws for keyboard focus too.

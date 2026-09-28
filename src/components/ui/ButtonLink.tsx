@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { crossDesignLink } from "@/i18n/routes";
 import { cn } from "@/lib/utils";
 import { ArrowIcon, ArrowUpRightIcon } from "./Icons";
 
@@ -52,7 +53,7 @@ export function ButtonLink({
     );
   }
   return (
-    <Link href={href} className={classes} data-cursor={cursor} {...rest}>
+    <Link href={href} {...crossDesignLink(href)} className={classes} data-cursor={cursor} {...rest}>
       {inner}
     </Link>
   );

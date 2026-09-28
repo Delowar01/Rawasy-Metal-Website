@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
-import { href } from "@/i18n/routes";
+import { crossDesignLink, href } from "@/i18n/routes";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { ArrowIcon } from "@/components/ui/Icons";
 
@@ -37,7 +37,7 @@ export function PagePlaceholder({
                 <li key={item.href} className="flex items-center gap-2">
                   {i > 0 && <span aria-hidden>/</span>}
                   {i < breadcrumb.length - 1 ? (
-                    <Link href={item.href} className="hover:text-ink">
+                    <Link href={item.href} {...crossDesignLink(item.href)} className="hover:text-ink">
                       {item.label}
                     </Link>
                   ) : (

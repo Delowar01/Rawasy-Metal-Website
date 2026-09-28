@@ -2,6 +2,9 @@
 /* The theme lab has its own stylesheet (src/app/theme-lab/lab.css); keep its classes out of the site CSS. */
 @source not "./theme-lab";
 @source not "../components/theme-lab";
+/* So have the pages migrated to the Modern Commerce design (src/app/(commerce)/commerce.css). */
+@source not "./(commerce)";
+@source not "../components/commerce";
 
 /* ==========================================================================
    RAWASY design system

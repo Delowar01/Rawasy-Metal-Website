@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { bootScript } from "@/lib/boot-script";
 import { NotFoundView } from "@/components/layout/NotFoundView";
-import { geistMono, manrope, notoKufiArabic, plexArabic, sora } from "./fonts";
+import { geistMono, manrope, notoKufiArabic, plexArabic, sora } from "./global-not-found-fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {

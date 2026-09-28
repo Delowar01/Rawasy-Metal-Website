@@ -7,6 +7,15 @@
 @import "tailwindcss" source(none);
 @source "../../components/theme-lab";
 @source "./";
+/* The A V2 modules the lab shares with the pages in the Modern Commerce design (moved to components/commerce). */
+@source "../../components/commerce/Ambient.tsx";
+@source "../../components/commerce/Cursor.tsx";
+@source "../../components/commerce/Icon.tsx";
+@source "../../components/commerce/ThemeSwitch.tsx";
+@source "../../components/commerce/ui.tsx";
+@source "../../components/commerce/hero";
+@source "../../components/commerce/home/MachineShowcase.tsx";
+@source "../../components/commerce/signature";
 
 /* Semantic utilities (bg-surface, text-ink-2, border-line, rounded-card, shadow-raised …)
    resolve to whichever option's tokens are in scope. */
