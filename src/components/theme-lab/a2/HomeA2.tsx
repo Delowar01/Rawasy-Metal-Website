@@ -316,7 +316,7 @@ function HeroA2({ data }: Props) {
         <span className="a2-glow" />
       </div>
       <div className="shell grid grid-cols-1 items-center gap-12 pb-24 pt-10 sm:pt-14 lg:grid-cols-12 lg:gap-12 lg:pb-28 lg:pt-14 2xl:gap-16">
-        <div className="lg:col-span-6">
+        <div className="a2-read lg:col-span-6">
           <p className="eyebrow" data-enter>
             {hero.eyebrow} · {hero.location}
           </p>
@@ -420,6 +420,7 @@ function SectionHead({
   action,
   tone = "brand",
   className = "",
+  read = false,
 }: {
   id: string;
   label: string;
@@ -428,10 +429,12 @@ function SectionHead({
   action?: { href: string; label: string };
   tone?: Tone;
   className?: string;
+  /** On a plain section: a reading zone keeps the ambient out from under the text. */
+  read?: boolean;
 }) {
   return (
     <div className={`flex flex-wrap items-end justify-between gap-x-10 gap-y-6 ${className}`}>
-      <div className="max-w-[44rem]" data-reveal>
+      <div className={read ? "a2-read max-w-[44rem]" : "max-w-[44rem]"} data-reveal>
         <p className="eyebrow" data-tone={tone}>
           {label}
         </p>
@@ -457,7 +460,7 @@ function AboutA2({ data }: Props) {
   return (
     <section id="about" className="sec" aria-labelledby="about-title">
       <div className="shell grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14">
-        <div className="lg:col-span-5" data-reveal>
+        <div className="a2-read lg:col-span-5" data-reveal>
           <p className="eyebrow" data-tone="steel">
             {about.label}
           </p>
@@ -524,7 +527,7 @@ function AboutA2({ data }: Props) {
       </div>
 
       <div className="shell mt-12 lg:mt-16">
-        <h3 className="t-h4 flex items-center gap-2.5" data-reveal="fade">
+        <h3 className="a2-read t-h4 flex w-fit items-center gap-2.5" data-reveal="fade">
           <span className="h-px w-6 bg-brand" aria-hidden />
           {about.whyLabel}
         </h3>
@@ -732,7 +735,7 @@ function ProjectsA2({ data }: Props) {
   return (
     <section id="projects" className="sec" aria-labelledby="projects-title">
       <div className="shell">
-        <SectionHead id="projects-title" label={projects.label} title={projects.title} intro={projects.intro} tone="brass" action={{ href: links.projects, label: projects.all }} />
+        <SectionHead id="projects-title" label={projects.label} title={projects.title} intro={projects.intro} tone="brass" action={{ href: links.projects, label: projects.all }} read />
       </div>
       <div className="shell mt-10 max-lg:px-0 lg:mt-12">
         <ul className="rail flex gap-3 overflow-x-auto px-[var(--gutter)] pb-3 sm:gap-4 lg:grid lg:grid-cols-4 lg:grid-rows-[16.5rem_16.5rem] lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0">

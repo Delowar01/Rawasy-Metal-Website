@@ -484,8 +484,10 @@ test.describe("A V2 · signature illustrations and motion", () => {
     expect(await page.locator(".a2-hero .a2-plate-shine > span").evaluate((el) => el.style.translate)).not.toBe("");
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await expect(page.locator(".a2-hero")).not.toHaveAttribute("data-live", "");
-    const glow = await page.locator(".a2-glow").evaluate((el) => el.getAnimations().map((a) => a.playState));
-    expect(glow).toEqual(["paused"]);
+    // The plate's hot points pause off screen; the hero's own glow is still (the site-wide ambient carries the motion).
+    const pulse = await page.locator(".a2-hero .a2-plate-pulse > span").first().evaluate((el) => el.getAnimations().map((a) => a.playState));
+    expect(pulse).toEqual(["paused"]);
+    expect(await page.locator(".a2-glow").evaluate((el) => el.getAnimations().length)).toBe(0);
   });
 
   test("the design-system sheet shows each signature first, with a replay and still frames of its initial, active and finished states", async ({ page }) => {
@@ -856,6 +858,103 @@ test.describe("A V2 · light and dark", () => {
 /** The live site-wide ambient (not the design-system frames). */
 const AMBIENT = ".a2-ambient:not(.a2-ambient-frame)";
 
+/** Every CSS animation of the live ambient: name, element, timing and state. */
+const ambientAnimations = (page: Page) =>
+  page.evaluate(
+    (sel) =>
+      document
+        .querySelector(sel)!
+        .getAnimations({ subtree: true })
+        .map((a) => {
+          const t = a.effect!.getTiming();
+          return {
+            name: (a as CSSAnimation).animationName,
+            target: ((a.effect as KeyframeEffect).target as Element).className,
+            state: a.playState,
+            duration: t.duration,
+            direction: t.direction,
+            iterations: t.iterations,
+          };
+        }),
+    AMBIENT,
+  );
+
+/**
+ * The lowest contrast between a text and any single pixel behind it (not an average): everything the element draws
+ * itself is hidden (its text, icons and decorations; its own background stays), the ambient is held at its strongest
+ * (the surface at full breath, the light band centred behind the text, on the dot grid), and every pixel of the
+ * text's box is compared with the text colour.
+ */
+async function worstPixelContrast(page: Page, selector: string) {
+  const el = page.locator(selector).first();
+  await el.evaluate((node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(250);
+  const info = await el.evaluate((node, sel) => {
+    // Read the text's colour and size first: the computed style is live, and the text is hidden below.
+    const cs = getComputedStyle(node);
+    const text = { color: cs.color, size: parseFloat(cs.fontSize), weight: parseInt(cs.fontWeight) };
+    const r = node.getBoundingClientRect();
+    const amb = document.querySelector(sel)!;
+    for (const a of amb.getAnimations({ subtree: true })) {
+      a.pause();
+      // The breathing at full strength (opacity 1); the drift at its end.
+      a.currentTime = (a as CSSAnimation).animationName === "a2-amb-breathe" ? 28000 : 32000;
+    }
+    const band = amb.querySelector<HTMLElement>(".a2-ambient-sweep")!;
+    band
+      .getAnimations()
+      .filter((a) => (a as CSSAnimation).animationName === "a2-amb-sweep")
+      .forEach((a) => a.cancel());
+    const w = band.getBoundingClientRect().width;
+    // Its drift (shared with the surface) stays; the step is chosen so the band's centre lands on the text's centre.
+    const drift = parseFloat(getComputedStyle(band).translate) || 0;
+    band.style.transform = `translateX(${Math.round((r.x + r.width / 2 - w / 2 - drift) / 24) * 24}px)`;
+    node.style.setProperty("color", "transparent", "important");
+    node.querySelectorAll<HTMLElement | SVGElement>("*").forEach((c) => c.style.setProperty("visibility", "hidden", "important"));
+    if (!document.getElementById("px-probe")) {
+      const style = document.createElement("style");
+      style.id = "px-probe";
+      // A reading zone's ::before is the background under test, not a decoration.
+      style.textContent = "[data-px-probe]:not(.a2-read)::before, [data-px-probe]::after { visibility: hidden !important; }";
+      document.head.append(style);
+    }
+    node.setAttribute("data-px-probe", "");
+    return { ...text, box: { x: r.x, y: r.y, width: r.width, height: r.height } };
+  }, AMBIENT);
+  await page.waitForTimeout(150);
+  const shot = await page.screenshot({ clip: info.box });
+  const result = await page.evaluate(
+    async ({ png, color }) => {
+      const lum = ([r, g, b]: number[]) => {
+        const f = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * f(r / 255) + 0.7152 * f(g / 255) + 0.0722 * f(b / 255);
+      };
+      const img = new Image();
+      img.src = `data:image/png;base64,${png}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, img.width, img.height).data;
+      const probe = document.createElement("canvas").getContext("2d")!;
+      probe.fillStyle = color;
+      probe.fillRect(0, 0, 1, 1);
+      const text = lum([...probe.getImageData(0, 0, 1, 1).data]);
+      let worst = Infinity;
+      for (let i = 0; i < data.length; i += 4) {
+        const bg = lum([data[i], data[i + 1], data[i + 2]]);
+        worst = Math.min(worst, (Math.max(text, bg) + 0.05) / (Math.min(text, bg) + 0.05));
+      }
+      return Math.round(worst * 100) / 100;
+    },
+    { png: shot.toString("base64"), color: info.color },
+  );
+  const large = info.size >= 24 || (info.size >= 18.66 && info.weight >= 700);
+  return { ratio: result, need: large ? 3 : 4.5 };
+}
+
 test.describe("A V2 · background motion", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
@@ -880,6 +979,15 @@ test.describe("A V2 · background motion", () => {
             z: cs.zIndex,
             events: cs.pointerEvents,
             fills: [r.x, r.y, r.width, r.height].map(Math.round).join() === [0, 0, document.documentElement.clientWidth, innerHeight].join(),
+            // One opaque surface: the page colour, the micro-dots and the three colour fields; the container paints nothing.
+            surface: (() => {
+              const field = getComputedStyle(el.querySelector(".a2-ambient-field")!);
+              return (
+                cs.backgroundImage === "none" &&
+                (field.backgroundImage.match(/radial-gradient/g) ?? []).length === 4 &&
+                field.backgroundColor === getComputedStyle(el.parentElement!).backgroundColor
+              );
+            })(),
             layers: [...el.children].map((c) => c.className),
             isolated: getComputedStyle(el.parentElement!).isolation,
             h1OnTop: document.elementFromPoint(h1.x + h1.width / 2, h1.y + h1.height / 2)?.closest("h1") !== null,
@@ -893,7 +1001,8 @@ test.describe("A V2 · background motion", () => {
           z: "-1",
           events: "none",
           fills: true,
-          layers: ["a2-ambient-sweep", "a2-ambient-pattern", "a2-ambient-glow a2-ambient-warm", "a2-ambient-glow a2-ambient-cool", "a2-ambient-glow a2-ambient-teal"],
+          surface: true,
+          layers: ["a2-ambient-field", "a2-ambient-sweep"],
           isolated: "isolate",
           h1OnTop: true,
           hits: 0,
@@ -902,56 +1011,68 @@ test.describe("A V2 · background motion", () => {
     }
   });
 
-  test("it moves slowly on the compositor: dots 30 s, colour fields 28–40 s, a light sweep every 26 s, within small distances", async ({ page }) => {
-    await page.goto(home("en"), { waitUntil: "networkidle" });
-    const anims = await page.evaluate((sel) =>
-      document
-        .querySelector(sel)!
-        .getAnimations({ subtree: true })
-        .map((a) => {
-          const t = a.effect!.getTiming();
-          return { name: (a as CSSAnimation).animationName, state: a.playState, duration: t.duration, direction: t.direction, iterations: t.iterations };
-        }),
-    AMBIENT);
-    expect(anims.map((a) => a.name).sort()).toEqual(["a2-amb-cool", "a2-amb-dots", "a2-amb-sweep", "a2-amb-teal", "a2-amb-warm"]);
-    for (const a of anims) {
-      expect(a.state, a.name).toBe("running");
-      expect(a.iterations, a.name).toBe(Infinity);
-      expect(a.duration, a.name).toBeGreaterThanOrEqual(24000);
-      expect(a.duration, a.name).toBeLessThanOrEqual(45000);
-      // The fields and the dots go back and forth (no reset jump); the sweep restarts while off screen.
-      expect(a.direction, a.name).toBe(a.name === "a2-amb-sweep" ? "normal" : "alternate");
-    }
-    // Each layer held at a moment: where it is and how far it has moved.
-    const at = (layer: string, seconds: number) =>
-      page.evaluate(
-        ([sel, ms]) => {
-          const el = document.querySelector(sel)!;
-          const a = el.getAnimations()[0];
-          a.pause();
-          a.currentTime = ms;
-          const m = new DOMMatrix(getComputedStyle(el).transform);
-          const r = el.getBoundingClientRect();
-          return { x: Math.round(m.e), y: Math.round(m.f), left: r.left, right: r.right, screen: document.documentElement.clientWidth };
-        },
-        [`${AMBIENT} ${layer}`, seconds * 1000] as const,
-      );
-    // The light rests off screen, crosses at a steady pace, and has left by the end of its pass.
-    expect((await at(".a2-ambient-sweep", 2)).right).toBeLessThanOrEqual(1);
-    const mid = await at(".a2-ambient-sweep", 11.7);
-    expect(Math.abs((mid.left + mid.right) / 2 - mid.screen / 2)).toBeLessThan(24);
-    const gone = await at(".a2-ambient-sweep", 19);
-    expect(gone.left).toBeGreaterThanOrEqual(gone.screen - 1);
-    // The dots drift 12 × 7 px; the fields move up to 66 × 44 px (never more than 80).
-    expect(await at(".a2-ambient-pattern", 30)).toMatchObject({ x: 12, y: 7 });
-    for (const [layer, end] of [
-      [".a2-ambient-warm", 32],
-      [".a2-ambient-cool", 28],
-      [".a2-ambient-teal", 21],
-    ] as const) {
-      const moved = await at(layer, end);
-      expect(Math.max(Math.abs(moved.x), Math.abs(moved.y)), layer).toBeGreaterThan(20);
-      expect(Math.max(Math.abs(moved.x), Math.abs(moved.y)), layer).toBeLessThanOrEqual(80);
+  test("two layers move, in whole-pixel steps: the surface drifting and breathing, the light every 26 s one dot column at a time", async ({ page }) => {
+    for (const locale of LOCALES) {
+      await page.goto(home(locale), { waitUntil: "networkidle" });
+      const anims = await ambientAnimations(page);
+      const drift = locale === "ar" ? "a2-amb-drift-rtl" : "a2-amb-drift";
+      expect(anims.map((a) => a.name).sort()).toEqual(["a2-amb-breathe", drift, drift, "a2-amb-sweep"]);
+      // Two moving (composited) layers: the surface (dots and colour) and the light band, which drifts with it.
+      expect([...new Set(anims.map((a) => a.target))].sort()).toEqual(["a2-ambient-field", "a2-ambient-sweep"]);
+      for (const a of anims) {
+        expect(a.state, a.name).toBe("running");
+        expect(a.iterations, a.name).toBe(Infinity);
+        expect(a.duration, a.name).toBe(a.name === "a2-amb-sweep" ? 26000 : a.name === "a2-amb-breathe" ? 28000 : 32000);
+        // The light restarts off screen (reversed in Arabic, so it enters from the reading side); the colour goes back and forth.
+        expect(a.direction, a.name).toBe(a.name === "a2-amb-sweep" ? (locale === "ar" ? "reverse" : "normal") : "alternate");
+      }
+      // Sampled across their cycles: the surface sits on whole pixels (within 48 × 24 px), the light on the 24 px dot grid,
+      // and the light drifts exactly with the surface, so its dots stay on the surface's dots.
+      const samples = await page.evaluate((sel) => {
+        const amb = document.querySelector(sel)!;
+        const field = amb.querySelector(".a2-ambient-field")!;
+        const band = amb.querySelector(".a2-ambient-sweep")!;
+        const shift = (el: Element) => {
+          const t = getComputedStyle(el).translate;
+          return t === "none" ? [0, 0] : [...t.split(" ").map((v) => parseFloat(v)), 0].slice(0, 2);
+        };
+        const out: { field: number[]; band: number[]; together: boolean[] } = { field: [], band: [], together: [] };
+        for (let ms = 0; ms <= 64000; ms += 370) {
+          for (const a of amb.getAnimations({ subtree: true })) {
+            a.pause();
+            a.currentTime = ms;
+          }
+          out.field.push(...shift(field));
+          out.band.push(new DOMMatrix(getComputedStyle(band).transform).e);
+          out.together.push(shift(band).join() === shift(field).join());
+        }
+        return out;
+      }, AMBIENT);
+      expect(samples.field.every((v) => Number.isInteger(v) && Math.abs(v) <= 48)).toBe(true);
+      expect(new Set(samples.field.map(Math.abs)).size).toBeGreaterThan(10);
+      expect(samples.band.every((x) => Number.isInteger(x) && x % 24 === 0)).toBe(true);
+      expect(samples.together.every(Boolean)).toBe(true);
+      // The light rests off screen, crosses the middle, and has left by the end of its pass. Its dots fade out over the
+      // band's outer 16 % on each side, so "off screen" means the lit part.
+      const at = (seconds: number) =>
+        page.evaluate(
+          ([sel, ms]) => {
+            const band = document.querySelector(sel)!.querySelector(".a2-ambient-sweep")!;
+            for (const a of band.getAnimations()) {
+              a.pause();
+              a.currentTime = ms;
+            }
+            const r = band.getBoundingClientRect();
+            return { left: r.left + r.width * 0.16, right: r.right - r.width * 0.16, screen: document.documentElement.clientWidth };
+          },
+          [AMBIENT, seconds * 1000] as const,
+        );
+      const rest = await at(2);
+      expect(locale === "ar" ? rest.left >= rest.screen - 1 : rest.right <= 1).toBe(true);
+      const mid = await at(13);
+      expect(Math.abs((mid.left + mid.right) / 2 - mid.screen / 2)).toBeLessThan(mid.screen * 0.3);
+      const gone = await at(24);
+      expect(locale === "ar" ? gone.right <= 1 : gone.left >= gone.screen - 1).toBe(true);
     }
   });
 
@@ -967,11 +1088,10 @@ test.describe("A V2 · background motion", () => {
     const before = await metrics();
     await page.waitForTimeout(2000);
     const after = await metrics();
-    // The hero's own loops have paused off screen; the five ambient layers keep running.
+    // The hero's own loops have paused off screen; the ambient's four animations (two per layer) keep running.
     await expect(page.locator(".a2-hero")).not.toHaveAttribute("data-live", "");
-    expect(await page.evaluate((sel) => document.querySelector(sel)!.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length, AMBIENT)).toBe(5);
-    // About 120 frames of motion in 2 s, none of them restyled or laid out on the main thread (a still page without
-    // the ambient shows the same handful of style checks).
+    expect((await ambientAnimations(page)).filter((a) => a.state === "running")).toHaveLength(4);
+    // Motion without restyling or laying out on the main thread (a still page shows the same handful of style checks).
     expect(after.RecalcStyleCount - before.RecalcStyleCount).toBeLessThanOrEqual(20);
     expect(after.LayoutCount - before.LayoutCount).toBeLessThanOrEqual(3);
   });
@@ -1008,18 +1128,39 @@ test.describe("A V2 · background motion", () => {
     );
     const marked = samples.filter((s) => s.marked);
     expect(marked.length).toBeGreaterThan(3);
-    for (const s of marked) expect(s.states).toEqual(Array(5).fill("paused"));
+    for (const s of marked) expect(s.states).toEqual(Array(4).fill("paused"));
     for (let i = 1; i < samples.length; i++) {
       if (samples[i - 1].marked && samples[i].marked) samples[i].times.forEach((t, k) => expect(t).toBe(samples[i - 1].times[k]));
     }
     // Then, once the (smooth) scrolling has settled, they carry on from there.
-    await expect
-      .poll(() => page.evaluate((sel) => document.querySelector(sel)!.getAnimations({ subtree: true }).map((a) => a.playState), AMBIENT))
-      .toEqual(Array(5).fill("running"));
+    await expect.poll(async () => (await ambientAnimations(page)).map((a) => a.state)).toEqual(Array(4).fill("running"));
     await expect(page.locator("html")).not.toHaveAttribute("data-scrolling", "");
   });
 
-  test("section sheets let about a third of it through; cards stay opaque", async ({ page }) => {
+  test("marking the page as scrolling restyles only the two moving layers, not the page", async ({ page, browser }) => {
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    await browser.startTracing(page, { categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] });
+    // Four changes of the attribute, each followed by a style read, between two markers in the trace.
+    await page.evaluate((sel) => {
+      const band = document.querySelector(sel)!.querySelector(".a2-ambient-sweep")!;
+      console.timeStamp("scrolling-start");
+      for (let i = 0; i < 4; i++) {
+        document.documentElement.toggleAttribute("data-scrolling");
+        void getComputedStyle(band).animationPlayState;
+      }
+      console.timeStamp("scrolling-end");
+    }, AMBIENT);
+    type TraceEvent = { name: string; ts: number; args?: { elementCount?: number; data?: { message?: string } } };
+    const events = (JSON.parse((await browser.stopTracing()).toString()).traceEvents as TraceEvent[]).sort((a, b) => a.ts - b.ts);
+    const mark = (label: string) => events.find((e) => e.name === "TimeStamp" && e.args?.data?.message === label)!.ts;
+    const [from, to] = [mark("scrolling-start"), mark("scrolling-end")];
+    const restyled = events.filter((e) => e.name === "UpdateLayoutTree" && e.ts > from && e.ts < to && e.args?.elementCount != null).map((e) => e.args!.elementCount!);
+    expect(restyled).toHaveLength(4);
+    // The rule names the two layers; a universal selector here restyled about 1,700 elements per change.
+    expect(Math.max(...restyled)).toBeLessThanOrEqual(4);
+  });
+
+  test("section sheets let only a little of it through; cards stay opaque", async ({ page }) => {
     for (const theme of ["light", "dark"]) {
       await page.goto(`${home("en")}?theme=${theme}`, { waitUntil: "networkidle" });
       const alphas = await page.evaluate(() => {
@@ -1034,43 +1175,126 @@ test.describe("A V2 · background motion", () => {
           card: alpha(getComputedStyle(document.querySelector("#services .card-link")!).backgroundColor),
         };
       });
-      expect(alphas.muted, theme).toBeGreaterThanOrEqual(0.65);
-      expect(alphas.muted, theme).toBeLessThanOrEqual(0.8);
+      expect(alphas.muted, theme).toBeGreaterThanOrEqual(0.85);
+      expect(alphas.muted, theme).toBeLessThanOrEqual(0.94);
       expect(alphas.raised.length, theme).toBe(2);
-      for (const a of alphas.raised) expect(a, theme).toBe(0.72);
+      for (const a of alphas.raised) {
+        expect(a, theme).toBeGreaterThanOrEqual(0.85);
+        expect(a, theme).toBeLessThanOrEqual(0.94);
+      }
       expect(alphas.card, theme).toBe(1);
     }
   });
 
-  test("the design-system sheet shows it as frames: still, 8, 11 and 14 s in both themes, the light crossing from the reading side", async ({ page }) => {
+  test("reading zones keep the ambient out from under the text on plain sections, and stay on screen", async ({ page }) => {
+    for (const width of [1280, 360]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const locale of LOCALES) {
+        for (const [path, expected] of [
+          [home(locale), 4],
+          [system(locale), 1],
+        ] as const) {
+          await page.goto(path, { waitUntil: "networkidle" });
+          const zones = await page.evaluate(() => {
+            // The feathered edge is 1.5 rem wide, or the page gutter where that is narrower (1 rem at the top and bottom).
+            const feather = Math.min(24, parseFloat(getComputedStyle(document.querySelector(".shell")!).paddingLeft));
+            return [...document.querySelectorAll<HTMLElement>(".lab-a2 :is(.a2-read, main.shell)")].map((el) => {
+              const cs = getComputedStyle(el);
+              const before = getComputedStyle(el, "::before");
+              const box = el.getBoundingClientRect();
+              const zone = { left: box.left + parseFloat(before.left), top: box.top + parseFloat(before.top), width: parseFloat(before.width), height: parseFloat(before.height) };
+              const content = {
+                left: box.left + parseFloat(cs.paddingLeft),
+                right: box.right - parseFloat(cs.paddingRight),
+                top: box.top + parseFloat(cs.paddingTop),
+                bottom: box.bottom - parseFloat(cs.paddingBottom),
+              };
+              const probe = document.createElement("canvas").getContext("2d")!;
+              probe.fillStyle = before.backgroundColor;
+              probe.fillRect(0, 0, 1, 1);
+              return {
+                alpha: probe.getImageData(0, 0, 1, 1).data[3] / 255,
+                // The zone's full strength covers the text; its feathered edge lies outside it.
+                covers:
+                  zone.left + feather <= content.left + 0.5 &&
+                  zone.left + zone.width - feather >= content.right - 0.5 &&
+                  zone.top + 16 <= content.top + 0.5 &&
+                  zone.top + zone.height - 16 >= content.bottom - 0.5,
+                onScreen: zone.left >= -0.5 && zone.left + zone.width <= document.documentElement.clientWidth + 0.5,
+                under: before.zIndex === "-1" && cs.isolation === "isolate",
+                events: before.pointerEvents,
+              };
+            });
+          });
+          expect(zones.length, `${path} ${width}`).toBe(expected);
+          for (const z of zones) expect(z, `${path} ${width}`).toEqual({ alpha: expect.any(Number), covers: true, onScreen: true, under: true, events: "none" });
+          for (const z of zones) expect(z.alpha, `${path} ${width}`).toBeGreaterThanOrEqual(0.85);
+        }
+      }
+    }
+  });
+
+  test("no single pixel behind body text drops below AA, even with the light directly behind it", async ({ page }) => {
+    test.setTimeout(120_000);
+    const texts = [
+      ".a2-hero .t-lead",
+      ".a2-hero .eyebrow",
+      ".a2-trust li",
+      "#about .t-body",
+      "#about-title",
+      "#about h3",
+      "#projects .t-lead",
+      "#services .t-lead",
+      "#clients .t-lead",
+      "#industries-title",
+    ];
+    for (const theme of ["light", "dark"]) {
+      for (const locale of LOCALES) {
+        await page.goto(`${home(locale)}?theme=${theme}`, { waitUntil: "networkidle" });
+        await page.addStyleTag({ content: ".a2-header{position:relative!important}" });
+        await page.evaluate(() => document.querySelectorAll("[data-reveal]").forEach((el) => el.setAttribute("data-shown", "")));
+        await page.waitForTimeout(1200);
+        const low: string[] = [];
+        for (const sel of texts) {
+          const { ratio, need } = await worstPixelContrast(page, sel);
+          if (ratio < need) low.push(`${sel} ${ratio}:1 (needs ${need})`);
+        }
+        expect(low, `${locale} ${theme}`).toEqual([]);
+      }
+    }
+  });
+
+  test("the design-system sheet shows it as frames: still, 8, 11 and 14 s in both themes, the light on the dot grid and entering from the reading side", async ({ page }) => {
     for (const locale of LOCALES) {
       await page.goto(system(locale), { waitUntil: "networkidle" });
       await page.locator(".a2-amb-frame").first().scrollIntoViewIfNeeded();
       const frames = await page.locator(".a2-amb-frame").evaluateAll((els) =>
         els.map((el) => {
           const amb = el.querySelector(".a2-ambient-frame")!;
-          const sweep = amb.querySelector(".a2-ambient-sweep")!.getBoundingClientRect();
+          const band = amb.querySelector(".a2-ambient-sweep")!;
+          const sweep = band.getBoundingClientRect();
           const box = el.getBoundingClientRect();
           return {
             theme: el.classList.contains("a2-theme-dark") ? "dark" : "light",
             hidden: el.getAttribute("aria-hidden"),
             running: amb.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length,
+            grid: new DOMMatrix(getComputedStyle(band).transform).e % 24 === 0,
             centre: Math.round((((sweep.left + sweep.right) / 2 - box.left) / box.width) * 100) / 100,
           };
         }),
       );
       expect(frames.map((f) => f.theme)).toEqual(["light", "light", "light", "light", "dark", "dark", "dark", "dark"]);
-      expect(frames.every((f) => f.hidden === "true" && f.running === 0)).toBe(true);
+      expect(frames.every((f) => f.hidden === "true" && f.running === 0 && f.grid)).toBe(true);
       // Where the band's centre sits across the frame (0 = left edge, 1 = right edge); Arabic mirrors it.
       for (const row of [frames.slice(0, 4), frames.slice(4)]) {
         const along = row.map((f) => (locale === "ar" ? 1 - f.centre : f.centre));
-        expect(along[0], "still: off screen").toBeLessThan(0);
-        expect(along[1], "8 s: entering").toBeGreaterThan(-0.1);
-        expect(along[1], "8 s: entering").toBeLessThan(0.2);
-        expect(along[2], "11 s: mid-screen").toBeGreaterThan(0.3);
-        expect(along[2], "11 s: mid-screen").toBeLessThan(0.55);
-        expect(along[3], "14 s: leaving").toBeGreaterThan(0.65);
-        expect(along[3], "14 s: leaving").toBeLessThan(0.9);
+        expect(along[0] < 0 || along[0] > 1, "still: off screen").toBe(true);
+        expect(along[1], "8 s: entering").toBeGreaterThan(-0.2);
+        expect(along[1], "8 s: entering").toBeLessThan(0.25);
+        expect(along[2], "11 s: mid-screen").toBeGreaterThan(0.25);
+        expect(along[2], "11 s: mid-screen").toBeLessThan(0.6);
+        expect(along[3], "14 s: leaving").toBeGreaterThan(0.6);
+        expect(along[3], "14 s: leaving").toBeLessThan(0.95);
       }
     }
   });
@@ -1079,21 +1303,32 @@ test.describe("A V2 · background motion", () => {
 test.describe("A V2 · background motion on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
 
-  test("phones get a lighter version: still dots, no teal field, fainter fields; the light still passes", async ({ page }) => {
-    await page.goto(home("en"), { waitUntil: "networkidle" });
-    const phone = await page.evaluate((sel) => {
-      const el = document.querySelector(sel)!;
-      return {
-        running: el
-          .getAnimations({ subtree: true })
-          .map((a) => (a as CSSAnimation).animationName)
-          .sort(),
-        teal: getComputedStyle(el.querySelector(".a2-ambient-teal")!).display,
-        dots: getComputedStyle(el.querySelector(".a2-ambient-pattern")!).backgroundImage.includes("radial-gradient"),
-        strength: getComputedStyle(el).getPropertyValue("--amb-glow").trim(),
-      };
-    }, AMBIENT);
-    expect(phone).toEqual({ running: ["a2-amb-cool", "a2-amb-sweep", "a2-amb-warm"], teal: "none", dots: true, strength: "70%" });
+  test("phones get a lighter version: still dots, colour at 70 % without teal, half the drift, a narrower light", async ({ page }) => {
+    for (const locale of LOCALES) {
+      await page.goto(home(locale), { waitUntil: "networkidle" });
+      const phone = await page.evaluate((sel) => {
+        const el = document.querySelector(sel)!;
+        const field = getComputedStyle(el.querySelector(".a2-ambient-field")!);
+        return {
+          names: el
+            .getAnimations({ subtree: true })
+            .map((a) => (a as CSSAnimation).animationName)
+            .sort(),
+          dots: (field.backgroundImage.match(/radial-gradient/g) ?? []).length === 4,
+          strength: field.getPropertyValue("--amb-k").trim(),
+          teal: field.getPropertyValue("--amb-kt").trim(),
+          band: el.querySelector(".a2-ambient-sweep")!.getBoundingClientRect().width,
+        };
+      }, AMBIENT);
+      const drift = locale === "ar" ? "a2-amb-drift-sm-rtl" : "a2-amb-drift-sm";
+      expect(phone).toEqual({
+        names: ["a2-amb-breathe", drift, drift, "a2-amb-sweep"],
+        dots: true,
+        strength: "70%",
+        teal: "0%",
+        band: 384,
+      });
+    }
   });
 });
 
@@ -1106,15 +1341,17 @@ test.describe("A V2 · background motion, reduced", () => {
       await page.waitForTimeout(500);
       const still = await page.evaluate((sel) => {
         const el = document.querySelector(sel)!;
-        const css = (s: string) => getComputedStyle(el.querySelector(s)!);
+        const field = getComputedStyle(el.querySelector(".a2-ambient-field")!);
         return {
           animations: el.getAnimations({ subtree: true }).length,
-          dots: css(".a2-ambient-pattern").backgroundImage.includes("radial-gradient"),
-          fields: [...el.querySelectorAll(".a2-ambient-glow")].map((g) => getComputedStyle(g).opacity),
-          sweepOff: el.querySelector(".a2-ambient-sweep")!.getBoundingClientRect().right <= 0,
+          // Three colour fields and the dots, on the page colour.
+          surface: field.backgroundImage.split("radial-gradient").length - 1,
+          breath: field.opacity,
+          drift: field.translate,
+          lightOff: el.querySelector(".a2-ambient-sweep")!.getBoundingClientRect().right <= 0,
         };
       }, AMBIENT);
-      expect(still, theme).toEqual({ animations: 0, dots: true, fields: ["1", "1", "1"], sweepOff: true });
+      expect(still, theme).toEqual({ animations: 0, surface: 4, breath: "1", drift: "none", lightOff: true });
     }
   });
 });

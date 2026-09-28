@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-27-a-v2-background-motion.md` (earlier:
-  `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
+- Latest report: `docs/reports/2026-09-28-a-v2-background-optimization.md` (earlier:
+  `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
   `2026-09-24-stage-1B-typography-correction.md`, `2026-09-24-phase-1-stages-1A-1B.md`).
@@ -58,6 +58,12 @@
   2–3 large soft colour fields and ONE precision motif (a light sweep behind the dots). Never a
   blueprint, CAD, technical-grid or architecture look; no canvas, WebGL, particles or animated filters.
   Nothing else in A V2 was to be redesigned.
+- **A V2's background was then optimized and awaits visual review** (the user's "BACKGROUND MOTION —
+  PERFORMANCE + CONTRAST OPTIMIZATION" brief, report `2026-09-28-a-v2-background-optimization.md`): the
+  concept is directionally approved, the five-layer build was not (software-compositing scroll at 1440 px fell
+  to 31–38 fps, and lit dots behind text dropped local contrast to 2.4–3.5:1). Targets: ≥ 55 fps (at least
+  consistently > 50) in the same software benchmark, 1–2 moving full-screen layers, and no ambient under body
+  text below AA per pixel (not averaged). Keep it visible; never go back to a static background.
 - **A V2's signature animations were corrected** (the user's "SIGNATURE ANIMATION CORRECTION" brief,
   report `2026-09-25-a-v2-signature-correction.md`): the user rejected the star cut and the medallion
   engraving. The signatures must animate the service pages' own drawings (the Laser Cutting nesting
@@ -252,34 +258,44 @@
   inset `--sheet-m` from the screen edges. (Pass 2's page dot matrix, hero grid and footer grid were replaced
   by the site-wide ambient below.)
 - A V2 site-wide ambient (`a2/Ambient.tsx`, "Site-wide ambient" in `a2.css`): one fixed layer inside
-  `.lab-a2` (isolated) at `z-index: -1`, so page colour → ambient → sections → content → header/pointer.
-  Layers: `-sweep` (C: a band of light that rests off screen and crosses every 26 s, mirrored in Arabic),
-  `-pattern` (A: a page-colour sheet perforated with 2.3 px dots every 24 px, so the sweep beneath shows only
-  through the dots; drifts 12 × 7 px), `-warm` / `-cool` / `-teal` (B: large radial fields that move up to
-  66 × 44 px and breathe). Tokens `--amb-dot/-sweep/-warm/-cool/-teal`; sections see it through translucent
-  sheets (`--sheet-muted-a` / `--sheet-raised-a`, about 30 % through); cards stay opaque; the dark contact
-  panel and the footer carry their own still dots. The layer is a size container: sizes and distances use
-  `cq*` units (capped in px), so the same CSS drives the screen and the sheet's frames (`<AmbientA2
-  frame={seconds | "still"} />`, held with `--at`). Timing is `steps()` on one clock (dots and fields 4
-  changes/s, the sweep 20/s while crossing) so the compositor redraws only when something changes; it rests
-  while the page scrolls (LabMotion sets `html[data-scrolling]`, cleared 200 ms after the last scroll);
-  phones drop the teal field, keep the dots still and fade the fields to 70 %; reduced motion holds it all
-  still (dots and fields stay, the sweep rests off screen).
+  `.lab-a2` (isolated) at `z-index: -1`, so page colour → ambient → sections → content → header/pointer. The
+  container paints nothing; two children move. `-field` is the surface: one opaque layer with the page colour, the
+  micro-dots (2.3 px every 24 px) and the colour (warm, steel and a little teal as three radial gradients, `cq*`
+  sized, mirrored in Arabic), `inset: -48px`; it drifts 48 × 24 px in 2 × 1 px `steps(24)` over 32 s and breathes
+  0.7–1 in `steps(28)` over 28 s over the page colour. `-sweep` (above it) is the light: an SVG data-URI band of
+  orange dots on the same grid (`--amb-sweep-img`), moved in 24 px steps (`transform`) across the screen every 26 s
+  (rests 20 %, crosses in 50 %; reversed in Arabic; `--sw-w` / `--sw-n` / `--sw-steps` per breakpoint) and given
+  the surface's drift on the same clock (`translate`), so its dots stay on the surface's dots. Tokens
+  `--amb-dot/-sweep-img/-warm/-cool/-teal`. Text stays clear structurally: sheets are 88–92 % opaque
+  (`--sheet-muted-a` / `--sheet-raised-a`), cards stay opaque, and text on the open sections sits on `.a2-read`
+  reading zones (a `::before` of page colour at `--read-a` 90 %, feathered by `--read-x` = min(1.5 rem, gutter)
+  so it never passes the screen edge; the sheet page's `main.shell` keeps its zone inside itself); `SectionHead`
+  takes `read`. The hero glows are still. The dark contact panel and the footer carry their own still dots. Sheet
+  frames: `<AmbientA2 frame={seconds | "still"} />` holds both layers' animations with `--at` and places the band
+  with `--f` (`round(down, …, 24px)`). It rests while the page scrolls (LabMotion's `html[data-scrolling]`, cleared
+  200 ms after the last scroll); phones fade the colour to 70 %, drop the teal, halve the drift and use a 384 px
+  band; reduced motion holds it still (the surface at full strength, the band off screen).
 - A V2 performance rules (measured in pass 2): nothing inside the plate SVG animates continuously (the
   hot points' breathing is HTML over it) and the SVG carries no filter; the shadow is a static
   drop-shadow rastered with the plate; no `backdrop-filter` or `will-change` + `filter` on layers that
   sit under continuous animation (both are re-applied on every compositor frame); the lean is inline
   transforms on the plate (`will-change: transform`) instead of a custom property on the hero (that
   restyled the whole SVG per mouse move); write the readout only when it changes.
-- Ambient performance (measured in the background-motion pass, headless Chromium = software compositing,
-  the worst case): an animated fixed layer between the page colour and the content moves the page content
-  into its own composited layer (reason "Overlap"); the root keeps only the solid page colour. Scrolling at
-  1440 px fell from ~60 to 31–38 fps there (phones stay at 60). Pausing at runtime does not help (paused
-  animations stay composited); dropping the animations during a scroll does (~44 fps) but repaints the
-  whole background at every scroll start, so it was not adopted. `steps()` on one clock cut idle redraws
-  from 60 to 4–20 a second. Keyframes with `var()`, `%` and `cq*`
-  units still run on the compositor (0 main-thread style recalcs). Layer "memory" from layer bounds is
-  misleading (Chromium rasters tiles near the viewport only, and solid-colour layers need none).
+- Ambient performance (headless Chromium = software compositing, the worst case): an animated fixed layer
+  between the page colour and the content moves the page content into its own composited layer (reason
+  "Overlap"), so every frame blends the content over the background. Each extra full-screen layer is one more
+  blend: a still dots layer under a translucent colour layer scrolled at 52 fps, the same look as one opaque
+  surface at 55 (Pass 2: 55–56). Sub-pixel movement (smooth easing, `scale`) makes a moving layer a filtered redraw
+  on every frame; whole-pixel `steps()` moves cost almost nothing (46 vs 59 fps for the same structure), and a
+  layer resting at a fractional device pixel (125 % / 150 % zoom) costs nothing extra. Never put `opacity` on a
+  layer whose child animates (it needs an offscreen surface every frame: 47 fps); give the child the parent's
+  movement instead. Pausing at runtime does not help (paused animations stay composited). `steps()` on one clock
+  keeps idle redraws near 5 a second. Keyframes with `var()`, `%` and `cq*` units still run on the compositor (0
+  main-thread style recalcs). Layer "memory" from layer bounds is misleading (Chromium rasters tiles near the
+  viewport only, and solid-colour layers need none).
+- Scroll benchmarks must call `scrollTo({ top, behavior: "instant" })`: the lab sets `scroll-behavior: smooth`, so
+  `scrollTo(0, y)` on every frame restarts a smooth scroll and the page barely moves (the background-motion pass's
+  31–38 fps figures were measured that way, near the top of the page). Check that the run reached the bottom.
 - Signature illustrations (`signature/`) animate the service pages' drawings, whose geometry lives in
   `src/components/service/visuals/nesting-sheet.ts` and `engraved-plate.ts` (shared with
   `CutPathVisual` and `EngravedPlateVisual`). `LaserCut.tsx`: the nesting sheet appears with one scan
@@ -409,7 +425,15 @@
 - axe marks text on gradients and photos as "needs review", not as a pass: audit those with a
   worst-case solid override and with rendered-pixel measurements (the pass-2 report explains both).
 - axe (and `document.elementsFromPoint`) skip `pointer-events: none` layers, so axe never sees A V2's ambient:
-  audit it by painting its worst-case colour on the page itself, and measure rendered pixels.
+  audit it by painting its worst-case colour on the page itself, and measure rendered pixels (per pixel, with
+  the light held behind the text: an average hides a lit dot under a letter).
+- `getComputedStyle()` is live: read the values you need before changing the element (a contrast helper that hid
+  the text first read "transparent" as the text colour and measured everything against black).
+- A per-pixel contrast check must hide what the element draws itself (its icons and `::before` / `::after`
+  decorations, e.g. the eyebrow's orange dot), keeping only its own background and what lies behind it.
+- An attribute toggled on `<html>` restyles whatever the rightmost compound of the rules keyed on it can match:
+  `html[data-scrolling] … .a2-ambient > *` restyled 1,686 of 1,767 elements per toggle (about 14 ms). Name the
+  targets (`> :is(.a2-ambient-sweep, .a2-ambient-field)`: 2 elements, 0.5 ms).
 - `offsetTop` is relative to the offset parent (A V2's sheets are positioned, so `#clients` reads 0). To jump in
   scripts and tests use `el.scrollIntoView({ behavior: "instant" })`; a smooth scroll through Services also
   starts the signatures, so idle measurements must jump and wait out one-time runs.

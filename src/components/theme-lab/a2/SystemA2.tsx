@@ -288,9 +288,9 @@ export function SystemA2({ data }: { data: LabData }) {
     ["--navy / --dark", "#132039 / #111C30", "#17243B / #0C1016", "Dark panels, footer", "اللوحات الداكنة والتذييل"],
     ["--focus", "#2C5E86", "#8EBCDF", "Focus ring, field focus", "حلقة التركيز وتركيز الحقول"],
     ["--hs-* / --plate-*", "#FCFCFA → #EEEFEB · steel #D9DCD9–#F6F7F5", "#1F2733 → #161C25 · steel #434C57–#64707E", "Hero stage and plate", "منصة الواجهة واللوح"],
-    ["--amb-dot / --amb-sweep", "ink 12 % / orange 60 %", "steel-white 10 % / warm light 50 %", "Micro-dots, the light sweep", "النقاط الدقيقة ومسح الضوء"],
+    ["--amb-dot / --amb-sweep-img", "ink 13 % / orange dots 60 %", "steel-white 11.5 % / warm light dots 50 %", "Micro-dots (× 0.7–1 as the surface breathes), the light", "النقاط الدقيقة (× 0.7–1 مع تنفس السطح) والضوء"],
     ["--amb-warm / --amb-cool / --amb-teal", "orange 12 % / steel 11 % / teal 7.5 %", "orange 10 % / steel 16 % / teal 7 %", "Page colour fields", "حقول اللون في الصفحة"],
-    ["--sheet-muted-a / --sheet-raised-a", "70 % / 72 %", "68 % / 72 %", "Section sheet opacity", "عتامة ألواح الأقسام"],
+    ["--sheet-muted-a / --sheet-raised-a / --read-a", "90 % / 92 % / 90 %", "88 % / 90 % / 90 %", "Section sheets, reading zones under text", "ألواح الأقسام ومناطق القراءة تحت النص"],
     ["--glow-warm / --glow-cool / --band-glow", "orange 13 % / steel 10 % / orange 24 %", "orange 13 % / steel 15 % / orange 28 %", "Hero glows, dark bands", "توهج الواجهة والأشرطة الداكنة"],
     ["--sh-card / --sh-raised / --sh-hover", "lit top edge + warm soft shadow", "faint top edge + deep shadow", "Depth", "العمق"],
   ];
@@ -477,6 +477,35 @@ export function SystemA2({ data }: { data: LabData }) {
                     {surface}
                   </th>
                   <td className="py-2.5 pe-4">{seen}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-8 text-[0.9rem] font-semibold">{t.bgPerf}</p>
+        <p className="mt-1.5 max-w-[62em] text-[0.86rem] text-ink-2">{t.bgPerfNote}</p>
+        <div className="mt-3 overflow-x-auto" role="region" aria-label={t.bgPerf} tabIndex={0}>
+          <table className="w-full min-w-[44rem] text-start text-[0.86rem]">
+            <thead>
+              <tr className="border-b border-line text-[0.78rem] text-ink-2">
+                {t.bgPerfHead.map((h) => (
+                  <th key={h} className="py-2 pe-4 text-start font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {t.bgPerfRows.map(([measure, ...cells]) => (
+                <tr key={measure} className="border-b border-line-subtle">
+                  <th scope="row" className="py-2.5 pe-4 text-start font-semibold">
+                    {measure}
+                  </th>
+                  {cells.map((cell, j) => (
+                    <td key={j} className="py-2.5 pe-4">
+                      <Meta>{cell}</Meta>
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

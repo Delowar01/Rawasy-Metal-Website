@@ -65,15 +65,16 @@
     --band-glow: rgb(241 95 34 / 0.24);
     --sheen: rgb(255 255 255 / 0.62);
     --edge-light: rgb(255 255 255 / 0.9);
-    /* Site-wide ambient (Ambient.tsx): micro-dot ink, the light that passes behind the dots, three soft colour fields */
-    --amb-dot: rgb(40 38 30 / 0.12);
-    --amb-sweep: rgb(241 95 34 / 0.6);
+    /* Site-wide ambient (Ambient.tsx): micro-dot ink (× 0.7–1 as the surface breathes), the light, three soft colour fields */
+    --amb-dot: rgb(40 38 30 / 0.13);
+    /* The light: orange dots on the 24 px grid, 60 % at the band's centre, fading to nothing at its edges */
+    --amb-sweep-img: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%' height='24'%3E%3Cdefs%3E%3Cpattern id='d' width='24' height='24' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='12' cy='12' r='1.45' fill='rgb(241,95,34)'/%3E%3C/pattern%3E%3ClinearGradient id='f'%3E%3Cstop offset='.16' stop-color='white' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='white' stop-opacity='.6'/%3E%3Cstop offset='.84' stop-color='white' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='100%' height='24' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='100%' height='24' fill='url(%23d)' mask='url(%23m)'/%3E%3C/svg%3E");
     --amb-warm: rgb(241 95 34 / 0.12);
     --amb-cool: rgb(44 94 134 / 0.11);
     --amb-teal: rgb(27 111 101 / 0.075);
-    /* Section surfaces let a little of the ambient through (cards stay opaque) */
-    --sheet-muted-a: 70%;
-    --sheet-raised-a: 72%;
+    /* Section sheets let a little of the ambient through (cards stay opaque) */
+    --sheet-muted-a: 90%;
+    --sheet-raised-a: 92%;
 
     /* Text */
     --ink: #15171a;
@@ -182,13 +183,13 @@
     --band-glow: rgb(242 106 46 / 0.28);
     --sheen: rgb(255 255 255 / 0.035);
     --edge-light: rgb(255 255 255 / 0.055);
-    --amb-dot: rgb(200 215 235 / 0.1);
-    --amb-sweep: rgb(255 184 140 / 0.5);
+    --amb-dot: rgb(200 215 235 / 0.115);
+    --amb-sweep-img: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%' height='24'%3E%3Cdefs%3E%3Cpattern id='d' width='24' height='24' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='12' cy='12' r='1.45' fill='rgb(255,184,140)'/%3E%3C/pattern%3E%3ClinearGradient id='f'%3E%3Cstop offset='.16' stop-color='white' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='white' stop-opacity='.5'/%3E%3Cstop offset='.84' stop-color='white' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='100%' height='24' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='100%' height='24' fill='url(%23d)' mask='url(%23m)'/%3E%3C/svg%3E");
     --amb-warm: rgb(242 106 46 / 0.1);
     --amb-cool: rgb(80 140 200 / 0.16);
     --amb-teal: rgb(92 192 176 / 0.07);
-    --sheet-muted-a: 68%;
-    --sheet-raised-a: 72%;
+    --sheet-muted-a: 88%;
+    --sheet-raised-a: 90%;
 
     --ink: #eef1f4;
     --ink-2: #b8c0ca;
@@ -281,6 +282,8 @@
     --gutter: clamp(1rem, 4vw, 2.5rem);
     --sec-y: clamp(3rem, 1.6rem + 4vw, 6.5rem);
     --sheet-m: clamp(0.5rem, 1.1vw, 1.25rem);
+    /* Reading zones under text on the open sections: the page colour at this strength (see "Reading zones") */
+    --read-a: 90%;
     --sheet-r: clamp(1.25rem, 0.9rem + 1.4vw, 2.25rem);
     --hh: 4.5rem;
 
@@ -864,9 +867,14 @@
   }
 
   /* ---------- Site-wide ambient (Ambient.tsx) ----------
-     Page colour → this layer → section surfaces → cards and text → header and pointer. The layer is a size container,
-     so the same sizes (cq units) serve the screen and the design-system frames. */
+     Page colour → this layer → section surfaces → cards and text → header and pointer. Built to stay cheap without a
+     GPU: two layers move, both in whole-pixel steps (a sub-pixel move turns every frame into a filtered redraw), and the
+     first is opaque, so the screen is composited as one background layer plus the light. The layer is a size container,
+     so the colour scales with the screen and with the design-system frames. */
   .lab-a2 .a2-ambient {
+    --sw-w: 864px;
+    --sw-n: 196;
+    --sw-steps: steps(196);
     position: fixed;
     inset: 0;
     z-index: -1;
@@ -876,89 +884,114 @@
     container-type: size;
   }
 
-  /* Layer C: a soft band of light that passes behind the dots now and then (it rests off screen). */
+  /* The surface: the page colour, the micro-dots (2.3 px every 24 px) and the colour — warm orange, steel blue and a
+     touch of teal — in one opaque layer (warm high on the far side, steel low on the near side; mirrored in Arabic). It
+     reaches 48 px past the screen, so it can drift without showing an edge; 48 is two dot columns, so the dots keep
+     their grid. */
+  .lab-a2 .a2-ambient-field {
+    --warm: color-mix(in srgb, var(--amb-warm) var(--amb-k, 100%), transparent);
+    --cool: color-mix(in srgb, var(--amb-cool) var(--amb-k, 100%), transparent);
+    --teal: color-mix(in srgb, var(--amb-teal) var(--amb-kt, 100%), transparent);
+    position: absolute;
+    inset: -48px;
+    background:
+      radial-gradient(circle 32cqmax at calc(100% - 48px - 16cqmax) calc(48px + 10cqmax), var(--warm), transparent),
+      radial-gradient(circle 36cqmax at calc(48px + 14cqmax) calc(100% - 48px - 6cqmax), var(--cool), transparent),
+      radial-gradient(circle 21cqmax at calc(48px + 52cqw + 21cqmax) calc(48px + 34cqh + 21cqmax), var(--teal), transparent),
+      radial-gradient(circle, var(--amb-dot) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      var(--bg);
+  }
+
+  [dir="rtl"] .lab-a2 .a2-ambient-field {
+    background:
+      radial-gradient(circle 32cqmax at calc(48px + 16cqmax) calc(48px + 10cqmax), var(--warm), transparent),
+      radial-gradient(circle 36cqmax at calc(100% - 48px - 14cqmax) calc(100% - 48px - 6cqmax), var(--cool), transparent),
+      radial-gradient(circle 21cqmax at calc(100% - 48px - 52cqw - 21cqmax) calc(48px + 34cqh + 21cqmax), var(--teal), transparent),
+      radial-gradient(circle, var(--amb-dot) 1.15px, transparent 1.75px) 0 0 / 24px 24px,
+      var(--bg);
+  }
+
+  /* The light: a band of orange dots on the same grid, above the surface, so moving it one dot column (24 px) at a time
+     lights the dots it crosses. It drifts with the surface (the same clock) and rests off screen between passes. */
   .lab-a2 .a2-ambient-sweep {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: -48px;
+    bottom: -48px;
     left: 0;
-    width: 60cqw;
-    background: linear-gradient(100deg, transparent 16%, var(--amb-sweep) 50%, transparent 84%);
-    transform: translate3d(-100%, 0, 0);
+    width: var(--sw-w);
+    background: var(--amb-sweep-img) 0 0 / var(--sw-w) 24px repeat-y;
+    transform: translateX(calc(var(--sw-w) * -1));
   }
 
-  [dir="rtl"] .lab-a2 .a2-ambient-sweep {
-    right: 0;
-    left: auto;
-    background: linear-gradient(260deg, transparent 16%, var(--amb-sweep) 50%, transparent 84%);
-    transform: translate3d(100%, 0, 0);
+  /* The light crosses in whole dot columns: its width and the number of 24 px steps suit the screen width. */
+  @media (max-width: 2560px) {
+    .lab-a2 .a2-ambient {
+      --sw-n: 143;
+      --sw-steps: steps(143);
+    }
   }
 
-  /* Layer A: sparse micro-dots (2.3 px every 24 px), drawn as a page-colour sheet perforated with them, so the
-     light beneath shows only through the dots. The sheet drifts a few pixels. */
-  .lab-a2 .a2-ambient-pattern {
-    position: absolute;
-    inset: -24px;
-    background: radial-gradient(circle, var(--amb-dot) 1.15px, var(--bg) 1.75px) 0 0 / 24px 24px;
+  @media (max-width: 1920px) {
+    .lab-a2 .a2-ambient {
+      --sw-n: 116;
+      --sw-steps: steps(116);
+    }
   }
 
-  /* Layer B: three large soft colour fields, drawn once and moved on the compositor. */
-  .lab-a2 .a2-ambient-glow {
-    position: absolute;
-    border-radius: 50%;
-    background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) var(--amb-glow, 100%), transparent), transparent);
+  @media (max-width: 1440px) {
+    .lab-a2 .a2-ambient {
+      --sw-n: 96;
+      --sw-steps: steps(96);
+    }
   }
 
-  .lab-a2 .a2-ambient-warm {
-    --glow: var(--amb-warm);
-    top: -22cqmax;
-    inset-inline-end: -16cqmax;
-    width: 64cqmax;
-    height: 64cqmax;
+  @media (max-width: 1024px) {
+    .lab-a2 .a2-ambient {
+      --sw-w: 384px;
+      --sw-n: 59;
+      --sw-steps: steps(59);
+    }
   }
 
-  .lab-a2 .a2-ambient-cool {
-    --glow: var(--amb-cool);
-    --d: -12s;
-    bottom: -30cqmax;
-    inset-inline-start: -22cqmax;
-    width: 72cqmax;
-    height: 72cqmax;
-  }
-
-  .lab-a2 .a2-ambient-teal {
-    --glow: var(--amb-teal);
-    --d: -7s;
-    top: 34%;
-    inset-inline-start: 52%;
-    width: 42cqmax;
-    height: 42cqmax;
-  }
-
-  /* Phones: a lighter version — the dots hold still, the teal field rests, the two other fields are smaller and
-     fainter (their movement already scales with the screen), and the light band is wider for the narrow screen. */
+  /* Phones: a lighter version — the colour at 70 %, no teal, half the drift (motion rules), a narrower band. */
   @media (max-width: 40rem) {
+    .lab-a2 .a2-ambient {
+      --sw-w: 384px;
+      --sw-n: 43;
+      --sw-steps: steps(43);
+    }
+
     .lab-a2 .a2-ambient:not(.a2-ambient-frame) {
-      --amb-glow: 70%;
+      --amb-k: 70%;
+      --amb-kt: 0%;
     }
+  }
 
-    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-teal {
-      display: none;
-    }
+  /* Reading zones: a soft patch of page colour under text blocks on plain sections (feathered at the edges, almost
+     invisible), so the dots, the light and the strongest colour stay in the empty space around the text. The zone
+     reaches past the text by its feather, never further than the page gutter (so never past the screen). */
+  .lab-a2 :is(.a2-read, main.shell) {
+    --read-x: min(1.5rem, var(--gutter));
+    position: relative;
+    isolation: isolate;
+  }
 
-    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-warm {
-      width: 56cqmax;
-      height: 56cqmax;
-    }
+  .lab-a2 :is(.a2-read, main.shell)::before {
+    content: "";
+    position: absolute;
+    inset: -1rem calc(var(--read-x) * -1);
+    z-index: -1;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--bg) var(--read-a), transparent);
+    mask:
+      linear-gradient(90deg, transparent, #000 var(--read-x), #000 calc(100% - var(--read-x)), transparent),
+      linear-gradient(transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+    mask-composite: intersect;
+  }
 
-    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-cool {
-      width: 60cqmax;
-      height: 60cqmax;
-    }
-
-    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-sweep {
-      width: 80cqw;
-    }
+  /* The sheet's main column is the shell itself: its zone stays inside it, feathered within the gutter. */
+  .lab-a2 main.shell::before {
+    inset-inline: 0;
   }
 
   /* ---------- Header ---------- */
@@ -1304,7 +1337,8 @@
     background: linear-gradient(180deg, color-mix(in srgb, var(--hero-top) 50%, transparent), transparent 32rem);
   }
 
-  /* Hero ambient: two soft glows of its own, drifting slowly over the site-wide ambient (the hero is its strongest point). */
+  /* Hero ambient: two soft glows of its own over the site-wide ambient (the hero is its strongest point). Still: the
+     site-wide colour already moves, so a second moving layer here would only cost. */
   .lab-a2 .a2-hero-ambient {
     position: absolute;
     inset: 0;
@@ -2405,9 +2439,11 @@
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--r-card);
+    background: var(--bg);
   }
 
   .lab-a2 .a2-ambient.a2-ambient-frame {
+    --sw-w: 192px;
     position: absolute;
     z-index: 0;
   }
@@ -2628,141 +2664,143 @@ html:not(.js) .lab-a2 [data-js-only] {
   display: none !important;
 }
 
-/* ---------- Site-wide ambient motion: broad and slow, transform and opacity only ----------
-   Each layer runs on its own period, so the composition never repeats quickly. The fields and the dots alternate
-   (no reset jump); the fields travel up to 66 × 44 px, less on smaller screens (cqmin).
-   Stepped timing on one clock: the dots and the fields change four times a second, in steps well under a pixel,
-   and the light twenty times a second while it crosses, so the screen is redrawn only when something changes
-   (motion this slow gains nothing from 60 redraws a second). */
-
-/* The light band: it rests off screen, crosses in half the period at a steady pace, then rests past the other
-   edge; the loop restarts off screen, so there is no visible jump. Arabic mirrors it (right to left). */
+/* ---------- Site-wide ambient motion: slow, in whole-pixel steps, transform and opacity only ----------
+   The surface drifts 48 × 24 px in 24 steps of 2 × 1 px (one every 1.33 s) and breathes in 28 steps (one a second);
+   the light drifts with it and crosses one dot column (24 px) at a time. Back and forth, or restarting off screen: no
+   visible jump. */
 @keyframes a2-amb-sweep {
   0%,
   20% {
-    transform: translate3d(-100%, 0, 0);
+    transform: translateX(calc(var(--sw-w) * -1));
   }
 
   70%,
   100% {
-    transform: translate3d(100cqw, 0, 0);
+    transform: translateX(calc(var(--sw-n) * 24px - var(--sw-w)));
   }
 }
 
-@keyframes a2-amb-sweep-rtl {
-  0%,
-  20% {
-    transform: translate3d(100%, 0, 0);
-  }
-
-  70%,
-  100% {
-    transform: translate3d(-100cqw, 0, 0);
-  }
-}
-
-@keyframes a2-amb-dots {
+@keyframes a2-amb-drift {
   to {
-    transform: translate3d(12px, 7px, 0);
+    translate: -48px 24px;
   }
 }
 
-@keyframes a2-amb-warm {
+@keyframes a2-amb-drift-rtl {
+  to {
+    translate: 48px 24px;
+  }
+}
+
+@keyframes a2-amb-drift-sm {
+  to {
+    translate: -24px 12px;
+  }
+}
+
+@keyframes a2-amb-drift-sm-rtl {
+  to {
+    translate: 24px 12px;
+  }
+}
+
+@keyframes a2-amb-breathe {
   from {
-    opacity: 0.55;
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(max(-7.3cqmin, -66px), min(4.9cqmin, 44px), 0) scale(1.06);
+    opacity: 0.7;
   }
 }
 
-@keyframes a2-amb-cool {
-  to {
-    opacity: 0.55;
-    transform: translate3d(min(6.7cqmin, 60px), max(-4.7cqmin, -42px), 0) scale(1.05);
-  }
+/* Design-system frames: the surface (and the light's drift) held at a moment (--at), the light placed on the dot grid
+   at its progress (--f); the still frame shows what reduced motion shows. */
+.lab-a2 .a2-ambient-frame .a2-ambient-field {
+  animation:
+    a2-amb-drift 32s steps(24) infinite alternate both,
+    a2-amb-breathe 28s steps(28) infinite alternate both;
+  animation-delay: calc(var(--at, 0s) * -1);
+  animation-play-state: paused;
 }
 
-@keyframes a2-amb-teal {
-  from {
-    opacity: 0.45;
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(max(-4.4cqmin, -40px), max(-3.1cqmin, -28px), 0) scale(1.08);
-  }
+[dir="rtl"] .lab-a2 .a2-ambient-frame .a2-ambient-field {
+  animation-name: a2-amb-drift-rtl, a2-amb-breathe;
 }
 
-.lab-a2 .a2-ambient-sweep {
-  --amb-anim: a2-amb-sweep 26s steps(260);
-  --amb-dir: normal;
+.lab-a2 .a2-ambient-frame .a2-ambient-sweep {
+  transform: translateX(round(down, calc(var(--f, 0) * (100cqw + var(--sw-w)) - var(--sw-w)), 24px));
+  animation: a2-amb-drift 32s steps(24) infinite alternate both;
+  animation-delay: calc(var(--at, 0s) * -1);
+  animation-play-state: paused;
 }
 
-[dir="rtl"] .lab-a2 .a2-ambient-sweep {
-  --amb-anim: a2-amb-sweep-rtl 26s steps(260);
-}
-
-.lab-a2 .a2-ambient-pattern {
-  --amb-anim: a2-amb-dots 30s steps(120);
-}
-
-.lab-a2 .a2-ambient-warm {
-  --amb-anim: a2-amb-warm 32s steps(128);
-}
-
-.lab-a2 .a2-ambient-cool {
-  --amb-anim: a2-amb-cool 40s steps(160);
-}
-
-.lab-a2 .a2-ambient-teal {
-  --amb-anim: a2-amb-teal 28s steps(112);
-}
-
-/* Design-system frames: the same motion held still at a moment (--at), with or without reduced motion;
-   the still frame shows what reduced motion shows. */
-.lab-a2 .a2-ambient-frame > * {
-  animation: var(--amb-anim) calc(var(--d, 0s) - var(--at, 0s)) infinite var(--amb-dir, alternate) both paused;
+[dir="rtl"] .lab-a2 .a2-ambient-frame .a2-ambient-sweep {
+  transform: translateX(round(down, calc((1 - var(--f, 0)) * (100cqw + var(--sw-w)) - var(--sw-w)), 24px));
+  animation-name: a2-amb-drift-rtl;
 }
 
 .lab-a2 .a2-ambient-frame.a2-ambient-still > * {
   animation: none;
 }
 
+.lab-a2 .a2-ambient-frame.a2-ambient-still .a2-ambient-sweep {
+  transform: translateX(calc(var(--sw-w) * -1));
+}
+
 /* ---------- Motion: entrance, ambient light, reveals — never with reduced motion ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .lab-a2 .a2-ambient:not(.a2-ambient-frame) > * {
-    animation: var(--amb-anim) var(--d, 0s) infinite var(--amb-dir, alternate) both;
+  /* The ambient: the surface drifts and breathes (half the drift on phones); the light crosses every 26 s (reversed in
+     Arabic, so it enters from the reading side) and drifts with the surface on the same clock, so it stays on the dots. */
+  .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-field {
+    animation:
+      a2-amb-drift 32s steps(24) infinite alternate both,
+      a2-amb-breathe 28s steps(28) infinite alternate both;
   }
 
-  /* Phones: the dots hold still (one layer fewer in motion). */
+  .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-sweep {
+    animation:
+      a2-amb-sweep 26s var(--sw-steps) infinite both,
+      a2-amb-drift 32s steps(24) infinite alternate both;
+  }
+
+  [dir="rtl"] .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-field {
+    animation-name: a2-amb-drift-rtl, a2-amb-breathe;
+  }
+
+  [dir="rtl"] .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-sweep {
+    animation-name: a2-amb-sweep, a2-amb-drift-rtl;
+    animation-direction: reverse, alternate;
+  }
+
   @media (max-width: 40rem) {
-    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-pattern {
-      animation: none;
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-field {
+      animation:
+        a2-amb-drift-sm 32s steps(12) infinite alternate both,
+        a2-amb-breathe 28s steps(28) infinite alternate both;
+    }
+
+    .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-sweep {
+      animation:
+        a2-amb-sweep 26s var(--sw-steps) infinite both,
+        a2-amb-drift-sm 32s steps(12) infinite alternate both;
+    }
+
+    [dir="rtl"] .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-field {
+      animation-name: a2-amb-drift-sm-rtl, a2-amb-breathe;
+    }
+
+    [dir="rtl"] .lab-a2 .a2-ambient:not(.a2-ambient-frame) .a2-ambient-sweep {
+      animation-name: a2-amb-sweep, a2-amb-drift-sm-rtl;
+      animation-direction: reverse, alternate;
     }
   }
 
-  /* While the page scrolls the ambient rests where it is (LabMotion sets data-scrolling), then carries on. */
-  html[data-scrolling] .lab-a2 .a2-ambient:not(.a2-ambient-frame) > * {
+  /* While the page scrolls the ambient rests where it is (LabMotion sets data-scrolling), then carries on. The rule names
+     the two layers: ending it in a universal selector made every change of the attribute restyle the whole page. */
+  html[data-scrolling] .lab-a2 .a2-ambient:not(.a2-ambient-frame) > :is(.a2-ambient-sweep, .a2-ambient-field) {
     animation-play-state: paused;
   }
 
   .js .lab-a2 [data-enter] {
     animation: a2-rise var(--dur-4) var(--ease) both;
     animation-delay: var(--d, 0ms);
-  }
-
-
-
-  .lab-a2 .a2-glow {
-    animation: a2-drift 30s ease-in-out infinite alternate;
-    animation-play-state: paused;
-  }
-
-  .lab-a2 [data-live] .a2-glow {
-    animation-play-state: running;
   }
 
   /* Hero plate, armed from the first paint (script and motion only): uncut, undrawn, still to rise. */
@@ -2804,14 +2842,6 @@ html:not(.js) .lab-a2 [data-js-only] {
     from {
       opacity: 0;
       transform: translate3d(0, 18px, 0);
-    }
-  }
-
-
-
-  @keyframes a2-drift {
-    to {
-      transform: translate3d(-5%, 4%, 0) scale(1.05);
     }
   }
 }
