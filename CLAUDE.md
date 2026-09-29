@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-29-tm1-navigation-correction.md` (earlier:
+- Latest report: `docs/reports/2026-09-29-tm2-migration-plan.md` (earlier: `2026-09-29-tm1-navigation-correction.md`,
   `2026-09-28-tm1-homepage-migration.md`, `2026-09-28-a-v2-hero-loop.md`,
   `2026-09-28-a-v2-background-optimization.md`, `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
@@ -62,6 +62,9 @@
   TM-1 passed the user's technical review with two UX conditions, applied in the navigation correction (report
   `2026-09-29-tm1-navigation-correction.md`): the project cards open the Projects gallery and "Start a Project" opens
   the quotation form. The homepage still awaits visual approval; **do not start TM-2** until the user says so.
+  The navigation correction was approved technically, and TM-1 must not change further. The read-only TM-2 plan
+  (migrating every inner page in six approved batches, with the user's decisions D1–D13 still open) is in
+  `2026-09-29-tm2-migration-plan.md`: follow it once the user approves the homepage and the plan.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
