@@ -143,6 +143,41 @@ test.describe("navigation", () => {
     await expect(page.locator("#quote")).toBeInViewport();
   });
 
+  test("the hero's Start a Project opens the quotation form in each language; Explore Our Capabilities stays on the page", async ({ page, context }) => {
+    await skipIntro(context);
+    for (const locale of LOCALES) {
+      await page.goto(`/${locale}`, { waitUntil: "networkidle" });
+      const primary = page.locator(".a2-hero .btn-primary");
+      await expect(primary).toHaveAttribute("href", `/${locale}/contact#quote`);
+      await expect(primary).toHaveText(locale === "en" ? "Start a Project" : "ابدأ مشروعك");
+      await expect(page.locator(".a2-hero .btn-secondary")).toHaveAttribute("href", "#machinery");
+      await primary.click();
+      await page.waitForURL(`**/${locale}/contact#quote`);
+      await expect(page.locator("html")).toHaveAttribute("lang", locale === "en" ? "en" : "ar-SA");
+      await expect(page.locator("#quote")).toBeInViewport();
+    }
+  });
+
+  test("the six project cards open the Projects gallery and say so; no card leads to an unfinished project page", async ({ page, context }) => {
+    await skipIntro(context);
+    for (const locale of LOCALES) {
+      await page.goto(`/${locale}`, { waitUntil: "networkidle" });
+      const cards = page.locator("#projects a.a2-proj");
+      await expect(cards).toHaveCount(6);
+      expect(new Set(await cards.evaluateAll((els) => els.map((a) => a.getAttribute("href"))))).toEqual(new Set([`/${locale}/projects#gallery`]));
+      for (const cta of await cards.locator(".a2-proj-cta").allTextContents()) expect(cta.trim()).toBe(locale === "en" ? "View in the gallery" : "عرض في معرض الأعمال");
+      // Nothing on the homepage links a project detail page (Stage 1F) any more.
+      expect(await page.locator(`a[href^="/${locale}/projects/"]`).count()).toBe(0);
+    }
+    // Following a card: the Projects overview opens at its gallery, with each of the six projects shown there.
+    await page.goto("/en", { waitUntil: "networkidle" });
+    const titles = await page.locator("#projects .a2-proj-title").allTextContents();
+    await page.locator("#projects a.a2-proj").nth(1).click();
+    await page.waitForURL("**/en/projects#gallery");
+    await expect(page.locator("#gallery")).toBeInViewport();
+    for (const title of titles) await expect(page.locator("#gallery li.proj-item:not([hidden])").filter({ hasText: title }).first()).toBeAttached();
+  });
+
   test("the pages in the previous design open from the header, without their intro, and lead back", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto("/en", { waitUntil: "networkidle" });
@@ -253,6 +288,17 @@ test.describe("phone", () => {
     await sheet.locator('a.a2-sheet-row[href="/ar/about"]').click();
     await page.waitForURL("**/ar/about");
     expect(errors).toEqual([]);
+  });
+
+  test("a project card in the swipe rail opens the Projects gallery", async ({ page, context }) => {
+    await skipIntro(context);
+    await page.goto("/ar", { waitUntil: "networkidle" });
+    const card = page.locator("#projects a.a2-proj").first();
+    await card.scrollIntoViewIfNeeded();
+    await card.tap();
+    await page.waitForURL("**/ar/projects#gallery");
+    await expect(page.locator("#gallery")).toBeInViewport();
+    expect(await page.locator("#gallery li.proj-item[hidden]").count()).toBe(0);
   });
 
   test("no custom pointer on touch: the system cursor stays and taps work", async ({ page }) => {

@@ -261,8 +261,9 @@ proxy, prefix it with `NODE_USE_ENV_PROXY=1`.
 `npm run test:e2e` runs the Playwright suites in `e2e/` against the production build (it starts
 `next start` on port 3400, or set `E2E_BASE_URL`). `commerce-home.spec.ts` covers the homepage in the
 Modern Commerce design (sections, landmarks and headings, its own stylesheet and typefaces, the header's
-real routes and Services menu, every quote action, the handover to and from the pages in the previous
-design, the language switch and cookie, RTL, the footer's links, the phone menu, touch, the shared theme
+real routes and Services menu, every quote action and the hero's Start a Project (the quotation form), the
+project cards (the Projects gallery, never an unfinished project page), the handover to and from the pages in the
+previous design, the language switch and cookie, RTL, the footer's links, the phone menu, touch, the shared theme
 set before first paint, overflow from 360 to 1920 px in both themes, the 10 s hero loop in both
 languages, its rest off screen and in a hidden tab, both signatures, the ambient, the pointer, keyboard,
 reduced motion, no-JS and search metadata; probes shared with the lab spec are in `a2-helpers.ts`);

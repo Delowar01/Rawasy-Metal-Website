@@ -105,6 +105,8 @@ export const home = {
     },
     all: { en: "View all projects", ar: "جميع المشاريع" },
     view: { en: "View project", ar: "عرض المشروع" },
+    /** The homepage cards open the Projects overview's gallery until the project pages (Stage 1F) exist. */
+    inGallery: { en: "View in the gallery", ar: "عرض في معرض الأعمال" },
   },
   industries: {
     label: { en: "Industries", ar: "القطاعات" },

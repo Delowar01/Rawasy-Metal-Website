@@ -148,12 +148,14 @@ export async function getHomeView(locale: Locale) {
       title: home.projects.title[locale],
       intro: home.projects.intro[locale],
       all: home.projects.all[locale],
-      view: home.projects.view[locale],
+      // Until the project pages (Stage 1F) exist, a card opens the Projects overview at its gallery, where every
+      // showcased project is shown; the label says so.
+      cta: home.projects.inGallery[locale],
       items: featured.map((p) => ({
         slug: p.slug,
         title: p.title[locale],
         categories: p.categories.slice(0, 2).map(category),
-        href: href(locale, "project", { slug: p.slug }),
+        href: href(locale, "projects", { hash: "gallery" }),
         image: image(projectImages(p)[0], p.title[locale]),
       })),
     },

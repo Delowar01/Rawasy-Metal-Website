@@ -9,11 +9,11 @@ type Props = { view: HomeView; shell: ShellView };
 
 /**
  * The hero: the headline, the calls to action, quick contact and the capability statements beside the laser-cut
- * plate on its stage (its cutting sequence repeats every 10 s while on screen; see HeroPlate). The calls to action
- * lead to this page's contact and machinery sections.
+ * plate on its stage (its cutting sequence repeats every 10 s while on screen; see HeroPlate). The primary action opens
+ * the quotation form on the contact page; the secondary one scrolls to this page's machinery section.
  */
 export function Hero({ view, shell }: Props) {
-  const { hero, metrics, statements } = view;
+  const { hero, metrics, statements, links } = view;
   const { contact, ui } = shell;
   const power = metrics.find((m) => m.slug === "peak-laser-power")!;
   const lines = metrics.find((m) => m.slug === "service-lines")!;
@@ -35,7 +35,7 @@ export function Hero({ view, shell }: Props) {
             {hero.sub}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3" data-enter style={delay(210)}>
-            <a href="#contact" className="btn btn-primary btn-lg">
+            <a href={links.quote} className="btn btn-primary btn-lg">
               {hero.primary}
               <Icon name="arrow" size={18} />
             </a>

@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-28-tm1-homepage-migration.md` (earlier: `2026-09-28-a-v2-hero-loop.md`,
+- Latest report: `docs/reports/2026-09-29-tm1-navigation-correction.md` (earlier:
+  `2026-09-28-tm1-homepage-migration.md`, `2026-09-28-a-v2-hero-loop.md`,
   `2026-09-28-a-v2-background-optimization.md`, `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
   `2026-09-24-stage-1C-core-inner-pages.md`,
@@ -58,6 +59,9 @@
   1E.** Rollback checkpoint: local tag `pre-tm1-a-v2-migration` and GitHub branch `preserve/pre-tm1-a-v2-migration`
   (both at `3260415`, the last commit before TM-1); the previous homepage's page code is parked, unrouted, in
   `src/components/home/LegacyHomePage.tsx` (delete it once the new homepage is approved). Do not deploy.
+  TM-1 passed the user's technical review with two UX conditions, applied in the navigation correction (report
+  `2026-09-29-tm1-navigation-correction.md`): the project cards open the Projects gallery and "Start a Project" opens
+  the quotation form. The homepage still awaits visual approval; **do not start TM-2** until the user says so.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
@@ -258,11 +262,19 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   email, WhatsApp, address, legal pages, back to top), `PageShell` (skip link, header, `<main id="main">`, footer),
   `LocaleLink` (a plain `<a>` to the same page in the other language that sets the `NEXT_LOCALE` cookie).
   `getShellView(locale, { route, path })` builds everything the shell needs from the content layer. Every quote
-  action goes to `href(locale, "contact", { hash: "quote" })`; the hero's own two actions stay in-page as in the lab.
+  action goes to `href(locale, "contact", { hash: "quote" })`, the hero's "Start a Project" included (the user's
+  navigation correction); its secondary action still scrolls to `#machinery`.
 - Homepage sections (`components/commerce/home/`): Hero (+ capability strip), About, Services (the two signatures
   lead), Machinery (`MachineShowcase`), Projects, Industries, Clients + Compliance (one sheet), Contact;
   `getHomeView(locale)` in `home/data.ts`. Markup follows the lab's `HomeA2.tsx` one to one (proved by diffing the
-  server HTML: only routes, `aria-current`, the added footer WhatsApp link and the copyright period differ).
+  server HTML: only routes, `aria-current`, the added footer WhatsApp link, the copyright period, the hero's primary
+  action and the project cards differ).
+- Until the project pages (1F) exist, the six homepage project cards open the Projects overview at its gallery
+  (`href(locale, "projects", { hash: "gallery" })`, label `home.projects.inGallery`: "View in the gallery" / "عرض في
+  معرض الأعمال"), never a planned detail page. Per-project anchors were measured and rejected: the gallery's sticky
+  filter bar (69 px, 117 px where its chips wrap) would cover the top of the target card, and a clean landing needs
+  ids plus an offset or script on the previous design's page. In 1F, point the cards at `href(locale, "project", …)`
+  again with a "View project" label.
 - Motion: `components/commerce/Motion.tsx` is the production controller (reveals, `data-scrolled`,
   `data-scrolling` cleared 200 ms after the last scroll, menus and dropdowns with Escape / outside click / focus
   return and closing when keyboard focus leaves them, the sheet's `--menu-top`, toggles, `data-past-hero`, `data-live` on `[data-ambient]`); no scroll-spy or
