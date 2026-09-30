@@ -33,41 +33,49 @@ not started.**
 | D12 | Preserve Theme Lab until you authorize its removal. | TM-2.6 does not delete the lab without your word. |
 | D13 | All migrated inner pages remain review/noindex until Stage 1J. | `page-meta.ts` statuses do not change, and the sitemap does not change. |
 
-## 2. Additional requirements, and where each is met
+## 2. Additional requirements, and where each must be verified
 
-1. **The MC 404 and catch-all across both root layouts (TM-2.1).** Tested with real HTTP responses, not only rendered
-   pages:
-   - **Unknown pages.** `/en/<unknown>`, `/ar/<unknown>` and multi-segment unknown paths return status 404 with the
-     MC view. Each has the right `lang` and `dir`, a localized title, `noindex`, and no sitemap entry.
-   - **Unknown service or project.** `/en|ar/services/<unknown>` and `/en|ar/projects/<unknown>` also return 404.
-     They show the previous design's 404 until their routes move (TM-2.4 and TM-2.6), then the MC one; the tests
-     follow each move.
-   - **Also tested:**
-     - addresses without a language still redirect, then 404;
+None of these checks has been run yet: this register is documentation only (section 5). Each item below is a
+requirement that the batch named must verify before that batch is reported to you.
+
+1. **The MC 404 and catch-all across both root layouts (TM-2.1).** TM-2.1 must verify these with real HTTP responses,
+   not only rendered pages:
+   - **Unknown pages.** TM-2.1 must verify that `/en/<unknown>`, `/ar/<unknown>` and multi-segment unknown paths
+     return status 404 with the MC view, each with the right `lang` and `dir`, a localized title, `noindex`, and no
+     sitemap entry.
+   - **Unknown service or project.** TM-2.1 must verify that `/en|ar/services/<unknown>` and
+     `/en|ar/projects/<unknown>` also return status 404. They are expected to keep the previous design's 404 until
+     their routes move (TM-2.4 and TM-2.6). TM-2.4 and TM-2.6 must each verify the switch to the MC 404 and update
+     the tests with it.
+   - **Also to be verified in TM-2.1:**
+     - addresses without a language still redirect, then return 404;
      - known pages in both designs still return 200;
      - a 404 built in the browser keeps the theme;
      - prefetch and page-data requests for 404 addresses do not loop;
      - the bilingual global fallback still works until TM-2.6.
 2. **No unfinished project page presented as a finished case study.**
-   - No migrated link points at a project page.
-   - The TM-2.5 anchors clear both the MC header and the sticky filter bar (3b).
-3. **The quotation form (TM-2.2).**
-   - Logic, field validation and the no-backend disclosure are kept byte-for-byte.
-   - For fixed inputs in English and Arabic, the prepared email link, WhatsApp link and copied text match the current
-     ones exactly (golden outputs).
-   - Controls, ids, names and ARIA attributes are compared in the DOM.
-   - The no-JavaScript `mailto:` form is kept.
-4. **Certificate redactions at the image-file level (TM-2.3).**
-   - The eight files stay byte-identical to the hashes in plan E4, and are never re-encoded.
-   - No CSS filter or extra zoom is added.
-   - A test checks that no run of seven or more digits appears in the main text, the alt text or the structured data.
+   - Each applicable migration batch (TM-2.3 About, TM-2.4 the service pages, TM-2.5 the Projects overview) must
+     verify that no migrated link points at an unfinished project page.
+   - TM-2.5 must verify that the anchors clear both the MC header and the sticky filter bar (3b).
+3. **The quotation form (TM-2.2).** TM-2.2 must verify that:
+   - the logic, field validation and no-backend disclosure are kept byte-for-byte;
+   - for fixed inputs in English and Arabic, the prepared email link, WhatsApp link and copied text match the current
+     ones exactly (golden outputs);
+   - the controls, ids, names and ARIA attributes are unchanged, compared in the DOM;
+   - the no-JavaScript `mailto:` form is kept and still works.
+4. **Certificate redactions at the image-file level (TM-2.3).** TM-2.3 must verify that:
+   - the eight files are still byte-identical to the hashes in plan E4 (never re-encoded);
+   - no CSS filter or extra zoom has been added.
+
+   TM-2.3 must also add a test that no run of seven or more digits appears in the main text, the alt text or the
+   structured data.
 5. **The TM-1 homepage stays visually unchanged (every batch).**
-   - Its markup is unchanged and its captures are pixel-identical.
-   - Changes to shared MC modules are additions only, and they are listed.
+   - Every batch must verify that the homepage's markup is unchanged and its captures are pixel-identical.
+   - Every batch must list its changes to shared MC modules and verify that they are additions only.
 6. **Browser-test assertions preserved (every batch).**
-   - Each batch report maps every existing assertion to its new equivalent.
-   - None is dropped without replacement coverage.
-7. **Localhost and GitHub only.** No deployment.
+   - Each batch report must map every existing assertion to its new equivalent.
+   - No assertion may be dropped without replacement coverage.
+7. **Localhost and GitHub only.** All work must stay on localhost and GitHub, and nothing may be deployed.
 
 ## 3. Points reconciled within your decisions (no answer needed before TM-2.1)
 
@@ -83,7 +91,8 @@ not started.**
     that scrolls sideways instead of wrapping.
   - **Filters.** If a filter hides the target card, an in-page link to it clears the filter first. Arriving from
     another page, the gallery opens unfiltered. Without JavaScript, every card is visible.
-  - **Tests.** They check that the card lands below the bar at every tested width, in English and Arabic.
+  - **Tests.** TM-2.5's tests must check that the card lands below the bar at every tested width, in English
+    and Arabic.
 - **3c. The 404 headline.** "Outside the blueprint" / its Arabic line is copy, not decoration, so it stays under the
   copy rule unless you ask to change it. Its grid and cut line retire under D8.
 
