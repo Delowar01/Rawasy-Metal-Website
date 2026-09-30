@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-29-tm2-migration-plan.md` (earlier: `2026-09-29-tm1-navigation-correction.md`,
+- Latest report: `docs/reports/2026-09-30-tm2-decision-register.md` (earlier: `2026-09-29-tm2-migration-plan.md`,
+  `2026-09-29-tm1-navigation-correction.md`,
   `2026-09-28-tm1-homepage-migration.md`, `2026-09-28-a-v2-hero-loop.md`,
   `2026-09-28-a-v2-background-optimization.md`, `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
   `2026-09-24-stage-1C-V-visual-enhancement.md`,
@@ -31,7 +32,8 @@
   brief): keep the V2 visual system, leave the contact map as it is, and keep the open items (RAWASY's
   Google Maps place link, image rights, the two moderate shell accessibility findings for 1I/1J).
 - **Stage 1D (the six service detail pages) is built and awaits the user's visual approval** (report
-  `2026-09-25-stage-1D-service-pages.md`). Never self-approve a stage. Do not start 1E (Capabilities &
+  `2026-09-25-stage-1D-service-pages.md`). TM-2 decision D3: keep 1D's content and structure; its final visual
+  approval is given on the migrated Modern Commerce versions (TM-2.4). Never self-approve a stage. Do not start 1E (Capabilities &
   Machinery), 1F (project detail pages), 1G or later until the user says so; project detail pages
   and Capabilities stay `planned`. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
@@ -62,9 +64,35 @@
   TM-1 passed the user's technical review with two UX conditions, applied in the navigation correction (report
   `2026-09-29-tm1-navigation-correction.md`): the project cards open the Projects gallery and "Start a Project" opens
   the quotation form. The homepage still awaits visual approval; **do not start TM-2** until the user says so.
-  The navigation correction was approved technically, and TM-1 must not change further. The read-only TM-2 plan
-  (migrating every inner page in six approved batches, with the user's decisions D1–D13 still open) is in
-  `2026-09-29-tm2-migration-plan.md`: follow it once the user approves the homepage and the plan.
+  The navigation correction was approved technically, and TM-1 must not change further.
+- **TM-2 (migrating every inner page to Modern Commerce) is planned, approved with conditions and frozen.** Baseline:
+  `2026-09-29-tm2-migration-plan.md` (six batches, each approved before the next: 2.1 kit + Privacy + Terms + 404,
+  2.2 Contact, 2.3 About + Industries + Clients + Certificates, 2.4 services overview + six service pages, 2.5
+  Projects overview, 2.6 retire the previous design). The user's decisions D1–D13, seven extra requirements and the
+  reconciled points are in `2026-09-30-tm2-decision-register.md`; follow both. **Do not begin TM-2.1 until the user
+  issues exactly "TM-1 VISUALLY APPROVED — BEGIN TM-2.1"**; then create a `preserve/pre-tm2` checkpoint first.
+  Decisions in short:
+  - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
+    then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
+    bar. The homepage's six links stay unchanged.
+  - Capabilities links stay on the placeholder until 1E.
+  - the services overview uses the `LaserEngrave` drawing; the flagged engraving photos go.
+  - no floating WhatsApp button.
+  - the previous design's blueprint/editorial decoration retires.
+  - the four other service drawings are restyled, with no new sequences.
+  - the Google Maps embed and URLs stay byte-identical, and only the frame is restyled.
+  - placeholders move to MC in TM-2.6, still noindex.
+  - the theme lab stays until the user authorizes its removal.
+  - every migrated page stays `review`/noindex until 1J.
+
+  Required:
+  - validate the MC 404 and catch-all across both root layouts: real status codes, localization, SEO, unknown
+    service/project slugs.
+  - quote-form logic, validation, the prepared email/WhatsApp text and the no-backend note stay exact.
+  - certificate redactions stay at the file level (byte-identical files).
+  - the homepage stays visually unchanged.
+  - every existing test assertion is kept or replaced by equivalent coverage.
+  - no deployment.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (noindex, left out of the sitemap) even after their
   design is approved: the 1C pages, the projects overview and the service pages. Only the homepage is
@@ -276,8 +304,9 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   (`href(locale, "projects", { hash: "gallery" })`, label `home.projects.inGallery`: "View in the gallery" / "عرض في
   معرض الأعمال"), never a planned detail page. Per-project anchors were measured and rejected: the gallery's sticky
   filter bar (69 px, 117 px where its chips wrap) would cover the top of the target card, and a clean landing needs
-  ids plus an offset or script on the previous design's page. In 1F, point the cards at `href(locale, "project", …)`
-  again with a "View project" label.
+  ids plus an offset or script on the previous design's page. TM-2 decision D4 keeps these six homepage links
+  unchanged. The migrated gallery (TM-2.5) gets per-project anchors for About and the service pages. In 1F, point
+  the cards at `href(locale, "project", …)` again with a "View project" label.
 - Motion: `components/commerce/Motion.tsx` is the production controller (reveals, `data-scrolled`,
   `data-scrolling` cleared 200 ms after the last scroll, menus and dropdowns with Escape / outside click / focus
   return and closing when keyboard focus leaves them, the sheet's `--menu-top`, toggles, `data-past-hero`, `data-live` on `[data-ambient]`); no scroll-spy or
