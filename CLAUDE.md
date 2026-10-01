@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-01-tm2-1-correction-1.md` (earlier: `2026-10-01-tm2-1-inner-kit-legal-404.md`,
+- Latest report: `docs/reports/2026-10-01-tm2-2-contact.md` (earlier: `2026-10-01-tm2-1-correction-1.md`,
+  `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
   `2026-09-29-tm2-migration-plan.md`,
   `2026-09-29-tm1-navigation-correction.md`,
@@ -74,10 +75,12 @@
   Terms and the localized 404) is built** (report `2026-10-01-tm2-1-inner-kit-legal-404.md`; rollback checkpoint:
   GitHub branch `preserve/pre-tm2` at `5cfeaed`, the last commit before TM-2). It passed the user's independent review
   with two corrections, applied in correction 1 (report `2026-10-01-tm2-1-correction-1.md`: the 404's phone-menu
-  language switch, and the TM-2.1 report's status matrix). TM-2.1 still awaits the user's explicit approval. Never
-  self-approve. **Do not begin TM-2.2 (Contact) or any later batch until the user explicitly approves TM-2.1.** Keep
-  TM-2.1's documented limitations as they are unless the user asks (no-JS 404 body, header blur, 44 rem legal
-  measure, the 320 px 404 label wrap, the A V2 chunk count).
+  language switch, and the TM-2.1 report's status matrix). **TM-2.1 is approved** (the user's "TM-2.1 APPROVED — BEGIN
+  TM-2.2"). Keep TM-2.1's documented limitations as they are unless the user asks (no-JS 404 body, header blur, 44 rem
+  legal measure, the 320 px 404 label wrap, the A V2 chunk count). **TM-2.2 (Contact) is built** (report
+  `2026-10-01-tm2-2-contact.md`; rollback checkpoint: GitHub branch `preserve/pre-tm2.2` at `e5a3834`, the last commit
+  before TM-2.2) and awaits the user's independent review. Never self-approve. **Do not begin TM-2.3 (About,
+  Industries, Clients, Certificates) or any later batch until the user explicitly approves TM-2.2.**
   Decisions in short:
   - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
     then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
@@ -242,11 +245,13 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   `src/components/teasers/*`; copy in `src/content/{about,pages,contact,legal}.ts`.
 - Projects: `src/components/projects/*`, `src/lib/project-cards.ts`; showcased projects and withheld
   photos in `src/content/projects.ts` (`isShowcased`, `projectImages`).
-- Clients wall: `src/components/clients/ClientWall.tsx` + `src/lib/logo-wall.ts`. Contact map:
-  `src/components/contact/LocationSection.tsx` + `src/lib/maps.ts` (address search only; replace with
+- Clients wall: `src/components/clients/ClientWall.tsx` + `src/lib/logo-wall.ts`. Contact map (since TM-2.2):
+  `src/components/commerce/contact/Location.tsx` + `src/lib/maps.ts` (address search only; replace with
   RAWASY's own Google Maps place link once confirmed; never invent coordinates).
-- Quote form: `src/components/contact/QuoteForm.tsx`. No backend: it prepares the request for the
-  visitor to send by email or WhatsApp. Never make it claim a request was sent.
+- Quote form (since TM-2.2): `src/components/commerce/contact/QuoteForm.tsx`. No backend: it prepares the request for
+  the visitor to send by email or WhatsApp. Never make it claim a request was sent. Its logic (from `type FieldName` to
+  the privacy line) is a verbatim copy of the previous design's `src/components/contact/QuoteForm.tsx`, which stays,
+  unrouted, until TM-2.6: change both or neither, and keep `e2e/commerce-contact.spec.ts`'s golden outputs passing.
 - Service detail pages: route `src/app/[locale]/services/[slug]/page.tsx`; components in
   `src/components/service/*` (hero drawings in `visuals/`, per-service composition in `looks.ts`);
   copy in `src/content/service-details.ts` (per service) and `servicePage` in `src/content/pages.ts`
@@ -329,8 +334,21 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   `NotFoundView` and `BootFallback`. Its styles are the "Inner pages (Stage TM-2)" block (`ip-*` classes) at the end
   of `system.css`'s components layer; nothing earlier in the file changed. `components/commerce/legal/LegalPage.tsx`
   renders Privacy and Terms from `src/content/legal.ts` (routes `(commerce)/[locale]/privacy|terms/page.tsx`, metadata
-  and JSON-LD still from `innerPageMetadata` / `innerPageJsonLd`). `commerceRoutes` is `home`, `privacy`, `terms`
-  (static routes only: a dynamic route needs a pattern match in `crossDesignLink` before it moves).
+  and JSON-LD still from `innerPageMetadata` / `innerPageJsonLd`). `commerceRoutes` is `home`, `privacy`, `terms`,
+  `contact` (static routes only: a dynamic route needs a pattern match in `crossDesignLink` before it moves).
+- Contact (TM-2.2): route `(commerce)/[locale]/contact/page.tsx` → `components/commerce/contact/ContactPage.tsx`: the
+  split `PageHero` with a "Direct contact" card of `ContactRow`s (`ContactRows.tsx`: both phones, WhatsApp, email, the
+  address → `#location`; the action word is visually hidden on rows narrower than 24 rem, the arrow stays; emails may
+  wrap only after "@"), `section#quote` on a muted sheet (how it works, the no-backend note, the form card; no reveal
+  there, so every quote action lands on a form that is already shown), and `Location.tsx` (`section#location`: the
+  address card and the map; the iframe's attributes, `maps.ts` URLs and both links are the previous design's,
+  byte-identical; the frame's own surface shows the address until the map loads). `FormIcon.tsx` holds the four form
+  glyphs (kept out of `Icon.tsx`, which the homepage bundles). `FramePointer.tsx` marks `html[data-cursor-away]` while
+  the mouse is over an iframe (the page receives no mouse events there), which hides the MC pointer; `Cursor.tsx` is
+  unchanged. Styles: the "Contact page (Stage TM-2.2)" block (`cp-*`, `qf-*`) at the end of `system.css`'s components
+  layer. The previous design's page is parked verbatim, unrouted, in `src/components/contact/LegacyContactPage.tsx`
+  (moving the route file away removed a utility only it used from `globals.css`; parked, the stylesheet stays
+  byte-identical); it and `src/components/contact/*` go in TM-2.6.
 - The localized 404: `(commerce)/[locale]/(missing)/[...rest]/page.tsx` (the catch-all, `notFound()`) and
   `(missing)/not-found.tsx`. The `(missing)` group is deliberate: a `not-found.tsx` beside the layout is rendered into
   the payload of every page under it (it added ~52 KB raw / 7.8 KB gzip to the homepage). A migrated route that calls
@@ -343,9 +361,12 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   `commerce-inner.spec.ts` tests the sheet's on the 404). The footer marks the current page with
   `aria-current="page"` through a conditional spread (no `$undefined` props, so the homepage payload stays identical).
 - Tests: `e2e/commerce-home.spec.ts` (the homepage) with probes shared with the lab spec in `e2e/a2-helpers.ts`;
-  `e2e/commerce-inner.spec.ts` (the kit, Privacy, Terms, the 404 and its real HTTP status matrix). The site-shell tests
-  in `site.spec.ts` and `visual-system.spec.ts` run on pages of the previous design; `stage-1c.spec.ts`'s generic
-  inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover Privacy and Terms.
+  `e2e/commerce-inner.spec.ts` (the kit, Privacy, Terms, the 404 and its real HTTP status matrix);
+  `e2e/commerce-contact.spec.ts` (Contact: explicit golden outputs of the email, WhatsApp and copied text, the form,
+  files, the real no-JS mailto submission through CDP `Page.frameRequestedNavigation`, the map, the pointer over the
+  frame, `#quote` / `#location` landings, RTL). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on
+  pages of the previous design; `stage-1c.spec.ts`'s generic inner-page checks (routes and SEO, breadcrumbs, overflow,
+  reduced motion, no JS) still cover Privacy, Terms and Contact.
 
 ## Theme lab (Modern Commerce exploration)
 
@@ -623,3 +644,21 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   graph changes (the homepage's 180 modules stayed identical while one moved to the neighbouring chunk).
 - Lazy images make full-page before/after captures differ by loading progress, not code: set every image to
   `loading="eager"` and await `decode()` before capturing, and let the header settle ~700 ms after each scroll.
+- Moving a route file out of the previous design's tree takes the Tailwind utilities only it used out of `globals.css`
+  (`text-[var(--proc-ink)]` when Contact moved). Park the old page unrouted (like `LegacyHomePage.tsx`) until TM-2.6 so
+  the previous design's stylesheet stays byte-identical. Tailwind also turns identifiers into utilities: the form's
+  `isolate()` helper added `.isolate` to the MC stylesheet.
+- A grid's implicit `auto` track grows to a `nowrap` child's max-content (a long file name), and the sheet's
+  `overflow: clip` hides the result: no sideways scroll, but the remove button was cut off on phones. Give nested grids
+  with truncating text `grid-template-columns: minmax(0, 1fr)`. A page-overflow check misses this; compare element
+  boxes with the viewport too.
+- A no-JS `mailto:` form submission can be observed with Playwright through a CDP session
+  (`Page.frameRequestedNavigation`, reason `formSubmissionPost`). With `enctype="text/plain"` the browser's mail-as-body
+  step turns "+" into a space (HTML spec), so "+966" arrives as " 966" — the previous design did the same.
+- Over a cross-origin iframe the page gets no mouse events, but Chromium still fires `pointerover` on the `<iframe>`
+  element in the page (and again on whatever is under the mouse when it comes back).
+- Previous-design links prefetched the old Contact route and with it its JS (the QuoteForm chunk, ~16 KB) on every
+  page; with `prefetch: false` on Contact links those pages load 16 KB less. Measure JS by chunk list and module set:
+  a lazily loaded chunk can arrive after "network idle" in one run and not another.
+- Element screenshots taller than the viewport are stitched from several scroll positions, so a sticky header shows
+  up mid-image: make the header static for those captures only.
