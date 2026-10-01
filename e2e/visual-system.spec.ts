@@ -46,7 +46,7 @@ function exposedDecoration(page: Page) {
 
 test("decorative layers are hidden from assistive technology", async ({ page }) => {
   test.setTimeout(120_000);
-  for (const path of ["/en/services/laser-cutting", "/ar/industries", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact", "/ar/privacy"]) {
+  for (const path of ["/en/services/laser-cutting", "/ar/industries", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     expect(await exposedDecoration(page), path).toEqual([]);
   }
@@ -177,20 +177,7 @@ test.describe("active states", () => {
     await expect(page.locator('nav a[href="#steel-structures"]').last()).toHaveAttribute("aria-current", "true");
   });
 
-  test("legal contents mark the section being read", async ({ page }) => {
-    await page.goto("/en/privacy", { waitUntil: "networkidle" });
-    const toc = page.getByRole("navigation", { name: "On this page" }).locator("div.sticky a");
-    await expect(toc.first()).toHaveAttribute("aria-current", "true");
-
-    const third = toc.nth(2);
-    await third.click();
-    await expect(third).toHaveAttribute("aria-current", "true");
-    await expect(page.locator('div.sticky a[aria-current="true"]')).toHaveCount(1);
-
-    // Back above the first section, the first entry is marked again.
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-    await expect(toc.first()).toHaveAttribute("aria-current", "true");
-  });
+  // "legal contents mark the section being read" moved to commerce-inner.spec.ts with the legal pages (Stage TM-2.1).
 
   test("focus shows the same frame as hover", async ({ page }) => {
     await page.goto("/en/projects", { waitUntil: "networkidle" });

@@ -14,19 +14,23 @@ import { href, switchLocalePath, type RouteKey } from "@/i18n/routes";
 /** Page colour of each theme, for the browser interface (viewport theme-color and the theme switch). */
 export const PAGE_COLORS = { light: "#f4f4f1", dark: "#131820" } as const;
 
-export async function getShellView(locale: Locale, page: { route: RouteKey; path: string }) {
+/**
+ * `page.route` marks the current page in the header and footer; `page.path` is the page's address without the locale.
+ * The 404 has neither: nothing is marked and the language switch keeps the address being viewed (SamePageLink).
+ */
+export async function getShellView(locale: Locale, page: { route: RouteKey; path: string } | { route: null; path: null }) {
   const [company, services, home] = await Promise.all([getCompany(), getServices(), getHomeContent()]);
   const dict = getDictionary(locale);
   const other = otherLocale(locale);
   const phones = company.phones.map((p) => ({ display: p.display, href: `tel:${p.e164}` }));
-  const self = `/${locale}${page.path === "/" ? "" : page.path}`;
+  const self = page.path === null ? null : `/${locale}${page.path === "/" ? "" : page.path}`;
 
   return {
     locale,
     current: page.route,
     /** This page, and the same page in the other language (every route exists in both). */
     self,
-    alternate: { locale: other, href: switchLocalePath(self, other), htmlLang: localeConfig[other].htmlLang },
+    alternate: { locale: other, href: self === null ? null : switchLocalePath(self, other), htmlLang: localeConfig[other].htmlLang },
     nav: headerNav.map((item) => ({ key: item.route, label: item.label[locale], href: href(locale, item.route) })),
     services: {
       all: home.services.all[locale],
@@ -75,9 +79,9 @@ export async function getShellView(locale: Locale, page: { route: RouteKey; path
       rights: dict.footer.rights,
       company: {
         title: footerNav[0].title[locale],
-        links: footerNav[0].items.map((item) => ({ label: item.label[locale], href: href(locale, item.route) })),
+        links: footerNav[0].items.map((item) => ({ key: item.route, label: item.label[locale], href: href(locale, item.route) })),
       },
-      legal: legalNav.map((item) => ({ label: item.label[locale], href: href(locale, item.route) })),
+      legal: legalNav.map((item) => ({ key: item.route, label: item.label[locale], href: href(locale, item.route) })),
     },
   };
 }

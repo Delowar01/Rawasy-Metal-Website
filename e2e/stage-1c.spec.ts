@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { HTML_LANG, hiddenReveals, horizontalOverflow, INNER_PAGES, jsonLd, LOCALES, skipIntro, trackErrors } from "./helpers";
 
-/** Stage 1C inner pages: routes, SEO, breadcrumbs, page features, forms, legal pages, 404 and layout. */
+/** Stage 1C inner pages: routes, SEO, breadcrumbs, page features, forms and layout (legal pages and 404: commerce-inner.spec.ts). */
 
 const BREADCRUMB = { en: "Breadcrumb", ar: "مسار التنقل" } as const;
 
@@ -284,47 +284,9 @@ test.describe("contact without JavaScript", () => {
   });
 });
 
-test.describe("legal pages", () => {
-  for (const route of ["privacy", "terms"] as const) {
-    test(`${route}: contents, sections, pending notes and contact`, async ({ page }) => {
-      await page.goto(`/en/${route}`, { waitUntil: "networkidle" });
-      const sections = page.locator("main section[id]");
-      const toc = page.getByRole("navigation", { name: "On this page" }).locator("div.sticky a");
-      const count = await sections.count();
-      expect(count).toBeGreaterThan(5);
-      await expect(toc).toHaveCount(count);
-      for (const href of await toc.evaluateAll((links) => links.map((a) => a.getAttribute("href")))) {
-        await expect(page.locator(href!)).toHaveCount(1);
-      }
-      expect(await page.getByText("Pending confirmation").count()).toBeGreaterThan(0);
-      await expect(page.locator('main time[datetime^="2026-09-"]')).toHaveCount(1);
-      await expect(page.locator('main address a[href="mailto:rawasymetal@gmail.com"]')).toHaveCount(1);
-    });
-  }
-
-  test("the table of contents is a disclosure on phones", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/ar/privacy", { waitUntil: "networkidle" });
-    const details = page.locator("main details");
-    await expect(details.locator("a").first()).toBeHidden();
-    await details.locator("summary").click();
-    await expect(details.locator("a").first()).toBeVisible();
-  });
-});
-
-test.describe("localized 404", () => {
-  for (const [locale, title] of [
-    ["en", "Outside the blueprint"],
-    ["ar", "خارج المخطط"],
-  ] as const) {
-    test(`${locale}`, async ({ page }) => {
-      const response = await page.goto(`/${locale}/no-such-page`, { waitUntil: "networkidle" });
-      expect(response?.status()).toBe(404);
-      await expect(page.locator("h1")).toHaveText(title);
-      await expect(page.locator("html")).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
-    });
-  }
-});
+// The legal pages and the localized 404 moved to the Modern Commerce design in Stage TM-2.1: their tests (contents,
+// sections, pending notes, contact details, the contents disclosure on phones, the localized 404) are in
+// commerce-inner.spec.ts. The checks above and below still run on them through INNER_PAGES.
 
 test.describe("keyboard", () => {
   test("skip link moves focus to the main content", async ({ page }) => {

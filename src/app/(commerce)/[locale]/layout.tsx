@@ -14,7 +14,8 @@ import "../commerce.css";
 import "@/components/commerce/system.css";
 
 /*
- * Root layout of the pages migrated to the Modern Commerce design (Stage TM-1: the homepage). The pages not yet
+ * Root layout of the pages migrated to the Modern Commerce design (TM-1: the homepage; TM-2.1: the legal pages and the
+ * localized 404 with its catch-all). The pages not yet
  * migrated keep the previous design under their own root layout (src/app/[locale]/layout.tsx), so the two design
  * systems — stylesheets, fonts, scripts — never share a document; moving between them is a full page load. The
  * theme (stored under the website's key) and the language cookie are shared by both.

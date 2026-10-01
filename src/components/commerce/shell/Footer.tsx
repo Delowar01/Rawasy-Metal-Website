@@ -6,10 +6,12 @@ import { Icon } from "../Icon";
 /**
  * The Modern Commerce footer: a dark sheet with the company statement and the quote button, the six services, the
  * company pages, the contact details (both phones, email, WhatsApp, the address) and the legal pages. Real routes
- * and the company's own details only.
+ * and the company's own details only; the page being viewed is marked (`aria-current`).
  */
 export function Footer({ shell }: { shell: ShellView }) {
-  const { footer, services, contact, ui, links } = shell;
+  const { footer, services, contact, ui, links, current } = shell;
+  // The attribute only where it applies, so the other pages' data carries no empty prop.
+  const here = (key: string) => (key === current ? { "aria-current": "page" as const } : {});
   return (
     <footer className="a2-footer">
       <div className="shell grid grid-cols-1 gap-10 py-14 sm:grid-cols-2 lg:grid-cols-12 lg:py-16">
@@ -31,7 +33,9 @@ export function Footer({ shell }: { shell: ShellView }) {
         <FooterCol title={footer.company.title} className="lg:col-span-2">
           {footer.company.links.map((l) => (
             <li key={l.href}>
-              <a href={l.href}>{l.label}</a>
+              <a href={l.href} {...here(l.key)}>
+                {l.label}
+              </a>
             </li>
           ))}
         </FooterCol>
@@ -63,7 +67,9 @@ export function Footer({ shell }: { shell: ShellView }) {
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
             {footer.legal.map((l) => (
               <li key={l.href}>
-                <a href={l.href}>{l.label}</a>
+                <a href={l.href} {...here(l.key)}>
+                  {l.label}
+                </a>
               </li>
             ))}
             <li>

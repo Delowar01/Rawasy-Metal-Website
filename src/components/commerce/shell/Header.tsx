@@ -1,5 +1,6 @@
+import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { Logo as Brand } from "@/components/brand/Logo";
-import { localeConfig, locales } from "@/i18n/config";
+import { localeConfig, locales, type Locale } from "@/i18n/config";
 import { PAGE_COLORS, type ShellView } from "../data";
 import { Icon } from "../Icon";
 import { ThemeSwitch } from "../ThemeSwitch";
@@ -7,10 +8,16 @@ import { serviceTone } from "../tones";
 import { serviceIcon } from "../ui";
 import { LocaleLink } from "./LocaleLink";
 
-type Props = { shell: ShellView };
+/**
+ * A link to the address being viewed, in another language. A page without an address of its own (the 404) passes
+ * SamePageLink here, so the pages that never need it do not load its code.
+ */
+export type SameAddressLink = ComponentType<{ locale: Locale; remember?: boolean; children: ReactNode } & Omit<ComponentProps<"a">, "href">>;
+
+type Props = { shell: ShellView; sameAddressLink?: SameAddressLink };
 
 /** EN | عربي: the current page in each language; the current language is marked. */
-function LanguageSwitch({ shell, className = "" }: Props & { className?: string }) {
+function LanguageSwitch({ shell, sameAddressLink: SameAddress, className = "" }: Props & { className?: string }) {
   const { locale, self, alternate, ui } = shell;
   return (
     <nav aria-label={ui.language} className={`a2-lang ${className}`}>
@@ -18,6 +25,23 @@ function LanguageSwitch({ shell, className = "" }: Props & { className?: string 
         const { htmlLang } = localeConfig[code];
         const label = code === "en" ? "EN" : "عربي";
         const name = code === "en" ? "English" : "العربية";
+        // The 404 does not know its address on the server: both links follow the address being viewed.
+        if (self === null || alternate.href === null)
+          return (
+            SameAddress && (
+              <SameAddress
+                key={code}
+                locale={code}
+                remember={code !== locale}
+                lang={htmlLang}
+                hrefLang={htmlLang}
+                aria-label={name}
+                aria-current={code === locale ? "true" : undefined}
+              >
+                {label}
+              </SameAddress>
+            )
+          );
         return code === locale ? (
           <a key={code} href={self} lang={htmlLang} hrefLang={htmlLang} aria-label={name} aria-current="true">
             {label}
@@ -37,7 +61,7 @@ function LanguageSwitch({ shell, className = "" }: Props & { className?: string 
  * language, theme and the quote button; below 1280px the pages move into a full-height menu sheet. Every link is a
  * real localized route; the current page is marked (`aria-current`).
  */
-export function Header({ shell }: Props) {
+export function Header({ shell, sameAddressLink: SameAddress }: Props) {
   const { ui, nav, services, links, contact, current, alternate } = shell;
   const [home, about, servicesNav, ...rest] = nav;
   const flat = [home, about];
@@ -105,17 +129,32 @@ export function Header({ shell }: Props) {
         </nav>
 
         <div className="ms-auto flex items-center gap-2">
-          <LanguageSwitch shell={shell} className="max-md:hidden" />
-          <LocaleLink
-            locale={alternate.locale}
-            href={alternate.href}
-            lang={alternate.htmlLang}
-            hrefLang={alternate.htmlLang}
-            className="ctl max-[399px]:hidden md:hidden"
-            aria-label={ui.languageSwitch}
-          >
-            {alternate.locale === "ar" ? "ع" : "EN"}
-          </LocaleLink>
+          <LanguageSwitch shell={shell} sameAddressLink={SameAddress} className="max-md:hidden" />
+          {alternate.href === null ? (
+            SameAddress && (
+              <SameAddress
+                locale={alternate.locale}
+                remember
+                lang={alternate.htmlLang}
+                hrefLang={alternate.htmlLang}
+                className="ctl max-[399px]:hidden md:hidden"
+                aria-label={ui.languageSwitch}
+              >
+                {alternate.locale === "ar" ? "ع" : "EN"}
+              </SameAddress>
+            )
+          ) : (
+            <LocaleLink
+              locale={alternate.locale}
+              href={alternate.href}
+              lang={alternate.htmlLang}
+              hrefLang={alternate.htmlLang}
+              className="ctl max-[399px]:hidden md:hidden"
+              aria-label={ui.languageSwitch}
+            >
+              {alternate.locale === "ar" ? "ع" : "EN"}
+            </LocaleLink>
+          )}
           <ThemeSwitch label={ui.theme} light={ui.light} dark={ui.dark} pageColors={PAGE_COLORS} className="max-lg:hidden" />
           <a href={links.quote} className="a2-head-quote btn btn-primary max-sm:min-h-10 max-sm:px-3 max-sm:text-[0.875rem]">
             {ui.getQuote}

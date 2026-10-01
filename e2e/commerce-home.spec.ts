@@ -191,9 +191,10 @@ test.describe("navigation", () => {
     await page.waitForURL(/\/en$/);
     await expect(page.locator("body.mc")).toHaveCount(1);
     await expect(page.locator("h1")).toContainText("Engineering metal");
-    // An unknown page under a locale is still the localized 404 of the previous design.
+    // An unknown page under a locale is the localized 404, in the Modern Commerce design since Stage TM-2.1.
     const missing = await page.goto("/en/no-such-page", { waitUntil: "networkidle" });
     expect(missing?.status()).toBe(404);
+    await expect(page.locator("body.mc")).toHaveCount(1);
     expect(errors).toEqual([]);
   });
 

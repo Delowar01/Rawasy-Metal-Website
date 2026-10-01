@@ -2472,6 +2472,541 @@
       transform: translateY(-8px);
     }
   }
+
+  /* ---------- Inner pages (Stage TM-2): the kit in src/components/commerce/inner/ ----------
+     Page hero, breadcrumbs, page facts, long-form documents, the contents list, the pending-confirmation note, the
+     closing call to action and the 404. Text sits on opaque cards and sheets, or on a reading zone (.a2-read), never
+     straight on the moving ambient. Additions only: the homepage uses none of these classes. */
+
+  /* An inner page's title: between the homepage hero (t-display) and section titles (t-h2). */
+  .mc .t-h1 {
+    font-family: var(--ff-display);
+    font-weight: 800;
+    font-size: clamp(2.125rem, 1.45rem + 2.3vw, 3.375rem);
+    line-height: 1.08;
+    letter-spacing: -0.024em;
+    text-wrap: balance;
+  }
+
+  .mc .t-h1:lang(ar) {
+    font-size: clamp(2rem, 1.4rem + 2vw, 3.1rem);
+    line-height: 1.38;
+  }
+
+  /* Plex Arabic stays at 400/500: the kit's semibold text takes the Tajawal display face in Arabic. */
+  .mc :is(.ip-crumbs [aria-current], .ip-meta dd, .ip-toc-title, .ip-toc-toggle, .ip-toc a[aria-current], .ip-note-label, .ip-cta-link-title):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* Page hero: the trail, the label, the title, the lead and the page facts, on a reading zone. */
+  .mc .ip-hero {
+    position: relative;
+    padding-block: clamp(1.75rem, 1.1rem + 2.4vw, 3.5rem) clamp(2.25rem, 1.4rem + 2.8vw, 4rem);
+  }
+
+  .mc .ip-crumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .mc .ip-crumbs li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mc .ip-crumbs a {
+    color: var(--ink-2);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.3em;
+    transition:
+      color var(--dur-1) ease,
+      text-decoration-color var(--dur-1) ease;
+  }
+
+  .mc .ip-crumbs a:hover {
+    color: var(--ink);
+    text-decoration-color: var(--line-strong);
+  }
+
+  .mc .ip-crumbs [aria-current="page"] {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .mc .ip-crumbs .mc-icon {
+    color: var(--ink-3);
+  }
+
+  /* Page facts (last updated, scope …): small labelled chips */
+  .mc .ip-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+    margin: 0;
+  }
+
+  .mc .ip-meta > div {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem 0.5rem;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .mc .ip-meta dt {
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  .mc .ip-meta dd {
+    margin: 0;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* A band of the page under the hero (a muted sheet), ending a sheet's margin above the footer */
+  .mc .ip-band {
+    margin-bottom: var(--sheet-m);
+  }
+
+  /* Long-form document: numbered sections on a card */
+  .mc .ip-doc {
+    padding: clamp(1.25rem, 0.55rem + 2.6vw, 3.25rem);
+  }
+
+  .mc .ip-doc-section {
+    padding-block: clamp(2rem, 1.5rem + 1.4vw, 2.75rem);
+    border-top: 1px solid var(--line-subtle);
+  }
+
+  .mc .ip-doc-section:first-child {
+    padding-top: 0.25rem;
+    border-top: 0;
+  }
+
+  .mc .ip-doc-section:last-child {
+    padding-bottom: 0.25rem;
+  }
+
+  .mc .ip-doc-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+  }
+
+  .mc .ip-doc-num {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding-inline: 0.35rem;
+    border: 1px solid var(--steel-line);
+    border-radius: 10px;
+    background: var(--steel-soft);
+    color: var(--steel);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .ip-doc-title {
+    padding-top: 0.15rem;
+    font-family: var(--ff-display);
+    font-weight: 750;
+    font-size: clamp(1.25rem, 1.12rem + 0.45vw, 1.5rem);
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+
+  .mc .ip-doc-title:lang(ar) {
+    padding-top: 0;
+    font-weight: 800;
+    line-height: 1.55;
+  }
+
+  .mc .ip-doc-body {
+    margin-top: 1.25rem;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ip-doc-body {
+      padding-inline-start: 3.125rem;
+    }
+  }
+
+  /* Reading text: a comfortable measure and rhythm (Arabic paragraphs take the 1.85 line height set above) */
+  .mc .ip-prose {
+    max-width: 44rem;
+    color: var(--ink-2);
+    font-size: 1.0625rem;
+    line-height: 1.72;
+  }
+
+  .mc .ip-prose:lang(ar) {
+    max-width: 42rem;
+    font-size: 1.075rem;
+  }
+
+  .mc .ip-prose > * {
+    margin: 0;
+  }
+
+  .mc .ip-prose > * + * {
+    margin-top: 1rem;
+  }
+
+  .mc .ip-prose ul {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .ip-prose li {
+    position: relative;
+    padding-inline-start: 1.5rem;
+  }
+
+  .mc .ip-prose li::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0.2rem;
+    top: 0.66em;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--steel);
+  }
+
+  /* Arabic lines are taller (1.85): the bullet stays centred on the first line. */
+  .mc .ip-prose li:lang(ar)::before {
+    top: 0.72em;
+  }
+
+  /* A point still to be confirmed: named by its label, set apart by a brass edge (never by colour alone) */
+  .mc .ip-note {
+    display: grid;
+    gap: 0.3rem;
+    max-width: 44rem;
+    margin-top: 1.5rem;
+    padding: 0.85rem 1.1rem 0.95rem;
+    border: 1px solid var(--brass-line);
+    border-inline-start: 4px solid var(--brass);
+    border-radius: 12px;
+    background: var(--brass-soft);
+  }
+
+  .mc .ip-note-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--brass);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+
+  .mc .ip-note-text {
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  /* The company's contact details inside a document */
+  .mc .ip-contact {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 44rem;
+    margin-top: 1.5rem;
+    font-style: normal;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ip-contact {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .mc .ip-contact > div {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    min-width: 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface-2);
+  }
+
+  .mc .ip-contact a {
+    color: var(--ink);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.3em;
+    overflow-wrap: anywhere;
+  }
+
+  .mc .ip-contact a:hover {
+    text-decoration-color: var(--brand);
+  }
+
+  /* Contents of a long page: pinned beside the text on large screens, a disclosure above it on smaller ones */
+  .mc .ip-toc {
+    padding: 0.5rem;
+  }
+
+  .mc .ip-toc-title {
+    margin: 0;
+    padding: 0.6rem 0.75rem 0.7rem;
+    border-bottom: 1px solid var(--line-subtle);
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mc .ip-toc-toggle {
+    display: flex;
+    width: 100%;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .mc .ip-toc-toggle:hover {
+    background: var(--surface-2);
+  }
+
+  .mc .ip-toc-toggle .chev {
+    color: var(--ink-2);
+    transition: rotate var(--dur-2) var(--ease);
+  }
+
+  .mc .ip-toc-toggle[aria-expanded="true"] .chev {
+    rotate: 180deg;
+  }
+
+  .mc .ip-toc-list {
+    display: grid;
+    gap: 0.125rem;
+    margin: 0;
+    padding: 0.5rem 0 0;
+    list-style: none;
+  }
+
+  .mc .ip-toc-list a {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--r-sm);
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    text-decoration: none;
+    transition:
+      background-color var(--dur-1) ease,
+      color var(--dur-1) ease;
+  }
+
+  .mc .ip-toc-list a:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .mc .ip-toc-list a[aria-current="true"] {
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-weight: 600;
+  }
+
+  .mc .ip-toc-list a[aria-current="true"]::before {
+    content: "";
+    position: absolute;
+    inset-block: 0.45rem;
+    inset-inline-start: 0;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--brand);
+  }
+
+  .mc .ip-toc-n {
+    padding-top: 0.1rem;
+    color: var(--ink-3);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .ip-toc-list a[aria-current="true"] .ip-toc-n {
+    color: var(--brand-ink);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ip-toc {
+      position: sticky;
+      top: calc(var(--hh) + 1.5rem);
+      max-height: calc(100svh - var(--hh) - 3rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .mc .ip-toc-toggle {
+      display: none;
+    }
+  }
+
+  @media (max-width: 63.999rem) {
+    /* With script, the title is the toggle and the list opens on demand; without it, both stay as they are. */
+    .js .mc .ip-toc-title,
+    .js .mc .ip-toc-list[data-collapsed] {
+      display: none;
+    }
+  }
+
+  /* The footer marks the page being read */
+  .mc .a2-footer a[aria-current="page"] {
+    color: #ffffff;
+    text-decoration: underline;
+    text-decoration-color: var(--brand);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.35em;
+  }
+
+  /* Closing call to action: a dark panel with a few ways forward */
+  .mc .ip-cta {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: calc(var(--r-panel) + 4px);
+    background: var(--navy);
+    box-shadow: var(--sh-raised);
+    color: var(--on-dark);
+  }
+
+  .mc .ip-cta::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(55% 80% at 100% 0%, var(--band-glow), transparent 70%),
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px;
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .mc .ip-cta::before {
+    scale: -1 1;
+  }
+
+  .mc .ip-cta-text {
+    color: var(--on-dark-2);
+  }
+
+  .mc .ip-cta-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: 14px;
+    background: rgb(255 255 255 / 0.05);
+    color: var(--on-dark);
+    text-decoration: none;
+    transition:
+      background-color var(--dur-1) ease,
+      border-color var(--dur-1) ease,
+      translate var(--dur-2) var(--ease);
+  }
+
+  .mc .ip-cta-link:hover {
+    border-color: rgb(255 255 255 / 0.3);
+    background: rgb(255 255 255 / 0.1);
+    translate: 0 -2px;
+  }
+
+  .mc .ip-cta-link-title {
+    display: block;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .mc .ip-cta-link .mc-icon {
+    color: var(--brand);
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .ip-cta-link:hover .mc-icon {
+    translate: calc(4px * var(--dir, 1)) 0;
+  }
+
+  .mc .ip-cta-n {
+    flex: none;
+    width: 1.75rem;
+    color: var(--on-dark-2);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 404: the page's own copy and two ways on, with a quiet numeral */
+  .mc .ip-404 {
+    display: grid;
+    min-height: min(36rem, 70svh);
+    align-content: center;
+    padding: clamp(1.75rem, 0.9rem + 3.6vw, 4.5rem);
+  }
+
+  .mc .ip-404-code {
+    margin: 0;
+    color: color-mix(in srgb, var(--line-strong) 72%, transparent);
+    font-family: var(--ff-display);
+    font-size: clamp(5.5rem, 2.75rem + 11vw, 12rem);
+    font-weight: 800;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc :is(.ip-toc-toggle .chev, .ip-cta-link, .ip-cta-link .mc-icon) {
+      transition: none;
+    }
+  }
 }
 
 /* The page behind A V2 follows its theme (overscroll, scrollbars, form controls). */
