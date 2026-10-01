@@ -230,25 +230,41 @@ Everything is in `src/components/commerce/inner/`. All parts are server componen
 
 ### 11. Real HTTP status matrix
 
-Measured with curl on the approved build (5cfeaed) and on TM-2.1, side by side. **Every row is identical on both.**
+Measured with curl on the approved build (5cfeaed) and on TM-2.1, side by side. The "page that answers" columns
+and the page-data chains were checked again in a browser, on both builds, in correction 1.
 
-| Request | Status | What answers |
-| --- | --- | --- |
-| `/en/no-such-page`, `/ar/no-such-page` | 404 | Modern Commerce 404; title "Page not found \| RAWASY" / "الصفحة غير موجودة \| رواسي"; `noindex` |
-| `/en/foo/bar`, `/ar/foo/bar` | 404 | Modern Commerce 404 (localized title, `noindex`) |
-| `/en/services/laser-cutting/extra`, `/en/privacy/extra` | 404 | Modern Commerce 404 |
-| `/en/services/not-a-service`, `/ar/services/not-a-service` | 404 | previous design's localized 404, `noindex` (until TM-2.4) |
-| `/en/projects/not-a-project`, `/ar/projects/not-a-project` | 404 | previous design's localized 404, `noindex` (until TM-2.5) |
-| `/no-such-page` (browser language English) | 307 → `/en/no-such-page` | then 404 |
-| `/foo/bar` (browser language Arabic) | 307 → `/ar/foo/bar` | then 404 |
-| `/api/no-such` | 404 | Next.js's own fallback (outside the language handling), unchanged |
-| `/en`, `/ar` | 200 | homepage (published) |
-| `/en/privacy`, `/ar/privacy`, `/en/terms`, `/ar/terms` | 200 | Modern Commerce, `noindex, follow` |
-| `/en/about`, `/ar/contact`, `/en/services/laser-cutting`, `/ar/projects` | 200 | previous design, `noindex, follow` |
-| `/sitemap.xml`, `/robots.txt` | 200 | bodies identical to the approved build |
-| `/en/no-such-page`, `/ar/foo/bar` as page data (`RSC: 1`) | 307 → `?_rsc`, then 200 | the 404's page data; no further redirect |
-| `/en/services/not-a-service` as page data | 307 → `?_rsc`, then 404 | no further redirect |
-| `/en/privacy` as page data | 307 → `?_rsc` | as for every page |
+*Corrected after review (TM-2.1 correction 1).* The first version of this item said "every row is identical on both".
+That was true of the status codes and redirects only, not of the page that answers.
+
+- **Unchanged on every row:**
+  - the status codes;
+  - the redirects, including the one page-data redirect;
+  - the 404 titles and `noindex`, because both designs' 404s use the same dictionary title and robots rule;
+  - the sitemap and robots bodies.
+- **Changed by TM-2.1: the page that answers a generic unknown address under a language.**
+  - At 5cfeaed the catch-all `src/app/[locale]/[...rest]/page.tsx` called `notFound()`. That rendered the previous
+    design's localized 404: `src/app/[locale]/not-found.tsx`, with `NotFoundView` from `src/components/layout/`.
+  - TM-2.1 moved the catch-all into Modern Commerce (item 10), so these addresses now get the Modern Commerce 404.
+  - Unknown service and project slugs get the previous design's 404 on both builds.
+  - 5cfeaed never showed the Modern Commerce 404.
+
+| Request | Status (both builds) | Page that answers at 5cfeaed | Page that answers in TM-2.1 |
+| --- | --- | --- | --- |
+| `/en/no-such-page`, `/ar/no-such-page` | 404 | previous design's localized 404 | **Modern Commerce 404** |
+| `/en/foo/bar`, `/ar/foo/bar` | 404 | previous design's localized 404 | **Modern Commerce 404** |
+| `/en/services/laser-cutting/extra`, `/en/privacy/extra` | 404 | previous design's localized 404 | **Modern Commerce 404** |
+| `/en/services/not-a-service`, `/ar/services/not-a-service` | 404 | previous design's localized 404 | previous design's localized 404 (until TM-2.4) |
+| `/en/projects/not-a-project`, `/ar/projects/not-a-project` | 404 | previous design's localized 404 | previous design's localized 404 (until TM-2.5) |
+| `/no-such-page` (browser language English) | 307 → `/en/no-such-page`, then 404 | as `/en/no-such-page` | as `/en/no-such-page` |
+| `/foo/bar` (browser language Arabic) | 307 → `/ar/foo/bar`, then 404 | as `/ar/foo/bar` | as `/ar/foo/bar` |
+| `/api/no-such` | 404 | Next.js's own fallback (outside the language handling) | the same |
+| `/en`, `/ar` | 200 | Modern Commerce homepage (published) | the same |
+| `/en/privacy`, `/ar/privacy`, `/en/terms`, `/ar/terms` | 200 | previous design, `noindex, follow` | **Modern Commerce**, `noindex, follow` |
+| `/en/about`, `/ar/contact`, `/en/services/laser-cutting`, `/ar/projects` | 200 | previous design, `noindex, follow` | the same |
+| `/sitemap.xml`, `/robots.txt` | 200 | the sitemap and robots | bodies identical |
+| `/en/no-such-page`, `/ar/foo/bar` as page data (`RSC: 1`) | 307 → `?_rsc`, then 200 | the previous design's 404, as page data | the Modern Commerce 404, as page data |
+| `/en/services/not-a-service` as page data | 307 → `?_rsc`, then 404 | previous design | previous design |
+| `/en/privacy` as page data | 307 → `?_rsc` | as for every page | as for every page |
 
 These are covered by real-response tests in `commerce-inner.spec.ts`:
 - "real HTTP status codes";

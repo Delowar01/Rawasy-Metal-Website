@@ -216,7 +216,11 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-[0.8rem] font-semibold text-ink-2">{ui.language}</p>
-                    <LanguageSwitch shell={shell} className="mt-2 w-full [&>a]:h-11 [&>a]:flex-1 [&>a]:text-[0.95rem]" />
+                    <LanguageSwitch
+                      shell={shell}
+                      sameAddressLink={SameAddress}
+                      className="mt-2 w-full [&>a]:h-11 [&>a]:flex-1 [&>a]:text-[0.95rem]"
+                    />
                   </div>
                   <div data-js-only>
                     <p className="text-[0.8rem] font-semibold text-ink-2">{ui.theme}</p>

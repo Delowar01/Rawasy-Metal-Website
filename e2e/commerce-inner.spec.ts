@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { legalChrome, legalDocuments } from "../src/content/legal";
+import { getDictionary } from "../src/i18n/dictionaries";
 import { HTML_LANG, horizontalOverflow, LOCALES, skipIntro, trackErrors } from "./helpers";
 
 /**
@@ -30,6 +31,19 @@ const stylesheetHas = (page: Page, selector: string) =>
     selector,
   );
 const contents = (page: Page, locale: (typeof LOCALES)[number]) => page.getByRole("navigation", { name: CONTENTS[locale] });
+/** The language group inside the open phone menu sheet. */
+const sheetLanguages = (page: Page, locale: (typeof LOCALES)[number]) =>
+  page.locator("details[data-sheet] .a2-sheet").getByRole("navigation", { name: getDictionary(locale).controls.language });
+/** A language group as elements, classes, attributes and text, with the addresses set aside (they differ by page). */
+const languageGroup = (nav: Locator) =>
+  nav.evaluate((el) => ({
+    nav: [el.tagName, el.className, el.getAttribute("aria-label")],
+    links: [...el.children].map((a) => ({
+      tag: a.tagName,
+      text: a.textContent,
+      attributes: [...a.attributes].filter((x) => x.name !== "href").map((x) => `${x.name}=${x.value}`).sort(),
+    })),
+  }));
 
 test.beforeEach(async ({ context }) => {
   await skipIntro(context);
@@ -319,6 +333,82 @@ test.describe("localized 404", () => {
     await page.locator('.a2-header .a2-lang a[hreflang="ar-SA"]').first().click();
     await page.waitForURL("**/ar/foo/bar");
     await expect(page.locator("h1")).toHaveText(NOT_FOUND.ar);
+  });
+
+  test.describe("phone menu", () => {
+    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+    test("the menu sheet's language switch on the 404 shows both languages and keeps the unknown address, in each language", async ({ page }) => {
+      for (const locale of LOCALES) {
+        const other = locale === "en" ? "ar" : "en";
+        const dict = getDictionary(locale);
+        const errors = trackErrors(page);
+        const response = await page.goto(`/${locale}/foo/bar`, { waitUntil: "networkidle" });
+        expect(response?.status()).toBe(404);
+        await expect(page.locator("body.mc")).toHaveCount(1);
+        const menu = page.locator("details[data-sheet]");
+        const summary = menu.locator(":scope > summary");
+        await expect(summary).toHaveAttribute("aria-label", dict.a11y.openMenu);
+        await summary.tap();
+        await expect(menu).toHaveAttribute("open", "");
+        await expect(menu.locator(".a2-sheet").getByRole("navigation", { name: dict.a11y.mobileNav })).toBeVisible();
+        // The sheet's own language group: both languages, the current one marked, each to the address being viewed.
+        const languages = sheetLanguages(page, locale);
+        const current = languages.locator(`a[hreflang="${HTML_LANG[locale]}"]`);
+        const switchTo = languages.locator(`a[hreflang="${HTML_LANG[other]}"]`);
+        await expect(languages.locator("a")).toHaveText(["EN", "عربي"]);
+        await expect(current).toBeVisible();
+        await expect(switchTo).toBeVisible();
+        await expect(current).toHaveAttribute("aria-current", "true");
+        await expect(current).toHaveAttribute("href", `/${locale}/foo/bar`);
+        expect(await switchTo.getAttribute("aria-current")).toBeNull();
+        await expect(switchTo).toHaveAttribute("href", `/${other}/foo/bar`);
+        // Escape still closes the sheet and returns focus to its button.
+        await page.keyboard.press("Escape");
+        await expect(menu).not.toHaveAttribute("open");
+        await expect(summary).toBeFocused();
+        // Choosing the other language (by touch from English, by keyboard from Arabic): the same unknown address in
+        // that language, still a real 404, and the choice remembered.
+        await summary.tap();
+        const answer = page.waitForResponse((r) => r.request().isNavigationRequest() && new URL(r.url()).pathname === `/${other}/foo/bar`);
+        if (locale === "en") await switchTo.tap();
+        else {
+          await switchTo.focus();
+          await page.keyboard.press("Enter");
+        }
+        expect((await answer).status()).toBe(404);
+        await page.waitForURL(`**/${other}/foo/bar`);
+        await expect(page.locator("html")).toHaveAttribute("lang", HTML_LANG[other]);
+        await expect(page.locator("html")).toHaveAttribute("dir", other === "ar" ? "rtl" : "ltr");
+        await expect(page.locator("h1")).toHaveText(NOT_FOUND[other]);
+        expect((await page.context().cookies()).find((c) => c.name === "NEXT_LOCALE")?.value).toBe(other);
+        expect(errors).toEqual([]);
+      }
+    });
+
+    test("on a page with an address of its own the menu's language switch is unchanged, and the 404's is built the same way", async ({ page }) => {
+      const menuButton = page.locator("details[data-sheet] > summary");
+      await page.goto("/en/privacy", { waitUntil: "networkidle" });
+      await menuButton.tap();
+      const languages = sheetLanguages(page, "en");
+      await expect(languages.locator("a")).toHaveText(["EN", "عربي"]);
+      await expect(languages.locator('a[hreflang="en"]')).toHaveAttribute("aria-current", "true");
+      await expect(languages.locator('a[hreflang="en"]')).toHaveAttribute("href", "/en/privacy");
+      await expect(languages.locator('a[hreflang="ar-SA"]')).toHaveAttribute("href", "/ar/privacy");
+      const normal = await languageGroup(languages);
+      // The 404's group: the same elements, classes, labels, marks and text; only the addresses differ.
+      await page.goto("/en/foo/bar", { waitUntil: "networkidle" });
+      await menuButton.tap();
+      expect(await languageGroup(sheetLanguages(page, "en"))).toEqual(normal);
+      // Back on the page: the switch opens the same page in Arabic and remembers the choice, as before.
+      await page.goto("/en/privacy", { waitUntil: "networkidle" });
+      await menuButton.tap();
+      await languages.locator('a[hreflang="ar-SA"]').tap();
+      await page.waitForURL("**/ar/privacy");
+      await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+      await expect(page.locator("h1")).toHaveText(legalDocuments.privacy.hero.title.ar);
+      expect((await page.context().cookies()).find((c) => c.name === "NEXT_LOCALE")?.value).toBe("ar");
+    });
   });
 
   test("unknown service and project slugs keep the previous design's 404 until their pages move (TM-2.4, TM-2.6)", async ({ page }) => {
