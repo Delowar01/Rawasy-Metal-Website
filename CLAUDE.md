@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-01-tm2-1-inner-kit-legal-404.md` (earlier: `2026-09-30-tm2-decision-register.md`,
+- Latest report: `docs/reports/2026-10-01-tm2-1-correction-1.md` (earlier: `2026-10-01-tm2-1-inner-kit-legal-404.md`,
+  `2026-09-30-tm2-decision-register.md`,
   `2026-09-29-tm2-migration-plan.md`,
   `2026-09-29-tm1-navigation-correction.md`,
   `2026-09-28-tm1-homepage-migration.md`, `2026-09-28-a-v2-hero-loop.md`,
@@ -70,9 +71,13 @@
   2.2 Contact, 2.3 About + Industries + Clients + Certificates, 2.4 services overview + six service pages, 2.5
   Projects overview, 2.6 retire the previous design). The user's decisions D1–D13, seven extra requirements and the
   reconciled points are in `2026-09-30-tm2-decision-register.md`; follow both. **TM-2.1 (the inner-page kit, Privacy,
-  Terms and the localized 404) is built and awaits the user's review** (report `2026-10-01-tm2-1-inner-kit-legal-404.md`;
-  rollback checkpoint: GitHub branch `preserve/pre-tm2` at `5cfeaed`, the last commit before TM-2). Never
-  self-approve. **Do not begin TM-2.2 (Contact) or any later batch until the user explicitly approves TM-2.1.**
+  Terms and the localized 404) is built** (report `2026-10-01-tm2-1-inner-kit-legal-404.md`; rollback checkpoint:
+  GitHub branch `preserve/pre-tm2` at `5cfeaed`, the last commit before TM-2). It passed the user's independent review
+  with two corrections, applied in correction 1 (report `2026-10-01-tm2-1-correction-1.md`: the 404's phone-menu
+  language switch, and the TM-2.1 report's status matrix). TM-2.1 still awaits the user's explicit approval. Never
+  self-approve. **Do not begin TM-2.2 (Contact) or any later batch until the user explicitly approves TM-2.1.** Keep
+  TM-2.1's documented limitations as they are unless the user asks (no-JS 404 body, header blur, 44 rem legal
+  measure, the 320 px 404 label wrap, the A V2 chunk count).
   Decisions in short:
   - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
     then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
@@ -333,8 +338,10 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   homepage payload after. Unknown service and project slugs keep the previous design's 404 until their routes move.
   The 404 uses `getShellView(locale, { route: null, path: null })` (nothing marked current) and passes `SamePageLink`
   (client, `usePathname`) to `PageShell`'s `sameAddressLink`, so its language switch keeps the unknown address and no
-  other page loads that code. The footer marks the current page with `aria-current="page"` through a conditional
-  spread (no `$undefined` props, so the homepage payload stays identical).
+  other page loads that code. The header renders `LanguageSwitch` in three places (desktop bar, compact phone control,
+  menu sheet): `sameAddressLink` must reach all three (the sheet's was missed in TM-2.1 and fixed in correction 1;
+  `commerce-inner.spec.ts` tests the sheet's on the 404). The footer marks the current page with
+  `aria-current="page"` through a conditional spread (no `$undefined` props, so the homepage payload stays identical).
 - Tests: `e2e/commerce-home.spec.ts` (the homepage) with probes shared with the lab spec in `e2e/a2-helpers.ts`;
   `e2e/commerce-inner.spec.ts` (the kit, Privacy, Terms, the 404 and its real HTTP status matrix). The site-shell tests
   in `site.spec.ts` and `visual-system.spec.ts` run on pages of the previous design; `stage-1c.spec.ts`'s generic
