@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-09-30-tm2-decision-register.md` (earlier: `2026-09-29-tm2-migration-plan.md`,
+- Latest report: `docs/reports/2026-10-01-tm2-1-inner-kit-legal-404.md` (earlier: `2026-09-30-tm2-decision-register.md`,
+  `2026-09-29-tm2-migration-plan.md`,
   `2026-09-29-tm1-navigation-correction.md`,
   `2026-09-28-tm1-homepage-migration.md`, `2026-09-28-a-v2-hero-loop.md`,
   `2026-09-28-a-v2-background-optimization.md`, `2026-09-27-a-v2-background-motion.md`, `2026-09-26-a-v2-refinement-pass-2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-modern-commerce-theme-lab.md`, `2026-09-25-stage-1D-service-pages.md`, `2026-09-25-visual-redesign-v2.md`,
@@ -54,23 +55,24 @@
     the software-compositing scroll benchmark at 1440 px, no ambient under body text below AA per pixel. Keep it
     visible; never go back to a static background.
   - pointer (desktop mouse only), softer light/dark themes (dark = blue-charcoal), modern cards/borders/shadows.
-- **Stage TM-1 (homepage + design foundation) is built and awaits the user's visual review** (report
-  `2026-09-28-tm1-homepage-migration.md`): `/en` and `/ar` run the Modern Commerce design on the website's real
-  routes; every other page keeps the previous design, unchanged (proved against the checkpoint build). Never
-  self-approve. **Do not migrate the inner pages until the user explicitly approves the homepage, and do not start
-  1E.** Rollback checkpoint: local tag `pre-tm1-a-v2-migration` and GitHub branch `preserve/pre-tm1-a-v2-migration`
-  (both at `3260415`, the last commit before TM-1); the previous homepage's page code is parked, unrouted, in
-  `src/components/home/LegacyHomePage.tsx` (delete it once the new homepage is approved). Do not deploy.
-  TM-1 passed the user's technical review with two UX conditions, applied in the navigation correction (report
-  `2026-09-29-tm1-navigation-correction.md`): the project cards open the Projects gallery and "Start a Project" opens
-  the quotation form. The homepage still awaits visual approval; **do not start TM-2** until the user says so.
-  The navigation correction was approved technically, and TM-1 must not change further.
-- **TM-2 (migrating every inner page to Modern Commerce) is planned, approved with conditions and frozen.** Baseline:
+- **Stage TM-1 (homepage + design foundation) is visually approved** (the user's "TM-1 VISUALLY APPROVED — BEGIN
+  TM-2.1"; reports `2026-09-28-tm1-homepage-migration.md` and `2026-09-29-tm1-navigation-correction.md`): `/en` and
+  `/ar` run the Modern Commerce design on the website's real routes, with the navigation correction (the project
+  cards open the Projects gallery, "Start a Project" opens the quotation form). **The homepage is frozen**: it is the
+  regression baseline of every TM-2 batch and must not change. After each batch prove it against the batch's
+  checkpoint build (normalised prerendered files and resolved payloads, CSS rules "additions only", pixel captures,
+  the hero loop, signatures, ambient, cursor, header, footer and its links). Rollback checkpoint for TM-1: local tag
+  `pre-tm1-a-v2-migration` and GitHub branch `preserve/pre-tm1-a-v2-migration` (both at `3260415`, the last commit
+  before TM-1). The previous homepage's page code is parked, unrouted, in `src/components/home/LegacyHomePage.tsx`;
+  the approved plan deletes it in TM-2.6 with the rest of the previous design. Do not start 1E. Do not deploy.
+- **TM-2 (migrating every inner page to Modern Commerce) is approved with conditions and runs batch by batch.** Baseline:
   `2026-09-29-tm2-migration-plan.md` (six batches, each approved before the next: 2.1 kit + Privacy + Terms + 404,
   2.2 Contact, 2.3 About + Industries + Clients + Certificates, 2.4 services overview + six service pages, 2.5
   Projects overview, 2.6 retire the previous design). The user's decisions D1–D13, seven extra requirements and the
-  reconciled points are in `2026-09-30-tm2-decision-register.md`; follow both. **Do not begin TM-2.1 until the user
-  issues exactly "TM-1 VISUALLY APPROVED — BEGIN TM-2.1"**; then create a `preserve/pre-tm2` checkpoint first.
+  reconciled points are in `2026-09-30-tm2-decision-register.md`; follow both. **TM-2.1 (the inner-page kit, Privacy,
+  Terms and the localized 404) is built and awaits the user's review** (report `2026-10-01-tm2-1-inner-kit-legal-404.md`;
+  rollback checkpoint: GitHub branch `preserve/pre-tm2` at `5cfeaed`, the last commit before TM-2). Never
+  self-approve. **Do not begin TM-2.2 (Contact) or any later batch until the user explicitly approves TM-2.1.**
   Decisions in short:
   - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
     then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
@@ -256,14 +258,14 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`. An axe-core audit (installed
   in the scratchpad, not the project) is a cheap extra check.
 
-## Modern Commerce design in production (Stage TM-1)
+## Modern Commerce design in production (Stages TM-1 and TM-2)
 
 - Two designs, two root layouts. `src/app/(commerce)/[locale]/layout.tsx` + `page.tsx` serve the migrated pages
-  (the homepage) with their own stylesheet, fonts, boot script, ambient, pointer and motion controller;
-  `src/app/[locale]/layout.tsx` still serves every other page in the previous design. Moving between them is a full
-  page load (Next.js: navigating across root layouts), so no CSS, font or script ever crosses over. To migrate a
-  page later: move its route into `(commerce)/[locale]/`, add its key to `commerceRoutes` in
-  `src/i18n/routes.ts`, and extend the Tailwind `@source` lines if its components live elsewhere.
+  (the homepage; since TM-2.1 Privacy, Terms and the localized 404) with their own stylesheet, fonts, boot script,
+  ambient, pointer and motion controller; `src/app/[locale]/layout.tsx` still serves every other page in the previous
+  design. Moving between them is a full page load (Next.js: navigating across root layouts), so no CSS, font or script
+  ever crosses over. To migrate a page later: move its route into `(commerce)/[locale]/`, add its key to
+  `commerceRoutes` in `src/i18n/routes.ts`, and extend the Tailwind `@source` lines if its components live elsewhere.
 - `commerceRoutes` + `crossDesignLink(href)` (`src/i18n/routes.ts`): every `<Link>` in the previous design's shell
   (header, footer, breadcrumbs, `ButtonLink`, CTA, placeholder) spreads `{...crossDesignLink(href)}`, which adds
   `prefetch={false}` for a page in the new design (and nothing otherwise, so other links' payloads are unchanged).
@@ -313,8 +315,30 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   parallax (the header links pages now). `Ambient`, `Cursor` (scoped to `.mc`), `HeroPlate`, the signatures
   (`useSignature`, `LaserCut`, `LaserEngrave`, `signature.css`), `MachineShowcase`, `ThemeSwitch`, `Icon` and `ui`
   live in `components/commerce/` and the lab re-exports them: one implementation, one animation controller.
-- Tests: `e2e/commerce-home.spec.ts` (the homepage) with probes shared with the lab spec in `e2e/a2-helpers.ts`.
-  The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` now run on inner pages.
+- Inner pages (TM-2.1): the kit is `components/commerce/inner/` — `PageHero` (compact / split / stacked; text on an
+  `.a2-read` zone; breadcrumbs, eyebrow, the one `h1#page-title`, lead, a `dl` of page facts, actions), `Breadcrumbs`,
+  `ContentsNav` (client; the shared `useScrollSpy` marks the section with `aria-current`; pinned from 64 rem below the
+  header, a disclosure button with `aria-expanded` / `aria-controls` above the text on smaller screens, simply open
+  without script), `Document` (`DocSection` = `section#id` + numbered `h2#id-title`, `Prose`, `PendingNote` =
+  `role="note"` with its text label and a brass edge), `ClosingCta` (built, not used yet: the legal pages have none),
+  `NotFoundView` and `BootFallback`. Its styles are the "Inner pages (Stage TM-2)" block (`ip-*` classes) at the end
+  of `system.css`'s components layer; nothing earlier in the file changed. `components/commerce/legal/LegalPage.tsx`
+  renders Privacy and Terms from `src/content/legal.ts` (routes `(commerce)/[locale]/privacy|terms/page.tsx`, metadata
+  and JSON-LD still from `innerPageMetadata` / `innerPageJsonLd`). `commerceRoutes` is `home`, `privacy`, `terms`
+  (static routes only: a dynamic route needs a pattern match in `crossDesignLink` before it moves).
+- The localized 404: `(commerce)/[locale]/(missing)/[...rest]/page.tsx` (the catch-all, `notFound()`) and
+  `(missing)/not-found.tsx`. The `(missing)` group is deliberate: a `not-found.tsx` beside the layout is rendered into
+  the payload of every page under it (it added ~52 KB raw / 7.8 KB gzip to the homepage). A migrated route that calls
+  `notFound()` (services and projects slugs in TM-2.4 / 2.5) needs this boundary above it or its own; check the
+  homepage payload after. Unknown service and project slugs keep the previous design's 404 until their routes move.
+  The 404 uses `getShellView(locale, { route: null, path: null })` (nothing marked current) and passes `SamePageLink`
+  (client, `usePathname`) to `PageShell`'s `sameAddressLink`, so its language switch keeps the unknown address and no
+  other page loads that code. The footer marks the current page with `aria-current="page"` through a conditional
+  spread (no `$undefined` props, so the homepage payload stays identical).
+- Tests: `e2e/commerce-home.spec.ts` (the homepage) with probes shared with the lab spec in `e2e/a2-helpers.ts`;
+  `e2e/commerce-inner.spec.ts` (the kit, Privacy, Terms, the 404 and its real HTTP status matrix). The site-shell tests
+  in `site.spec.ts` and `visual-system.spec.ts` run on pages of the previous design; `stage-1c.spec.ts`'s generic
+  inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover Privacy and Terms.
 
 ## Theme lab (Modern Commerce exploration)
 
@@ -566,3 +590,29 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   empty id (`:HL[…]`).
 - The `pkill -f` self-kill also happens when the pattern appears anywhere in the same command, a heredoc included
   (`pkill -f difflib` in a script that uses difflib killed its own shell).
+- A `notFound()` during a dynamic render (the catch-all) is answered 404 with an error shell (`<html id="__next_error__">`,
+  the right `<title>` and `robots` meta) and the page is built in the browser, in both designs and before TM-2.1 too:
+  without JavaScript a 404 body is empty. The browser tab then shows the layout's default title ("RAWASY") unless
+  something restores it (`BootFallback`'s `title`).
+- A page-data request (`RSC: 1`) without its `_rsc` cache key is redirected once (307) to the address with it, for every
+  page; a test of "no page-data loop" should expect one 307 and then an answer (the MC 404 sends its payload with 200,
+  the previous design's unknown slug a 404).
+- `/api/…` addresses are outside the proxy, so no locale handling: Next.js answers 404 and the browser shows its default
+  title "404: This page could not be found.".
+- Tailwind v4 makes utilities from any word in a scanned source, comments included: "sticky" and "contents" in comments
+  of the kit added `.sticky` / `.contents` rules to the MC stylesheet (harmless, but they show up in "additions only"
+  CSS checks). Compare CSS rules with declarations as sets: Tailwind's `@layer properties` order is not stable.
+- The CSS build keeps only `-webkit-backdrop-filter` when a rule declares it with `backdrop-filter`, so Chromium shows
+  the scrolled MC header with no blur (80 % opaque; text scrolled under it stays faintly visible). It is the approved
+  TM-1 look, and a blur over the moving ambient would be re-applied every frame (see the A V2 performance rules);
+  restoring it would change the frozen homepage, so it waits for the user.
+- Changing which pages import a shared client module makes Turbopack re-split the shared chunks of other routes (the
+  lab's A V2 JS moved by +114 bytes in TM-2.1 with no source change there). Compare JS by total and contents, not by
+  chunk file names.
+- A client component imported by a shared server component ships in the bundle of every page that renders the shared
+  one, even where it never renders: importing `SamePageLink` in the MC header added 1,084 bytes (with the route table
+  it pulls in) to the homepage. Pass a rarely needed client component in as a prop from the route that needs it.
+  Compare JS per page by module set and total bytes: Turbopack also moves modules between chunks when the route
+  graph changes (the homepage's 180 modules stayed identical while one moved to the neighbouring chunk).
+- Lazy images make full-page before/after captures differ by loading progress, not code: set every image to
+  `loading="eager"` and await `decode()` before capturing, and let the header settle ~700 ms after each scroll.
