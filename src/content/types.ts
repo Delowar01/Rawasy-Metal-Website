@@ -272,7 +272,7 @@ export interface AboutContent {
   metal: { label: Localized; title: Localized; intro: Localized; explore: Localized };
   approach: { label: Localized; title: Localized; intro: Localized };
   workshop: { label: Localized; title: Localized; intro: Localized; photos: { media: MediaId; caption: Localized }[] };
-  machinery: { label: Localized; title: Localized; intro: Localized; link: Localized; machine: Localized; type: Localized; power: Localized };
+  machinery: { label: Localized; title: Localized; intro: Localized; link: Localized; machine: Localized; type: Localized; power: Localized; notStated: Localized };
   projects: { label: Localized; title: Localized; intro: Localized; link: Localized; slugs: ProjectSlug[] };
   clients: { label: Localized; title: Localized; intro: Localized; link: Localized };
   compliance: { label: Localized; title: Localized; intro: Localized; link: Localized; note: Localized };

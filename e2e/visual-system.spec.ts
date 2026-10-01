@@ -46,8 +46,9 @@ function exposedDecoration(page: Page) {
 
 test("decorative layers are hidden from assistive technology", async ({ page }) => {
   test.setTimeout(120_000);
-  // Contact moved to the Modern Commerce design in TM-2.2 (its decoration: commerce-contact.spec.ts); /en/certificates replaces it.
-  for (const path of ["/en/services/laser-cutting", "/ar/industries", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/certificates"]) {
+  // Contact (TM-2.2), About, Industries, Clients and Certificates (TM-2.3) moved to the Modern Commerce design (their
+  // decoration: commerce-contact, commerce-company and commerce-certificates.spec.ts); the service pages stand in.
+  for (const path of ["/en/services/laser-cutting", "/ar/services/laser-cutting", "/en/services", "/ar/services", "/en/projects", "/ar/projects", "/en/services/fabrication", "/ar/services/scaffolding", "/en/services/cnc-bending", "/en/capabilities"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     expect(await exposedDecoration(page), path).toEqual([]);
   }
@@ -56,7 +57,8 @@ test("decorative layers are hidden from assistive technology", async ({ page }) 
 test.describe("ambient motion", () => {
   test("drifting grids and scan lines run only while on screen", async ({ page }) => {
     const errors = trackErrors(page);
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    // The projects overview stands in for About (Modern Commerce since Stage TM-2.3): its hero grid drifts in view.
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
 
     // The hero's grid is in view, so it drifts.
     const grid = page.locator("main .backdrop[data-drift]").first();
@@ -75,7 +77,7 @@ test.describe("ambient motion", () => {
   });
 
   test("ambient motion rests while the page is being scrolled", async ({ page }) => {
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
     const grid = page.locator("main .backdrop[data-drift]").first();
     await expect(grid).toHaveAttribute("data-live", "on");
     const during = await page.evaluate(
@@ -98,7 +100,8 @@ test.describe("ambient motion", () => {
   test("line work draws itself once revealed, without a resize", async ({ page }) => {
     // Regression: `[data-revealed] [pathLength]` selectors never restyled the SVG paths in Chromium.
     for (const [path, host] of [
-      ["/en/about", ".line-draw"],
+      // About's sketch retired with its move to the Modern Commerce design (TM-2.3, decision D8): another service drawing.
+      ["/en/services/scaffolding", ".line-draw"],
       ["/en/services/cnc-bending", ".line-draw"],
       ["/ar/services/laser-engraving", ".line-draw"],
     ]) {
@@ -159,8 +162,10 @@ test.describe("ambient motion on touch screens", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
   test("no pointer light on touch", async ({ page }) => {
-    await page.goto("/en/certificates", { waitUntil: "networkidle" });
-    const plate = page.locator('main a[aria-haspopup="dialog"]').first();
+    // The services plate stands in for the certificate plates (Modern Commerce since Stage TM-2.3).
+    await page.goto("/en/services", { waitUntil: "networkidle" });
+    const plate = page.locator(".plate-sheet");
+    await plate.scrollIntoViewIfNeeded();
     const box = (await plate.boundingBox())!;
     await page.touchscreen.tap(box.x + 10, box.y + 10);
     await page.waitForTimeout(300);

@@ -213,6 +213,8 @@ export const about: AboutContent = {
     machine: { en: "Machine", ar: "المعدّة" },
     type: { en: "Type", ar: "النوع" },
     power: { en: "Rated power", ar: "القدرة" },
+    // A machine whose rated power the profile does not state (moved unchanged from the previous design's table).
+    notStated: { en: "Not stated in the company profile", ar: "غير مذكورة في الملف التعريفي" },
   },
   projects: {
     label: { en: "Selected work", ar: "مختارات من أعمالنا" },

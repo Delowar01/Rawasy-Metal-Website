@@ -1,3 +1,10 @@
+/*
+ * The clients page before Stage TM-2.3 (the V2 website design), moved here from src/app/[locale]/clients/page.tsx when
+ * the page was migrated to the Modern Commerce design (src/app/(commerce)/[locale]/clients/page.tsx). It is not
+ * routed. It stays, with the components it uses, while the migrated page is under review, so the previous page can be
+ * restored by moving this file back (and removing the new route); the approved plan deletes it with the rest of the
+ * previous design in TM-2.6. Kept verbatim (it also keeps the utilities it uses in the previous design's stylesheet).
+ */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getMedia } from "@/content/media";

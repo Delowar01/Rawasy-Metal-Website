@@ -95,9 +95,10 @@ test.describe("the homepage", () => {
     await skipIntro(page.context());
     const prefetched: string[] = [];
     page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    // The services overview stands in for About, which moved to this design in Stage TM-2.3.
+    await page.goto("/en/services", { waitUntil: "networkidle" });
     await page.waitForTimeout(800);
-    expect(prefetched).toContain("/en/services");
+    expect(prefetched).toContain("/en/projects");
     expect(prefetched).not.toContain("/en");
     expect(await sheet(".a2-hero")).toBe(false);
     expect(await families()).not.toContain("Plus Jakarta Sans");
@@ -181,9 +182,10 @@ test.describe("navigation", () => {
   test("the pages in the previous design open from the header, without their intro, and lead back", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto("/en", { waitUntil: "networkidle" });
-    await page.locator('.a2-nav a[href="/en/about"]').click();
-    await page.waitForURL("**/en/about");
-    await expect(page.locator("main h1")).toContainText("engineered in Riyadh");
+    // Projects is still in the previous design (About moved to this one in Stage TM-2.3).
+    await page.locator('.a2-nav a[href="/en/projects"]').click();
+    await page.waitForURL("**/en/projects");
+    await expect(page.locator("main h1")).toContainText("Built in metal");
     // The homepage counts as the session's first page: the intro loader does not play again.
     await expect(page.locator("html")).toHaveClass(/no-loader/);
     await expect(page.locator("body.mc")).toHaveCount(0);
@@ -326,7 +328,7 @@ test.describe("light and dark", () => {
     await expect.poll(() => bodyColour(page)).toBe(PAGE_COLOURS.dark);
     await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute("content", "#131820");
     // A page in the previous design opens dark from its first paint ...
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
     expect(await firstTheme(page)).toBe("dark");
     // ... and a choice made there comes back to the homepage from its first paint too.
     await page.click('header button[aria-label*="light" i]');

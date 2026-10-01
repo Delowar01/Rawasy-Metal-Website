@@ -5,12 +5,13 @@ import { hiddenReveals, INNER_PAGES, skipIntro, trackErrors } from "./helpers";
  * Site shell (stages 1A–1B) on the pages still in the previous design: intro
  * loader, theme, language switching, mobile menu, page transitions, reduced
  * motion and no-JavaScript rendering; and internal links on every page. The
- * homepage moved to the Modern Commerce design in Stage TM-1 (commerce-home.spec.ts).
+ * homepage moved to the Modern Commerce design in Stage TM-1 (commerce-home.spec.ts);
+ * About moved in Stage TM-2.3, and the projects and services overviews stand in for it here.
  */
 
 test("intro loader shows once per session", async ({ page }) => {
   const errors = trackErrors(page);
-  await page.goto("/en/about", { waitUntil: "domcontentloaded" });
+  await page.goto("/en/projects", { waitUntil: "domcontentloaded" });
   const loaderShown = () =>
     page.evaluate(() => {
       const loader = document.querySelector(".loader");
@@ -28,7 +29,7 @@ test.describe("theme", () => {
 
   test("follows the OS, toggles, persists and applies before hydration", async ({ page, context }) => {
     await skipIntro(context);
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    await page.goto("/en/services", { waitUntil: "networkidle" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.click('header button[aria-label*="light" i]');
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -56,7 +57,7 @@ test.describe("mobile menu", () => {
   test("opens, traps focus, and Escape closes it and restores focus", async ({ page, context }) => {
     await skipIntro(context);
     const errors = trackErrors(page);
-    await page.goto("/ar/about", { waitUntil: "networkidle" });
+    await page.goto("/ar/services", { waitUntil: "networkidle" });
     const toggle = page.locator('header button[aria-controls="mobile-menu"]');
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -82,10 +83,10 @@ test("client navigation runs the page transition", async ({ page, context }) => 
   await skipIntro(context);
   const errors = trackErrors(page);
   await page.goto("/en/services", { waitUntil: "networkidle" });
-  await page.click('header nav a[href="/en/about"]');
-  await page.waitForURL("**/en/about");
+  await page.click('header nav a[href="/en/projects"]');
+  await page.waitForURL("**/en/projects");
   await expect(page.locator(".page-wipe")).toHaveAttribute("data-state", "run", { timeout: 1_000 });
-  await expect(page.locator("main h1")).toContainText("engineered in Riyadh");
+  await expect(page.locator("main h1")).toContainText("Built in metal");
   await page.goBack();
   await page.waitForURL(/\/en\/services$/);
   expect(errors).toEqual([]);
@@ -95,7 +96,7 @@ test.describe("reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
   test("skips the loader and the custom cursor, and hides nothing", async ({ page }) => {
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    await page.goto("/en/services", { waitUntil: "networkidle" });
     await expect(page.locator("html")).toHaveClass(/no-loader/);
     expect(await page.locator(".cursor-ring").count()).toBe(0);
     await expect.poll(() => hiddenReveals(page), { timeout: 3_000 }).toBe(0);
@@ -106,8 +107,8 @@ test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
   test("the pages are fully rendered by the server", async ({ page }) => {
-    await page.goto("/en/about", { waitUntil: "load" });
-    await expect(page.locator("h1")).toContainText("engineered in Riyadh");
+    await page.goto("/en/services", { waitUntil: "load" });
+    await expect(page.locator("h1")).toContainText("Six services");
     const hidden = await page.evaluate(
       () => [...document.querySelectorAll("[data-reveal]")].filter((el) => getComputedStyle(el).opacity === "0").length,
     );

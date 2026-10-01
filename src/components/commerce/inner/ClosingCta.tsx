@@ -8,8 +8,8 @@ export interface CtaLink {
 
 /**
  * The closing call to action of an inner page: a short prompt and a few ways forward on a dark panel, numbered unless
- * `numbered={false}` (the clients page shows no numbering). The pages migrated so far (the legal pages) have none; the
- * first pages to use it arrive in later TM-2 batches.
+ * `numbered={false}` (the clients page shows no numbering). The legal pages have none; About, Industries, Clients and
+ * Certificates are the first pages to use it (Stage TM-2.3).
  */
 export function ClosingCta({
   label,

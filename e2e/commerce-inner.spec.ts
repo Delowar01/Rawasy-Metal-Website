@@ -207,8 +207,8 @@ test.describe("legal pages", () => {
   test("the pages in the previous design never prefetch the legal pages and load none of the new design's faces", async ({ page }) => {
     const prefetched: string[] = [];
     page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    // Contact moved to the new design in TM-2.2: /ar/industries stands in as the Arabic page of the previous design.
-    for (const path of ["/en/about", "/ar/industries"]) {
+    // Contact (TM-2.2), About and Industries (TM-2.3) moved to the new design: the services and projects overviews stand in.
+    for (const path of ["/en/services", "/ar/projects"]) {
       await page.goto(path, { waitUntil: "networkidle" });
       await page.locator("footer").scrollIntoViewIfNeeded();
       await page.waitForTimeout(800);

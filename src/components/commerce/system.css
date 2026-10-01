@@ -3891,6 +3891,1473 @@
   html[data-cursor-away] .mc .a2-cursor[data-shown] {
     opacity: 0;
   }
+
+  /* ---------- About, Industries, Clients and Certificates (Stage TM-2.3) ----------
+     The kit's figure (a photo never shown wider than its source) and data table (the certificate register, the machine
+     table), and the four pages' own parts: About (ab-*), Industries (in-*), Clients (cl-*) and Certificates (ct-*,
+     with the document dialog). Text sits on cards, sheets or a reading zone. Nothing here filters, crops or enlarges a
+     certificate preview. Additions only: no other page uses these classes. */
+
+  /* Plex Arabic stays at 400/500: the batch's semibold text takes the Tajawal display face in Arabic. */
+  .mc :is(.ip-table caption, .ip-index, .ab-name-label, .ab-kicker, .ab-go, .ab-stat dt, .ab-aims-label, .ab-aim-n, .ab-svc-n, .ab-proj-ref, .ab-doc-issuer, .in-legend, .in-basis, .in-service, .in-strip-caption, .in-index, .ct-issuer, .ct-facts dd, .ct-dialog-issuer, .ct-preview-label):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* A part's or an item's number, kept from the previous design (01, 02 …): figures in the tone's ink. */
+  .mc .ip-index {
+    color: var(--tone-ink, var(--brand-ink));
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* On a dark panel the number takes the panel's second text colour, as the closing panel's numbers do (orange is
+     under 4.5:1 there). */
+  .mc .eyebrow-dark .ip-index {
+    color: var(--on-dark-2);
+  }
+
+  /* A jump further down the page: the arrow turns down (it already points the reading way in Arabic). */
+  .mc .ip-down {
+    display: inline-flex;
+    rotate: calc(90deg * var(--dir, 1));
+  }
+
+  /* Figure: the photo at its own proportions, at most at its source width (the figure's max-width), and its caption. */
+  .mc .ip-figure {
+    margin: 0;
+  }
+
+  .mc .ip-figure-photo {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--surface-3);
+    box-shadow: var(--sh-image);
+  }
+
+  .mc .ip-figure-caption {
+    margin-top: 0.75rem;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  /* Data table: a header row in the card's tone, ruled rows, figures in tabular digits. */
+  .mc .ip-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    text-align: start;
+  }
+
+  .mc .ip-table caption {
+    padding: 0 0 0.85rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: start;
+  }
+
+  .mc .ip-table thead th {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--tone-line, var(--line-strong));
+    background: var(--tone-soft, var(--surface-2));
+    color: var(--tone-ink, var(--ink-2));
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: start;
+    white-space: nowrap;
+  }
+
+  .mc .ip-table tbody :is(th, td) {
+    padding: 0.95rem 1rem;
+    border-bottom: 1px solid var(--line-subtle);
+    text-align: start;
+    vertical-align: middle;
+  }
+
+  .mc .ip-table tbody tr:last-child :is(th, td) {
+    border-bottom: 0;
+  }
+
+  .mc .ip-table tbody th {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .mc .ip-table tbody td {
+    color: var(--ink-2);
+  }
+
+  .mc .ip-table tbody tr {
+    transition: background-color var(--dur-1) ease;
+  }
+
+  .mc .ip-table tbody tr:hover {
+    background: var(--surface-2);
+  }
+
+  .mc .ip-table .ip-table-n {
+    width: 3.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .ip-table .ip-table-end {
+    text-align: end;
+  }
+
+  /* ----- About ----- */
+  .mc .ab-name {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.9rem 1.15rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--surface);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .ab-name-label {
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc :is(.ab-name-en, .ab-name-ar) {
+    color: var(--ink);
+    font-family: var(--ff-display);
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .mc .ab-name-ar {
+    font-size: 1.05rem;
+  }
+
+  .mc .ab-hero-aside {
+    display: grid;
+    gap: 1rem;
+    margin-inline: auto;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ab-hero-aside {
+      margin-inline: auto 0;
+    }
+  }
+
+  .mc .ab-prose {
+    display: grid;
+    gap: 1.1rem;
+    color: var(--ink-2);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+
+  .mc .ab-prose p {
+    margin: 0;
+  }
+
+  .mc .ab-lead {
+    padding-inline-start: 1.25rem;
+    border-inline-start: 2px solid var(--brand);
+    color: var(--ink);
+    font-size: clamp(1.125rem, 1.04rem + 0.35vw, 1.3125rem);
+    line-height: 1.65;
+  }
+
+  .mc .ab-kicker {
+    margin-bottom: 0;
+    color: var(--tone-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .ab-division {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    padding: clamp(1.25rem, 0.8rem + 1.6vw, 2.25rem);
+  }
+
+  .mc .ab-services {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.875rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ab-services {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ab-services {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+
+    .mc .ab-services > li {
+      grid-column: span 2;
+    }
+
+    .mc .ab-services > .ab-svc-wide {
+      grid-column: span 3;
+    }
+  }
+
+  .mc :is(.ab-svc, .ab-step) {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    padding: clamp(1.1rem, 0.8rem + 1vw, 1.6rem);
+  }
+
+  .mc .ab-svc-n {
+    padding-top: 0.25rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .ab-go {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--tone-ink, var(--brand-ink));
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .mc .ab-support {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Vision: a dark panel in both themes (the statement as a blockquote, the aims as an ordered list). */
+  .mc .ab-vision {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(1.5rem, 0.6rem + 3.6vw, 4.5rem);
+    border-radius: calc(var(--r-panel) + 4px);
+    background: var(--navy);
+    box-shadow: var(--sh-raised);
+    color: var(--on-dark);
+  }
+
+  .mc .ab-vision::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(60% 80% at 100% 0%, var(--band-glow), transparent 70%),
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px;
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .mc .ab-vision::before {
+    scale: -1 1;
+  }
+
+  .mc .ab-quote {
+    margin: clamp(1.5rem, 1.1rem + 1.4vw, 2.5rem) 0 0;
+    padding-inline-start: clamp(1rem, 0.6rem + 1.4vw, 2rem);
+    border-inline-start: 3px solid var(--brand);
+  }
+
+  .mc .ab-quote p {
+    max-width: 24em;
+    margin: 0;
+    color: #ffffff;
+    font-family: var(--ff-display);
+    font-size: clamp(1.5rem, 1.1rem + 1.5vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .mc .ab-quote p:lang(ar) {
+    line-height: 1.6;
+  }
+
+  .mc .ab-aims-label {
+    margin: clamp(2rem, 1.4rem + 2vw, 3.5rem) 0 0;
+    color: var(--on-dark-2);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mc .ab-aims {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ab-aims {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ab-aims {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .mc .ab-aims li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.15rem 1.25rem;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: 14px;
+    background: rgb(255 255 255 / 0.05);
+    color: var(--on-dark);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .mc .ab-aim-n {
+    color: var(--on-dark-2);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .ab-closing {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: clamp(1.75rem, 1.3rem + 1.4vw, 2.75rem) 0 0;
+    color: var(--on-dark-2);
+    font-family: var(--ff-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .mc .ab-closing-rule {
+    flex: none;
+    width: 2.5rem;
+    height: 1px;
+    background: var(--brand);
+  }
+
+  /* Engineering approach: the sourced figures, then the capability statements */
+  .mc .ab-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: clamp(1rem, 0.7rem + 1vw, 1.5rem);
+  }
+
+  .mc .ab-stat dt {
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .mc .ab-stat dd {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.3rem;
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(2rem, 1.6rem + 1.6vw, 3rem);
+    line-height: 1;
+  }
+
+  /* Below 23 rem the two cards across are too narrow for "12,000 W" at the usual size. */
+  @media (max-width: 23rem) {
+    .mc .ab-stat dd {
+      font-size: 1.6rem;
+    }
+  }
+
+  .mc .ab-unit {
+    padding-top: 0.2em;
+    color: var(--tone-ink);
+    font-size: 0.42em;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .mc .ab-statements {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .ab-statements li {
+    display: flex;
+    gap: 1rem;
+    padding: clamp(1rem, 0.7rem + 1vw, 1.5rem);
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .ab-statements li:last-child {
+    border-bottom: 0;
+  }
+
+  /* The workshop: each print at most at its source size, in a centred wrap */
+  .mc .ab-prints {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2rem 1.5rem;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .ab-prints > li {
+    max-width: 100%;
+  }
+
+  /* The machine table */
+  .mc .ab-table,
+  .mc .ct-register {
+    overflow: hidden;
+  }
+
+  .mc .ab-machine {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .mc .ab-machine-img {
+    position: relative;
+    display: none;
+    flex: none;
+    width: 4rem;
+    height: 2.75rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--stage-light);
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ab-machine-img {
+      display: block;
+    }
+  }
+
+  .mc .ab-machine-name {
+    font-family: var(--ff-display);
+    font-size: 0.98rem;
+    font-weight: 700;
+  }
+
+  .mc .ab-power {
+    color: var(--ink);
+    font-size: 1.2rem;
+    white-space: nowrap;
+  }
+
+  /* Selected work: the photo at most at its own size, centred on the card's stage */
+  .mc .ab-proj {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* One track the size of the stage, so a tall photo's own height never sizes it; a photo taller than the stage is
+     cropped from its top, at its own scale. */
+  .mc .ab-proj-stage {
+    position: relative;
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    background: var(--stage-light);
+  }
+
+  .mc .ab-proj-img {
+    object-fit: cover;
+    object-position: 50% 0;
+  }
+
+  .mc .ab-proj-flag {
+    position: absolute;
+    inset-block-start: 0.75rem;
+    inset-inline-start: 0.75rem;
+  }
+
+  .mc :is(.ab-proj-body, .ab-doc-body) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 1rem 1.15rem 1.15rem;
+  }
+
+  .mc .ab-proj-ref {
+    align-self: flex-start;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Six client logos */
+  .mc .ab-logos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.625rem;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ab-logos {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ab-logos {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  /* Compliance: the three documents with their redacted, blurred thumbnails (no larger than the previous design showed
+     them: a sheet at most 62 % of the card wide and 147 px tall) */
+  .mc .ab-comp {
+    padding: clamp(1.25rem, 0.7rem + 2.2vw, 3rem);
+  }
+
+  .mc .ab-doc {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* The plate clips the sheet's shadow, which would otherwise fall across the issuer line below. */
+  .mc .ab-doc-plate {
+    display: flex;
+    height: 11rem;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    padding: 1.75rem 1.5rem 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--stage-light);
+  }
+
+  .mc .ab-doc-sheet {
+    position: relative;
+    width: 62%;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    background: #ffffff;
+    box-shadow: var(--sh-image);
+  }
+
+  .mc .ab-doc-issuer {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--tone-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .ab-comp-note {
+    margin: 1.25rem 0 0;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+  }
+
+  /* ----- Industries ----- */
+  /* The hero strip: 4:3 tiles never wider than the smallest photo allows (no photo is enlarged). */
+  .mc .in-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 17.5rem));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .in-strip > li:nth-child(5) {
+    display: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .in-strip {
+      grid-template-columns: repeat(3, minmax(0, 18.75rem));
+      gap: 1rem;
+    }
+
+    .mc .in-strip > li:nth-child(4) {
+      display: none;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .in-strip {
+      grid-template-columns: repeat(5, minmax(0, 253px));
+    }
+
+    .mc .in-strip > li:is(:nth-child(4), :nth-child(5)) {
+      display: block;
+    }
+  }
+
+  .mc .in-strip figure {
+    margin: 0;
+  }
+
+  .mc .in-strip-photo {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--surface-3);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .in-strip-caption {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    margin-top: 0.6rem;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+
+  .mc .in-card {
+    padding: clamp(1rem, 0.5rem + 1.8vw, 2.5rem);
+  }
+
+  .mc .in-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mc .in-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc :is(.in-legend li, .in-basis) {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .mc :is(.in-legend li, .in-basis)[data-basis="profile"] .mc-icon {
+    color: var(--teal);
+  }
+
+  .mc :is(.in-legend li, .in-basis)[data-basis="inferred"] .mc-icon {
+    color: var(--brass);
+  }
+
+  .mc .in-layout {
+    display: grid;
+    gap: 2rem;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .in-layout {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      align-items: start;
+      gap: 3rem;
+    }
+  }
+
+  .mc .in-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A row: the photo beside the name on phones and tablets (the text below runs the full width), the icon on large
+     screens (where the preview shows the photo). */
+  .mc .in-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    grid-template-areas:
+      "thumb name"
+      "body body";
+    align-items: center;
+    gap: 0.85rem 1rem;
+    padding: 1.5rem 0.25rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .in-chip {
+    display: none;
+    grid-area: chip;
+  }
+
+  .mc .in-name {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    grid-area: name;
+  }
+
+  .mc .in-index {
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .in-body {
+    grid-area: body;
+    align-self: start;
+  }
+
+  .mc .in-row:last-child {
+    border-bottom: 0;
+  }
+
+  .mc .in-basis {
+    margin-top: 0.75rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .in-services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+
+  .mc .in-service {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition:
+      border-color var(--dur-1) ease,
+      background-color var(--dur-1) ease,
+      color var(--dur-1) ease;
+  }
+
+  .mc .in-service:hover {
+    border-color: var(--tone-line);
+    background: var(--tone-soft);
+    color: var(--tone-ink);
+  }
+
+  /* Phones and tablets: a small photo beside each name */
+  .mc .in-thumb {
+    position: relative;
+    grid-area: thumb;
+    width: 4rem;
+    height: 4rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-3);
+  }
+
+  /* Large screens: the pinned preview follows the sector under the mouse or holding focus. */
+  .mc .in-preview {
+    display: none;
+    margin: 0;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .in-row {
+      grid-template-columns: 2.75rem minmax(0, 1fr);
+      grid-template-areas:
+        "chip name"
+        ". body";
+      row-gap: 0.4rem;
+    }
+
+    .mc .in-chip {
+      display: inline-grid;
+    }
+
+    .mc .in-thumb {
+      display: none;
+    }
+
+    .mc .in-preview {
+      position: sticky;
+      top: calc(var(--hh) + 1.5rem);
+      display: block;
+    }
+
+    .mc .in-row::before {
+      content: "";
+      position: absolute;
+      inset-block-end: -1px;
+      inset-inline-start: 0;
+      width: 0;
+      height: 2px;
+      background: var(--brand);
+      transition: width var(--dur-3) var(--ease);
+    }
+
+    .mc .in-row[data-active]::before {
+      width: 100%;
+    }
+
+    .mc .in-row[data-active] > .in-chip {
+      border-color: var(--tone);
+      background: var(--tone);
+      color: var(--on-tone);
+    }
+  }
+
+  .mc .in-preview-stage {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--stage-light);
+    box-shadow: var(--sh-inset);
+  }
+
+  .mc .in-preview-layer {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center;
+    opacity: 0;
+    transition: opacity var(--dur-3) ease;
+  }
+
+  .mc .in-preview-layer[data-active] {
+    opacity: 1;
+  }
+
+  /* At most at its source size: it fills the stage only when it is larger than the stage (a taller photo is cropped from
+     its top, as on About's project cards). */
+  .mc .in-preview-img {
+    object-fit: cover;
+    object-position: 50% 0;
+  }
+
+  .mc .in-preview-caption {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+    font-family: var(--ff-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .mc .in-note {
+    display: grid;
+    gap: 1.25rem 3rem;
+    margin-top: clamp(1rem, 0.6rem + 1.4vw, 1.75rem);
+    padding: clamp(1.25rem, 0.7rem + 2vw, 2.75rem);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .in-note {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+    }
+  }
+
+  .mc .in-note-text {
+    display: grid;
+    gap: 1rem;
+    color: var(--ink-2);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .mc .in-note-text p {
+    margin: 0;
+  }
+
+  /* ----- Clients: the wall (double tiles planned so every row is full) ----- */
+  .mc .cl-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+  }
+
+  .mc .cl-wall {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.625rem;
+    margin: 1.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .cl-wall > li {
+    grid-column: span var(--span-sm);
+  }
+
+  @media (min-width: 48rem) {
+    .mc .cl-wall {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .mc .cl-wall > li {
+      grid-column: span var(--span-md);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .cl-wall {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.875rem;
+    }
+
+    .mc .cl-wall > li {
+      grid-column: span var(--span-lg);
+    }
+  }
+
+  /* A tile: the logo, then the client's name (dark ink: the tile stays light in the dark theme too). */
+  .mc .cl-tile {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: clamp(0.65rem, 0.45rem + 0.6vw, 0.9rem) clamp(0.5rem, 0.3rem + 0.8vw, 0.9rem);
+  }
+
+  /* One track the size of the box: with an automatic row, a logo's own height would size the row and the logo would
+     show at its natural size, over the tile's edge. */
+  .mc .cl-logo {
+    display: grid;
+    width: 100%;
+    height: clamp(2.6rem, 2.1rem + 1.4vw, 3.6rem);
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center;
+  }
+
+  .mc .cl-tile img {
+    max-height: 100%;
+  }
+
+  .mc .cl-name {
+    display: -webkit-box;
+    max-width: 100%;
+    overflow: hidden;
+    color: #454a50;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    text-align: center;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .mc .cl-note {
+    max-width: 48em;
+    margin: 1.5rem 0 0;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  /* ----- Certificates ----- */
+  .mc .ct-row-link {
+    color: var(--ink);
+    font-family: var(--ff-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.3em;
+    transition: text-decoration-color var(--dur-1) ease;
+  }
+
+  .mc .ct-row-link:hover {
+    text-decoration-color: var(--brand);
+  }
+
+  .mc .ct-row-issuer {
+    display: block;
+    margin-top: 0.3rem;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+
+  .mc .ct-register .ip-table caption {
+    padding: 1rem 1rem 0.85rem;
+  }
+
+  /* One card per document: the preview on a plate, the issuer, the title, the facts and the viewer link */
+  .mc .ct-docs {
+    display: grid;
+    gap: clamp(1rem, 0.6rem + 1.4vw, 1.75rem);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .ct-doc {
+    display: grid;
+    gap: 1.75rem;
+    padding: clamp(1rem, 0.5rem + 1.8vw, 2.5rem);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ct-doc {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      align-items: center;
+      gap: 3rem;
+    }
+  }
+
+  /* The figure is never wider than the previous design's (so no preview is shown larger than before): that card's
+     figure width, worked out from its grid — the 1,520 px container less its gutters, the card's padding and, on large
+     screens, five of twelve columns — with 1.25 rem to spare for a scrollbar. */
+  .mc .ct-doc-figure {
+    --ct-c: calc(min(1520px, 100vw - 1.25rem) - 2 * clamp(1.25rem, 0.55rem + 3.1vw, 3.5rem));
+    width: 100%;
+    max-width: calc(var(--ct-c) - 3rem);
+    margin: 0 auto;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ct-doc-figure {
+      max-width: calc(var(--ct-c) - 4rem);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .ct-doc-figure {
+      max-width: calc((var(--ct-c) - 6rem) * 5 / 12 - 1.75rem);
+    }
+  }
+
+  /* The preview lies on a plate at the previous design's sizes; nothing filters, crops or enlarges it. */
+  .mc .ct-plate {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--stage-light);
+    box-shadow: var(--sh-inset);
+  }
+
+  /* The previous design's proportions: a landscape preview 78 % of the plate's width, a portrait one 82 % of its height
+     (its width is set from its own proportions, so the size never depends on the layout's height). */
+  .mc .ct-plate-img {
+    width: 78%;
+    height: auto;
+    box-shadow: var(--sh-image);
+    transition: translate var(--dur-3) var(--ease);
+  }
+
+  .mc .ct-plate:hover .ct-plate-img {
+    translate: 0 -6px;
+  }
+
+  .mc .ct-plate-open {
+    position: absolute;
+    inset-block-end: 0.85rem;
+    inset-inline-end: 0.85rem;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: var(--sh-card);
+    color: var(--surface);
+    transition:
+      background-color var(--dur-1) ease,
+      color var(--dur-1) ease;
+  }
+
+  .mc .ct-plate:hover .ct-plate-open {
+    background: var(--brand);
+    color: var(--on-brand);
+  }
+
+  .mc .ct-caption {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.85rem;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* A redaction block in miniature (decoration): hatched, like the blocks over the numbers in the previews. */
+  .mc .ct-swatch {
+    display: inline-block;
+    flex: none;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    background:
+      repeating-linear-gradient(135deg, var(--line-ink) 0 1px, transparent 1px 4px),
+      var(--surface-3);
+  }
+
+  .mc .ct-swatch-lg {
+    display: block;
+    width: 11rem;
+    height: 1.75rem;
+    border-radius: var(--r-xs);
+  }
+
+  .mc .ct-issuer {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    color: var(--tone-ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mc .ct-title {
+    margin-top: 1rem;
+  }
+
+  .mc .ct-facts {
+    display: grid;
+    margin: 1.5rem 0 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .mc .ct-facts > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: 1.5rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .ct-facts dt {
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+  }
+
+  .mc .ct-facts dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .mc .ct-view {
+    margin-top: 1.75rem;
+  }
+
+  /* How the previews were redacted */
+  .mc .ct-points {
+    margin: 0;
+    padding: 0.5rem clamp(1rem, 0.6rem + 1.4vw, 2rem);
+    list-style: none;
+  }
+
+  .mc .ct-points li {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .ct-points li:last-child {
+    border-bottom: 0;
+  }
+
+  .mc .ct-points p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  /* The document viewer: a native modal dialog at the previous design's size (the previews no larger than before) */
+  .mc .ct-dialog {
+    width: min(68rem, 94vw);
+    max-height: 92dvh;
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    box-shadow: var(--sh-float);
+    color: var(--ink);
+  }
+
+  .mc .ct-dialog::backdrop {
+    background: rgb(var(--scrim-rgb) / 0.72);
+  }
+
+  .mc .ct-dialog-inner {
+    display: flex;
+    max-height: 92dvh;
+    flex-direction: column;
+  }
+
+  .mc .ct-dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, var(--sheen), transparent),
+      var(--brass-soft);
+  }
+
+  .mc .ct-dialog-issuer {
+    margin: 0;
+    color: var(--brass);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .ct-close {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-btn);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-1) ease,
+      background-color var(--dur-1) ease;
+  }
+
+  .mc .ct-close:hover {
+    border-color: var(--ink);
+    background: var(--surface-2);
+  }
+
+  .mc .ct-dialog-body {
+    display: grid;
+    gap: 2.5rem;
+    overflow-y: auto;
+    padding: 1.5rem;
+    background: var(--surface-2);
+  }
+
+  @media (min-width: 40rem) {
+    .mc .ct-dialog-body {
+      padding: 2.5rem;
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .mc .ct-dialog-body {
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    }
+  }
+
+  .mc .ct-preview {
+    width: 100%;
+    max-width: 42rem;
+    margin: 0 auto;
+  }
+
+  .mc .ct-preview-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    box-shadow: var(--sh-image);
+  }
+
+  .mc .ct-preview-label {
+    margin-top: 0.85rem;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mc .ct-dialog-note {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-2);
+    font-size: 0.875rem;
+  }
+
+  /* Opening and closing: a short fade and rise (the closing one holds the dialog in the top layer while it fades). */
+  @media (prefers-reduced-motion: no-preference) {
+    .mc .ct-dialog {
+      opacity: 0;
+      translate: 0 12px;
+      transition:
+        opacity var(--dur-2) ease,
+        translate var(--dur-2) var(--ease),
+        overlay var(--dur-2) allow-discrete,
+        display var(--dur-2) allow-discrete;
+    }
+
+    .mc .ct-dialog[open] {
+      opacity: 1;
+      translate: none;
+    }
+
+    @starting-style {
+      .mc .ct-dialog[open] {
+        opacity: 0;
+        translate: 0 12px;
+      }
+    }
+
+    .mc .ct-dialog::backdrop {
+      opacity: 0;
+      transition:
+        opacity var(--dur-2) ease,
+        overlay var(--dur-2) allow-discrete,
+        display var(--dur-2) allow-discrete;
+    }
+
+    .mc .ct-dialog[open]::backdrop {
+      opacity: 1;
+    }
+
+    @starting-style {
+      .mc .ct-dialog[open]::backdrop {
+        opacity: 0;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc :is(.ip-table tbody tr, .in-row::before, .in-preview-layer, .in-service, .ct-plate-img, .ct-plate-open, .ct-row-link, .ct-close) {
+      transition: none;
+    }
+
+    .mc .ct-plate:hover .ct-plate-img {
+      translate: none;
+    }
+  }
+
+  /* Forced colours replace fills with the page colour. The colour switch on the Clients page draws its track, dot and
+     pressed fill in system colours (the homepage's switch is the same component, left unchanged: the homepage is
+     frozen); the redaction swatch keeps its hatch, so it reads as the covered blocks in the previews rather than an
+     empty box; the active sector's line takes the highlight colour instead of covering the row's rule. */
+  @media (forced-colors: active) {
+    .mc .cl-toggle .knob {
+      border: 1px solid ButtonText;
+      background: Canvas;
+      forced-color-adjust: none;
+    }
+
+    .mc .cl-toggle .knob::after {
+      top: calc(0.175rem - 1px);
+      inset-inline-start: calc(0.175rem - 1px);
+      background: ButtonText;
+      forced-color-adjust: none;
+    }
+
+    .mc .cl-toggle[aria-pressed="true"] .knob {
+      border-color: Highlight;
+      background: Highlight;
+    }
+
+    .mc .cl-toggle[aria-pressed="true"] .knob::after {
+      background: HighlightText;
+    }
+
+    .mc .ct-swatch {
+      forced-color-adjust: none;
+    }
+
+    .mc .in-row::before {
+      background: Highlight;
+      forced-color-adjust: none;
+    }
+  }
+
+  /* A modal dialog opens in the top layer, above the custom pointer: while one is open (useDialogPointer.ts marks the
+     page) the pointer hides, and the system cursor comes back inside the dialog (the rules after this layer). */
+  html[data-cursor-modal] .mc .a2-cursor[data-shown] {
+    opacity: 0;
+  }
 }
 
 /* The page behind A V2 follows its theme (overscroll, scrollbars, form controls). */
@@ -4131,4 +5598,16 @@ html:not(.js) .mc [data-js-only] {
   .mc .a2-sheet-row .mc-icon {
     transition: none;
   }
+}
+
+/* Inside an open modal dialog (the certificate viewer) the system cursor comes back: the custom pointer is hidden while
+   it is open (useDialogPointer.ts). Outside the layer, so the page's cursor: none above never reaches the dialog; inside
+   it every element takes the cursor it would have without that rule (the hand on its buttons and links). */
+html[data-cursor-on] .mc dialog[open],
+html[data-cursor-on] .mc dialog[open]::backdrop {
+  cursor: auto;
+}
+
+html[data-cursor-on] .mc dialog[open] * {
+  cursor: revert-layer;
 }

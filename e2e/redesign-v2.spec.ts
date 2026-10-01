@@ -2,9 +2,9 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { horizontalOverflow, skipIntro, trackErrors } from "./helpers";
 
 /**
- * Visual redesign V2: the Projects overview (filters, image-led grid), the
- * unnumbered clients wall, the new type system (the contact map moved to commerce-contact.spec.ts), colour-role
- * contrast, responsive layouts, reduced motion and keyboard use.
+ * Visual redesign V2: the Projects overview (filters, image-led grid), the new type system and colour-role contrast (on
+ * the pages still in that design), responsive layouts, reduced motion and keyboard use. The contact map moved to
+ * commerce-contact.spec.ts, the clients wall and About to commerce-company.spec.ts.
  */
 
 test.beforeEach(async ({ context }) => {
@@ -177,42 +177,8 @@ test.describe("projects overview", () => {
   });
 });
 
-test.describe("clients", () => {
-  test("no numbering, grid references or counts anywhere on the page", async ({ page }) => {
-    for (const locale of ["en", "ar"] as const) {
-      await page.goto(`/${locale}/clients`, { waitUntil: "networkidle" });
-      const text = await page.locator("main").innerText();
-      expect(text, locale).not.toMatch(/\b0\d\b/);
-      expect(text, locale).not.toMatch(/\b21\b/);
-      expect(text, locale).not.toContain("RW—C");
-      // No A–G column letters or 1–3 row numbers standing on their own.
-      const loneMarks = await page.locator("main").evaluate((main) =>
-        [...main.querySelectorAll("span, p, li")].filter((el) => el.children.length === 0 && /^\s*([A-G]|[1-7])\s*$/.test(el.textContent ?? "")).length,
-      );
-      expect(loneMarks, locale).toBe(0);
-    }
-  });
-
-  test("the colour switch reveals every logo's own colours, from the keyboard too", async ({ page }) => {
-    await page.goto("/en/clients", { waitUntil: "networkidle" });
-    const toggle = page.getByRole("switch", { name: "Original colours" });
-    await expect(toggle).not.toBeChecked();
-    const colour = page.locator(".logo-cell .client-color").first();
-    expect(await colour.evaluate((el) => getComputedStyle(el).opacity)).toBe("0");
-    await toggle.focus();
-    await page.keyboard.press("Space");
-    await expect(toggle).toBeChecked();
-    await expect.poll(() => colour.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-    expect(await colour.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("/media/clients/");
-  });
-
-  test("hovering a cell reveals its colours", async ({ page }) => {
-    await page.goto("/en/clients", { waitUntil: "networkidle" });
-    const cell = page.locator(".logo-cell").nth(3);
-    await cell.hover();
-    await expect.poll(() => cell.locator(".client-color").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-  });
-});
+// The clients wall moved to the Modern Commerce design with the clients page in Stage TM-2.3: its tests (no numbering or
+// counts, the colour switch from the keyboard, colour on hover) are in commerce-company.spec.ts.
 
 // The contact map moved to the Modern Commerce design with the contact page in Stage TM-2.2: its tests (the unchanged
 // embed and links, the layout, the pointer over the frame) are in commerce-contact.spec.ts.
@@ -223,7 +189,8 @@ test.describe("typography", () => {
     page.on("request", (r) => {
       if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) external.push(r.url());
     });
-    await page.goto("/en/about", { waitUntil: "networkidle" });
+    // The services overview stands in for About, which moved to the Modern Commerce design in Stage TM-2.3.
+    await page.goto("/en/services", { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
     expect(await page.locator("h1").evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^Sora\b/);
     expect(await page.locator("main p.t-lead").first().evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^Manrope\b/);
@@ -234,7 +201,7 @@ test.describe("typography", () => {
   });
 
   test("Arabic: Noto Kufi Arabic for headings, IBM Plex Sans Arabic for text, no letter-spacing", async ({ page }) => {
-    await page.goto("/ar/about", { waitUntil: "networkidle" });
+    await page.goto("/ar/services", { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
     const h1 = page.locator("h1");
     expect(await h1.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Noto Kufi Arabic/);
@@ -271,7 +238,7 @@ test.describe("colour roles", () => {
   for (const theme of ["light", "dark"] as const) {
     test(`${theme}: role inks, captions and buttons reach 4.5:1`, async ({ page, context }) => {
       await context.addInitScript((t) => localStorage.setItem("rawasy-theme", t), theme);
-      await page.goto("/en/about", { waitUntil: "networkidle" });
+      await page.goto("/en/services", { waitUntil: "networkidle" });
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       const failures = await page.evaluate((pairs) => {
         const probe = document.createElement("span");
@@ -302,19 +269,5 @@ test.describe("colour roles", () => {
   }
 });
 
-test.describe("about page", () => {
-  test("a full company profile: fifteen parts, no invented figures", async ({ page }) => {
-    await page.goto("/en/about", { waitUntil: "networkidle" });
-    // Hero + thirteen numbered sections + the closing CTA.
-    for (const id of ["overview", "what", "metal", "beyond", "vision", "approach", "process", "why", "workshop", "machinery", "work", "clients", "compliance"]) {
-      await expect(page.locator(`section#${id}`), id).toHaveCount(1);
-    }
-    await expect(page.locator("#page-cta-title")).toHaveCount(1);
-    const text = await page.locator("main").innerText();
-    expect(text).not.toMatch(/founded|established in|employees|\d+\+?\s*(projects|years)/i);
-    // Links onward to capabilities, projects, clients and certificates.
-    for (const route of ["capabilities", "projects", "clients", "certificates"]) {
-      expect(await page.locator(`main a[href="/en/${route}"]`).count(), route).toBeGreaterThan(0);
-    }
-  });
-});
+// About moved to the Modern Commerce design in Stage TM-2.3: its fifteen parts, onward links and the check for invented
+// figures are in commerce-company.spec.ts.
