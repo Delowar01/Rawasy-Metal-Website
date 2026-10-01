@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-01-tm2-2-contact.md` (earlier: `2026-10-01-tm2-1-correction-1.md`,
+- Latest report: `docs/reports/2026-10-01-tm2-3-about-industries-clients-certificates.md` (earlier:
+  `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
   `2026-09-29-tm2-migration-plan.md`,
@@ -77,10 +78,16 @@
   with two corrections, applied in correction 1 (report `2026-10-01-tm2-1-correction-1.md`: the 404's phone-menu
   language switch, and the TM-2.1 report's status matrix). **TM-2.1 is approved** (the user's "TM-2.1 APPROVED — BEGIN
   TM-2.2"). Keep TM-2.1's documented limitations as they are unless the user asks (no-JS 404 body, header blur, 44 rem
-  legal measure, the 320 px 404 label wrap, the A V2 chunk count). **TM-2.2 (Contact) is built** (report
-  `2026-10-01-tm2-2-contact.md`; rollback checkpoint: GitHub branch `preserve/pre-tm2.2` at `e5a3834`, the last commit
-  before TM-2.2) and awaits the user's independent review. Never self-approve. **Do not begin TM-2.3 (About,
-  Industries, Clients, Certificates) or any later batch until the user explicitly approves TM-2.2.**
+  legal measure, the 320 px 404 label wrap, the A V2 chunk count). **TM-2.2 (Contact) is approved** (the user's
+  "TM-2.2 APPROVED — BEGIN TM-2.3"; report `2026-10-01-tm2-2-contact.md`; rollback checkpoint `preserve/pre-tm2.2` at
+  `e5a3834`). **TM-2.3 (About, Industries, Clients, Certificates) is built** (report
+  `2026-10-01-tm2-3-about-industries-clients-certificates.md`; implementation commit `86a5f19`; rollback checkpoint:
+  GitHub branch `preserve/pre-tm2.3` at `2026047`, the last commit before TM-2.3) and awaits the user's independent
+  review. Never self-approve. **Do not
+  begin TM-2.4 (services overview + six service pages) or any later batch, Stage 1E or 1F, until the user explicitly
+  approves TM-2.3.** TM-2.3 leaves two shared, frozen parts as they are for the user to decide: the homepage's colour
+  switch shows no on/off state in forced colours (the Clients page draws its own), and the kit's `PageHero` fades its
+  text in after the script starts (local LCP about 1–1.4 s on every MC inner page with a hero, Contact included).
   Decisions in short:
   - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
     then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
@@ -241,11 +248,13 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   homepage's sections (parked with `LegacyHomePage.tsx`) and the hero plate geometry (`hero/plate-geometry.ts`).
 - Inner pages: shared system in `src/components/inner/*` and `src/lib/inner-page.ts` (metadata,
   breadcrumb trail, JSON-LD); page components in `src/components/{about,services,projects,industries,
-  clients,certificates,contact,legal}`; shared cards in `src/components/cards/*` and teasers in
-  `src/components/teasers/*`; copy in `src/content/{about,pages,contact,legal}.ts`.
+  clients,certificates,contact,legal}` (About, Industries, Clients, Certificates and Contact there are the parked
+  `Legacy*Page.tsx` copies since TM-2.2/2.3; the live pages are in `src/components/commerce/*`); shared cards in
+  `src/components/cards/*` and teasers in `src/components/teasers/*`; copy in `src/content/{about,pages,contact,legal}.ts`.
 - Projects: `src/components/projects/*`, `src/lib/project-cards.ts`; showcased projects and withheld
   photos in `src/content/projects.ts` (`isShowcased`, `projectImages`).
-- Clients wall: `src/components/clients/ClientWall.tsx` + `src/lib/logo-wall.ts`. Contact map (since TM-2.2):
+- Clients wall (since TM-2.3): `src/components/commerce/clients/ClientsPage.tsx` with `planSpans` from
+  `src/lib/logo-wall.ts` (the previous design's `ClientWall.tsx` stays for its parked page). Contact map (since TM-2.2):
   `src/components/commerce/contact/Location.tsx` + `src/lib/maps.ts` (address search only; replace with
   RAWASY's own Google Maps place link once confirmed; never invent coordinates).
 - Quote form (since TM-2.2): `src/components/commerce/contact/QuoteForm.tsx`. No backend: it prepares the request for
@@ -330,12 +339,14 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   `ContentsNav` (client; the shared `useScrollSpy` marks the section with `aria-current`; pinned from 64 rem below the
   header, a disclosure button with `aria-expanded` / `aria-controls` above the text on smaller screens, simply open
   without script), `Document` (`DocSection` = `section#id` + numbered `h2#id-title`, `Prose`, `PendingNote` =
-  `role="note"` with its text label and a brass edge), `ClosingCta` (built, not used yet: the legal pages have none),
+  `role="note"` with its text label and a brass edge), `ClosingCta` (first used by the TM-2.3 pages; the legal pages
+  have none),
   `NotFoundView` and `BootFallback`. Its styles are the "Inner pages (Stage TM-2)" block (`ip-*` classes) at the end
   of `system.css`'s components layer; nothing earlier in the file changed. `components/commerce/legal/LegalPage.tsx`
   renders Privacy and Terms from `src/content/legal.ts` (routes `(commerce)/[locale]/privacy|terms/page.tsx`, metadata
   and JSON-LD still from `innerPageMetadata` / `innerPageJsonLd`). `commerceRoutes` is `home`, `privacy`, `terms`,
-  `contact` (static routes only: a dynamic route needs a pattern match in `crossDesignLink` before it moves).
+  `contact`, `about`, `industries`, `clients`, `certificates` (static routes only: a dynamic route needs a pattern
+  match in `crossDesignLink` before it moves).
 - Contact (TM-2.2): route `(commerce)/[locale]/contact/page.tsx` → `components/commerce/contact/ContactPage.tsx`: the
   split `PageHero` with a "Direct contact" card of `ContactRow`s (`ContactRows.tsx`: both phones, WhatsApp, email, the
   address → `#location`; the action word is visually hidden on rows narrower than 24 rem, the arrow stays; emails may
@@ -349,6 +360,36 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   layer. The previous design's page is parked verbatim, unrouted, in `src/components/contact/LegacyContactPage.tsx`
   (moving the route file away removed a utility only it used from `globals.css`; parked, the stylesheet stays
   byte-identical); it and `src/components/contact/*` go in TM-2.6.
+- About, Industries, Clients, Certificates (TM-2.3): routes `(commerce)/[locale]/{about,industries,clients,certificates}/
+  page.tsx` → `components/commerce/{about/AboutPage, industries/IndustriesPage (+ SectorIndex, client), clients/
+  ClientsPage, certificates/CertificatesPage (+ DocumentRegister, client)}.tsx`. Copy and data are the previous design's,
+  unchanged (one added label: `about.machinery.notStated`, the screen-reader text for an unstated power); the numbering
+  (01, 02 …) and the clients' names under their logos were kept for parity, numbers `aria-hidden` where the previous
+  page hid them. Kit additions: `inner/Figure.tsx` (a photo never wider than its source: `max-width` = source width)
+  and `inner/useDialogPointer.ts`. Photos are never shown above their source size (the previous design enlarged some
+  up to 1.7×); the Industries strip tiles stay ≤ 253 px; the preview images are `min(100%, source px)`.
+  - Certificates: only the redacted files, as they are (hashes checked in `commerce-certificates.spec.ts`, which also
+    fails on any run of 7+ digits, grouped digits, ISO dates or expiry words in the page; never weaken it). Previews go
+    through the optimizer at the previous design's `sizes` and q=75, and a CSS cap derived from the previous grid
+    (1520 px container, the old gutter clamp, 24/32/48 px card padding, 5 of 12 columns, 78 % / 82 % plate) keeps every
+    card and dialog preview at or below the previous size (`certsize.js` in the TM-2.3 proofs). No filter, transform,
+    zoom or reveal on a certificate image. The native `<dialog>` opens with `showModal()` from links to the raw files
+    (no-JS fallback), is labelled by its `h2`, closes with Escape, the close button or the backdrop, returns focus,
+    puts the Arabic version first on `/ar`, and its body is a focusable labelled group (it scrolls). The register's
+    anchored cards carry no reveal (its transform moved them after the jump).
+  - The dialog and the pointer: a modal dialog sits in the top layer above the MC pointer, so `useDialogPointer` marks
+    `html[data-cursor-modal]` while one is open (the pointer fades out) and unlayered rules give the dialog, its
+    backdrop and its contents the system cursor back (`cursor: auto` on the dialog, `cursor: revert-layer` on its
+    descendants so buttons keep the hand).
+  - Clients: the homepage's wall pattern (colour files under a CSS greyscale, colour on hover and with the
+    `aria-pressed` switch, `.cl-toggle` adds forced-colours drawing); 2 / 4 (48 rem) / 6 (64 rem) columns with
+    `planSpans`, never mirrored; each tile a logo box (`.cl-logo`, one fixed grid track) and the name; no counts, claims
+    or numbering.
+  - Styles: the "About, Industries, Clients and Certificates (Stage TM-2.3)" block (`ip-index/-down/-figure/-table`,
+    `ab-*`, `in-*`, `cl-*`, `ct-*`) at the end of `system.css`'s components layer, plus its forced-colours rules and the
+    unlayered dialog cursor rules after the layer; nothing earlier changed. The four previous pages are parked verbatim,
+    unrouted, as `src/components/{about,industries,clients,certificates}/Legacy*Page.tsx` (so `globals.css` stays
+    byte-identical); they go in TM-2.6.
 - The localized 404: `(commerce)/[locale]/(missing)/[...rest]/page.tsx` (the catch-all, `notFound()`) and
   `(missing)/not-found.tsx`. The `(missing)` group is deliberate: a `not-found.tsx` beside the layout is rendered into
   the payload of every page under it (it added ~52 KB raw / 7.8 KB gzip to the homepage). A migrated route that calls
@@ -364,9 +405,14 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   `e2e/commerce-inner.spec.ts` (the kit, Privacy, Terms, the 404 and its real HTTP status matrix);
   `e2e/commerce-contact.spec.ts` (Contact: explicit golden outputs of the email, WhatsApp and copied text, the form,
   files, the real no-JS mailto submission through CDP `Page.frameRequestedNavigation`, the map, the pointer over the
-  frame, `#quote` / `#location` landings, RTL). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on
-  pages of the previous design; `stage-1c.spec.ts`'s generic inner-page checks (routes and SEO, breadcrumbs, overflow,
-  reduced motion, no JS) still cover Privacy, Terms and Contact.
+  frame, `#quote` / `#location` landings, RTL); `e2e/commerce-company.spec.ts` (About, Industries, Clients: parts and
+  order, D4 links, the machine table, photo scale, faces, the preview, the wall and its tiles, the switch in forced
+  colours, no-JS; and, on all four pages, nothing spilling out of or cut off by its box);
+  `e2e/commerce-certificates.spec.ts` (file hashes, the digit guard, register, anchors, previews no larger than before,
+  the dialog with keyboard, backdrop, Arabic-first, no-JS, and the pointer with mouse, keyboard, touch, reduced motion
+  and Arabic). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on pages of the previous design;
+  `stage-1c.spec.ts`'s generic inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still
+  cover every migrated inner page through `INNER_PAGES`.
 
 ## Theme lab (Modern Commerce exploration)
 
@@ -662,3 +708,31 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   a lazily loaded chunk can arrive after "network idle" in one run and not another.
 - Element screenshots taller than the viewport are stitched from several scroll positions, so a sticky header shows
   up mid-image: make the header static for those captures only.
+- `next start` writes render-cache files into `.next/server/app` when it serves an unknown slug; compare a copy of the
+  clean build (taken right after `next build`), not the live folder.
+- A reveal's transform on an anchor target moves it after the jump (the card landed 3 px under the header): no
+  `data-reveal` on elements that links land on.
+- Removing a word from a JSX class list can remove a Tailwind utility from the MC stylesheet (`lg:items-end` from
+  `ClosingCta`), which breaks "additions only": check the CSS rules after any class edit in a shared component.
+- `cursor: auto` on every descendant blocks the inherited hand on a button's icon; inside the dialog use
+  `cursor: revert-layer` for descendants.
+- Forced colours replace fills with the page colour: a switch, swatch or bar drawn only with `background` disappears
+  (the colour switch showed no state). Draw it in system colours (`ButtonText`, `Highlight`, `Canvas`) with
+  `forced-color-adjust: none`, scoped to the component.
+- Two unrelated rules with one class name merge silently: `.in-index` was both the Industries wrapper (a two-column
+  grid) and each sector's number, so every number became a grid with a 3 rem gap, and the Arabic display-face rule
+  leaked Tajawal into the descriptions. Before a batch ships, list each new class's elements and rules.
+- A contrast probe must compare unrounded ratios (4.497 rounded to 4.5 "passed") and measure only the text's content
+  box (a pill's rounded corners showed the photo beside it, reading 1:1). A drop shadow can fall across text outside
+  its own box: the document thumbnails' shadow dipped the issuer line under AA until the plate clipped it.
+- A grid box with one implicit `auto` row lets its image's natural height size the row, so `height: 100%` /
+  `min(100%, …)` on the image resolves against that row: the Clients logos showed at their natural size over the
+  neighbouring tiles, and tall photos overflowed About's project stages and the Industries preview (clipped). Give a
+  single-item media box `grid-template: minmax(0, 1fr) / minmax(0, 1fr)`. Overflow and viewport checks miss this:
+  check that every image and text stays inside its own box (`commerce-company.spec.ts` "nothing spills out…").
+- With `next/image`, an image whose source is narrower than the chosen srcset candidate (the optimizer never upscales)
+  reports a `naturalWidth` below its file size (the `w` descriptor overstates it). Measure display scale against the
+  media registry's size, not `naturalWidth`.
+- A full-page screenshot resizes the window, which can flip IntersectionObserver-driven state mid-capture (the lab
+  header's "past hero" shadow appeared in some captures and not others, on both builds). Recapture, or compare
+  viewport captures, before calling such a difference a regression.
