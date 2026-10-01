@@ -3,7 +3,7 @@ import { horizontalOverflow, skipIntro, trackErrors } from "./helpers";
 
 /**
  * Visual redesign V2: the Projects overview (filters, image-led grid), the
- * unnumbered clients wall, the contact map, the new type system, colour-role
+ * unnumbered clients wall, the new type system (the contact map moved to commerce-contact.spec.ts), colour-role
  * contrast, responsive layouts, reduced motion and keyboard use.
  */
 
@@ -18,8 +18,6 @@ async function stubGoogleMaps(context: BrowserContext) {
     route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>map</title>" }),
   );
 }
-
-const ADDRESS = "Al Mashael, Sulay, Riyadh 14325, Saudi Arabia";
 
 /** Gallery items that are currently shown. */
 function shownItems(page: Page) {
@@ -216,47 +214,8 @@ test.describe("clients", () => {
   });
 });
 
-test.describe("contact map", () => {
-  for (const locale of ["en", "ar"] as const) {
-    test(`${locale}: a lazy, titled, keyless embed of the verified address and a Get directions link`, async ({ page }) => {
-      const errors = trackErrors(page);
-      await page.goto(`/${locale}/contact`, { waitUntil: "networkidle" });
-      const query = encodeURIComponent(ADDRESS);
-      const map = page.locator("#location iframe");
-      await expect(map).toHaveCount(1);
-      await expect(map).toHaveAttribute("loading", "lazy");
-      expect((await map.getAttribute("title"))?.length ?? 0).toBeGreaterThan(10);
-      const src = (await map.getAttribute("src")) ?? "";
-      expect(src.startsWith(`https://www.google.com/maps?q=${query}`)).toBe(true);
-      expect(src).toContain("output=embed");
-      expect(src).toContain(`hl=${locale}`);
-      expect(src).not.toMatch(/[?&]key=/);
-
-      const directions = page.getByRole("link", { name: locale === "ar" ? /الحصول على الاتجاهات/ : /Get directions/ });
-      await expect(directions).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${query}`);
-      await expect(directions).toHaveAttribute("target", "_blank");
-      await expect(directions).toHaveAttribute("rel", /noopener/);
-      await expect(page.locator("#location address")).toContainText(locale === "ar" ? "حي المشاعل" : "Al Mashael");
-      expect(errors).toEqual([]);
-    });
-  }
-
-  test("map and details sit side by side on desktop and stack on phones", async ({ page }) => {
-    await page.goto("/en/contact", { waitUntil: "networkidle" });
-    const details = page.locator("#location .card").first();
-    const map = page.locator("#location figure");
-    let d = (await details.boundingBox())!;
-    let m = (await map.boundingBox())!;
-    expect(d.x + d.width).toBeLessThanOrEqual(m.x + 1);
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.reload({ waitUntil: "networkidle" });
-    d = (await details.boundingBox())!;
-    m = (await map.boundingBox())!;
-    expect(d.y + d.height).toBeLessThanOrEqual(m.y + 1);
-    expect(await horizontalOverflow(page)).toBe(0);
-  });
-});
+// The contact map moved to the Modern Commerce design with the contact page in Stage TM-2.2: its tests (the unchanged
+// embed and links, the layout, the pointer over the frame) are in commerce-contact.spec.ts.
 
 test.describe("typography", () => {
   test("English: Sora for headings, Manrope for text, Geist Mono for labels — all self-hosted", async ({ page }) => {

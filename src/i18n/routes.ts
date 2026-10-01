@@ -54,11 +54,12 @@ export function href(locale: Locale, key: RouteKey, params?: { slug?: string; ha
 }
 
 /**
- * Pages in the Modern Commerce design (Stage TM-1: the homepage; TM-2.1: the privacy policy and the website terms).
+ * Pages in the Modern Commerce design (Stage TM-1: the homepage; TM-2.1: the privacy policy and the website terms; TM-2.2:
+ * contact).
  * They have their own root layout (src/app/(commerce)), so a link to one from a page in the previous design is always
  * a full page load. Static routes only: a dynamic route (service, project) needs a pattern match here before it moves.
  */
-export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms"];
+export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", "contact"];
 
 /**
  * Link props for a page in the previous design: never prefetch a page in the Modern Commerce design. The prefetch could

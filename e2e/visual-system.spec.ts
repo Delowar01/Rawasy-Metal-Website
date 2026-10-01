@@ -46,7 +46,8 @@ function exposedDecoration(page: Page) {
 
 test("decorative layers are hidden from assistive technology", async ({ page }) => {
   test.setTimeout(120_000);
-  for (const path of ["/en/services/laser-cutting", "/ar/industries", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/contact"]) {
+  // Contact moved to the Modern Commerce design in TM-2.2 (its decoration: commerce-contact.spec.ts); /en/certificates replaces it.
+  for (const path of ["/en/services/laser-cutting", "/ar/industries", "/en/about", "/ar/about", "/ar/services", "/en/projects", "/ar/projects", "/en/industries", "/en/clients", "/ar/certificates", "/en/certificates"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     expect(await exposedDecoration(page), path).toEqual([]);
   }
