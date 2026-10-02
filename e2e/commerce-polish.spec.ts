@@ -10,9 +10,9 @@ import { horizontalOverflow, LOCALES, trackErrors } from "./helpers";
  * - in forced colours the brand logo in the header and the footer takes the forced text colour;
  * - the phone menu sheet's pages scroll above its foot: the quote button never covers a row, every stop reached with the
  *   keyboard is in full view, every target keeps its size, and the page behind stays locked;
- * - correction 1: below 22.5 rem the homepage's Industries cards stack in one column, so at 320 px every name stays whole
- *   inside its card and nothing scrolls sideways; from 360 px the cards keep their two columns. (The fallback 404's logo
- *   in forced colours is tested with that page, in site.spec.ts.)
+ * - corrections 1 and 2: below 27 rem the homepage's Industries cards stack in one column, so at every width every name
+ *   stays whole inside its own box and its card, the cards stay in their grid and nothing scrolls sideways; two columns
+ *   from 27 rem, four from 64 rem. (The fallback 404's logo in forced colours is tested with that page, in site.spec.ts.)
  */
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -452,117 +452,175 @@ test.describe("the phone menu sheet", () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Correction 1: the homepage's Industries cards at 320 px
+// Corrections 1 and 2: the homepage's Industries cards at every width
 // ---------------------------------------------------------------------------------------------------------------------
 
-/** The homepage's two Industries lists as laid out: each grid's box, column count and gap, and each card's box, the box
- * inside its border, its icon chip, its name (as read, its box, every line box of its glyphs as drawn) and whether the
- * name overflows its box or is shortened. */
-const industryLists = (page: Page) =>
+/** The column count the lists should have: one below 27 rem (432 px), where two cards side by side cannot hold the
+ * longest English word beside its icon; two from there; four from 64 rem. */
+const expectedColumns = (width: number) => (width < 432 ? 1 : width < 1024 ? 2 : 4);
+
+/** The homepage's Industries lists as laid out now: their column counts, the names in reading order, and everything
+ * that is wrong — an empty list when the page does not scroll sideways, every card sits in its grid and on the screen,
+ * the columns share the grid evenly, no two cards overlap, and every text of every card (its name, and its description
+ * where one shows) is drawn and whole: inside its own box, inside the card's content box and clear of the icon, never
+ * shortened. */
+const industryCheck = (page: Page) =>
   page.evaluate(() => {
-    const box = (el: Element) => {
-      const b = el.getBoundingClientRect();
-      return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
-    };
-    return [...document.querySelectorAll("#industries ul")].map((ul) => ({
-      grid: box(ul),
-      columns: getComputedStyle(ul).gridTemplateColumns.split(" ").length,
-      gap: parseFloat(getComputedStyle(ul).columnGap),
-      cards: [...ul.querySelectorAll(".a2-ind")].map((card) => {
+    const problems: string[] = [];
+    const de = document.documentElement;
+    if (de.scrollWidth > de.clientWidth) problems.push(`the page scrolls sideways by ${de.scrollWidth - de.clientWidth} px`);
+    const lists = [...document.querySelectorAll("#industries ul")];
+    const cards: { name: string; box: DOMRect }[] = [];
+    for (const ul of lists) {
+      const grid = ul.getBoundingClientRect();
+      // Every card is one column wide, and the cards of a row stand one gap apart.
+      const listStyle = getComputedStyle(ul);
+      const columns = listStyle.gridTemplateColumns.split(" ").length;
+      const gap = parseFloat(listStyle.columnGap);
+      const column = (grid.width - (columns - 1) * gap) / columns;
+      const boxes = [...ul.querySelectorAll(".a2-ind")].map((card) => card.getBoundingClientRect()).sort((a, b) => a.top - b.top || a.left - b.left);
+      for (let i = 1; i < boxes.length; i++)
+        if (Math.abs(boxes[i].top - boxes[i - 1].top) < 1 && Math.abs(boxes[i].left - boxes[i - 1].right - gap) > 1)
+          problems.push(`the cards of a row are not one gap apart (${boxes[i].left - boxes[i - 1].right} px, gap ${gap} px)`);
+      for (const card of ul.querySelectorAll(".a2-ind")) {
+        const box = card.getBoundingClientRect();
         const name = card.querySelector(".t-h4") as HTMLElement;
-        const range = document.createRange();
-        range.selectNodeContents(name);
-        const style = getComputedStyle(name);
-        const border = getComputedStyle(card);
-        const outer = box(card);
-        return {
-          outer,
-          inner: { left: outer.left + parseFloat(border.borderLeftWidth), right: outer.right - parseFloat(border.borderRightWidth) },
-          chip: box(card.querySelector(".icon-chip")!),
-          name: name.textContent,
-          nameBox: box(name),
-          glyphs: [...range.getClientRects()].map((r) => ({ left: r.left, right: r.right })),
-          overflows: name.scrollWidth > name.clientWidth,
-          shortened: style.textOverflow === "ellipsis" || style.webkitLineClamp !== "none",
+        const label = name.textContent ?? "";
+        cards.push({ name: label, box });
+        if (box.left < grid.left - 0.5 || box.right > grid.right + 0.5) problems.push(`${label}: the card leaves its grid`);
+        if (box.left < -0.5 || box.right > de.clientWidth + 0.5) problems.push(`${label}: the card leaves the screen`);
+        if (Math.abs(box.width - column) > 1) problems.push(`${label}: the card is ${box.width} px wide, not one column (${column} px)`);
+        const style = getComputedStyle(card);
+        const content = {
+          left: box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+          right: box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
         };
-      }),
-    }));
+        const chip = card.querySelector(".icon-chip")!.getBoundingClientRect();
+        if (name.scrollWidth > name.clientWidth) problems.push(`${label}: the name scrolls (${name.scrollWidth} > ${name.clientWidth})`);
+        const nameStyle = getComputedStyle(name);
+        if (nameStyle.textOverflow === "ellipsis" || nameStyle.webkitLineClamp !== "none") problems.push(`${label}: the name is shortened`);
+        for (const text of card.querySelectorAll<HTMLElement>(".t-h4, .t-h4 + span")) {
+          if (getComputedStyle(text).display === "none") continue;
+          const own = text.getBoundingClientRect();
+          if (own.left < content.left - 0.5 || own.right > content.right + 0.5) problems.push(`${label}: a text box leaves the card`);
+          const range = document.createRange();
+          range.selectNodeContents(text);
+          const lines = [...range.getClientRects()].filter((line) => line.width);
+          if (!lines.length) problems.push(`${label}: a text is not drawn`);
+          // A tenth of a pixel absorbs layout rounding (Chromium lays text out in 1/64 px units); nothing drawn is missed.
+          for (const line of lines) {
+            if (line.left < own.left - 0.1 || line.right > own.right + 0.1) problems.push(`${label}: text runs past its own box`);
+            if (line.left < content.left - 0.1 || line.right > content.right + 0.1) problems.push(`${label}: text runs past its card`);
+            if (line.right > chip.left && line.left < chip.right && line.bottom > chip.top && line.top < chip.bottom) problems.push(`${label}: text under the icon`);
+          }
+        }
+      }
+    }
+    for (let i = 0; i < cards.length; i++)
+      for (let j = i + 1; j < cards.length; j++) {
+        const a = cards[i].box;
+        const b = cards[j].box;
+        if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5)
+          problems.push(`${cards[i].name} and ${cards[j].name}: the cards overlap`);
+      }
+    return {
+      columns: lists.map((ul) => getComputedStyle(ul).gridTemplateColumns.split(" ").length),
+      names: lists.map((ul) => [...ul.querySelectorAll(".a2-ind .t-h4")].map((name) => name.textContent)),
+      problems: [...new Set(problems)],
+    };
   });
 
-test.describe("correction 1: the homepage's Industries cards at 320 px", () => {
+test.describe("corrections 1 and 2: the homepage's Industries cards", () => {
   for (const locale of LOCALES)
     for (const scheme of ["light", "dark"] as const)
-      test(`320×700, ${locale}, ${scheme}: no sideways scroll; one column; every card inside the screen and its grid; every name whole, inside its card, clear of its icon`, async ({ browser }) => {
+      test(`${locale}, ${scheme}, at 320, 360 and 390 px: one column; every card in its grid; every name whole inside its own box and its card, clear of the icon; no overlap, no sideways scroll`, async ({ browser }) => {
         const context = await browser.newContext({ viewport: { width: 320, height: 700 }, colorScheme: scheme, reducedMotion: "reduce" });
         const page = await context.newPage();
         const errors = trackErrors(page);
         await page.goto(`/${locale}`, { waitUntil: "networkidle" });
         await page.evaluate(() => document.fonts.ready);
         await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
-        expect(await horizontalOverflow(page)).toBe(0);
-        const width = await page.evaluate(() => document.documentElement.clientWidth);
-        const lists = await industryLists(page);
-        expect(lists).toHaveLength(2);
-        // Every name, as the content layer has it (profile sectors first, then the website's classifications).
-        const expected = [industries.filter((i) => i.source.basis !== "inferred"), industries.filter((i) => i.source.basis === "inferred")];
-        expect(lists.map((list) => list.cards.map((card) => card.name))).toEqual(expected.map((group) => group.map((i) => i.name[locale])));
-        for (const list of lists) {
-          expect(list.columns).toBe(1);
-          for (const card of list.cards) {
-            const where = `${locale} ${scheme} ${card.name}`;
-            // The card: inside the screen and inside its grid.
-            expect(card.outer.left, where).toBeGreaterThanOrEqual(0);
-            expect(card.outer.right, where).toBeLessThanOrEqual(width);
-            expect(card.outer.left, where).toBeGreaterThanOrEqual(list.grid.left - 0.5);
-            expect(card.outer.right, where).toBeLessThanOrEqual(list.grid.right + 0.5);
-            // The name: whole (neither running past its box nor shortened), every glyph inside its box and inside the
-            // card's border, none under the icon chip.
-            expect(card.overflows, where).toBe(false);
-            expect(card.shortened, where).toBe(false);
-            expect(card.glyphs.length, where).toBeGreaterThan(0);
-            for (const glyphs of card.glyphs) {
-              expect(glyphs.left, where).toBeGreaterThanOrEqual(Math.max(card.nameBox.left, card.inner.left) - 0.5);
-              expect(glyphs.right, where).toBeLessThanOrEqual(Math.min(card.nameBox.right, card.inner.right) + 0.5);
-              expect(glyphs.right <= card.chip.left || glyphs.left >= card.chip.right, where).toBe(true);
-            }
-          }
+        // Every name, as the content layer has it (the profile's sectors first, then the website's classifications).
+        const expected = [industries.filter((i) => i.source.basis !== "inferred"), industries.filter((i) => i.source.basis === "inferred")].map((group) =>
+          group.map((i) => i.name[locale]),
+        );
+        for (const width of [320, 360, 390]) {
+          await page.setViewportSize({ width, height: 700 });
+          const seen = await industryCheck(page);
+          expect(seen.columns, `${width}`).toEqual([1, 1]);
+          expect(seen.names, `${width}`).toEqual(expected);
+          expect(seen.problems, `${width}`).toEqual([]);
+          expect(await horizontalOverflow(page), `${width}`).toBe(0);
+          // The section's link shows its whole focus ring, inside the sheet and the screen.
+          const link = page.locator("#industries a.link-arrow");
+          await link.focus();
+          const ring = await link.evaluate((el) => {
+            const style = getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            const out = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+            const sheet = el.closest("section")!.getBoundingClientRect();
+            return { style: style.outlineStyle, left: r.left - out, right: r.right + out, from: Math.max(0, sheet.left), to: Math.min(document.documentElement.clientWidth, sheet.right) };
+          });
+          expect(ring.style, `${width}`).toBe("solid");
+          expect(ring.left, `${width}`).toBeGreaterThanOrEqual(ring.from);
+          expect(ring.right, `${width}`).toBeLessThanOrEqual(ring.to);
+          await link.blur();
         }
-        // The section's link shows its whole focus ring, inside the sheet and the screen.
-        const link = page.locator("#industries a.link-arrow");
-        await link.focus();
-        const ring = await link.evaluate((el) => {
-          const style = getComputedStyle(el);
-          const r = el.getBoundingClientRect();
-          const out = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
-          const sheet = el.closest("section")!.getBoundingClientRect();
-          return { style: style.outlineStyle, left: r.left - out, right: r.right + out, from: Math.max(0, sheet.left), to: Math.min(document.documentElement.clientWidth, sheet.right) };
-        });
-        expect(ring.style).toBe("solid");
-        expect(ring.left).toBeGreaterThanOrEqual(ring.from);
-        expect(ring.right).toBeLessThanOrEqual(ring.to);
         expect(errors).toEqual([]);
         await context.close();
       });
 
   for (const locale of LOCALES)
-    test(`${locale}: one column only below 22.5 rem; from 360 px the two columns of before, four from 1024 px`, async ({ browser }) => {
+    test(`${locale}: around the 27 rem boundary and at common phone, tablet and desktop widths, the expected columns hold every card and name`, async ({ browser }) => {
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
       const page = await context.newPage();
       await page.goto(`/${locale}`, { waitUntil: "networkidle" });
       await page.evaluate(() => document.fonts.ready);
-      for (const [width, columns] of [[320, 1], [359, 1], [360, 2], [390, 2], [834, 2], [1024, 4], [1440, 4]] as const) {
+      for (const width of [375, 393, 412, 430, 431, 432, 433, 640, 834, 1023, 1024, 1440]) {
         await page.setViewportSize({ width, height: 900 });
-        const lists = await industryLists(page);
-        for (const list of lists) {
-          expect(list.columns, `${width}`).toBe(columns);
-          if (columns !== 2) continue;
-          // Two equal cards and the gap between them fill the grid, as before the correction.
-          const [a, b] = list.cards;
-          expect(Math.abs(a.outer.right - a.outer.left - (list.grid.right - list.grid.left - list.gap) / 2), `${width}`).toBeLessThan(1);
-          expect(Math.min(Math.abs(b.outer.left - a.outer.right), Math.abs(a.outer.left - b.outer.right)) - list.gap, `${width}`).toBeLessThan(1);
-        }
-        expect(await horizontalOverflow(page), `${width}`).toBe(0);
+        const seen = await industryCheck(page);
+        expect(seen.columns, `${width}`).toEqual([expectedColumns(width), expectedColumns(width)]);
+        expect(seen.problems, `${width}`).toEqual([]);
       }
       await context.close();
     });
+
+  test("no width from 320 to 1440 px lets a card or a name out, in either language (every 4 px and around each breakpoint)", async ({ browser }) => {
+    test.setTimeout(180_000);
+    const widths = [...Array.from({ length: 281 }, (_, i) => 320 + i * 4), 431, 433, 639, 641, 1023, 1025].sort((a, b) => a - b);
+    for (const locale of LOCALES) {
+      const context = await browser.newContext({ viewport: { width: 320, height: 900 }, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`/${locale}`, { waitUntil: "networkidle" });
+      await page.evaluate(() => document.fonts.ready);
+      const wrong: string[] = [];
+      for (const width of widths) {
+        await page.setViewportSize({ width, height: 900 });
+        const seen = await industryCheck(page);
+        if (seen.columns.some((c) => c !== expectedColumns(width))) wrong.push(`${width}: ${seen.columns.join("+")} columns`);
+        for (const problem of seen.problems) wrong.push(`${width}: ${problem}`);
+      }
+      expect(wrong, locale).toEqual([]);
+      await context.close();
+    }
+  });
+
+  test("with the web fonts blocked (the fallback face), the names still fit at phone widths and around the boundary", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 360, height: 900 }, reducedMotion: "reduce" });
+    const page = await context.newPage();
+    let blocked = 0;
+    await page.route(/\.woff2$/, (route) => {
+      blocked++;
+      return route.abort();
+    });
+    await page.goto("/en", { waitUntil: "networkidle" });
+    expect(blocked).toBeGreaterThan(0);
+    for (const width of [320, 360, 390, 431, 432, 433, 640, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      const seen = await industryCheck(page);
+      expect(seen.columns, `${width}`).toEqual([expectedColumns(width), expectedColumns(width)]);
+      expect(seen.problems, `${width}`).toEqual([]);
+    }
+    await context.close();
+  });
 });
