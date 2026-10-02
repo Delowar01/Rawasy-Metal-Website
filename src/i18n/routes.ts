@@ -55,16 +55,17 @@ export function href(locale: Locale, key: RouteKey, params?: { slug?: string; ha
 
 /**
  * Pages in the Modern Commerce design (Stage TM-1: the homepage; TM-2.1: the privacy policy and the website terms; TM-2.2:
- * contact; TM-2.3: about, industries, clients and certificates; TM-2.4: the services overview).
+ * contact; TM-2.3: about, industries, clients and certificates; TM-2.4: the services overview; TM-2.5: the projects
+ * overview).
  * They have their own root layout (src/app/(commerce)), so a link to one from a page in the previous design is always
  * a full page load. Static routes here; dynamic routes in `commerceDynamicRoutes`.
  */
-export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", "contact", "about", "industries", "clients", "certificates", "services"];
+export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", "contact", "about", "industries", "clients", "certificates", "services", "projects"];
 
 /**
  * Dynamic routes in the Modern Commerce design (TM-2.4: the six service pages, /{locale}/services/{slug}), matched by
- * their localized pattern: any one path segment in place of [slug]. The project pages (/projects/[slug]) and
- * Capabilities stay in the previous design until their own batches.
+ * their localized pattern: any one path segment in place of [slug]. The project pages (/projects/[slug]) stay in the
+ * previous design until Stage 1F (only the projects overview moved, in TM-2.5), Capabilities until Stage 1E.
  */
 export const commerceDynamicRoutes: readonly RouteKey[] = ["service"];
 

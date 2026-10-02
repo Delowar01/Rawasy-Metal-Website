@@ -41,8 +41,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * machinery, applications, gallery, why RAWASY, related services, projects — then the closing call to action. Every
  * fact comes from the content layer (the company profile and the records): machines and projects only where their own
  * record ties them to the service, rated power only where the profile states it, the general-workflow note on every
- * process. The project cards open the Projects gallery until the project pages exist (D4); the machine links keep the
- * Capabilities placeholder (D5). Structured data and metadata are unchanged.
+ * process. The project cards open their place in the Projects gallery until the project pages exist (D4); the machine
+ * links keep the Capabilities placeholder (D5). Structured data and metadata are unchanged.
  */
 export async function ServicePage({ locale, content }: { locale: Locale; content: Content }) {
   const { service, detail, labels } = content;
@@ -210,12 +210,12 @@ export async function ServicePage({ locale, content }: { locale: Locale; content
     section("projects", "projects", detail.projects.title[locale], detail.projects.intro[locale], { href: href(locale, "projects"), label: labels.allProjects[locale] }, (read) => (
       <Projects
         read={read}
-        // Until the project pages exist (Stage 1F), every card opens the Projects gallery (decision D4).
-        href={href(locale, "projects", { hash: "gallery" })}
         refLabel={projectsPage.refLabel[locale]}
         viewLabel={home.projects.inGallery[locale]}
         projects={projects.map((p) => ({
           slug: p.slug,
+          // Until the project pages exist (Stage 1F), every card opens its project in the Projects gallery (decision D4).
+          href: href(locale, "projects", { hash: p.slug }),
           ref: p.ref,
           title: p.title,
           summary: p.summary,

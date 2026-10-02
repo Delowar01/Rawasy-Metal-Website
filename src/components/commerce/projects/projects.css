@@ -1,0 +1,687 @@
+/*
+ * Projects (Stage TM-2.5): the Projects overview — the hero's quick filter and its three prints, the featured project
+ * on a dark panel, the highlights, the gallery (the bar of category toggles, pinned under the header while the wall
+ * scrolls, and the masonry wall of every showcased project, each at #<slug>) and the project index. Text sits on
+ * cards, sheets, the dark panel or a reading zone. Photos are never shown wider than their source.
+ *
+ * Imported by the Projects page component only, as services.css is by the service pages: in system.css these rules
+ * would push the shared stylesheet past the size at which Turbopack splits a chunk. The rules sit in the same
+ * `components` layer, after system.css's; no other page uses these classes.
+ */
+@layer components {
+  /* Plex Arabic stays at 400/500: the page's semibold labels take the Tajawal display face in Arabic. */
+  .mc :is(.pj-chip, .pj-quick-label, .pj-ref, .pj-feature-ref, .pj-tag-dark, .pj-print-ref, .pj-index-ref, .pj-index-title):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* ---------- Category toggles (the hero's quick filter and the gallery's bar share one choice) ---------- */
+  .mc .pj-quick {
+    flex: 1 1 100%;
+  }
+
+  .mc .pj-quick-label {
+    margin: 0 0 0.75rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .pj-chips {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .mc .pj-chips-wrap {
+    flex-wrap: wrap;
+  }
+
+  .mc .pj-chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.25rem;
+    padding-block: 0;
+    padding-inline: 0.65rem 0.8rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--ff-body);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color var(--dur-1) ease,
+      border-color var(--dur-1) ease,
+      color var(--dur-1) ease;
+  }
+
+  .mc .pj-chip:hover {
+    border-color: var(--ink-2);
+  }
+
+  .mc .pj-chip[aria-pressed="true"] {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--surface);
+  }
+
+  /* The mark keeps its size, so pressing a toggle never moves the row: the category's square, or a check when pressed. */
+  .mc .pj-chip-mark {
+    display: grid;
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    place-items: center;
+  }
+
+  .mc .pj-chip-mark::before {
+    content: "";
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 2px;
+    background: var(--tone, var(--ink-3));
+  }
+
+  .mc .pj-chip-mark svg {
+    display: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .mc .pj-chip[aria-pressed="true"] .pj-chip-mark::before {
+    display: none;
+  }
+
+  .mc .pj-chip[aria-pressed="true"] .pj-chip-mark svg {
+    display: block;
+  }
+
+  /* ---------- Hero: three prints on a plate, each at most at its source size ---------- */
+  .mc .pj-collage {
+    position: relative;
+    width: 100%;
+    max-width: 34rem;
+    margin-inline: auto;
+    aspect-ratio: 1 / 1.02;
+  }
+
+  .mc .pj-collage-plate {
+    position: absolute;
+    inset-block: 7%;
+    inset-inline: 9% 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--stage-light);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .pj-print {
+    position: absolute;
+    margin: 0;
+    padding: 0.375rem 0.375rem 0.3rem;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    box-shadow: var(--sh-float);
+  }
+
+  .mc .pj-print-main {
+    z-index: 1;
+    top: 0;
+    inset-inline-end: 4%;
+    width: 68%;
+  }
+
+  .mc .pj-print-tall {
+    z-index: 2;
+    bottom: 4%;
+    inset-inline-start: 0;
+    width: 40%;
+  }
+
+  .mc .pj-print-square {
+    z-index: 3;
+    bottom: 0;
+    inset-inline-end: 10%;
+    width: 38%;
+  }
+
+  .mc .pj-print-photo {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--surface-2);
+  }
+
+  .mc .pj-print-img {
+    object-fit: cover;
+  }
+
+  .mc .pj-print-ref {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+    padding-inline: 0.1rem;
+    color: var(--ink-2);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .pj-print-ref::after {
+    content: "";
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--brand);
+  }
+
+  @media (min-width: 40rem) {
+    .mc .pj-collage {
+      aspect-ratio: 1.08 / 1;
+    }
+  }
+
+  /* ---------- A lead photo with up to two more pinned over its lower corner (featured, highlights) ---------- */
+  .mc .pj-prints {
+    position: relative;
+    width: 100%;
+  }
+
+  .mc .pj-prints-main {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    box-shadow: var(--sh-image);
+  }
+
+  .mc .pj-prints-more {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: -2.5rem;
+    padding-inline-end: 0.75rem;
+  }
+
+  .mc .pj-prints-pin {
+    padding: 0.25rem;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    box-shadow: var(--sh-float);
+  }
+
+  .mc .pj-prints-pin-photo {
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--surface-2);
+  }
+
+  /* ---------- Featured project: a dark panel ---------- */
+  .mc .pj-feature {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    gap: 2.25rem;
+    overflow: hidden;
+    padding: clamp(1.25rem, 0.6rem + 2.6vw, 3rem);
+    border-radius: calc(var(--r-panel) + 4px);
+    background: var(--navy);
+    box-shadow: var(--sh-raised);
+    color: var(--on-dark);
+  }
+
+  .mc .pj-feature::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(55% 80% at 0% 100%, var(--band-glow), transparent 70%),
+      radial-gradient(circle, rgb(200 215 235 / 0.07) 1.15px, transparent 1.75px) 0 0 / 24px 24px;
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .mc .pj-feature::before {
+    scale: -1 1;
+  }
+
+  .mc .pj-feature-media {
+    display: grid;
+    justify-items: center;
+    padding-bottom: 1rem;
+  }
+
+  .mc .pj-feature-ref {
+    margin: 1.25rem 0 0;
+    color: var(--on-dark-2);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .pj-feature-title {
+    margin: 0.5rem 0 0;
+    color: #ffffff;
+  }
+
+  .mc .pj-feature-text {
+    max-width: 34rem;
+    margin: 1rem 0 0;
+    color: var(--on-dark-2);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+
+  .mc .pj-feature-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .pj-tag-dark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    border-radius: var(--r-pill);
+    background: rgb(255 255 255 / 0.06);
+    color: var(--on-dark);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mc .pj-tag-dark::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--tone, var(--brand));
+  }
+
+  .mc .pj-feature-go {
+    margin-top: 2rem;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .pj-feature {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      align-items: center;
+      gap: 3rem;
+    }
+  }
+
+  /* ---------- Highlights: one card per piece, its photos on a stage beside the text, alternating sides ---------- */
+  .mc .pj-highlights {
+    display: grid;
+    gap: clamp(1rem, 0.6rem + 1vw, 1.5rem);
+    margin: clamp(2rem, 1.4rem + 2vw, 3rem) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .pj-hl {
+    display: grid;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .mc .pj-hl-media {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+    border-bottom: 1px solid var(--line);
+    background: var(--stage-light);
+  }
+
+  .mc .pj-hl-body {
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1.25rem, 0.9rem + 1.4vw, 2.25rem);
+  }
+
+  .mc .pj-hl-title {
+    margin: 0.5rem 0 0;
+  }
+
+  .mc .pj-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.9rem 0 0;
+  }
+
+  .mc .pj-hl-text {
+    max-width: 34rem;
+    margin: 1rem 0 0;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+
+  .mc .pj-go {
+    margin-top: 1.5rem;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .pj-hl {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .mc .pj-hl-media {
+      border-bottom: 0;
+      border-inline-end: 1px solid var(--line);
+    }
+
+    .mc .pj-hl[data-reverse] .pj-hl-media {
+      order: 2;
+      border-inline-end: 0;
+      border-inline-start: 1px solid var(--line);
+    }
+
+    .mc .pj-hl-body {
+      justify-content: center;
+    }
+  }
+
+  /* ---------- Gallery: the bar (one row of fixed height under the header) and the masonry wall ---------- */
+  .mc .pj-gallery {
+    /* The bar's height: the pinned bar and the distance every project lands below it (scroll-margin) share it. */
+    --pj-bar-h: 3.5rem;
+  }
+
+  .mc .pj-bar {
+    position: sticky;
+    top: var(--hh);
+    z-index: 30;
+    height: var(--pj-bar-h);
+    margin-block: clamp(1.75rem, 1rem + 2vw, 2.75rem) clamp(1.25rem, 0.8rem + 1.2vw, 2rem);
+    border-block: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 12px 28px -24px rgb(var(--shadow-rgb) / 0.45);
+  }
+
+  .mc .pj-bar > .shell {
+    height: 100%;
+  }
+
+  /* Never wraps: toggles that do not fit scroll sideways (from the inline start, so from the right in Arabic). */
+  .mc .pj-chips-row {
+    height: 100%;
+    flex-wrap: nowrap;
+    align-items: center;
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .mc .pj-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    columns: 1;
+    column-gap: 1.25rem;
+  }
+
+  .mc .pj-item {
+    padding-bottom: 1.25rem;
+    break-inside: avoid;
+  }
+
+  /* A project (and the wall) lands below the header and the pinned bar: the scroll padding clears the header, this
+     margin the bar. Without script there is no bar. */
+  .js .mc :is(.pj-list, .pj-item) {
+    scroll-margin-top: var(--pj-bar-h);
+  }
+
+  @media (min-width: 40rem) {
+    .mc .pj-list {
+      columns: 2;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .pj-list {
+      columns: 3;
+      column-gap: 1.5rem;
+    }
+
+    .mc .pj-item {
+      padding-bottom: 1.5rem;
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .mc .pj-list {
+      columns: 4;
+    }
+  }
+
+  /* A card: the photos on a stage (each at most at its source size), then the reference, name and classifications. */
+  .mc .pj-card {
+    overflow: hidden;
+  }
+
+  .mc .pj-media {
+    display: grid;
+    justify-items: center;
+    align-items: start;
+    border-bottom: 1px solid var(--line);
+    background: var(--stage-light);
+  }
+
+  .mc .pj-media-framed {
+    padding: 1.25rem;
+  }
+
+  .mc .pj-media-pair {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.625rem;
+  }
+
+  .mc .pj-img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mc .pj-media-pair .pj-img {
+    min-width: 0;
+    border-radius: 4px;
+  }
+
+  .mc .pj-media-framed .pj-img {
+    border-radius: 4px;
+    box-shadow: var(--sh-float);
+  }
+
+  .mc .pj-card-body {
+    padding: 0.9rem 1.1rem 1.1rem;
+  }
+
+  .mc .pj-ref {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .pj-dot {
+    flex: none;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--tone, var(--brand));
+  }
+
+  .mc .pj-card-title {
+    margin: 0.45rem 0 0;
+  }
+
+  .mc .pj-cats {
+    margin: 0.3rem 0 0;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  /* ---------- Project index: every project by gallery reference, each a jump to its place in the gallery ---------- */
+  .mc .pj-index {
+    display: grid;
+    margin: clamp(2rem, 1.4rem + 2vw, 3rem) 0 0;
+    padding: 0;
+    border-top: 1px solid var(--line-strong);
+    list-style: none;
+  }
+
+  .mc .pj-index > li {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mc .pj-index-link {
+    display: grid;
+    grid-template-columns: 3.75rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.8rem 0.5rem;
+    border-radius: var(--r-xs);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background-color var(--dur-1) ease;
+  }
+
+  .mc .pj-index-link:hover {
+    background: var(--tone-soft);
+  }
+
+  .mc .pj-index-ref {
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .pj-index-name {
+    min-width: 0;
+  }
+
+  .mc .pj-index-title {
+    display: block;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .mc .pj-index-cats {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .mc .pj-index-link .mc-icon {
+    align-self: center;
+    color: var(--ink-3);
+    opacity: 0.6;
+    transition:
+      opacity var(--dur-2) var(--ease),
+      translate var(--dur-2) var(--ease),
+      color var(--dur-2) ease;
+  }
+
+  .mc .pj-index-link:is(:hover, :focus-visible) .mc-icon {
+    color: var(--tone-ink, var(--brand-ink));
+    opacity: 1;
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .pj-index {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 2rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .pj-index {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc :is(.pj-chip, .pj-index-link, .pj-index-link .mc-icon) {
+      transition: none;
+    }
+
+    .mc .pj-index-link:is(:hover, :focus-visible) .mc-icon {
+      translate: none;
+    }
+  }
+
+  /* Forced colours: the toggles and the small marks keep their state in system colours. */
+  @media (forced-colors: active) {
+    .mc .pj-chip {
+      forced-color-adjust: none;
+      border-color: ButtonText;
+      background: ButtonFace;
+      color: ButtonText;
+    }
+
+    .mc .pj-chip[aria-pressed="true"] {
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+    }
+
+    .mc .pj-chip-mark::before {
+      background: currentColor;
+    }
+
+    .mc .pj-dot,
+    .mc .pj-tag-dark::before,
+    .mc .pj-print-ref::after {
+      forced-color-adjust: none;
+      background: CanvasText;
+    }
+  }
+}
+
+/* While a new category choice re-flows the gallery (data-vt on the root, set by Gallery.tsx), its items morph to their
+   new places; the names exist only then, so no other animated update captures them. */
+:root[data-vt="gallery-filter"] .mc .pj-item {
+  view-transition-name: var(--vt-name);
+}
+
+:root[data-vt="gallery-filter"]::view-transition-group(*) {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

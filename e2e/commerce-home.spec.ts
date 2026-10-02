@@ -95,11 +95,13 @@ test.describe("the homepage", () => {
     await skipIntro(page.context());
     const prefetched: string[] = [];
     page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    // The Capabilities placeholder stands in for About (this design since Stage TM-2.3) and the services (TM-2.4).
-    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
+    // A project page stands in for About (this design since Stage TM-2.3), the services (TM-2.4) and the projects
+    // overview (TM-2.5); it still prefetches the Capabilities placeholder, in its own design.
+    await page.goto("/en/projects/geometric-lanterns", { waitUntil: "networkidle" });
     await page.waitForTimeout(800);
-    expect(prefetched).toContain("/en/projects");
+    expect(prefetched).toContain("/en/capabilities");
     expect(prefetched).not.toContain("/en");
+    expect(prefetched).not.toContain("/en/projects");
     expect(await sheet(".a2-hero")).toBe(false);
     expect(await families()).not.toContain("Plus Jakarta Sans");
     expect(await families()).toContain("Sora");
@@ -176,16 +178,16 @@ test.describe("navigation", () => {
     await page.locator("#projects a.a2-proj").nth(1).click();
     await page.waitForURL("**/en/projects#gallery");
     await expect(page.locator("#gallery")).toBeInViewport();
-    for (const title of titles) await expect(page.locator("#gallery li.proj-item:not([hidden])").filter({ hasText: title }).first()).toBeAttached();
+    for (const title of titles) await expect(page.locator("#gallery li[data-project]:not([hidden])").filter({ hasText: title }).first()).toBeAttached();
   });
 
   test("the pages in the previous design open from the header, without their intro, and lead back", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto("/en", { waitUntil: "networkidle" });
-    // Projects is still in the previous design (About moved to this one in Stage TM-2.3).
-    await page.locator('.a2-nav a[href="/en/projects"]').click();
-    await page.waitForURL("**/en/projects");
-    await expect(page.locator("main h1")).toContainText("Built in metal");
+    // Capabilities is still in the previous design (the projects overview moved to this one in Stage TM-2.5).
+    await page.locator('.a2-nav a[href="/en/capabilities"]').click();
+    await page.waitForURL("**/en/capabilities");
+    await expect(page.locator("main h1")).toContainText("Capabilities");
     // The homepage counts as the session's first page: the intro loader does not play again.
     await expect(page.locator("html")).toHaveClass(/no-loader/);
     await expect(page.locator("body.mc")).toHaveCount(0);
@@ -301,7 +303,7 @@ test.describe("phone", () => {
     await card.tap();
     await page.waitForURL("**/ar/projects#gallery");
     await expect(page.locator("#gallery")).toBeInViewport();
-    expect(await page.locator("#gallery li.proj-item[hidden]").count()).toBe(0);
+    expect(await page.locator("#gallery li[data-project][hidden]").count()).toBe(0);
   });
 
   test("no custom pointer on touch: the system cursor stays and taps work", async ({ page }) => {
@@ -328,7 +330,7 @@ test.describe("light and dark", () => {
     await expect.poll(() => bodyColour(page)).toBe(PAGE_COLOURS.dark);
     await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute("content", "#131820");
     // A page in the previous design opens dark from its first paint ...
-    await page.goto("/en/projects", { waitUntil: "networkidle" });
+    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     expect(await firstTheme(page)).toBe("dark");
     // ... and a choice made there comes back to the homepage from its first paint too.
     await page.click('header button[aria-label*="light" i]');

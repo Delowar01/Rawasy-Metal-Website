@@ -100,8 +100,9 @@ function Head({
  * design's order — the introduction, who RAWASY is, what it does, the metal services, scaffolding and site support, the
  * vision, the engineering approach, how it works, why RAWASY, the workshop, the machinery, selected work, clients,
  * compliance and the ways on. Every sentence and figure is the previous page's (the content layer); nothing is
- * estimated. Photos are never shown larger than their source. The project cards open the Projects gallery until the
- * project pages exist (decision D4), and the machinery links keep the Capabilities placeholder (D5).
+ * estimated. Photos are never shown larger than their source. The project cards open their project's place in the
+ * Projects gallery until the project pages exist (decision D4), and the machinery links keep the Capabilities
+ * placeholder (D5).
  */
 export async function AboutPage({ locale }: { locale: Locale }) {
   const [about, company, services, pillars, metricData, machines, showcased, clients, certificates, projectsPage, home] = await Promise.all([
@@ -123,8 +124,9 @@ export async function AboutPage({ locale }: { locale: Locale }) {
   const metal = services.filter((s) => s.slug !== "scaffolding");
   const category = (slug: string) => projectCategories.find((c) => c.slug === slug)?.label[locale] ?? slug;
   const projects = about.projects.slugs.map((slug) => showcased.find((p) => p.slug === slug)).filter((p) => p !== undefined);
-  // Until the project pages exist (Stage 1F), a project card opens the Projects gallery, and says so (decision D4).
-  const gallery = href(locale, "projects", { hash: "gallery" });
+  // Until the project pages exist (Stage 1F), a project card opens the project's place in the Projects gallery, and says
+  // so (decision D4).
+  const inGallery = (slug: string) => href(locale, "projects", { hash: slug });
 
   return (
     <>
@@ -483,7 +485,7 @@ export async function AboutPage({ locale }: { locale: Locale }) {
         </div>
       </section>
 
-      {/* 11 — Selected work: each card opens the Projects gallery (D4) */}
+      {/* 11 — Selected work: each card opens its project in the Projects gallery (D4) */}
       <section id="work" aria-labelledby="work-title" className="sec sec-sheet sec-muted">
         <div className="shell">
           <Head
@@ -500,7 +502,7 @@ export async function AboutPage({ locale }: { locale: Locale }) {
               const photo = getMedia(projectImages(p)[0]);
               return (
                 <li key={p.slug} data-reveal style={delay((i % 4) * 70)}>
-                  <a href={gallery} className="card card-link ab-proj">
+                  <a href={inGallery(p.slug)} className="card card-link ab-proj">
                     {/* Shown at most at the photo's own size, centred on the stage when the card is wider. */}
                     <div className="ab-proj-stage">
                       <Image

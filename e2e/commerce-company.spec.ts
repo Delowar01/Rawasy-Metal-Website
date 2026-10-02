@@ -100,13 +100,15 @@ test.describe("about", () => {
     await expect(page.locator('#what a[href="#beyond"]')).toHaveCount(1);
   });
 
-  test("decision D4: the project cards open the Projects gallery and say so; no link to an unfinished project page", async ({ page }) => {
+  test("decision D4: each project card opens its own project in the Projects gallery and says so; no link to an unfinished project page", async ({ page }) => {
+    // Since Stage TM-2.5 every card names its project's place in the gallery (#<slug>), no longer the gallery as a whole.
+    const slugs = ["tulip-roundabout-sculpture", "clock-tower-landmark", "palm-leaf-shade-canopies", "geometric-lanterns"];
     for (const locale of LOCALES) {
       await page.goto(`/${locale}/about`, { waitUntil: "networkidle" });
       const cards = page.locator("#work ul a");
       await expect(cards).toHaveCount(4);
+      expect(await cards.evaluateAll((as) => as.map((a) => a.getAttribute("href")))).toEqual(slugs.map((slug) => `/${locale}/projects#${slug}`));
       for (const card of await cards.all()) {
-        await expect(card).toHaveAttribute("href", `/${locale}/projects#gallery`);
         await expect(card).toContainText(locale === "en" ? "View in the gallery" : "عرض في معرض الأعمال");
       }
       await expect(page.locator(`a[href^="/${locale}/projects/"]`)).toHaveCount(0);
@@ -118,7 +120,7 @@ test.describe("about", () => {
     }
     await page.goto("/en/about", { waitUntil: "networkidle" });
     await page.locator("#work ul a").first().click();
-    await page.waitForURL("**/en/projects#gallery");
+    await page.waitForURL("**/en/projects#tulip-roundabout-sculpture");
   });
 
   test("the vision is a blockquote, and the machine table keeps its header cells and its unstated values", async ({ page }) => {
@@ -213,6 +215,23 @@ test.describe("industries", () => {
     await expect(third).toHaveAttribute("data-active");
     // The active photo is the third sector's.
     expect(await page.locator("#sectors .in-preview-layer").evaluateAll((layers) => layers.findIndex((l) => l.hasAttribute("data-active")))).toBe(2);
+    // focus() brought the row into view with a smooth scroll. Hovering while the page still moves makes Playwright retry
+    // with a scrollIntoView of its own (smooth too), which carries other rows under the mouse after it is placed: let the
+    // page come to rest first (three frames at the same position).
+    await page.evaluate(
+      () =>
+        new Promise<void>((rested) => {
+          let last = -1;
+          let still = 0;
+          const frame = () => {
+            still = scrollY === last ? still + 1 : 0;
+            last = scrollY;
+            if (still >= 3) rested();
+            else requestAnimationFrame(frame);
+          };
+          requestAnimationFrame(frame);
+        }),
+    );
     const fifth = items.nth(4);
     await fifth.locator("h3").hover();
     await expect(caption).toContainText((await fifth.locator("h3").innerText()).trim());
@@ -510,8 +529,8 @@ test("decoration is hidden from assistive technology on About, Industries and Cl
 test("the pages in the previous design never prefetch the four pages and load none of the new design's faces", async ({ page }) => {
   const prefetched: string[] = [];
   page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  // The pages left in the previous design (the services moved in Stage TM-2.4).
-  for (const path of ["/en/capabilities", "/ar/projects", "/en/projects/geometric-lanterns", "/ar/capabilities"]) {
+  // The pages left in the previous design (the services moved in Stage TM-2.4, the projects overview in TM-2.5).
+  for (const path of ["/en/capabilities", "/ar/projects/clock-tower-landmark", "/en/projects/geometric-lanterns", "/ar/capabilities"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     await expect(page.locator('footer a[href$="/about"]').first()).toBeAttached();
     await page.locator("footer").scrollIntoViewIfNeeded();
@@ -521,6 +540,6 @@ test("the pages in the previous design never prefetch the four pages and load no
     expect(fonts, path).not.toContain("Tajawal");
   }
   expect(prefetched.filter((p) => /\/(about|industries|clients|certificates)$/.test(p))).toEqual([]);
-  // The rest of the previous design still prefetches as before.
-  expect(prefetched).toContain("/en/projects");
+  // The rest of the previous design still prefetches as before (Capabilities, from a project page).
+  expect(prefetched).toContain("/en/capabilities");
 });

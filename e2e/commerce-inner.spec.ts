@@ -207,9 +207,9 @@ test.describe("legal pages", () => {
   test("the pages in the previous design never prefetch the legal pages and load none of the new design's faces", async ({ page }) => {
     const prefetched: string[] = [];
     page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    // Contact (TM-2.2), About and Industries (TM-2.3) and the services (TM-2.4) moved to the new design: the Capabilities
-    // placeholder and the projects overview stand in.
-    for (const path of ["/en/capabilities", "/ar/projects"]) {
+    // Contact (TM-2.2), About and Industries (TM-2.3), the services (TM-2.4) and the projects overview (TM-2.5) moved to
+    // the new design: the Capabilities placeholder and a project page stand in.
+    for (const path of ["/en/capabilities", "/ar/projects/clock-tower-landmark"]) {
       await page.goto(path, { waitUntil: "networkidle" });
       await page.locator("footer").scrollIntoViewIfNeeded();
       await page.waitForTimeout(800);
@@ -304,8 +304,9 @@ test.describe("localized 404", () => {
     expect(await status(request, "/no-such-page")).toMatchObject({ status: 307, location: expect.stringMatching(/\/en\/no-such-page$/) });
     expect(await status(request, "/foo/bar", { "accept-language": "ar" })).toMatchObject({ status: 307, location: expect.stringMatching(/\/ar\/foo\/bar$/) });
     expect((await request.get("/no-such-page")).status()).toBe(404);
-    // Known pages in both designs still answer 200.
-    for (const path of ["/en", "/ar", "/en/privacy", "/ar/privacy", "/en/terms", "/ar/terms", "/en/about", "/ar/contact", "/en/services/laser-cutting", "/en/projects"]) {
+    // Known pages in both designs still answer 200 (the projects overview in the new design since TM-2.5; Capabilities and
+    // the project pages in the previous one).
+    for (const path of ["/en", "/ar", "/en/privacy", "/ar/privacy", "/en/terms", "/ar/terms", "/en/about", "/ar/contact", "/en/services/laser-cutting", "/en/projects", "/ar/projects", "/en/capabilities", "/en/projects/geometric-lanterns"]) {
       expect((await status(request, path)).status, path).toBe(200);
     }
   });

@@ -49,6 +49,16 @@ const PROJECTS: Record<Slug, string[]> = {
   scaffolding: [],
 };
 
+/** The same projects' slugs: each card opens its project's place in the Projects gallery (D4, since TM-2.5). */
+const PROJECT_SLUGS: Record<Slug, string[]> = {
+  "laser-cutting": ["geometric-lanterns", "perforated-canopy-screen", "clock-tower-landmark", "suspended-lantern"],
+  "cnc-bending": ["perforated-metal-seating"],
+  "steel-structures": ["palm-leaf-shade-canopies", "gateway-welcome-signs", "car-park-shade-structures", "curved-steel-frames"],
+  fabrication: ["heritage-cannon-replicas", "dome-finial-and-crescent", "sculpture-fabrication", "lattice-tower-replica"],
+  "laser-engraving": [],
+  scaffolding: [],
+};
+
 const RELATED: Record<Slug, Slug[]> = {
   "laser-cutting": ["cnc-bending", "fabrication", "laser-engraving"],
   "cnc-bending": ["laser-cutting", "fabrication", "steel-structures"],
@@ -341,21 +351,22 @@ test.describe("the dynamic route", () => {
 // ---------------------------------------------------------------------------------------------------------------------
 
 test("links to the services from the pages still in the previous design never prefetch them (and load none of this design's faces)", async ({ page }) => {
-  // The route table's patterns: the overview and every service address are in this design; project pages and
-  // Capabilities are not.
+  // The route table's patterns: the overview and every service address are in this design (and the projects overview
+  // since TM-2.5); project pages and Capabilities are not.
   for (const locale of LOCALES) {
     expect(crossDesignLink(`/${locale}/services`)).toEqual({ prefetch: false });
     for (const slug of SERVICES) expect(crossDesignLink(`/${locale}/services/${slug}`)).toEqual({ prefetch: false });
     expect(crossDesignLink(`/${locale}/services/${SERVICES[0]}#gallery`)).toEqual({ prefetch: false });
     expect(crossDesignLink(`/${locale}/projects/geometric-lanterns`)).toEqual({});
-    expect(crossDesignLink(`/${locale}/projects`)).toEqual({});
+    expect(crossDesignLink(`/${locale}/projects`)).toEqual({ prefetch: false });
+    expect(crossDesignLink(`/${locale}/projects#gallery`)).toEqual({ prefetch: false });
     expect(crossDesignLink(`/${locale}/capabilities`)).toEqual({});
   }
   const prefetched: string[] = [];
   page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  // The Projects page, the Capabilities placeholder and a project placeholder: each links to the six services (footer)
-  // and to the overview (header).
-  for (const path of ["/en/projects", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects"]) {
+  // The Capabilities placeholder and two project placeholders: each links to the six services (footer) and to the
+  // overview (header). (The projects overview moved to this design in TM-2.5.)
+  for (const path of ["/en/capabilities", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects/clock-tower-landmark"]) {
     const locale = path.split("/")[1];
     await page.goto(path, { waitUntil: "networkidle" });
     await expect(page.locator("body.mc")).toHaveCount(0);
@@ -369,8 +380,9 @@ test("links to the services from the pages still in the previous design never pr
     expect(fonts, path).not.toContain("Tajawal");
   }
   expect(prefetched.filter((p) => /\/services(\/|$)/.test(p))).toEqual([]);
-  // The rest of the previous design still prefetches as before.
-  expect(prefetched.some((p) => /\/(projects|capabilities)/.test(p))).toBe(true);
+  expect(prefetched.filter((p) => /\/projects$/.test(p))).toEqual([]);
+  // The rest of the previous design still prefetches as before (Capabilities).
+  expect(prefetched.some((p) => /\/capabilities$/.test(p))).toBe(true);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -391,11 +403,13 @@ test.describe("sourced relations", () => {
         for (const machine of MACHINES[slug]) await expect(main.locator(`#machinery a[href="/${locale}/capabilities#${machine}"]`)).toHaveCount(1);
         if (MACHINES[slug].length) await expect(main.locator(`#machinery a[href="/${locale}/capabilities"]`)).toHaveCount(1);
 
-        // Projects: only those whose own record lists the service, each opening the gallery and saying so (D4).
+        // Projects: only those whose own record lists the service, each opening its own place in the gallery and saying so
+        // (D4; #<slug> since TM-2.5, never the planned project page).
         if (PROJECTS[slug].length === 0) await expect(page.locator("#projects")).toHaveCount(0);
         else {
-          const cards = main.locator(`#projects a[href="/${locale}/projects#gallery"]`);
+          const cards = main.locator("#projects a.ab-proj");
           await expect(cards).toHaveCount(PROJECTS[slug].length);
+          expect(await cards.evaluateAll((as) => as.map((a) => a.getAttribute("href")))).toEqual(PROJECT_SLUGS[slug].map((p) => `/${locale}/projects#${p}`));
           for (const card of await cards.all()) await expect(card).toContainText(IN_GALLERY[locale]);
           if (locale === "en") expect(await cards.locator("h3").allInnerTexts()).toEqual(PROJECTS[slug]);
           await expect(main.locator(`#projects a[href="/${locale}/projects"]`)).toHaveCount(1);

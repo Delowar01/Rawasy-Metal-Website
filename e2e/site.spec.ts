@@ -5,13 +5,13 @@ import { hiddenReveals, INNER_PAGES, skipIntro, trackErrors } from "./helpers";
  * Site shell (stages 1A–1B) on the pages still in the previous design: intro
  * loader, theme, language switching, mobile menu, page transitions, reduced
  * motion and no-JavaScript rendering; and internal links on every page. The
- * homepage moved to the Modern Commerce design in Stage TM-1 (commerce-home.spec.ts), the services in Stage TM-2.4;
- * the pages left in the previous design (the projects overview, the Capabilities and project placeholders) stand in.
+ * homepage moved to the Modern Commerce design in Stage TM-1 (commerce-home.spec.ts), the services in Stage TM-2.4, the
+ * projects overview in TM-2.5; the pages left in the previous design (the Capabilities and project placeholders) stand in.
  */
 
 test("intro loader shows once per session", async ({ page }) => {
   const errors = trackErrors(page);
-  await page.goto("/en/projects", { waitUntil: "domcontentloaded" });
+  await page.goto("/en/projects/geometric-lanterns", { waitUntil: "domcontentloaded" });
   const loaderShown = () =>
     page.evaluate(() => {
       const loader = document.querySelector(".loader");
@@ -29,7 +29,7 @@ test.describe("theme", () => {
 
   test("follows the OS, toggles, persists and applies before hydration", async ({ page, context }) => {
     await skipIntro(context);
-    await page.goto("/en/projects", { waitUntil: "networkidle" });
+    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.click('header button[aria-label*="light" i]');
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -58,7 +58,7 @@ test.describe("mobile menu", () => {
   test("opens, traps focus, and Escape closes it and restores focus", async ({ page, context }) => {
     await skipIntro(context);
     const errors = trackErrors(page);
-    await page.goto("/ar/projects", { waitUntil: "networkidle" });
+    await page.goto("/ar/capabilities", { waitUntil: "networkidle" });
     const toggle = page.locator('header button[aria-controls="mobile-menu"]');
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -83,13 +83,14 @@ test.describe("mobile menu", () => {
 test("client navigation runs the page transition", async ({ page, context }) => {
   await skipIntro(context);
   const errors = trackErrors(page);
-  await page.goto("/en/capabilities", { waitUntil: "networkidle" });
-  await page.click('header nav a[href="/en/projects"]');
-  await page.waitForURL("**/en/projects");
+  // Between the two pages left in this design (the projects overview moved to the new one in Stage TM-2.5).
+  await page.goto("/en/projects/geometric-lanterns", { waitUntil: "networkidle" });
+  await page.click('header nav a[href="/en/capabilities"]');
+  await page.waitForURL("**/en/capabilities");
   await expect(page.locator(".page-wipe")).toHaveAttribute("data-state", "run", { timeout: 1_000 });
-  await expect(page.locator("main h1")).toContainText("Built in metal");
+  await expect(page.locator("main h1")).toContainText("Capabilities");
   await page.goBack();
-  await page.waitForURL(/\/en\/capabilities$/);
+  await page.waitForURL(/\/en\/projects\/geometric-lanterns$/);
   expect(errors).toEqual([]);
 });
 
@@ -97,7 +98,7 @@ test.describe("reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
   test("skips the loader and the custom cursor, and hides nothing", async ({ page }) => {
-    await page.goto("/en/projects", { waitUntil: "networkidle" });
+    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     await expect(page.locator("html")).toHaveClass(/no-loader/);
     expect(await page.locator(".cursor-ring").count()).toBe(0);
     await expect.poll(() => hiddenReveals(page), { timeout: 3_000 }).toBe(0);
@@ -108,8 +109,8 @@ test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
   test("the pages are fully rendered by the server", async ({ page }) => {
-    await page.goto("/en/projects", { waitUntil: "load" });
-    await expect(page.locator("h1")).toContainText("Built in metal");
+    await page.goto("/en/capabilities", { waitUntil: "load" });
+    await expect(page.locator("h1")).toContainText("Capabilities");
     const hidden = await page.evaluate(
       () => [...document.querySelectorAll("[data-reveal]")].filter((el) => getComputedStyle(el).opacity === "0").length,
     );
@@ -134,6 +135,9 @@ test("internal links on the homepage and inner pages resolve", async ({ page, re
     const response = await request.get(href, { maxRedirects: 0 });
     if (response.status() >= 400) broken.push(`${href} → ${response.status()}`);
   }
-  expect(links.size).toBeGreaterThan(40);
+  // Since Stage TM-2.5 the projects overview links each project to its place in its own gallery (#<slug>, decision D4)
+  // instead of 27 planned project pages per language, so the crawl finds fewer addresses than before (38, was over 40);
+  // commerce-projects.spec.ts checks every one of those anchors.
+  expect(links.size).toBeGreaterThan(30);
   expect(broken).toEqual([]);
 });

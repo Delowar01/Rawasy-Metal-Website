@@ -653,6 +653,8 @@ export function Related({ services, action }: { services: RelatedService[]; acti
 
 export interface ProjectItem {
   slug: string;
+  /** The project's place in the Projects gallery (`/projects#<slug>`) until the project pages exist (Stage 1F, D4). */
+  href: string;
   ref: string;
   title: string;
   summary: string;
@@ -663,23 +665,21 @@ export interface ProjectItem {
 
 /**
  * Work from the gallery whose own record lists the service. Until the project pages exist (Stage 1F), every card opens
- * the Projects gallery and says so (decision D4): never an unfinished project page.
+ * its project's place in the Projects gallery and says so (decision D4): never an unfinished project page.
  */
 export function Projects({
   projects,
-  href,
   refLabel,
   viewLabel,
   read,
 }: {
   projects: ProjectItem[];
-  href: string;
   refLabel: string;
   viewLabel: string;
   read: boolean;
 }) {
   const card = (p: ProjectItem) => (
-    <a href={href} className="card card-link ab-proj">
+    <a href={p.href} className="card card-link ab-proj">
       {/* Each photo at most at its own size, centred on the card's stage. */}
       <div className="ab-proj-stage">
         {p.images.length === 1 ? (

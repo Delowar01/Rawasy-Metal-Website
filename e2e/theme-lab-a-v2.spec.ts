@@ -813,8 +813,9 @@ test.describe("A V2 · light and dark", () => {
     // The lab keeps its own key: the website's theme choice is never written (checked on a page in the previous design,
     // which has no custom pointer).
     await page.goto(`${home("en")}?theme=dark`, { waitUntil: "networkidle" });
-    // The projects overview (About and the services moved to the Modern Commerce design in Stages TM-2.3 and TM-2.4).
-    await page.goto("/en/projects", { waitUntil: "networkidle" });
+    // The Capabilities placeholder (About, the services and the projects overview moved to the Modern Commerce design in
+    // Stages TM-2.3, TM-2.4 and TM-2.5).
+    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     expect(await page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBeNull();
     await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
     await expect(page.locator(".a2-cursor")).toHaveCount(0);

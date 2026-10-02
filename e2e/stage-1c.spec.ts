@@ -79,10 +79,10 @@ test.describe("no sideways scrolling", () => {
   }
 });
 
-// The pages still in the previous design: the projects overview stands in since the services moved (TM-2.4).
+// The pages still in the previous design: the Capabilities placeholder stands in since the projects overview moved (TM-2.5).
 test("dark theme applies to inner pages and toggles back", async ({ page, context }) => {
   await context.addInitScript(() => localStorage.setItem("rawasy-theme", "dark"));
-  await page.goto("/en/projects", { waitUntil: "networkidle" });
+  await page.goto("/en/capabilities", { waitUntil: "networkidle" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.click('header button[aria-label*="light" i]');
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -102,7 +102,7 @@ test("dark theme applies to inner pages and toggles back", async ({ page, contex
 
 test.describe("keyboard", () => {
   test("skip link moves focus to the main content", async ({ page }) => {
-    await page.goto("/en/projects", { waitUntil: "networkidle" });
+    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     await page.keyboard.press("Tab");
     const skip = page.locator('a[href="#main"]');
     await expect(skip).toBeFocused();
