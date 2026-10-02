@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-02-tm3-correction-1.md` (earlier: `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
+- Latest report: `docs/reports/2026-10-02-tm3-correction-2.md` (earlier: `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
@@ -91,7 +91,10 @@
   checkpoint: GitHub branch `preserve/pre-tm3` at `de62bc5`, the last commit before TM-3). It passed the user's independent
   review with two corrections, applied in **TM-3 correction 1** (report `2026-10-02-tm3-correction-1.md`, on `2cec1b0`): the
   homepage's Industries cards stack in one column below 22.5 rem (the 320 px overflow), and the fallback 404's logo takes
-  `CanvasText` in forced colours. Correction 1 awaits the user's independent review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, theme-lab removal or any deployment until the user
+  `CanvasText` in forced colours. Correction 1 passed review ("TM-3 Correction 1 passed independent review"); its one new
+  finding (English Industries names past their card at 360–421 px) is fixed in **TM-3 correction 2** (report
+  `2026-10-02-tm3-correction-2.md`; correction commit `0f53145` on `9e194e9`): the one-column rule moved to 27 rem, which
+  awaits the user's independent review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, theme-lab removal or any deployment until the user
   says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
   colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
   logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
@@ -99,9 +102,7 @@
   the first layout can still move an address's anchor landing (re-measured in TM-3; two standards-based CSS fixes were
   tried and rejected: root scroll snapping pulls a reader back to the section, and an `overflow-anchor` exclusion built
   on `:has(~ :target)` added 2.6–4.1 ms (+8–11 %) to each full style recalculation of the homepage, for every visitor);
-  at 360 and 390 px the homepage's two-column Industries cards still let the longest English names run past their card
-  (up to 17.9 px at 360, 2.9 px at 390; no sideways scroll), left as they were because correction 1 had to keep 360 and
-  390 unchanged (a one-column rule up to about 26 rem would fix it: the user's call); on desktop the About and services overview pages' largest paint is in the section under
+  on desktop the About and services overview pages' largest paint is in the section under
   the hero, which keeps its reveal, so their LCP stays about 1.1–1.3 s; Arabic desktop pages show a CLS of 0.003–0.009
   (the Arabic fonts, not preloaded, swap in while the hero is visible; preloading them needs a root layout per language,
   1J); below 320 CSS px (a phone at 200 % page zoom) and with doubled text on phones the header overflows (pre-existing,
@@ -304,9 +305,13 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   lead), Machinery (`MachineShowcase`), Projects, Industries, Clients + Compliance (one sheet), Contact;
   `getHomeView(locale)` in `home/data.ts`. Markup follows the lab's `HomeA2.tsx` one to one (proved by diffing the
   server HTML: only routes, `aria-current`, the added footer WhatsApp link, the copyright period, the hero's primary
-  action and the project cards differ). Industries (TM-3 correction 1): below 22.5 rem its two lists stack in one column
-  (`max-[22.5rem]:grid-cols-1` on the two `ul`s, built as `@media not all and (min-width:22.5rem)`), because two 130 px
-  columns cannot hold the longest English names at 320 px; from 360 px the two columns (four from 1024) are as before.
+  action and the project cards differ). Industries (TM-3 corrections 1 and 2): below 27 rem its two lists stack in one
+  column (`max-[27rem]:grid-cols-1` on the two `ul`s, built as `@media not all and (min-width:27rem)`); two columns from
+  27 rem (432 px), four from 1024. Derived from measurement: a phone card sets its name beside the 36 px icon chip, so it
+  needs the name's longest word plus 72 px (borders, 12 px padding, chip, 10 px gap); two cards hold "Manufacturing" from
+  422 px in Plus Jakarta Sans and from 432 px in the widest fallback face measured (DejaVu Sans, where `local(Arial)`
+  is missing); 360–421 px let English names run up to 17.9 px past their card before (correction 1's 22.5 rem rule).
+  Arabic names are shorter but take the same columns.
 - Until the project pages (1F) exist, the six homepage project cards open the Projects overview at its gallery
   (`href(locale, "projects", { hash: "gallery" })`, label `home.projects.inGallery`: "View in the gallery" / "عرض في
   معرض الأعمال"), never a planned detail page. Per-project anchors were measured and rejected: the gallery's sticky
@@ -482,8 +487,11 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   history, reduced motion, no-JS); `e2e/commerce-planned.spec.ts` (Capabilities, every project page with no project
   media, the unknown-project 404); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
   forced colours, the inner pages' hero with its script blocked and frame by frame, the phone menu sheet's geometry,
-  keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom; correction 1: the homepage's Industries cards at 320
-  px in EN/AR × light/dark, and the column count from 320 to 1440); `e2e/site.spec.ts` (internal links, nothing of the
+  keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom; corrections 1 and 2: the homepage's Industries cards
+  at 320, 360 and 390 px in EN/AR × light/dark, around the 27 rem boundary and at common widths, a sweep from 320 to 1440
+  px every 4 px, and the fallback face — each checking the page, every card and its share of the row, every text drawn
+  and inside its own box and its card, the icon and overlaps, not only the column count); `e2e/site.spec.ts` (internal
+  links, nothing of the
   previous design on any page and no prefetch, which addresses reach which 404, the fallback 404 from the build output,
   and since correction 1 its logo in forced colours in four palette/theme pairings, its normal-colour pixels with and
   without that rule, and its isolation); `stage-1c.spec.ts`'s generic
@@ -879,5 +887,23 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   the text is drawn in the forced colour; axe-core's colour-contrast rule reads the fill colour, so in forced colours it
   reports false "serious" findings (the fallback 404's badges and buttons when the stored theme disagrees, on TM-3 and
   correction 1 alike). Check the computed `color` and the drawn pixels instead.
-- Tailwind's arbitrary `max-[22.5rem]:` variant builds `@media not all and (min-width:22.5rem)`: at exactly 360 px the
-  rule is off (`min-width` matches).
+- Tailwind's arbitrary `max-[27rem]:` variant builds `@media not all and (min-width:27rem)`: at exactly 432 px the rule is
+  off (`min-width` matches).
+- `scrollWidth` / `clientWidth` are rounded to whole pixels and hide up to about half a pixel of overhang: measure text
+  against its box with `Range.getClientRects()` and the box's `getBoundingClientRect()`, allowing 0.1 px for Chromium's
+  1/64 px layout rounding (isolated widths show 0.02 px "overhang" on every build).
+- The fallback face of a `next/font` family is `local(Arial)` with a size adjustment; where Arial is missing (this Linux
+  box) the stack falls through to the system sans (DejaVu Sans, wider). Measure text fits with the web fonts blocked as
+  well (`page.route(/\.woff2$/, abort)`), since `display: swap` shows the fallback first.
+- Larger text through the browser's own setting (CDP `Page.setFontSizes`) scales rem media queries too; injecting
+  `html { font-size }` does not. At phone widths 150–200 % text equals a screen below 320 CSS px, where the header's
+  controls already overflow (`div.ms-auto` in the header; pre-existing).
+- Run the e2e suite with nothing heavy alongside it (the cloud machine has 4 CPUs; the suite uses 3 workers). In TM-3
+  correction 2 a run with image composition and build comparisons alongside, right after a build from an empty `.next`
+  (so the image optimizer refilled `.next/cache/images` on demand), failed 13 tests: 12 page timeouts on photo-heavy
+  pages (Projects, the company pages' containment sweep, inner pages without JS, the lab's option C) and the Clients race
+  below. The same build then passed 421 / 421 twice, once from an empty image cache. `next build` keeps that cache;
+  `rm -rf .next` empties it.
+- `commerce-company.spec.ts`'s "in forced colours the switch still shows its state" reads the track colour once, right
+  after the dot starts moving, while the knob's background transitions over `--dur-2` (320 ms): under heavy load it read
+  the start colour (`Canvas`) once (TM-3 correction 2, left as is: outside its scope). Poll the colour if it recurs.
