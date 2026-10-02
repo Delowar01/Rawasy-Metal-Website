@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-02-tm2-6-retirement.md` (earlier: `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
+- Latest report: `docs/reports/2026-10-02-tm3-shared-polish.md` (earlier: `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
@@ -85,17 +85,27 @@
   `preserve/pre-tm2.4` at `4b28ad2`).
   **TM-2.5 (the Projects overview, D4's exact project anchors and the shared first-jump fix) is approved** (the user's
   "TM-2.5 APPROVED — BEGIN TM-2.6"; report `2026-10-02-tm2-5-projects.md`; rollback checkpoint `preserve/pre-tm2.5` at
-  `304a277`). **TM-2.6 (retiring the previous design) is built** (report `2026-10-02-tm2-6-retirement.md`; rollback
-  checkpoint: GitHub branch `preserve/pre-tm2.6` at `9c7d2af`, the last commit before TM-2.6) and awaits the user's
-  independent review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, shared-polish work, theme-lab removal or
-  any deployment until the user says so.** Deferred register (shared parts left as they are for the user to decide,
-  TM-2.3 to TM-2.6 reports): (1) the homepage's colour switch shows no on/off state in forced colours (the Clients page
-  draws its own); (2) the kit's `PageHero` fades its text in after the script starts (local LCP about 1–1.4 s on every
-  inner page with a hero); (3) the footer's wordmark disappears in forced colours; (4) the phone menu sheet's last row
-  reads "partly obscured" to axe while the open Services list pushes it below the sheet's fold (target size); (5) without
-  JavaScript a font that swaps in after the load event can still move an address's anchor landing (3 of 36 cold cells in
-  the TM-2.5 report; 3 to 5 per run in TM-2.6, on both builds). Also open: the OG share images (`scripts/generate-og.mjs`) are still rendered with the previous design's
-  faces (regenerating them changes the share cards: the user's call).
+  `304a277`). **TM-2.6 (retiring the previous design) is approved** (the user's "TM-2.6 APPROVED — BEGIN TM-3"; report
+  `2026-10-02-tm2-6-retirement.md`; rollback checkpoint `preserve/pre-tm2.6` at `9c7d2af`). **TM-3 (shared polish of the
+  Modern Commerce design: the five deferred items) is built** (report `2026-10-02-tm3-shared-polish.md`; rollback
+  checkpoint: GitHub branch `preserve/pre-tm3` at `de62bc5`, the last commit before TM-3) and awaits the user's independent
+  review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, theme-lab removal or any deployment until the user
+  says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
+  colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
+  logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
+  Commerce design in production"). Still open, for the user to decide: (5) without JavaScript a font that swaps in after
+  the first layout can still move an address's anchor landing (re-measured in TM-3; two standards-based CSS fixes were
+  tried and rejected: root scroll snapping pulls a reader back to the section, and an `overflow-anchor` exclusion built
+  on `:has(~ :target)` added 2.6–4.1 ms (+8–11 %) to each full style recalculation of the homepage, for every visitor);
+  the homepage's Industries cards let their English text run past the cards at 320 px (8 px of sideways scroll,
+  pre-existing, frozen homepage); on desktop the About and services overview pages' largest paint is in the section under
+  the hero, which keeps its reveal, so their LCP stays about 1.1–1.3 s; Arabic desktop pages show a CLS of 0.003–0.009
+  (the Arabic fonts, not preloaded, swap in while the hero is visible; preloading them needs a root layout per language,
+  1J); the fallback 404's logo follows the site's theme ink, so in forced colours it is invisible when the stored theme
+  and the forced palette disagree (one line in `global-not-found.css`; the page is frozen and no address reaches it).
+  Also open: the OG share images (`scripts/generate-og.mjs`) are still rendered with the previous design's faces (a Stage
+  1J / SEO-release task; do not regenerate them before), and the dictionary keys only the retired shell read stay until a
+  usage audit.
   Decisions in short:
   - project cards on About and the service pages open their project's place in the migrated gallery,
     `/projects#<slug>` (since TM-2.5, still "View in the gallery"); the landing clears the header and the sticky filter
@@ -272,6 +282,22 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   `getShellView(locale, { route, path })` builds everything the shell needs from the content layer. Every quote
   action goes to `href(locale, "contact", { hash: "quote" })`, the hero's "Start a Project" included (the user's
   navigation correction); its secondary action still scrolls to `#machinery`.
+- Shared polish (TM-3, CSS only):
+  - The inner pages' hero (`.ip-hero`: the kit's `PageHero` and the service pages' `ServiceHero`) shows with the first
+    paint: a rule after the reveal rules in `commerce.css` keeps `[data-reveal]` inside `.ip-hero` at opacity 1 / no
+    transform, except the line drawings and the laser signatures (`.sv-draw`, `.sv-axis`, `.sv-bubble`, `.sv-cut-sheet`,
+    `.sv-plate-stage`), which still draw in once the script runs. The markup keeps its `data-reveal` attributes (so the
+    served HTML stayed identical). Write such exclusions as chained `:not()`, never a `:not()` list (gotcha below).
+  - The phone menu sheet: its `nav` is the scroll area (`.mc .a2-sheet > nav { min-height: 0; overflow-y: auto }`), the
+    foot with the quote button sits below it, so nothing ever passes under the foot, a row reached with the keyboard is
+    scrolled into full view, and axe's target-size rule passes with the Services list open. The sheet itself no longer
+    scrolls; the page behind stays locked by the `html:has(… [data-menu][open])` rule.
+  - Forced colours: every `.a2-toggle` (the homepage's and the Clients page's switch) draws its track, dot and pressed
+    fill in system colours (the forced-colours block at the end of `system.css`'s components layer); outside the layer
+    (so no utility wins), the brand logo in the header and the footer takes `CanvasText`, the header's current page and
+    section marks (`.a2-nav .nav-link`, `.a2-sheet-row`, `.a2-dd-item` with `aria-current`) are underlined, and the
+    current language and the pressed theme button take `Highlight` / `HighlightText` (as the projects' pressed chips do).
+    Normal colours are unchanged.
 - Homepage sections (`components/commerce/home/`): Hero (+ capability strip), About, Services (the two signatures
   lead), Machinery (`MachineShowcase`), Projects, Industries, Clients + Compliance (one sheet), Contact;
   `getHomeView(locale)` in `home/data.ts`. Markup follows the lab's `HomeA2.tsx` one to one (proved by diffing the
@@ -449,7 +475,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   reduced motion, no-JS); `e2e/commerce-anchors.spec.ts` with `e2e/anchor-helpers.ts` (the first-jump fix: fresh
   context, fonts held back 300 / 1200 ms, 1440 and 390, on Contact, the legal and two service pages; same-page glide,
   history, reduced motion, no-JS); `e2e/commerce-planned.spec.ts` (Capabilities, every project page with no project
-  media, the unknown-project 404); `e2e/site.spec.ts` (internal links, nothing of the previous design on any page and no
+  media, the unknown-project 404); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
+  forced colours, the inner pages' hero with its script blocked and frame by frame, the phone menu sheet's geometry,
+  keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom); `e2e/site.spec.ts` (internal links, nothing of the previous design on any page and no
   prefetch, which addresses reach which 404, the fallback 404 from the build output); `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
@@ -813,3 +841,24 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - The fallback 404 cannot be requested by any address (see "The fallback 404" above): to see it, serve
   `.next/server/app/_not-found.html` at a made-up address with Playwright's `route.fulfill` (its assets load from the
   server).
+- The CSS build merges rules with the same declarations into one selector list (the hero's reveal override joined
+  `.js [data-reveal][data-shown]`). A Selectors 4 list inside `:not(a, b)` would make an older browser drop the whole
+  merged rule, the original included: write `:not(a):not(b)`.
+- In forced colours Chromium keeps an inline SVG's own colour (the UA gives `svg` `forced-color-adjust:
+  preserve-parent-color`), so a logo coloured by a utility (`text-white`) stayed white on the forced page colour. Give it
+  `color: CanvasText` in a forced-colours rule outside the components layer (a layered rule loses to the utility).
+- Forced colours drop backgrounds and box shadows: a state drawn only with a tint, a bar, a raised tile or a colour (the
+  header's current page, the current language, the pressed theme) disappears. Underline it or give it the selection
+  colours (`Highlight` / `HighlightText` with `forced-color-adjust: none`). Playwright emulates the palette from
+  `prefers-color-scheme` (`forcedColors: "active"` + `colorScheme`).
+- Playwright's route glob `**/_next/static/chunks/**/*.js` does not match a file directly in `chunks/`: route with a regex
+  and count the matches, or a "script blocked" test silently runs with its script.
+- Without JavaScript, `load` can fire before the first layout (nothing blocks it); the fragment jump happens at that
+  layout, and the web fonts it requests arrive after it. Chromium's scroll anchoring then keeps a node above the target
+  (the text under the header, inside the scroll padding), so the target moves by the text's change (95–107 px on the
+  legal pages at 1440). See the TM-3 report, item 13, before trying to fix it.
+- LCP of text that fades in from opacity 0 is recorded when the fade ends (the reveal's start + 0.7 s), not when it starts.
+- Capture scripts: lazy images far down the projects gallery do not load just because a script sets `loading = "eager"`;
+  walk the page a screen at a time first, and cap every image wait with a timeout (one capture run hung on three images).
+- The site's narrowest supported width is 320 CSS px. A phone at 200 % page zoom (390 → 195 CSS px) overflows in the header
+  on every build; test 200 % zoom as a desktop window's CSS viewport (1280 × 720 → 640 × 360).
