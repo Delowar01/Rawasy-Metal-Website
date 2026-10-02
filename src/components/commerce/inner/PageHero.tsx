@@ -10,6 +10,8 @@ export interface PageFact {
 /**
  * The opening of an inner page: the breadcrumb trail, the page label, the title (the page's only h1, `#page-title`),
  * the lead, optional page facts and actions — on a reading zone, so the ambient stays in the space around the text.
+ * Everything in it shows with the first paint: commerce.css keeps the reveal off inside `.ip-hero` (Stage TM-3), so the
+ * title never waits for the script.
  *
  * - `compact`  text only (legal pages, clients, certificates)
  * - `split`    text beside a visual (`aside`: about, services, contact)

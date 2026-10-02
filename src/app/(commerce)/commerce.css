@@ -118,6 +118,15 @@
   transform: none;
 }
 
+/* An inner page's hero is on screen when the page opens: its title, text, photos and cards show with the first paint
+   instead of waiting for the script to reveal them (Stage TM-3: the title and the page's largest paint come with the
+   page). Its line drawings and the two laser signatures still draw in once the script runs. One :not() per class, never
+   a list: the build merges this rule with the one above, and a selector an older browser cannot read drops both. */
+.js .ip-hero [data-reveal]:not(.sv-draw):not(.sv-axis):not(.sv-bubble):not(.sv-cut-sheet):not(.sv-plate-stage) {
+  opacity: 1;
+  transform: none;
+}
+
 /* Image reveal: the frame opens from a smaller clip while the photo settles. */
 .js [data-reveal="clip"] {
   opacity: 1;

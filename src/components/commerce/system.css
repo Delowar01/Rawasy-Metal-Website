@@ -1274,6 +1274,14 @@
     animation: a2-sheet var(--dur-2) var(--ease);
   }
 
+  /* The pages scroll inside the sheet, above its foot (Stage TM-3): the quote button stays in reach without covering a
+     row, however far the Services list opens, and a row reached with the keyboard is scrolled into full view. */
+  .mc .a2-sheet > nav {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
   .mc .a2-sheet-row {
     display: flex;
     align-items: center;
@@ -5315,30 +5323,31 @@
     }
   }
 
-  /* Forced colours replace fills with the page colour. The colour switch on the Clients page draws its track, dot and
-     pressed fill in system colours (the homepage's switch is the same component, left unchanged: the homepage is
-     frozen); the redaction swatch keeps its hatch, so it reads as the covered blocks in the previews rather than an
-     empty box; the active sector's line takes the highlight colour instead of covering the row's rule. */
+  /* Forced colours replace fills with the page colour. The colour switch (the homepage's and the Clients page's) draws
+     its track, dot and pressed fill in system colours (Stage TM-3 extended it from the Clients page to every switch);
+     the redaction swatch keeps its hatch, so it reads as the covered blocks in the previews rather than an empty box;
+     the active sector's line takes the highlight colour instead of covering the row's rule. (The brand logo's rule is
+     outside the layer, below.) */
   @media (forced-colors: active) {
-    .mc .cl-toggle .knob {
+    .mc .a2-toggle .knob {
       border: 1px solid ButtonText;
       background: Canvas;
       forced-color-adjust: none;
     }
 
-    .mc .cl-toggle .knob::after {
+    .mc .a2-toggle .knob::after {
       top: calc(0.175rem - 1px);
       inset-inline-start: calc(0.175rem - 1px);
       background: ButtonText;
       forced-color-adjust: none;
     }
 
-    .mc .cl-toggle[aria-pressed="true"] .knob {
+    .mc .a2-toggle[aria-pressed="true"] .knob {
       border-color: Highlight;
       background: Highlight;
     }
 
-    .mc .cl-toggle[aria-pressed="true"] .knob::after {
+    .mc .a2-toggle[aria-pressed="true"] .knob::after {
       background: HighlightText;
     }
 
@@ -5402,6 +5411,30 @@ html:has(.mc details[data-menu][open]) {
 /* A script-only control stays out of view without script. */
 html:not(.js) .mc [data-js-only] {
   display: none !important;
+}
+
+/* Forced colours replace the header's and footer's marks (Stage TM-3; outside the layer, so no utility wins):
+   - the brand logo takes the forced text colour: an SVG keeps its own colour there, so the footer's white logo vanished
+     on a light forced page and the header's followed the site's theme instead of the forced one (the orange piece keeps
+     its colour);
+   - the page and the section being viewed in the menus (a tint, a bar or a colour otherwise) are underlined;
+   - the language being read and the theme in force (a raised tile otherwise) take the selection colours, as the
+     project filters' pressed chips do. */
+@media (forced-colors: active) {
+  .mc :is(.a2-header, .a2-footer) svg[role="img"] {
+    color: CanvasText;
+  }
+
+  .mc :is(.a2-nav .nav-link, .a2-sheet-row, .a2-dd-item)[aria-current] {
+    text-decoration: underline 2px;
+    text-underline-offset: 0.3em;
+  }
+
+  .mc :is(.a2-lang a[aria-current], .seg button[aria-pressed="true"]) {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
 }
 
 /* ---------- Site-wide ambient motion: slow, in whole-pixel steps, transform and opacity only ----------

@@ -7,8 +7,9 @@ import type { Tone } from "../types";
  * The opening of a service page (Stage TM-2.4): the trail (Home › Services › the service), the service's number and
  * section, its name (the page's only h1), its tagline and summary, its facts, the quote action (and the way to the work,
  * where the page has a gallery or projects) beside the service's picture. The text sits on a reading zone, as in the
- * kit's PageHero. A page with a signature makes the hero its host, so the drawing replays when a mouse comes back to the
- * hero or the keyboard moves into it (never while it runs).
+ * kit's PageHero, and like it shows with the first paint (only the drawings and signatures draw in once the script runs).
+ * A page with a signature makes the hero its host, so the drawing replays when a mouse comes back to the hero or the
+ * keyboard moves into it (never while it runs).
  */
 export function ServiceHero({
   breadcrumb,

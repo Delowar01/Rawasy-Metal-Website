@@ -68,7 +68,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-10-02, Stage TM-2.6 retirement of the previous design)
+docs/reports/                Stage reports (latest: 2026-10-02, Stage TM-3 shared polish)
 ```
 
 ### Languages and RTL
@@ -208,6 +208,8 @@ signatures, the ambient, the pointer, keyboard, reduced motion, no-JS, search me
 `commerce-certificates.spec.ts` (the redacted files, the register and the dialog), `commerce-services.spec.ts` (the
 services overview and the six service pages), `commerce-projects.spec.ts` (the projects overview, its anchors and
 filters), `commerce-planned.spec.ts` (Capabilities, the 34 project pages with no project media, an unknown project),
+`commerce-polish.spec.ts` (the forced-colours switch, logo and header marks, the inner pages' hero shown with the first
+paint, the phone menu sheet's geometry and keyboard order),
 `commerce-anchors.spec.ts` (first jumps to an address's anchor with late fonts), `site.spec.ts` (internal links,
 nothing of the previous design on any page, which addresses reach which 404, the fallback 404),
 `stage-1c.spec.ts` (generic inner-page checks: routes, SEO and the noindex gate, breadcrumbs, overflow, keyboard,
