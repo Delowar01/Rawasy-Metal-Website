@@ -17,4 +17,3 @@ export function formatPower(watts: number, locale: Locale) {
 }
 
 export const THEME_STORAGE_KEY = "rawasy-theme";
-export const INTRO_STORAGE_KEY = "rawasy-intro";

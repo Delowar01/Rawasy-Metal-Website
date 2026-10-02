@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { horizontalOverflow, jsonLd, skipIntro, trackErrors } from "./helpers";
+import { horizontalOverflow, jsonLd, trackErrors } from "./helpers";
 
 /**
  * Stage TM-2.3: the certificates page in the Modern Commerce design (src/app/(commerce)/[locale]/certificates, components
@@ -13,10 +13,6 @@ import { horizontalOverflow, jsonLd, skipIntro, trackErrors } from "./helpers";
  * reduced motion, Arabic). The generic inner-page checks (routes and search metadata, breadcrumbs, sideways scrolling,
  * reduced motion, no JavaScript) still run on this page from stage-1c.spec.ts.
  */
-
-test.beforeEach(async ({ context }) => {
-  await skipIntro(context);
-});
 
 /** SHA-1 of the eight redacted files (the TM-2 plan's E4 baseline, in full). They are never re-encoded or replaced. */
 const FILES: Record<string, string> = {
@@ -98,7 +94,6 @@ test("previews are shown as they are: no filter or zoom, the same image service 
     for (const locale of ["en", "ar"] as const) {
       const phone = width < 800;
       const context = await browser.newContext({ viewport: { width, height }, isMobile: phone, hasTouch: phone });
-      await skipIntro(context);
       const page = await context.newPage();
       await page.goto(`/${locale}/certificates`, { waitUntil: "networkidle" });
       const limits = PREVIOUS[width];
@@ -229,7 +224,6 @@ test("the register's links and the page's anchors land each document and the red
 test("phones: the register keeps the number and the document (with its issuer); nothing scrolls sideways", async ({ browser }) => {
   for (const width of [390, 320]) {
     const context = await browser.newContext({ viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     const page = await context.newPage();
     for (const locale of ["en", "ar"] as const) {
       await page.goto(`/${locale}/certificates`, { waitUntil: "networkidle" });
@@ -443,7 +437,6 @@ test.describe("the pointer while the dialog is open", () => {
 
   test("touch: tapping opens and closes the dialog; the system pointer is untouched", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     const page = await context.newPage();
     await page.goto("/en/certificates", { waitUntil: "networkidle" });
     const open = plate(page, "vat-registration");

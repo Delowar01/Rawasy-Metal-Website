@@ -67,8 +67,11 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
   const flat = [home, about];
   const here = (key: string) => (key === current ? ("page" as const) : undefined);
   // A service page belongs to the Services section: the Services menu is marked as the section being viewed, and the
-  // service as the page in it (only where it applies, so the other pages' data carries no empty prop).
-  const section = (key: string) => here(key) ?? (key === "services" && current === "service" ? ("true" as const) : undefined);
+  // service as the page in it; a project page belongs to the Projects section the same way (only where it applies, so
+  // the other pages' data carries no empty prop).
+  const section = (key: string) =>
+    here(key) ??
+    ((key === "services" && current === "service") || (key === "projects" && current === "project") ? ("true" as const) : undefined);
   const herePage = (href: string) => (href === shell.self ? { "aria-current": "page" as const } : {});
 
   return (
@@ -124,7 +127,7 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
             </li>
             {rest.map((item) => (
               <li key={item.key}>
-                <a href={item.href} className="nav-link" aria-current={here(item.key)}>
+                <a href={item.href} className="nav-link" aria-current={section(item.key)}>
                   {item.label}
                 </a>
               </li>
@@ -210,7 +213,7 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
                   </li>
                   {rest.map((item) => (
                     <li key={item.key}>
-                      <a href={item.href} className="a2-sheet-row" aria-current={here(item.key)}>
+                      <a href={item.href} className="a2-sheet-row" aria-current={section(item.key)}>
                         {item.label}
                         <Icon name="arrow" size={18} />
                       </a>

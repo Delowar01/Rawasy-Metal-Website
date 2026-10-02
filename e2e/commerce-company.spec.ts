@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { company } from "../src/content/company";
 import { mediaRegistry } from "../src/content/media.generated";
-import { HTML_LANG, horizontalOverflow, jsonLd, LOCALES, skipIntro, trackErrors } from "./helpers";
+import { HTML_LANG, horizontalOverflow, jsonLd, LOCALES, trackErrors } from "./helpers";
 
 /**
  * Stage TM-2.3: About, Industries and Clients in the Modern Commerce design (src/app/(commerce)/[locale]/{about,
@@ -13,10 +13,6 @@ import { HTML_LANG, horizontalOverflow, jsonLd, LOCALES, skipIntro, trackErrors 
  * without script, the colour switch, and the pages' fonts. The generic inner-page checks (routes and search metadata,
  * breadcrumbs, sideways scrolling, reduced motion, no JavaScript) still run on these pages from stage-1c.spec.ts.
  */
-
-test.beforeEach(async ({ context }) => {
-  await skipIntro(context);
-});
 
 /** Source size of every image in the media registry, by its file path. */
 const SOURCE = new Map<string, readonly [number, number]>(Object.values(mediaRegistry).map((m) => [m.src, [m.width, m.height] as const]));
@@ -145,7 +141,6 @@ test.describe("about", () => {
       [390, 844],
     ] as const) {
       const context = await browser.newContext({ viewport: { width, height }, isMobile: width < 800, hasTouch: width < 800 });
-      await skipIntro(context);
       const page = await context.newPage();
       for (const path of ["/en/about", "/ar/about", "/en/industries"]) {
         await page.goto(path, { waitUntil: "networkidle" });
@@ -255,7 +250,6 @@ test.describe("industries", () => {
 
   test("phones: no preview, a photo beside each sector's name; nothing scrolls sideways", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     const page = await context.newPage();
     for (const locale of LOCALES) {
       await page.goto(`/${locale}/industries`, { waitUntil: "networkidle" });
@@ -353,7 +347,6 @@ test.describe("clients", () => {
 
   test("two across on phones, every row full, every logo inside its tile", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     const page = await context.newPage();
     await page.goto("/ar/clients", { waitUntil: "networkidle" });
     expect(await columns(page)).toBe(2);
@@ -474,7 +467,6 @@ test("nothing spills out of its card or is cut off by it, on About, Industries, 
   ] as const) {
     const phone = width < 800;
     const context = await browser.newContext({ viewport: { width, height }, isMobile: phone, hasTouch: phone, reducedMotion: "reduce" });
-    await skipIntro(context);
     const page = await context.newPage();
     for (const path of ["/en/about", "/ar/about", "/en/industries", "/en/clients", "/ar/clients", "/en/certificates"]) {
       await page.goto(path, { waitUntil: "networkidle" });
@@ -526,20 +518,3 @@ test("decoration is hidden from assistive technology on About, Industries and Cl
   }
 });
 
-test("the pages in the previous design never prefetch the four pages and load none of the new design's faces", async ({ page }) => {
-  const prefetched: string[] = [];
-  page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  // The pages left in the previous design (the services moved in Stage TM-2.4, the projects overview in TM-2.5).
-  for (const path of ["/en/capabilities", "/ar/projects/clock-tower-landmark", "/en/projects/geometric-lanterns", "/ar/capabilities"]) {
-    await page.goto(path, { waitUntil: "networkidle" });
-    await expect(page.locator('footer a[href$="/about"]').first()).toBeAttached();
-    await page.locator("footer").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(800);
-    const fonts = await page.evaluate(() => [...new Set([...document.fonts].map((f) => f.family.replace(/['"]/g, "")))]);
-    expect(fonts, path).not.toContain("Plus Jakarta Sans");
-    expect(fonts, path).not.toContain("Tajawal");
-  }
-  expect(prefetched.filter((p) => /\/(about|industries|clients|certificates)$/.test(p))).toEqual([]);
-  // The rest of the previous design still prefetches as before (Capabilities, from a project page).
-  expect(prefetched).toContain("/en/capabilities");
-});

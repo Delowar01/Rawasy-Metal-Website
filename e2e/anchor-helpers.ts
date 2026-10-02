@@ -1,5 +1,4 @@
 import type { Browser, Page } from "@playwright/test";
-import { skipIntro } from "./helpers";
 
 /**
  * Cold-load landing probes for the first jump to an address's #anchor (Stage TM-2.5's shared fix, see
@@ -45,7 +44,6 @@ export const placed = ({ off, covered }: Placement) => Math.abs(off) <= 1 && !co
 /** Loads `path` in a fresh context with its fonts delayed by `delay` ms; the target's placement at four moments. */
 export async function coldLanding(browser: Browser, path: string, view: (typeof VIEWPORTS)[number], delay: number) {
   const context = await browser.newContext({ viewport: view.viewport, isMobile: view.isMobile, hasTouch: view.isMobile });
-  await skipIntro(context);
   // What the stylesheet says while the page is still loading: no gliding yet.
   await context.addInitScript(() => {
     addEventListener("DOMContentLoaded", () => {

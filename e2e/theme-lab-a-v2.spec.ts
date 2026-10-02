@@ -810,15 +810,13 @@ test.describe("A V2 · light and dark", () => {
     await expect(light).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => localStorage.getItem("rawasy-lab-a2-theme"))).toBe("light");
     await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(244, 244, 241)");
-    // The lab keeps its own key: the website's theme choice is never written (checked on a page in the previous design,
-    // which has no custom pointer).
+    // The lab keeps its own key: the website's theme choice is never written (checked on a page of the website, which
+    // then follows the system setting: light here).
     await page.goto(`${home("en")}?theme=dark`, { waitUntil: "networkidle" });
-    // The Capabilities placeholder (About, the services and the projects overview moved to the Modern Commerce design in
-    // Stages TM-2.3, TM-2.4 and TM-2.5).
     await page.goto("/en/capabilities", { waitUntil: "networkidle" });
+    await expect(page.locator("body.mc")).toHaveCount(1);
     expect(await page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBeNull();
     await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
-    await expect(page.locator(".a2-cursor")).toHaveCount(0);
   });
 
   test("text stays readable (WCAG AA) in both themes and both languages", async ({ page }) => {

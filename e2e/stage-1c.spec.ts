@@ -1,13 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { HTML_LANG, hiddenReveals, horizontalOverflow, INNER_PAGES, jsonLd, LOCALES, skipIntro, trackErrors } from "./helpers";
+import { HTML_LANG, hiddenReveals, horizontalOverflow, INNER_PAGES, jsonLd, LOCALES, trackErrors } from "./helpers";
 
 /** Stage 1C inner pages: routes, SEO, breadcrumbs, page features, forms and layout (legal pages and 404: commerce-inner.spec.ts). */
 
 const BREADCRUMB = { en: "Breadcrumb", ar: "مسار التنقل" } as const;
-
-test.beforeEach(async ({ context }) => {
-  await skipIntro(context);
-});
 
 test.describe("routes, language and SEO", () => {
   for (const locale of LOCALES) {
@@ -79,12 +75,12 @@ test.describe("no sideways scrolling", () => {
   }
 });
 
-// The pages still in the previous design: the Capabilities placeholder stands in since the projects overview moved (TM-2.5).
+// On the Capabilities page (planned; in the Modern Commerce design since TM-2.6, like every inner page).
 test("dark theme applies to inner pages and toggles back", async ({ page, context }) => {
   await context.addInitScript(() => localStorage.setItem("rawasy-theme", "dark"));
   await page.goto("/en/capabilities", { waitUntil: "networkidle" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.click('header button[aria-label*="light" i]');
+  await page.locator(".a2-header [role=group] button").first().click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
@@ -104,7 +100,7 @@ test.describe("keyboard", () => {
   test("skip link moves focus to the main content", async ({ page }) => {
     await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     await page.keyboard.press("Tab");
-    const skip = page.locator('a[href="#main"]');
+    const skip = page.locator('a.skip-link[href="#main"]');
     await expect(skip).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.locator("main#main")).toBeFocused();

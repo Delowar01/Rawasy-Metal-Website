@@ -5,10 +5,9 @@ import { mediaRegistry } from "../src/content/media.generated";
 import { projectsPage } from "../src/content/pages";
 import { isShowcased, projectCategories, projects, withheldMedia } from "../src/content/projects";
 import { seo } from "../src/content/seo";
-import { crossDesignLink } from "../src/i18n/routes";
 import { AMBIENT, ambientAnimations } from "./a2-helpers";
 import { coldLanding, FONT_DELAYS, placed, placement, VIEWPORTS } from "./anchor-helpers";
-import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, skipIntro, trackErrors, type TestLocale } from "./helpers";
+import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, trackErrors, type TestLocale } from "./helpers";
 
 /**
  * Stage TM-2.5: the Projects overview in the Modern Commerce design (src/app/(commerce)/[locale]/projects/, components in
@@ -19,8 +18,9 @@ import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, skipIntr
  * one anchor per showcased project (#<slug>) and every way onto it — the index, the featured project and the highlights
  * on this page, About's and the service pages' cards (decision D4), the address itself — with the choice cleared first
  * when it hides the target; the bar as one row of fixed height that scrolls sideways; landings clear of the header and
- * the bar, cold and with late fonts; photos never above their source size; and the project pages left in the previous
- * design until Stage 1F. The generic inner-page checks of stage-1c.spec.ts still run on this page (INNER_PAGES).
+ * the bar, cold and with late fonts; photos never above their source size; and the project pages, planned for Stage 1F
+ * (their in-development pages: commerce-planned.spec.ts). The generic inner-page checks of stage-1c.spec.ts still run on
+ * this page (INNER_PAGES).
  */
 
 const SHOWCASED = projects.filter(isShowcased);
@@ -39,10 +39,6 @@ const category = (slug: string, locale: TestLocale) => projectCategories.find((c
 /** Source size of every image in the media registry, by its file path. */
 const SOURCE = new Map<string, readonly [number, number]>(Object.values(mediaRegistry).map((m) => [m.src, [m.width, m.height] as const]));
 const mediaPath = (src: string) => decodeURIComponent(src.replace(/.*url=([^&]+).*/, "$1"));
-
-test.beforeEach(async ({ context }) => {
-  await skipIntro(context);
-});
 
 /** Where a target sits: its top, the header's bottom and the bar's bottom (the header's when there is no bar). */
 function landing(page: Page, id: string) {
@@ -264,7 +260,6 @@ test.describe("anchors", () => {
   for (const view of VIEWPORTS) {
     test(`a project lands clear of the header and the bar on a ${view.name}, from the index and from the address`, async ({ browser }) => {
       const context = await browser.newContext({ viewport: view.viewport, isMobile: view.isMobile, hasTouch: view.isMobile });
-      await skipIntro(context);
       const page = await context.newPage();
       for (const slug of ["wave-form-sculpture", "laser-cut-tree-grate", "lattice-tower-replica"]) {
         await page.goto(`/en/projects#${slug}`, { waitUntil: "networkidle" });
@@ -346,7 +341,7 @@ test.describe("decision D4 across the site", () => {
 
   test("no page in the Modern Commerce design links to a project page (Stage 1F)", async ({ page }) => {
     test.setTimeout(120_000);
-    const pages = ["", "/about", "/services", "/services/laser-cutting", "/services/cnc-bending", "/services/steel-structures", "/services/fabrication", "/services/laser-engraving", "/services/scaffolding", "/projects", "/industries", "/clients", "/certificates", "/contact", "/privacy", "/terms", "/no-such-page"];
+    const pages = ["", "/about", "/services", "/services/laser-cutting", "/services/cnc-bending", "/services/steel-structures", "/services/fabrication", "/services/laser-engraving", "/services/scaffolding", "/capabilities", "/projects", "/industries", "/clients", "/certificates", "/contact", "/privacy", "/terms", "/no-such-page"];
     for (const locale of LOCALES) {
       for (const path of pages) {
         await page.goto(`/${locale}${path}`, { waitUntil: "domcontentloaded" });
@@ -357,25 +352,23 @@ test.describe("decision D4 across the site", () => {
     }
   });
 
-  test("project pages stay in the previous design until Stage 1F: a known slug its placeholder, an unknown one its 404", async ({ page }) => {
+  test("project pages are planned (Stage 1F): a known slug its in-development page in this design, an unknown one this design's 404", async ({ page }) => {
     for (const [path, title] of [
       ["/en/projects/geometric-lanterns", "Geometric Lanterns"],
       ["/ar/projects/clock-tower-landmark", "برج الساعة"],
     ] as const) {
       const response = await page.goto(path, { waitUntil: "networkidle" });
       expect(response?.status(), path).toBe(200);
-      await expect(page.locator("body.mc"), path).toHaveCount(0);
+      await expect(page.locator("body.mc"), path).toHaveCount(1);
       await expect(page.locator("h1"), path).toHaveText(title);
       await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", /noindex/);
+      // Back to this page from the trail.
+      await expect(page.locator(`.ip-crumbs a[href="/${path.split("/")[1]}/projects"]`), path).toHaveCount(1);
     }
     const response = await page.goto("/en/projects/not-a-project", { waitUntil: "networkidle" });
     expect(response?.status()).toBe(404);
-    await expect(page.locator("body.mc")).toHaveCount(0);
-    // The previous design's links: a project page still prefetches; the projects overview (this design) never does.
-    for (const locale of LOCALES) {
-      expect(crossDesignLink(`/${locale}/projects/geometric-lanterns`)).toEqual({});
-      expect(crossDesignLink(`/${locale}/projects`)).toEqual({ prefetch: false });
-    }
+    await expect(page.locator("body.mc")).toHaveCount(1);
+    await expect(page.locator("h1")).toHaveText("Outside the blueprint");
   });
 });
 

@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     // Serves app/global-not-found.tsx for URLs that match no route at all
-    // (the localized 404 lives in app/[locale]/not-found.tsx).
+    // (the localized 404 lives in app/(commerce)/[locale]/(missing)/not-found.tsx).
     globalNotFound: true,
   },
 };

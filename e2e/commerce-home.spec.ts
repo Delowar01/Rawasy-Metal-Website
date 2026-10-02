@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { horizontalOverflow, jsonLd, LOCALES, skipIntro, trackErrors } from "./helpers";
+import { horizontalOverflow, jsonLd, LOCALES, trackErrors } from "./helpers";
 import {
   AMBIENT,
   ambientAnimations,
@@ -18,8 +18,8 @@ import {
  * Stage TM-1: the homepage in the Modern Commerce design (the approved A V2 direction) on the website's own routes,
  * /en and /ar. The components it shares with the theme lab (hero plate, signatures, ambient, pointer) are covered in
  * depth by theme-lab-a-v2.spec.ts; this spec checks them where visitors meet them, with the real navigation, the
- * quote actions, the shared theme and language, the footer, search metadata and the handover to the pages still in
- * the previous design.
+ * quote actions, the shared theme and language, the footer, search metadata and the way to the other pages (one design
+ * since Stage TM-2.6).
  */
 
 const SERVICES = ["laser-cutting", "cnc-bending", "steel-structures", "fabrication", "laser-engraving", "scaffolding"];
@@ -68,7 +68,7 @@ test.describe("the homepage", () => {
     }
   });
 
-  test("its own stylesheet and typefaces: none of the previous design's load here, and none of the new design's load there", async ({ page }) => {
+  test("its own stylesheet and typefaces, the same on a planned page: none of the previous design's load anywhere", async ({ page }) => {
     const sheet = (selector: string) =>
       page.evaluate(
         (sel) =>
@@ -90,22 +90,13 @@ test.describe("the homepage", () => {
     expect(await families()).toEqual(["IBM Plex Sans Arabic", "Inter", "Plus Jakarta Sans", "Tajawal"]);
     // Only the Latin faces of this design are preloaded; the previous design's six files no longer are.
     expect(await preloads()).toBe(2);
-    // The pages in the previous design keep their six, and never prefetch the homepage (it could not be used: crossing
-    // root layouts is a full page load), so they never download this design's faces.
-    await skipIntro(page.context());
-    const prefetched: string[] = [];
-    page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    // A project page stands in for About (this design since Stage TM-2.3), the services (TM-2.4) and the projects
-    // overview (TM-2.5); it still prefetches the Capabilities placeholder, in its own design.
+    // A project page (planned, in this design since Stage TM-2.6) has the same stylesheet, faces and preloads; the
+    // previous design's (Sora, Manrope, Noto Kufi Arabic, Geist Mono) are gone from the website.
     await page.goto("/en/projects/geometric-lanterns", { waitUntil: "networkidle" });
-    await page.waitForTimeout(800);
-    expect(prefetched).toContain("/en/capabilities");
-    expect(prefetched).not.toContain("/en");
-    expect(prefetched).not.toContain("/en/projects");
-    expect(await sheet(".a2-hero")).toBe(false);
-    expect(await families()).not.toContain("Plus Jakarta Sans");
-    expect(await families()).toContain("Sora");
-    expect(await preloads()).toBe(6);
+    expect(await sheet(".mc .a2-header")).toBe(true);
+    expect(await sheet(".btn-face")).toBe(false);
+    expect(await families()).toEqual(["IBM Plex Sans Arabic", "Inter", "Plus Jakarta Sans", "Tajawal"]);
+    expect(await preloads()).toBe(2);
   });
 });
 
@@ -130,7 +121,7 @@ test.describe("navigation", () => {
     expect(errors).toEqual([]);
   });
 
-  test("every quote action opens the quotation form on the contact page", async ({ page, context }) => {
+  test("every quote action opens the quotation form on the contact page", async ({ page }) => {
     for (const locale of LOCALES) {
       await page.goto(`/${locale}`, { waitUntil: "networkidle" });
       const label = locale === "en" ? "^(Get a Quote|Request a Quote)$" : "^اطلب عرض سعر$";
@@ -139,15 +130,13 @@ test.describe("navigation", () => {
       expect(quotes).toHaveLength(11);
       expect(new Set(quotes)).toEqual(new Set([`/${locale}/contact#quote`]));
     }
-    await skipIntro(context);
     await page.goto("/en", { waitUntil: "networkidle" });
     await page.locator(".a2-head-quote").click();
     await page.waitForURL("**/en/contact#quote");
     await expect(page.locator("#quote")).toBeInViewport();
   });
 
-  test("the hero's Start a Project opens the quotation form in each language; Explore Our Capabilities stays on the page", async ({ page, context }) => {
-    await skipIntro(context);
+  test("the hero's Start a Project opens the quotation form in each language; Explore Our Capabilities stays on the page", async ({ page }) => {
     for (const locale of LOCALES) {
       await page.goto(`/${locale}`, { waitUntil: "networkidle" });
       const primary = page.locator(".a2-hero .btn-primary");
@@ -161,8 +150,7 @@ test.describe("navigation", () => {
     }
   });
 
-  test("the six project cards open the Projects gallery and say so; no card leads to an unfinished project page", async ({ page, context }) => {
-    await skipIntro(context);
+  test("the six project cards open the Projects gallery and say so; no card leads to an unfinished project page", async ({ page }) => {
     for (const locale of LOCALES) {
       await page.goto(`/${locale}`, { waitUntil: "networkidle" });
       const cards = page.locator("#projects a.a2-proj");
@@ -181,16 +169,15 @@ test.describe("navigation", () => {
     for (const title of titles) await expect(page.locator("#gallery li[data-project]:not([hidden])").filter({ hasText: title }).first()).toBeAttached();
   });
 
-  test("the pages in the previous design open from the header, without their intro, and lead back", async ({ page }) => {
+  test("Capabilities opens from the header in this design, marked as the page, and leads back", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto("/en", { waitUntil: "networkidle" });
-    // Capabilities is still in the previous design (the projects overview moved to this one in Stage TM-2.5).
+    // Capabilities is planned (Stage 1E); its in-development page is in this design since Stage TM-2.6.
     await page.locator('.a2-nav a[href="/en/capabilities"]').click();
     await page.waitForURL("**/en/capabilities");
     await expect(page.locator("main h1")).toContainText("Capabilities");
-    // The homepage counts as the session's first page: the intro loader does not play again.
-    await expect(page.locator("html")).toHaveClass(/no-loader/);
-    await expect(page.locator("body.mc")).toHaveCount(0);
+    await expect(page.locator("body.mc")).toHaveCount(1);
+    await expect(page.locator('.a2-nav a[aria-current="page"]')).toHaveAttribute("href", "/en/capabilities");
     await page.locator('header a[href="/en"]').first().click();
     await page.waitForURL(/\/en$/);
     await expect(page.locator("body.mc")).toHaveCount(1);
@@ -295,8 +282,7 @@ test.describe("phone", () => {
     expect(errors).toEqual([]);
   });
 
-  test("a project card in the swipe rail opens the Projects gallery", async ({ page, context }) => {
-    await skipIntro(context);
+  test("a project card in the swipe rail opens the Projects gallery", async ({ page }) => {
     await page.goto("/ar", { waitUntil: "networkidle" });
     const card = page.locator("#projects a.a2-proj").first();
     await card.scrollIntoViewIfNeeded();
@@ -316,8 +302,7 @@ test.describe("phone", () => {
 });
 
 test.describe("light and dark", () => {
-  test("the website's theme: chosen here, kept on the pages in the previous design and back, set before the first paint", async ({ page, context }) => {
-    await skipIntro(context);
+  test("the website's theme: chosen here, kept on the other pages and back, set before the first paint", async ({ page }) => {
     await recordFirstTheme(page);
     await page.goto("/en", { waitUntil: "networkidle" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -329,11 +314,11 @@ test.describe("light and dark", () => {
     expect(await page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBe("dark");
     await expect.poll(() => bodyColour(page)).toBe(PAGE_COLOURS.dark);
     await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute("content", "#131820");
-    // A page in the previous design opens dark from its first paint ...
+    // Another page (Capabilities) opens dark from its first paint ...
     await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     expect(await firstTheme(page)).toBe("dark");
     // ... and a choice made there comes back to the homepage from its first paint too.
-    await page.click('header button[aria-label*="light" i]');
+    await page.locator(".a2-header [role=group] button").first().click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBe("light");
     await page.goto("/ar", { waitUntil: "networkidle" });

@@ -1,8 +1,7 @@
 /*
- * Modern Commerce — entry stylesheet of the pages migrated to the approved design (Stage TM-1: the homepage).
- * Loaded only by the Modern Commerce root layout, so it never shares a document with the previous design's stylesheet
- * (src/app/globals.css), which the pages not yet migrated keep under their own root layout. Utilities are generated
- * from the Modern Commerce sources alone; the tokens and components are in src/components/commerce/system.css.
+ * Modern Commerce — entry stylesheet of the website (every page since Stage TM-2.6), loaded by its root layout. The
+ * theme lab and the fallback 404 have their own. Utilities are generated from the Modern Commerce sources alone; the
+ * tokens and components are in src/components/commerce/system.css.
  */
 @import "tailwindcss" source(none);
 @source "../../components/commerce";

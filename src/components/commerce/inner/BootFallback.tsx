@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { commerceBoot } from "@/lib/commerce-boot";
-import { INTRO_STORAGE_KEY, THEME_STORAGE_KEY } from "@/lib/utils";
+import { THEME_STORAGE_KEY } from "@/lib/utils";
 
 /**
  * A page built in the browser (Next.js renders a 404 raised during a dynamic render on the client) never runs the
@@ -12,7 +12,7 @@ import { INTRO_STORAGE_KEY, THEME_STORAGE_KEY } from "@/lib/utils";
  */
 export function BootFallback({ title }: { title?: string }) {
   useEffect(() => {
-    if (!document.documentElement.classList.contains("js")) commerceBoot(THEME_STORAGE_KEY, INTRO_STORAGE_KEY);
+    if (!document.documentElement.classList.contains("js")) commerceBoot(THEME_STORAGE_KEY);
     if (title && document.title !== title) document.title = title;
   }, [title]);
   return null;

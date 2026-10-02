@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/projects
 
 /**
  * The Projects overview in the Modern Commerce design (Stage TM-2.5): the work gallery, filterable, each project at
- * #<slug>. The project pages (/projects/[slug]) stay in the previous design until Stage 1F.
+ * #<slug>. The project pages (/projects/[slug]) are planned for Stage 1F; until then each shows its in-development page.
  */
 export default async function ProjectsPage({ params }: PageProps<"/[locale]/projects">) {
   const { locale } = await params;

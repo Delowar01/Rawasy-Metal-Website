@@ -53,37 +53,6 @@ export function href(locale: Locale, key: RouteKey, params?: { slug?: string; ha
   return params?.hash ? `${base}#${params.hash}` : base;
 }
 
-/**
- * Pages in the Modern Commerce design (Stage TM-1: the homepage; TM-2.1: the privacy policy and the website terms; TM-2.2:
- * contact; TM-2.3: about, industries, clients and certificates; TM-2.4: the services overview; TM-2.5: the projects
- * overview).
- * They have their own root layout (src/app/(commerce)), so a link to one from a page in the previous design is always
- * a full page load. Static routes here; dynamic routes in `commerceDynamicRoutes`.
- */
-export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", "contact", "about", "industries", "clients", "certificates", "services", "projects"];
-
-/**
- * Dynamic routes in the Modern Commerce design (TM-2.4: the six service pages, /{locale}/services/{slug}), matched by
- * their localized pattern: any one path segment in place of [slug]. The project pages (/projects/[slug]) stay in the
- * previous design until Stage 1F (only the projects overview moved, in TM-2.5), Capabilities until Stage 1E.
- */
-export const commerceDynamicRoutes: readonly RouteKey[] = ["service"];
-
-const commercePatterns = commerceDynamicRoutes.flatMap((key) =>
-  locales.map((locale) => new RegExp(`^${href(locale, key).replace("[slug]", "[^/]+")}$`)),
-);
-
-/**
- * Link props for a page in the previous design: never prefetch a page in the Modern Commerce design. The prefetch could
- * not be used (the navigation is a full page load) and it would download that design's fonts on a page without them.
- */
-export function crossDesignLink(target: string): { prefetch?: false } {
-  const base = target.split(/[?#]/)[0];
-  const commerce =
-    commerceRoutes.some((key) => locales.some((locale) => href(locale, key) === base)) || commercePatterns.some((pattern) => pattern.test(base));
-  return commerce ? { prefetch: false } : {};
-}
-
 /** Swap the locale segment of a pathname: "/en/projects/x" → "/ar/projects/x". */
 export function switchLocalePath(pathname: string, target: Locale): string {
   const segments = pathname.split("/");

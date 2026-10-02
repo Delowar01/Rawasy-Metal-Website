@@ -5,10 +5,9 @@
  * motion system, the site-wide ambient and the laser pointer. Two themes share every token name: light by default,
  * dark under html[data-theme="dark"].
  *
- * Scope: `.mc`, set on <body> by the Modern Commerce root layout (src/app/(commerce)/[locale]/layout.tsx). Pages
- * not yet migrated keep the previous design (src/app/globals.css) under their own root layout, so the two systems
- * never share a document. Component classes keep the approved design's `a2-` prefix (they are shared with the theme
- * lab's reference copy until the lab is removed).
+ * Scope: `.mc`, set on <body> by the website's root layout (src/app/(commerce)/[locale]/layout.tsx); since Stage
+ * TM-2.6 every page uses it. Component classes keep the approved design's `a2-` prefix (they are shared with the
+ * theme lab's reference copy until the lab is removed).
  */
 @layer theme, base, components, utilities;
 

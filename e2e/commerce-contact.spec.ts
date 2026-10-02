@@ -1,7 +1,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { company } from "../src/content/company";
 import { contactPage } from "../src/content/contact";
-import { HTML_LANG, horizontalOverflow, LOCALES, skipIntro, trackErrors } from "./helpers";
+import { HTML_LANG, horizontalOverflow, LOCALES, trackErrors } from "./helpers";
 
 /**
  * Stage TM-2.2: the contact page in the Modern Commerce design (src/app/(commerce)/[locale]/contact, components in
@@ -35,7 +35,6 @@ async function stubGoogleMaps(context: BrowserContext) {
 }
 
 test.beforeEach(async ({ context }) => {
-  await skipIntro(context);
   await stubGoogleMaps(context);
 });
 
@@ -235,7 +234,20 @@ test.describe("golden outputs", () => {
 // The form: validation, errors, files, hand-offs (migrated from stage-1c.spec.ts, selectors moved to the new markup)
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** Waits for the script to take over the form (it sets `noValidate`): a click before that is the no-JS submission. */
+const enhanced = (page: Page) => expect(form(page)).toHaveJSProperty("noValidate", true);
+
+/**
+ * Clicks "Prepare request" with the button already in view: when Playwright has to scroll to it, the page's smooth
+ * scrolling (on once the page has loaded) can still be gliding as the click lands, beside the button.
+ */
+async function pressSubmit(page: Page) {
+  await submit(page).evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+  await submit(page).click();
+}
+
 async function fillValidQuote(page: Page, locale: "en" | "ar") {
+  await enhanced(page);
   await page.fill("#quote-fullName", locale === "ar" ? "أحمد علي" : "Test Person");
   await page.fill("#quote-email", "test@example.com");
   // Arabic-Indic digits are accepted in the phone number.
@@ -284,7 +296,8 @@ test.describe("quote form", () => {
   for (const locale of LOCALES) {
     test(`errors are shown by an edge, a message and an icon — not by colour alone (${locale})`, async ({ page }) => {
       await page.goto(`/${locale}/contact`, { waitUntil: "networkidle" });
-      await submit(page).click();
+      await enhanced(page);
+      await pressSubmit(page);
       const field = page.locator("#quote-fullName");
       const edge = locale === "ar" ? "borderRightWidth" : "borderLeftWidth";
       const other = locale === "ar" ? "borderLeftWidth" : "borderRightWidth";
@@ -346,7 +359,7 @@ test.describe("quote form", () => {
 
     // Only the names go into the request; the files stay on the device.
     await fillValidQuote(page, "en");
-    await submit(page).click();
+    await pressSubmit(page);
     await expect(page.locator("#quote-request")).toHaveValue(/Files to attach: g\.JPEG, h\.png, PLAN\.PDF, limit\.dwg$/);
     expect(writes).toEqual([]);
   });
@@ -357,7 +370,7 @@ test.describe("quote form", () => {
       await page.goto(`/${locale}/contact`, { waitUntil: "networkidle" });
       await fillValidQuote(page, locale);
       await page.setInputFiles("#quote-files", [{ name: "drawing.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(2048) }]);
-      await submit(page).click();
+      await pressSubmit(page);
 
       const heading = page.locator("h3[tabindex='-1']");
       await expect(heading).toBeFocused();
@@ -393,7 +406,7 @@ test.describe("quote form", () => {
       Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("denied")) }, configurable: true });
     });
     await fillValidQuote(page, "en");
-    await submit(page).click();
+    await pressSubmit(page);
     await page.getByRole("button", { name: "Copy request" }).click();
     await expect(page.locator(".qf-copy-failed")).toHaveText(contactPage.form.ready.copyFailed.en);
     await expect(page.locator("#quote-request")).toBeFocused();
@@ -402,6 +415,7 @@ test.describe("quote form", () => {
 
   test("by keyboard: the error summary, its links, the file picker and the ready state", async ({ page }) => {
     await page.goto("/en/contact", { waitUntil: "networkidle" });
+    await enhanced(page);
     await submit(page).focus();
     await page.keyboard.press("Enter");
     const holder = page.locator(".qf-summary");
@@ -429,7 +443,7 @@ test.describe("quote form", () => {
   test("the ready state: a check mark, the three ways to send, the summary to copy — never a success message", async ({ page }) => {
     await page.goto("/ar/contact", { waitUntil: "networkidle" });
     await fillValidQuote(page, "ar");
-    await submit(page).click();
+    await pressSubmit(page);
     const ready = page.locator(".qf-ready");
     await expect(ready.locator(".qf-ready-mark svg")).toHaveCount(1);
     await expect(ready.locator(".qf-actions > *")).toHaveCount(3);
@@ -633,7 +647,6 @@ test.describe("page", () => {
 
   test("phones: the menu's language switch opens the other Contact; nothing scrolls sideways", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     await stubGoogleMaps(context);
     const page = await context.newPage();
     for (const locale of LOCALES) {
@@ -650,7 +663,6 @@ test.describe("page", () => {
 
   test("phones: a long file name is shortened in the list and its remove button stays on screen", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     await stubGoogleMaps(context);
     const page = await context.newPage();
     await page.goto("/en/contact", { waitUntil: "networkidle" });
@@ -747,7 +759,6 @@ test.describe("location and map", () => {
 
   test("touch: tapping the map leaves the system pointer alone", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    await skipIntro(context);
     await stubGoogleMaps(context);
     const page = await context.newPage();
     await page.goto("/en/contact#location", { waitUntil: "networkidle" });
@@ -760,27 +771,6 @@ test.describe("location and map", () => {
     await expect(page.locator("html")).not.toHaveAttribute("data-cursor-on", "");
     await context.close();
   });
-});
-
-// ---------------------------------------------------------------------------------------------------------------------
-// The previous design: its links to Contact never prefetch the new design
-// ---------------------------------------------------------------------------------------------------------------------
-
-test("the pages in the previous design link to Contact without prefetching it", async ({ page }) => {
-  const prefetched: string[] = [];
-  page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  // About and Industries (Stage TM-2.3), the services (TM-2.4) and the projects overview (TM-2.5) moved to this design:
-  // the pages left in the previous design stand in for them.
-  for (const path of ["/en/capabilities", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects/clock-tower-landmark"]) {
-    await page.goto(path, { waitUntil: "networkidle" });
-    await expect(page.locator('a[href^="/' + path.split("/")[1] + '/contact"]').first()).toBeAttached();
-    await page.locator("footer").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(800);
-    const fonts = await page.evaluate(() => [...new Set([...document.fonts].map((f) => f.family.replace(/['"]/g, "")))]);
-    expect(fonts, path).not.toContain("Plus Jakarta Sans");
-    expect(fonts, path).not.toContain("Tajawal");
-  }
-  expect(prefetched.filter((p) => /\/contact$/.test(p))).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

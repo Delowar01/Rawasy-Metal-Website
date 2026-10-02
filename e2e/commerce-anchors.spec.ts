@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import { coldLanding, FONT_DELAYS, placed, placement, VIEWPORTS } from "./anchor-helpers";
-import { skipIntro } from "./helpers";
 
 /**
  * The first jump to an address's #anchor on the Modern Commerce pages (Stage TM-2.5's shared fix). The boot script
@@ -44,7 +43,6 @@ for (const [family, paths] of Object.entries(CASES)) {
 
 test.describe("after the page has settled", () => {
   test("a same-page link glides to its target; Back and Forward return to each place", async ({ page }) => {
-    await skipIntro(page.context());
     await page.goto("/en/contact", { waitUntil: "load" });
     await page.waitForFunction(() => document.documentElement.hasAttribute("data-smooth-scroll"));
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior)).toBe("smooth");
@@ -78,7 +76,6 @@ test.describe("after the page has settled", () => {
     test("every jump stays instant, the first one lands on its target", async ({ browser }) => {
       for (const path of ["/en/contact#location", "/ar/terms#contact"]) {
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
-        await skipIntro(context);
         await context.route(/\.woff2$/, async (route) => {
           await new Promise((resolve) => setTimeout(resolve, 300));
           await route.continue();

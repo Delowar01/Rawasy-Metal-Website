@@ -12,7 +12,7 @@ const OPTIONS = ["a", "a-v2", "b", "c"] as const;
 const SECTIONS = ["about", "services", "machinery", "projects", "clients", "contact"];
 /** Root class of each option. */
 const ROOT: Record<(typeof OPTIONS)[number], string> = { a: "lab-a", "a-v2": "lab-a2", b: "lab-b", c: "lab-c" };
-/** Typefaces per option (English display, body, extras, Arabic) and the website's own. */
+/** Typefaces per option (English display, body, extras, Arabic), and the previous design's (retired in Stage TM-2.6). */
 const FONTS: Record<(typeof OPTIONS)[number], string[]> = {
   a: ["Plus Jakarta Sans", "Inter", "Tajawal", "IBM Plex Sans Arabic"],
   "a-v2": ["Plus Jakarta Sans", "Inter", "Tajawal", "IBM Plex Sans Arabic"],
@@ -49,13 +49,14 @@ test.describe("isolation and indexing", () => {
           await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
           await expect(page.locator("html")).toHaveAttribute("lang", locale === "ar" ? "ar-SA" : "en");
           await expect(page.locator("html")).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
-          // Its own root layout and stylesheet: the website's CSS (e.g. its chamfered .btn-face) never loads here.
+          // Its own root layout and stylesheet: the website's (the Modern Commerce sheet; the previous design's chamfered
+          // .btn-face before Stage TM-2.6) never loads here.
           expect(await page.locator(".lab-bar").count()).toBe(1);
           expect(await page.locator(`.${ROOT[option]}`).count()).toBe(1);
           const siteCss = await page.evaluate(() =>
             [...document.styleSheets].some((sheet) => {
               try {
-                return [...sheet.cssRules].some((rule) => rule.cssText.includes(".btn-face"));
+                return [...sheet.cssRules].some((rule) => rule.cssText.includes(".btn-face") || rule.cssText.includes(".mc .a2-header"));
               } catch {
                 return false;
               }

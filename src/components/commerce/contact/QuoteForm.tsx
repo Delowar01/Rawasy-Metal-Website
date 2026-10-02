@@ -15,10 +15,10 @@ import { Icon } from "../Icon";
 import { FormIcon } from "./FormIcon";
 
 /*
- * The quote form in the Modern Commerce design (Stage TM-2.2): a copy of src/components/contact/QuoteForm.tsx in which
- * everything from `type FieldName` to the privacy line is that file's code, unchanged — fields, validation, file rules,
- * focus handling, and the email, WhatsApp and copied text. Only the markup's classes, icons and wrappers differ (styles:
- * "Contact page" in system.css). The previous file stays, unused, until the previous design is retired (TM-2.6).
+ * The quote form in the Modern Commerce design (Stage TM-2.2): everything from `type FieldName` to the privacy line is
+ * the previous design's form code (src/components/contact/QuoteForm.tsx, retired in TM-2.6), unchanged — fields,
+ * validation, file rules, focus handling, and the email, WhatsApp and copied text. Only the markup's classes, icons and
+ * wrappers differ (styles: "Contact page" in system.css). e2e/commerce-contact.spec.ts holds its golden outputs.
  */
 
 type FieldName = "fullName" | "company" | "email" | "phone" | "service" | "projectType" | "requirement" | "location" | "message";

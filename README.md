@@ -4,28 +4,22 @@ Bilingual (English / Saudi Arabic) corporate website for **RAWASY UNITED INTERNA
 (شركة رواسي المتحدة العالمية المحدودة): laser cutting, CNC bending, steel structures,
 fabrication, laser engraving and scaffolding in Riyadh.
 
-**Status: stages 1A (foundation) and 1B (homepage) are approved, and so is the Visual Redesign V2
-pass over Stage 1C (core inner pages: about, services overview, industries, clients, certificates,
-contact / quote, privacy, terms, plus the Projects overview brought forward from Stage 1F). Stage 1D,
-the six service detail pages (laser cutting, CNC bending, steel structures, metal fabrication, laser
-engraving, scaffolding), is built and awaits visual approval.** The remaining routes (project detail
-pages, capabilities) are set up and localized, and show an "in development" page until their stage
-is built and approved (see the approval gate in the Phase 1 brief).
-
-**Modern Commerce migration (Stage TM-1):** of the directions explored in the [theme lab](#theme-lab),
-**A V2** was approved as the master design (the website's laser-cut plate as the hero, cutting on a 10 s
-loop, signature laser-cutting and laser-engraving animations built on the service pages' own nesting
-sheet and engraved plate, light and dark themes, a precision pointer, a site-wide ambient background).
-The migration is controlled: **the homepage (`/en`, `/ar`) now runs in the new design and awaits visual
-review**; every other page keeps the previous design, unchanged, until the homepage is approved. The
-theme lab stays for comparison.
+**Status:** the website runs one design, **Modern Commerce** (the approved A V2 direction from the
+[theme lab](#theme-lab)): the website's laser-cut plate as the hero, cutting on a 10 s loop, signature
+laser-cutting and laser-engraving animations built on the service pages' own nesting sheet and engraved plate,
+light and dark themes, a precision pointer and a site-wide ambient background. It was migrated page by page
+(Stage TM-1: the homepage; TM-2.1–TM-2.5: the legal pages and the localized 404, contact, about, industries,
+clients, certificates, the services overview and the six service pages, the projects overview) and the previous
+design was retired in TM-2.6. Capabilities (Stage 1E) and the project detail pages (Stage 1F) are routed and
+localized and show an "in development" page until their stage is built and approved. Every page except the
+homepage is `review` or `planned` (noindex); publishing waits for the Stage 1J launch approval.
 
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
-| Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/globals.css` (previous design), `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css` (Modern Commerce) |
-| Motion | GSAP 3 + ScrollTrigger (hero, scroll scenes), CSS/IntersectionObserver for reveals |
-| Fonts | Modern Commerce pages: Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text). Previous design: Sora, Manrope, Noto Kufi Arabic, IBM Plex Sans Arabic, Geist Mono. All self-hosted via `next/font` |
+| Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css`, page stylesheets beside their components (`services.css`, `projects.css`, `planned.css`) |
+| Motion | CSS transitions and the Web Animations API (hero plate, signatures), IntersectionObserver for reveals; no animation library |
+| Fonts | Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text), the system monospace stack for technical figures. All self-hosted via `next/font` |
 | Rendering | Static pages for every route in both languages (109 site pages + 16 theme-lab previews at build time) |
 
 ## Getting started
@@ -45,42 +39,36 @@ Optional environment variable: `NEXT_PUBLIC_SITE_URL` (canonical origin, default
 
 ```
 src/
-  proxy.ts                 Locale negotiation: cookie → Accept-Language → /en
+  proxy.ts                 Locale negotiation: cookie → Accept-Language → /en; theme-lab redirects
   app/
-    (commerce)/[locale]/   Root layout + homepage in the Modern Commerce design (Stage TM-1): own
-                           stylesheet, fonts, theme boot, ambient, pointer and motion controller
-    [locale]/layout.tsx    Root layout of the pages still in the previous design: fonts, theme boot, header/footer
-    [locale]/…             about, services, services/[slug], capabilities, projects,
-                           projects/[slug], industries, clients, certificates, contact,
-                           privacy, terms, not-found, [...rest] (localized 404)
-    global-not-found.tsx   Bilingual 404 fallback for anything outside the locale tree
+    (commerce)/[locale]/   The website's root layout (stylesheet, fonts, theme boot, ambient, pointer, motion
+                           controller) and every page: home, about, services, services/[slug], capabilities,
+                           projects, projects/[slug], industries, clients, certificates, contact, privacy,
+                           terms; (missing)/ holds the localized 404 and its catch-all
+    global-not-found.tsx   Bilingual fallback 404 for anything outside the locale tree (own stylesheet and faces)
+    theme-lab/[locale]/    The theme lab's own root layout and previews (noindex)
     sitemap.ts robots.ts manifest.ts icon.svg apple-icon.png
   content/                 CMS-ready content (see below)
   i18n/                    Locale config, route map, UI dictionaries
   components/
     brand/                 Vector logo (from the official master artwork)
-    layout/                Header, mobile menu, footer, language + theme controls, 404
-    commerce/              Modern Commerce design: shell (header, phone menu, footer), homepage sections,
-                           hero plate, signature illustrations, ambient, pointer, theme switch, motion
-                           (shared with the theme lab's A V2, which re-exports them)
-    home/                  Previous homepage's sections (parked for rollback) and the hero plate geometry
-    inner/                 Inner-page system: hero variants, breadcrumbs, editorial section, media frame, CTA
-    about/ services/ industries/ clients/ certificates/ contact/ legal/ projects/
-                           Page-specific components for the stage 1C pages and the projects overview
-    service/               Service detail pages (stage 1D): hero, scope, process, machines, applications,
-                           gallery, why, related services, projects, CTA; `looks.ts` gives each service
-                           its composition; `visuals/` holds the six hero drawings
-    visual/                Visual system: technical frame, backdrops and scan line, section rule,
-                           pointer light, nameplate
-    motion/                Loader, reveal and live observers, custom cursor, page transition
-    ui/                    Button, section header, image, icons
-  lib/                     SEO helpers, inner-page metadata, theme engine, boot script, GSAP setup
-e2e/                       Playwright browser tests (homepage, site shell, inner pages, V2, service pages, theme lab)
+    commerce/              The Modern Commerce design: shell (header, phone menu sheet, footer), homepage
+                           sections, inner-page kit (`inner/`), the pages' components (about, services,
+                           projects, industries, clients, certificates, contact, legal, planned), hero
+                           plate, signature illustrations, ambient, pointer, theme switch, motion (shared
+                           with the theme lab's A V2, which re-exports them)
+    home/hero/             The hero plate's geometry
+    service/visuals/       The nesting sheet's and engraved plate's geometry (shared by the signatures)
+    projects/types.ts      Project card types (src/lib/project-cards.ts)
+    theme-lab/             The theme lab's options A, A V2, B and C
+  lib/                     SEO helpers, inner-page metadata, page states, project cards, logo wall, maps,
+                           scroll spy, the boot script
+e2e/                       Playwright browser tests (pages, site-wide checks, theme lab)
 scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-09-28, Stage TM-1 homepage migration)
+docs/reports/                Stage reports (latest: 2026-10-02, Stage TM-2.6 retirement of the previous design)
 ```
 
 ### Languages and RTL
@@ -105,87 +93,38 @@ fields and are simply not shown. Nothing has been made up to fill them.
 
 `src/lib/page-meta.ts` is the approval gate. Each route is `planned` (shows the in-development page),
 `review` (built, awaiting approval) or `published`. Only published routes are indexed and listed in
-the sitemap (currently the homepage); `planned` and `review` routes are served with `noindex`. When a
-stage is approved, set its routes to `published`. The stage 1C routes, the projects overview and
-the stage 1D service pages are `review`; publishing waits for the Stage 1J launch approval.
+the sitemap (currently the homepage); `planned` and `review` routes are served with `noindex, follow`. When a
+stage is approved, set its routes to `published`. The inner pages, the projects overview and the service pages
+are `review`, Capabilities and the project pages `planned`; publishing waits for the Stage 1J launch approval.
 
 ### Theme engine
 
-Semantic tokens (`--background`, `--surface`, `--surface-elevated`, `--text-primary`, `--border`,
-`--accent`, …) are defined once for light and once for dark. Components never duplicate styles
-per theme. An inline boot script applies the stored or OS theme before first paint (no flash), the
-choice persists in `localStorage`, and the page keeps following the OS until the visitor picks a
-theme. Where supported, switching themes reveals the new theme with a circular wipe.
+Semantic tokens (`--bg`, `--surface`, `--ink`, `--line`, `--brand`, the steel, teal and brass tones …) are defined
+once in `src/components/commerce/system.css`, scoped to `.mc` on `<body>`, and redefined for the dark theme
+(blue-charcoal, never black) under `html[data-theme="dark"]`. An inline boot script (`src/lib/commerce-boot.ts`)
+applies the stored or system theme before the first paint, the choice persists in `localStorage`
+(`rawasy-theme`), and the page follows the system until the visitor picks a theme. Without JavaScript the page is
+light.
 
 ### Visual system
 
-Precision engineering, metal fabrication and architectural detail: layered metal plates with visible
-edges and shadows, colourful but controlled. Since V2 the palette has semantic roles, set on any
-card, chip or tag with `data-tone` (`--tone`, `--tone-ink`, `--tone-surface`, `--tone-line`):
-
-| Role | Colour | Used for |
-| --- | --- | --- |
-| `brand` | RAWASY orange `#F15F22` | primary actions, active states, key indicators |
-| `eng` | steel blue `#355C70 / #416F82` | engineering, machinery, information surfaces |
-| `proc` | industrial teal `#39766F` | process, capability, site support |
-| `craft` | brass `#A98549 / #BEA069` | craftsmanship, certificates, premium details |
-| slate / graphite | `#34434A`, `#1E2123` | dark bands and structured panels |
-
-Each role has an ink colour for small text (AA on its surfaces, tested in both themes). Tokens:
-borders `--border-subtle / --border / --border-strong / --border-ink` plus `--border-active` and
-steel, teal and brass edges; shadows `--shadow-card / --shadow-raised / --shadow-image /
---shadow-floating / --shadow-inset` (older names are aliases). Section surfaces: `.sec-eng`,
-`.sec-proc`, `.sec-craft` (tinted), `.sec-deep` (recessed) and `.sec-slate` (dark band). Cards:
-`.card`, `.card-edge` (a 3px top edge in the tone), `.card-link` (lifts on hover and focus) and
-`.card-arrow`; `.icon-chip`, `.tone-tag` and `.tone-ink`. Buttons: primary (orange), `secondary`
-(graphite, steel on hover), `steel` and `teal` (contextual), `outline`.
-
-Reusable pieces:
-
-- `src/components/ui/LineIcons.tsx`: industrial line icons (services, site support, process,
-  company) on a 32-unit grid, always decorative.
-- `src/components/cards/`: `ServiceCard` (a service line as a card, optional photo and scope tags)
-  and `SupportList` (site-support tiles).
-- `src/components/visual/`: `TechnicalFrame` / `FrameMarks`, `Backdrop` (grid, fine grid,
-  perforated; optionally drifting), `ScanLine`, `SectionRule`, `PointerLight`, `Nameplate`.
-- `MediaFrame` (in `inner/`) is the image frame, never wider than the source image.
-- Projects (`src/components/projects/`): hero collage, featured project, highlights, a filterable
-  masonry gallery (`ProjectFilter` + view transitions) and a text index; `src/lib/project-cards.ts`
-  chooses a card layout per project that respects the small source photos.
-- Clients: `ClientWall` with `src/lib/logo-wall.ts` (plans double-width cells per breakpoint so every
-  row is full; no numbers or counts).
-- Contact: `LocationSection` with `src/lib/maps.ts` (a keyless Google Maps embed and directions link
-  built from the verified address; no coordinates are stored).
-- Service pages (`src/components/service/`): one set of components, composed per service by
-  `looks.ts` (hero drawing, scope layout, process layout, gallery layout and the sequence of section
-  surfaces). Laser cutting: steel blue and orange, a nesting sheet with the cut path. CNC bending: a
-  press-brake elevation with fold lines. Steel structures: a slate drawing sheet with structural axes.
-  Metal fabrication: brass and graphite, workshop photos on a bench plate. Laser engraving: an engraved
-  brass plate and material swatches (no authentic engraving photo yet). Scaffolding: teal, a tower
-  elevation drawn lift by lift. Copy is in `src/content/service-details.ts` and `servicePage` in
-  `pages.ts`; sections without sourced content (machines, projects, gallery) are left out.
-
-Decoration is always `aria-hidden`. Ambient motion runs only while on screen and never with reduced
-motion; it animates transform and opacity only.
+A bright commercial system for an industrial company: off-white raised cards on a soft warm mist, visible borders,
+layered shadows with a lit top edge, orange actions and steel / teal / brass accents set with `data-tone`, never a
+rainbow. Sections alternate open areas (text on reading zones) with muted and raised sheets. The service pages
+draw their character from their own pictures: the two signature animations (Laser Cutting's nesting sheet, Laser
+Engraving's brass plate) and four restyled drawings. Photos are never shown above their source size. Decoration is
+always `aria-hidden`.
 
 ### Motion
 
-- **Hero:** a brushed steel plate that the laser cuts in sequence (bolt holes, an eight-point
-  star, a slot and a perforation field), with sparks, engineering dimensions, a CNC crosshair, a
-  cursor-reactive reflection and scroll parallax.
-- **Signature metal cut** (used once): a laser line runs through the statement "Precision in every
-  cut. Strength in every structure." as you scroll, and the lettering splits along the cut.
-- Line-mask headline reveals, curtain image reveals, structural line drawing (paths read an
-  inherited `--draw` set on the revealed element), a production-line
-  progress rail, a direction-aware machinery stage with a scan sweep, count-up metrics, and a
-  slow client marquee.
-- Visual system motion: frames draw in (horizontal, then vertical) with a marker running the top edge,
-  image masks wipe in the reading direction, section rules draw, active rows light their edge, the
-  services explorer runs a cutting line with its wipe, grids drift and scan lines pass slowly while
-  on screen, and a pointer light follows the mouse on selected plates.
-- **Reduced motion:** the intro, parallax, cursor tracking, page transitions and continuous motion
-  (grid drift, scan lines, pointer light, travelling markers) are turned off, leaving simple fades
-  and fully drawn frames. Without JavaScript, all content is visible.
+- **Hero:** the website's laser-cut plate, cut in sequence (bolt holes, a star, a slot, the perforation rows)
+  with its measurements and readout, repeating every 10 s while on screen and the page is visible.
+- **Signatures:** the laser cutting of the nesting sheet and the engraving of the brass plate, once in view and
+  again on hover or focus.
+- Reveals on scroll, the site-wide ambient (micro-dots and one periodic light sweep, resting while the page
+  scrolls), and a precision pointer for a desktop mouse.
+- **Reduced motion:** the finished plate and signatures at once, no loop, a still background and the system
+  pointer. Without JavaScript, all content is visible.
 
 ### SEO
 
@@ -207,9 +146,11 @@ submission service (with storage, spam protection and a privacy-policy update) i
 ### 404 behaviour
 
 Unknown URLs are sent to the visitor's language and render **"Outside the blueprint" / "خارج
-المخطط"** inside the site's header and footer, with a real HTTP 404 status. If the 404 comes from a
-page during a dynamic render, Next.js 16 builds that page in the browser. `BootFallback` then
-reapplies the theme and motion settings, so it still matches the rest of the site.
+المخطط"** inside the site's header and footer, with a real HTTP 404 status; so do unknown service and project
+slugs. If the 404 comes from a page during a dynamic render, Next.js 16 builds that page in the browser.
+`BootFallback` then reapplies the theme and the script-only controls and restores the title. The bilingual
+fallback 404 (`global-not-found.tsx`) is built as `/_not-found`; the proxy's excluded paths (`/api/…`,
+`/media/…`, `/_next/…`) still get Next.js's own minimal 404.
 
 ## Theme lab
 
@@ -259,37 +200,19 @@ proxy, prefix it with `NODE_USE_ENV_PROXY=1`.
 ## Testing
 
 `npm run test:e2e` runs the Playwright suites in `e2e/` against the production build (it starts
-`next start` on port 3400, or set `E2E_BASE_URL`). `commerce-home.spec.ts` covers the homepage in the
-Modern Commerce design (sections, landmarks and headings, its own stylesheet and typefaces, the header's
-real routes and Services menu, every quote action and the hero's Start a Project (the quotation form), the
-project cards (the Projects gallery, never an unfinished project page), the handover to and from the pages in the
-previous design, the language switch and cookie, RTL, the footer's links, the phone menu, touch, the shared theme
-set before first paint, overflow from 360 to 1920 px in both themes, the 10 s hero loop in both
-languages, its rest off screen and in a hidden tab, both signatures, the ambient, the pointer, keyboard,
-reduced motion, no-JS and search metadata; probes shared with the lab spec are in `a2-helpers.ts`);
-`site.spec.ts` covers the shell of the pages in the previous design (loader, theme, language switching,
-mobile menu, transitions, reduced motion, no-JS) and internal links on every page; `stage-1c.spec.ts` covers the inner pages (routes, language and direction, SEO and
-the noindex gate, breadcrumbs, clients, certificate dialog, quote form, legal pages, 404, overflow at
-360/390/834 px, keyboard, reduced motion, no-JS); `visual-system.spec.ts` covers the visual system
-(ambient motion only on screen, reduced motion and touch, active rows and contents, focus frames,
-decoration hidden from assistive technology); `redesign-v2.spec.ts` covers the V2 pass (projects
-filters and grid, clients wall without numbering, contact map, fonts, colour-role contrast in both
-themes, responsive layouts, reduced motion, keyboard); `service-pages.spec.ts` covers the six service
-pages (routes in both languages, SEO and the noindex gate, sourced machine / project / related links,
-the quote action, imagery rules, RTL, dark theme, overflow at 360/390/834 px, keyboard, reduced
-motion, no-JS); `theme-lab.spec.ts` covers the theme lab (isolation from the site CSS, noindex and
-redirects, sitemap and navigation, sections, typefaces per option, flagged photos, card link overlays,
-overflow from 360 to 1280 px, no-JS, reduced motion); `theme-lab-a-v2.spec.ts` covers A V2 (header
-and Services menu, scroll-spy, phone menu sheet, EN/AR mirroring, industries by source, the machinery
-selector, the client colour switch, both signature animations — the service pages' artwork, the cutting
-head's path and order, grooves developing, finished states in EN/AR, readable sizes, replays, one-time
-playback on phones, still frames — the hero plate's cut order, its 10 s loop (period, readout reset, hold, rest off
-screen, phone, Arabic, no layout shift), readout and X / Y, the pointer on
-desktop and its absence on touch, the theme switch and `?theme=`, text contrast in both themes and
-languages, overflow from 360 to 1920 px in both themes, ambient layers behind the content, the
-site-wide background's layers, whole-pixel steps, timing, scroll pause, main-thread cost, sheets, reading
-zones, per-pixel text contrast, phone version and design-system frames, reduced motion, keyboard, no-JS, sheet overflow). In a cloud session Chromium is preinstalled at
-`/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
+`next start` on port 3400, or set `E2E_BASE_URL`): `commerce-home.spec.ts` (the homepage: sections, its
+stylesheet and typefaces, the header, quote actions, project cards, language and theme, the 10 s hero loop, the
+signatures, the ambient, the pointer, keyboard, reduced motion, no-JS, search metadata), `commerce-inner.spec.ts`
+(the inner-page kit, Privacy, Terms, the localized 404 and its HTTP status matrix), `commerce-contact.spec.ts`
+(Contact, with the quote form's golden outputs), `commerce-company.spec.ts` (About, Industries, Clients),
+`commerce-certificates.spec.ts` (the redacted files, the register and the dialog), `commerce-services.spec.ts` (the
+services overview and the six service pages), `commerce-projects.spec.ts` (the projects overview, its anchors and
+filters), `commerce-planned.spec.ts` (Capabilities, the 34 project pages with no project media, an unknown project),
+`commerce-anchors.spec.ts` (first jumps to an address's anchor with late fonts), `site.spec.ts` (internal links,
+nothing of the previous design on any page, which addresses reach which 404, the fallback 404),
+`stage-1c.spec.ts` (generic inner-page checks: routes, SEO and the noindex gate, breadcrumbs, overflow, keyboard,
+reduced motion, no-JS) and `theme-lab.spec.ts` / `theme-lab-a-v2.spec.ts` (the theme lab). In a cloud session
+Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages
 

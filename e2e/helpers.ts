@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 export const LOCALES = ["en", "ar"] as const;
 export type TestLocale = (typeof LOCALES)[number];
@@ -7,15 +7,6 @@ export type TestLocale = (typeof LOCALES)[number];
 export const INNER_PAGES = ["about", "services", "projects", "industries", "clients", "certificates", "contact", "privacy", "terms"] as const;
 
 export const HTML_LANG: Record<TestLocale, string> = { en: "en", ar: "ar-SA" };
-
-/** Skips the once-per-session intro loader. */
-export async function skipIntro(context: BrowserContext) {
-  await context.addInitScript(() => {
-    try {
-      sessionStorage.setItem("rawasy-intro", "1");
-    } catch {}
-  });
-}
 
 /** Collects uncaught errors and console errors. A 404 page's own status line is expected. */
 export function trackErrors(page: Page) {

@@ -1,9 +1,8 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { mediaRegistry } from "../src/content/media.generated";
 import { servicePage } from "../src/content/pages";
-import { crossDesignLink } from "../src/i18n/routes";
 import { expectFinished, inView, signatureAnimations } from "./a2-helpers";
-import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, skipIntro, trackErrors } from "./helpers";
+import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, trackErrors } from "./helpers";
 
 /**
  * Stage TM-2.4: the services overview and the six service pages in the Modern Commerce design
@@ -11,7 +10,7 @@ import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, skipIntr
  * assertion, from the Stage 1D spec (service-pages.spec.ts): routes, language and search metadata, the sourced
  * relations (machines, projects, related services), the quote action, imagery, keyboard use, reduced motion, layout at
  * phone widths and rendering without JavaScript. Added: the overview and its index, the dynamic route's localized 404,
- * cross-design prefetch, the project cards' interim link to the gallery (decision D4), the Capabilities placeholder (D5),
+ * the project cards' interim link to the gallery (decision D4), the Capabilities placeholder (D5),
  * the shared signatures (unforked) and the four restyled drawings, anchors under the header, containment, and the
  * header and footer marking a service page. The generic inner-page checks of stage-1c.spec.ts still run on the
  * overview (INNER_PAGES).
@@ -88,16 +87,11 @@ const HERO = 'section[aria-labelledby="page-title"]';
 const SOURCE = new Map<string, readonly [number, number]>(Object.values(mediaRegistry).map((m) => [m.src, [m.width, m.height] as const]));
 const mediaPath = (src: string) => decodeURIComponent(src.replace(/.*url=([^&]+).*/, "$1"));
 
-test.beforeEach(async ({ context }) => {
-  await skipIntro(context);
-});
-
 /** Shows every reveal at once (measurements of whole pages). */
 const revealAll = (page: Page) => page.evaluate(() => document.querySelectorAll("[data-reveal]").forEach((el) => el.setAttribute("data-shown", "")));
 
 async function newPage(browser: Browser, options: Parameters<Browser["newContext"]>[0] = {}): Promise<[Page, BrowserContext]> {
   const context = await browser.newContext(options);
-  await skipIntro(context);
   return [await context.newPage(), context];
 }
 
@@ -344,45 +338,6 @@ test.describe("the dynamic route", () => {
     await expect(phone.locator('.a2-sheet .a2-dd-item[href="/ar/services/scaffolding"]')).toHaveAttribute("aria-current", "page");
     await context.close();
   });
-});
-
-// ---------------------------------------------------------------------------------------------------------------------
-// The previous design's pages never prefetch the services
-// ---------------------------------------------------------------------------------------------------------------------
-
-test("links to the services from the pages still in the previous design never prefetch them (and load none of this design's faces)", async ({ page }) => {
-  // The route table's patterns: the overview and every service address are in this design (and the projects overview
-  // since TM-2.5); project pages and Capabilities are not.
-  for (const locale of LOCALES) {
-    expect(crossDesignLink(`/${locale}/services`)).toEqual({ prefetch: false });
-    for (const slug of SERVICES) expect(crossDesignLink(`/${locale}/services/${slug}`)).toEqual({ prefetch: false });
-    expect(crossDesignLink(`/${locale}/services/${SERVICES[0]}#gallery`)).toEqual({ prefetch: false });
-    expect(crossDesignLink(`/${locale}/projects/geometric-lanterns`)).toEqual({});
-    expect(crossDesignLink(`/${locale}/projects`)).toEqual({ prefetch: false });
-    expect(crossDesignLink(`/${locale}/projects#gallery`)).toEqual({ prefetch: false });
-    expect(crossDesignLink(`/${locale}/capabilities`)).toEqual({});
-  }
-  const prefetched: string[] = [];
-  page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  // The Capabilities placeholder and two project placeholders: each links to the six services (footer) and to the
-  // overview (header). (The projects overview moved to this design in TM-2.5.)
-  for (const path of ["/en/capabilities", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects/clock-tower-landmark"]) {
-    const locale = path.split("/")[1];
-    await page.goto(path, { waitUntil: "networkidle" });
-    await expect(page.locator("body.mc")).toHaveCount(0);
-    for (const slug of SERVICES) await expect(page.locator(`footer a[href="/${locale}/services/${slug}"]`)).toHaveCount(1);
-    await expect(page.locator(`header a[href="/${locale}/services"]`).first()).toBeAttached();
-    await page.locator("footer").scrollIntoViewIfNeeded();
-    await page.locator(`footer a[href="/${locale}/services/laser-cutting"]`).hover();
-    await page.waitForTimeout(800);
-    const fonts = await page.evaluate(() => [...new Set([...document.fonts].map((f) => f.family.replace(/['"]/g, "")))]);
-    expect(fonts, path).not.toContain("Plus Jakarta Sans");
-    expect(fonts, path).not.toContain("Tajawal");
-  }
-  expect(prefetched.filter((p) => /\/services(\/|$)/.test(p))).toEqual([]);
-  expect(prefetched.filter((p) => /\/projects$/.test(p))).toEqual([]);
-  // The rest of the previous design still prefetches as before (Capabilities).
-  expect(prefetched.some((p) => /\/capabilities$/.test(p))).toBe(true);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -10,9 +10,9 @@ import { PageShell } from "@/components/commerce/shell/PageShell";
 import { SamePageLink } from "@/components/commerce/shell/SamePageLink";
 
 /*
- * The localized 404 of the Modern Commerce design: unknown paths under a locale (the catch-all beside it). The
- * language comes from the address (the root parameter). The previous design keeps its own 404
- * (src/app/[locale]/not-found.tsx) for the routes still in that design (an unknown service or project slug).
+ * The localized 404 of the Modern Commerce design: unknown paths under a locale (the catch-all beside it), and unknown
+ * service and project slugs (their routes' own boundaries re-export this one). The language comes from the address
+ * (the root parameter).
  *
  * It sits in its own route group, (missing), on purpose: Next.js renders a segment's not-found boundary into the page
  * data of every page under that segment, so beside the layout it added the whole 404 page (header, footer and all,

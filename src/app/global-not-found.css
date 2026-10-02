@@ -1,0 +1,317 @@
+/*
+ * The fallback 404 (global-not-found.tsx) in the Modern Commerce look: the design's colours, faces, raised sheet and
+ * buttons, written out for this one page. It has its own <html>, outside the design's root layout, and needs a few
+ * dozen rules of a 130 KB stylesheet; no other page loads this file. Light by default; dark under
+ * html[data-theme="dark"], which the design's boot script sets from the visitor's stored choice or system setting.
+ * The values are those of src/components/commerce/system.css.
+ */
+html {
+  background-color: #f4f4f1;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html[data-theme="dark"] {
+  background-color: #131820;
+}
+
+*,
+::before,
+::after {
+  box-sizing: border-box;
+}
+
+.g404 {
+  color-scheme: light;
+  --bg: #f4f4f1;
+  --surface: #fdfdfb;
+  --surface-2: #f7f7f4;
+  --ink: #15171a;
+  --ink-2: #454a50;
+  --line-subtle: #e4e4df;
+  --line: #d6d6d0;
+  --line-strong: #bab9b2;
+  --brand: #f15f22;
+  --brand-hover: #f7713a;
+  --brand-press: #de5217;
+  --brand-soft: #fdefe6;
+  --on-brand: #15171a;
+  --focus: #2c5e86;
+  --dot: rgb(40 38 30 / 0.13);
+  --sheen: rgb(255 255 255 / 0.62);
+  --edge-light: rgb(255 255 255 / 0.9);
+  --shadow-rgb: 32 30 24;
+  --sh-xs: 0 1px 2px rgb(var(--shadow-rgb) / 0.08);
+  --sh-card: inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(var(--shadow-rgb) / 0.06), 0 4px 12px -4px rgb(var(--shadow-rgb) / 0.1);
+  --sh-raised: inset 0 1px 0 var(--edge-light), 0 2px 4px rgb(var(--shadow-rgb) / 0.05), 0 18px 36px -14px rgb(var(--shadow-rgb) / 0.2);
+  --sh-brand: 0 1px 2px rgb(var(--shadow-rgb) / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.32), 0 10px 22px -10px rgb(241 95 34 / 0.7);
+  --sh-brand-hover: 0 1px 2px rgb(var(--shadow-rgb) / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.36), 0 16px 30px -10px rgb(241 95 34 / 0.78);
+  --ff-display: var(--font-mc-display), ui-sans-serif, system-ui, sans-serif;
+  --ff-body: var(--font-mc-body), ui-sans-serif, system-ui, sans-serif;
+
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  /* The page colour with the design's still micro-dots */
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--dot) 1.15px, transparent 1.4px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font-family: var(--ff-body);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="dark"] .g404 {
+  color-scheme: dark;
+  --bg: #131820;
+  --surface: #1c232d;
+  --surface-2: #222a35;
+  --ink: #eef1f4;
+  --ink-2: #b8c0ca;
+  --line-subtle: #232b35;
+  --line: #2d3642;
+  --line-strong: #3f4a57;
+  --brand: #f26a2e;
+  --brand-hover: #ff7d45;
+  --brand-press: #e0591d;
+  --brand-soft: #2e211b;
+  --on-brand: #111418;
+  --focus: #8ebcdf;
+  --dot: rgb(200 215 235 / 0.115);
+  --sheen: rgb(255 255 255 / 0.035);
+  --edge-light: rgb(255 255 255 / 0.055);
+  --sh-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sh-card: inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 16px -6px rgb(0 0 0 / 0.45);
+  --sh-raised: inset 0 1px 0 var(--edge-light), 0 2px 6px rgb(0 0 0 / 0.3), 0 20px 40px -16px rgb(0 0 0 / 0.6);
+  --sh-brand: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.28), 0 10px 24px -10px rgb(242 106 46 / 0.55);
+  --sh-brand-hover: 0 1px 2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.32), 0 16px 32px -10px rgb(242 106 46 / 0.65);
+}
+
+/* Arabic parts take the Arabic faces; Arabic is never letter-spaced. */
+.g404 [lang|="ar"] {
+  --ff-display: var(--font-mc-display-ar), var(--font-mc-display), ui-sans-serif, sans-serif;
+  --ff-body: var(--font-mc-body-ar), var(--font-mc-body), ui-sans-serif, sans-serif;
+}
+
+.g404 :lang(ar) {
+  letter-spacing: 0;
+}
+
+.g404 :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The raised sheet */
+.g404-sheet {
+  width: min(100%, 68rem);
+  padding: clamp(1.5rem, 0.9rem + 3vw, 3.5rem);
+  border: 1px solid var(--line);
+  border-radius: clamp(1.25rem, 0.9rem + 1.4vw, 2.25rem);
+  background:
+    linear-gradient(180deg, var(--sheen), transparent 9rem),
+    linear-gradient(180deg, var(--surface), var(--surface-2));
+  box-shadow: var(--sh-raised);
+}
+
+.g404-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.g404-logo {
+  display: block;
+  width: auto;
+  height: clamp(2.25rem, 1.9rem + 1vw, 2.75rem);
+  color: var(--ink);
+}
+
+/* A quiet numeral */
+.g404-code {
+  margin: 0;
+  color: color-mix(in srgb, var(--line-strong) 72%, transparent);
+  font-family: var(--ff-display);
+  font-size: clamp(3.5rem, 2.2rem + 5.5vw, 7rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.g404-title {
+  margin: clamp(1.25rem, 0.9rem + 1.4vw, 2.25rem) 0 0;
+  font-family: var(--ff-display);
+  font-size: clamp(1.6rem, 1.25rem + 1.4vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.g404-title [lang] {
+  font-family: var(--ff-display);
+}
+
+.g404-parts {
+  display: grid;
+  gap: 1.75rem;
+  margin-top: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+  padding-top: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+  border-top: 1px solid var(--line-subtle);
+}
+
+.g404-part {
+  min-width: 0;
+  font-family: var(--ff-body);
+}
+
+.g404-part + .g404-part {
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--line-subtle);
+}
+
+@media (min-width: 48rem) {
+  .g404-parts {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+
+  .g404-part + .g404-part {
+    padding-top: 0;
+    padding-left: 3rem;
+    border-top: 0;
+    border-left: 1px solid var(--line-subtle);
+  }
+}
+
+/* The part's label: the design's eyebrow badge with its dot */
+.g404-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.3rem 0.75rem 0.3rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--sh-xs);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.g404-note::before {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.g404-heading {
+  margin: 1rem 0 0;
+  font-family: var(--ff-display);
+  font-size: clamp(1.3rem, 1.15rem + 0.6vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+
+.g404-body {
+  margin: 0.625rem 0 0;
+  color: var(--ink-2);
+  line-height: 1.65;
+}
+
+.g404-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0;
+}
+
+.g404-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.125rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--sh-xs);
+  color: var(--ink);
+  font-family: var(--ff-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 320ms ease,
+    translate 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.g404-btn:hover {
+  border-color: var(--ink);
+  background: var(--surface-2);
+  translate: 0 -1px;
+  box-shadow: var(--sh-card);
+}
+
+.g404-btn-primary {
+  border-color: transparent;
+  background-color: var(--brand);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 60%);
+  color: var(--on-brand);
+  box-shadow: var(--sh-brand);
+}
+
+.g404-btn-primary:hover {
+  border-color: transparent;
+  background-color: var(--brand-hover);
+  box-shadow: var(--sh-brand-hover);
+}
+
+.g404-btn-primary:active {
+  background-color: var(--brand-press);
+  translate: none;
+}
+
+/* Arabic: semibold text takes the display face (the text face is used at 400/500 only); taller lines. */
+.g404 [lang|="ar"] :is(.g404-note, .g404-btn) {
+  font-family: var(--ff-display);
+}
+
+.g404 [lang|="ar"] .g404-heading {
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.g404 [lang|="ar"] .g404-body {
+  line-height: 1.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g404-btn {
+    transition: none;
+  }
+
+  .g404-btn:hover {
+    translate: none;
+  }
+}

@@ -7,8 +7,7 @@ export interface Crumb {
 
 /**
  * Home → page trail of an inner page: a labelled navigation list whose last entry is the page itself
- * (`aria-current="page"`). The separators follow the reading direction. Plain links: a page in the other design is a
- * full page load, so nothing is prefetched across designs.
+ * (`aria-current="page"`). The separators follow the reading direction. Plain links, like every link of the website.
  */
 export function Breadcrumbs({ items, label }: { items: Crumb[]; label: string }) {
   return (
