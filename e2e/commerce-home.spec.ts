@@ -95,8 +95,8 @@ test.describe("the homepage", () => {
     await skipIntro(page.context());
     const prefetched: string[] = [];
     page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    // The services overview stands in for About, which moved to this design in Stage TM-2.3.
-    await page.goto("/en/services", { waitUntil: "networkidle" });
+    // The Capabilities placeholder stands in for About (this design since Stage TM-2.3) and the services (TM-2.4).
+    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
     await page.waitForTimeout(800);
     expect(prefetched).toContain("/en/projects");
     expect(prefetched).not.toContain("/en");

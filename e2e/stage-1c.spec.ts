@@ -79,10 +79,10 @@ test.describe("no sideways scrolling", () => {
   }
 });
 
-// The pages still in the previous design: the services overview stands in since Certificates moved (TM-2.3).
+// The pages still in the previous design: the projects overview stands in since the services moved (TM-2.4).
 test("dark theme applies to inner pages and toggles back", async ({ page, context }) => {
   await context.addInitScript(() => localStorage.setItem("rawasy-theme", "dark"));
-  await page.goto("/en/services", { waitUntil: "networkidle" });
+  await page.goto("/en/projects", { waitUntil: "networkidle" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.click('header button[aria-label*="light" i]');
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -102,7 +102,7 @@ test("dark theme applies to inner pages and toggles back", async ({ page, contex
 
 test.describe("keyboard", () => {
   test("skip link moves focus to the main content", async ({ page }) => {
-    await page.goto("/en/services", { waitUntil: "networkidle" });
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
     await page.keyboard.press("Tab");
     const skip = page.locator('a[href="#main"]');
     await expect(skip).toBeFocused();
@@ -110,15 +110,8 @@ test.describe("keyboard", () => {
     await expect(page.locator("main#main")).toBeFocused();
   });
 
-  test("services index jumps to a service", async ({ page }) => {
-    await page.goto("/en/services", { waitUntil: "networkidle" });
-    const link = page.locator('nav a[href="#cnc-bending"]').last();
-    await link.focus();
-    await page.keyboard.press("Enter");
-    await expect(link).toHaveAttribute("aria-current", "true");
-    await expect(page).toHaveURL(/#cnc-bending$/);
-    await expect(page.locator("article#cnc-bending")).toBeInViewport();
-  });
+  // "services index jumps to a service" moved to commerce-services.spec.ts with the services overview (Stage TM-2.4):
+  // "the index marks the service being read and jumps to it from the keyboard".
 
   // "industries preview follows keyboard focus" moved to commerce-company.spec.ts with the industries page (Stage TM-2.3).
 });

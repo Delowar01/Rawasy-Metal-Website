@@ -1,3 +1,11 @@
+/*
+ * The service detail pages before Stage TM-2.4 (Stage 1D, the V2 website design), moved here from
+ * src/app/[locale]/services/[slug]/page.tsx when the six pages were migrated to the Modern Commerce design
+ * (src/app/(commerce)/[locale]/services/[slug]/page.tsx). It is not routed. It stays, with the components it uses, while
+ * the migrated pages are under review, so the previous pages can be restored by moving this file back (and removing the
+ * new route); the approved plan deletes it with the rest of the previous design in TM-2.6. Kept verbatim (it also keeps
+ * the utilities it uses in the previous design's stylesheet).
+ */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Fragment, type ReactNode } from "react";

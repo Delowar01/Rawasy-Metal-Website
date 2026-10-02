@@ -46,9 +46,10 @@ function exposedDecoration(page: Page) {
 
 test("decorative layers are hidden from assistive technology", async ({ page }) => {
   test.setTimeout(120_000);
-  // Contact (TM-2.2), About, Industries, Clients and Certificates (TM-2.3) moved to the Modern Commerce design (their
-  // decoration: commerce-contact, commerce-company and commerce-certificates.spec.ts); the service pages stand in.
-  for (const path of ["/en/services/laser-cutting", "/ar/services/laser-cutting", "/en/services", "/ar/services", "/en/projects", "/ar/projects", "/en/services/fabrication", "/ar/services/scaffolding", "/en/services/cnc-bending", "/en/capabilities"]) {
+  // Contact (TM-2.2), About, Industries, Clients and Certificates (TM-2.3), the services overview and the six service
+  // pages (TM-2.4) moved to the Modern Commerce design (their decoration: commerce-contact, commerce-company,
+  // commerce-certificates and commerce-services.spec.ts); the pages left in this design stand in.
+  for (const path of ["/en/projects", "/ar/projects", "/en/capabilities", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects/clock-tower-landmark", "/en/projects/not-a-project"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     expect(await exposedDecoration(page), path).toEqual([]);
   }
@@ -97,91 +98,38 @@ test.describe("ambient motion", () => {
     expect(await grid.evaluate((el) => getComputedStyle(el, "::before").animationPlayState)).toBe("running");
   });
 
-  test("line work draws itself once revealed, without a resize", async ({ page }) => {
-    // Regression: `[data-revealed] [pathLength]` selectors never restyled the SVG paths in Chromium.
-    for (const [path, host] of [
-      // About's sketch retired with its move to the Modern Commerce design (TM-2.3, decision D8): another service drawing.
-      ["/en/services/scaffolding", ".line-draw"],
-      ["/en/services/cnc-bending", ".line-draw"],
-      ["/ar/services/laser-engraving", ".line-draw"],
-    ]) {
-      await page.goto(path, { waitUntil: "networkidle" });
-      const el = page.locator(host).first();
-      await el.evaluate((node) => node.scrollIntoView({ block: "center" }));
-      await expect(el).toHaveAttribute("data-revealed", "");
-      await expect
-        .poll(() => el.evaluate((node) => [...node.querySelectorAll("[pathLength]")].every((p) => getComputedStyle(p).strokeDashoffset === "0px")), {
-          message: `${path} ${host}`,
-          timeout: 6_000,
-        })
-        .toBe(true);
-    }
-  });
+  // "line work draws itself once revealed, without a resize" moved to commerce-services.spec.ts with the last drawings
+  // that used it (the service pages, Stage TM-2.4): "the four other drawings draw themselves once when revealed" checks
+  // the same Chromium regression on their Modern Commerce versions (an inherited --draw, not an attribute selector).
 
-  test("the pointer light follows a mouse over the services plate", async ({ page }) => {
-    await page.goto("/en/services", { waitUntil: "networkidle" });
-    const stage = page.locator(".plate-sheet");
-    await stage.evaluate((el) => el.scrollIntoView({ block: "center" }));
-    const light = stage.locator(":scope > .plight");
-    await expect(light).not.toHaveAttribute("data-on", "");
-
-    const box = (await stage.boundingBox())!;
-    await page.mouse.move(box.x + 40, box.y + 40);
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
-    await expect(light).toHaveAttribute("data-on", "");
-    await expect.poll(() => light.evaluate((el) => parseFloat(el.style.getPropertyValue("--lx")))).toBeGreaterThan(box.width / 3);
-
-    await page.mouse.move(4, 4);
-    await expect(light).not.toHaveAttribute("data-on", "");
-  });
+  // "the pointer light follows a mouse over the services plate": the pointer light retired with its last page (the
+  // services overview, Stage TM-2.4; decision D8). commerce-services.spec.ts checks the Modern Commerce pointer there
+  // (desktop mouse only; never on touch or with reduced motion).
 });
 
 test.describe("ambient motion with reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
-  test("layers stay still, scan lines are hidden and the pointer light never switches on", async ({ page }) => {
-    await page.goto("/en/services", { waitUntil: "networkidle" });
+  test("layers stay still and scan lines are hidden", async ({ page }) => {
+    // The projects overview stands in for the services overview (Modern Commerce since Stage TM-2.4); its pointer light
+    // retired with it (D8), and the Modern Commerce pointer's reduced-motion check is in commerce-services.spec.ts.
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
     const grid = page.locator("main .backdrop[data-drift]").first();
     await grid.evaluate((el) => el.scrollIntoView({ block: "center" }));
     await page.waitForTimeout(400);
     expect(await page.locator('[data-live="on"]').count()).toBe(0);
     expect(await grid.evaluate((el) => getComputedStyle(el, "::before").animationName)).toBe("none");
     await expect(page.locator("main .scan").first()).toBeHidden();
-
-    const stage = page.locator(".plate-sheet");
-    await stage.evaluate((el) => el.scrollIntoView({ block: "center" }));
-    const box = (await stage.boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
-    await page.waitForTimeout(300);
-    await expect(stage.locator(":scope > .plight")).not.toHaveAttribute("data-on", "");
-    await expect(stage.locator(":scope > .plight")).toBeHidden();
+    await expect(page.locator(".plight")).toHaveCount(0);
   });
 });
 
-test.describe("ambient motion on touch screens", () => {
-  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-
-  test("no pointer light on touch", async ({ page }) => {
-    // The services plate stands in for the certificate plates (Modern Commerce since Stage TM-2.3).
-    await page.goto("/en/services", { waitUntil: "networkidle" });
-    const plate = page.locator(".plate-sheet");
-    await plate.scrollIntoViewIfNeeded();
-    const box = (await plate.boundingBox())!;
-    await page.touchscreen.tap(box.x + 10, box.y + 10);
-    await page.waitForTimeout(300);
-    for (const light of await page.locator(".plight").all()) await expect(light).not.toHaveAttribute("data-on", "");
-  });
-});
+// "no pointer light on touch" (ambient motion on touch screens): the pointer light retired with the services overview
+// (Stage TM-2.4, D8); commerce-services.spec.ts checks that the Modern Commerce pointer never switches on for touch.
 
 test.describe("active states", () => {
-  test("the services overview marks the row being read", async ({ page }) => {
-    await page.goto("/en/services", { waitUntil: "networkidle" });
-    await expect(page.locator("article#laser-cutting")).toHaveAttribute("data-active", "");
-    await page.locator("article#steel-structures").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
-    await expect(page.locator("article#steel-structures")).toHaveAttribute("data-active", "");
-    await expect(page.locator("main article[data-active]")).toHaveCount(1);
-    await expect(page.locator('nav a[href="#steel-structures"]').last()).toHaveAttribute("aria-current", "true");
-  });
+  // "the services overview marks the row being read" moved to commerce-services.spec.ts with the overview (Stage TM-2.4):
+  // "the index marks the service being read and jumps to it from the keyboard (one marked at a time)".
 
   // "legal contents mark the section being read" moved to commerce-inner.spec.ts with the legal pages (Stage TM-2.1).
 

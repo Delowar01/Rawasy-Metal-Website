@@ -189,8 +189,8 @@ test.describe("typography", () => {
     page.on("request", (r) => {
       if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) external.push(r.url());
     });
-    // The services overview stands in for About, which moved to the Modern Commerce design in Stage TM-2.3.
-    await page.goto("/en/services", { waitUntil: "networkidle" });
+    // The projects overview stands in for About (Modern Commerce since Stage TM-2.3) and the services (TM-2.4).
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
     expect(await page.locator("h1").evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^Sora\b/);
     expect(await page.locator("main p.t-lead").first().evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^Manrope\b/);
@@ -201,7 +201,7 @@ test.describe("typography", () => {
   });
 
   test("Arabic: Noto Kufi Arabic for headings, IBM Plex Sans Arabic for text, no letter-spacing", async ({ page }) => {
-    await page.goto("/ar/services", { waitUntil: "networkidle" });
+    await page.goto("/ar/projects", { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
     const h1 = page.locator("h1");
     expect(await h1.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Noto Kufi Arabic/);
@@ -238,7 +238,7 @@ test.describe("colour roles", () => {
   for (const theme of ["light", "dark"] as const) {
     test(`${theme}: role inks, captions and buttons reach 4.5:1`, async ({ page, context }) => {
       await context.addInitScript((t) => localStorage.setItem("rawasy-theme", t), theme);
-      await page.goto("/en/services", { waitUntil: "networkidle" });
+      await page.goto("/en/projects", { waitUntil: "networkidle" });
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       const failures = await page.evaluate((pairs) => {
         const probe = document.createElement("span");

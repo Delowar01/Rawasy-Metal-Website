@@ -12,6 +12,7 @@ export function Footer({ shell }: { shell: ShellView }) {
   const { footer, services, contact, ui, links, current } = shell;
   // The attribute only where it applies, so the other pages' data carries no empty prop.
   const here = (key: string) => (key === current ? { "aria-current": "page" as const } : {});
+  const herePage = (href: string) => (href === shell.self ? { "aria-current": "page" as const } : {});
   return (
     <footer className="a2-footer">
       <div className="shell grid grid-cols-1 gap-10 py-14 sm:grid-cols-2 lg:grid-cols-12 lg:py-16">
@@ -26,7 +27,9 @@ export function Footer({ shell }: { shell: ShellView }) {
         <FooterCol title={footer.servicesTitle} className="lg:col-span-3">
           {services.items.map((s) => (
             <li key={s.slug}>
-              <a href={s.href}>{s.name}</a>
+              <a href={s.href} {...herePage(s.href)}>
+                {s.name}
+              </a>
             </li>
           ))}
         </FooterCol>

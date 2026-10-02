@@ -510,7 +510,8 @@ test("decoration is hidden from assistive technology on About, Industries and Cl
 test("the pages in the previous design never prefetch the four pages and load none of the new design's faces", async ({ page }) => {
   const prefetched: string[] = [];
   page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  for (const path of ["/en/services", "/ar/projects", "/en/services/laser-cutting", "/ar/services/scaffolding"]) {
+  // The pages left in the previous design (the services moved in Stage TM-2.4).
+  for (const path of ["/en/capabilities", "/ar/projects", "/en/projects/geometric-lanterns", "/ar/capabilities"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     await expect(page.locator('footer a[href$="/about"]').first()).toBeAttached();
     await page.locator("footer").scrollIntoViewIfNeeded();

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { CORNER_MARKS, ENGRAVED_LINES, linePath, ROSETTE } from "../src/components/service/visuals/engraved-plate";
+import { CUTTING_HEAD, DIMENSIONS, LEAD_IN, NESTED_PART, OUTLINE, PIERCES } from "../src/components/service/visuals/nesting-sheet";
 import { horizontalOverflow, LOCALES, trackErrors } from "./helpers";
 import {
   AMBIENT,
@@ -167,14 +169,12 @@ test.describe("A V2 · signature illustrations and motion", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
   test("one laser-cutting and one laser-engraving signature, on the service pages' own artwork", async ({ page }) => {
-    // The service pages' drawings: the nesting sheet (Laser Cutting) and the engraved plate (Laser Engraving).
-    await page.goto("/en/services/laser-cutting", { waitUntil: "networkidle" });
-    const sheet = await page.evaluate(() => [...document.querySelectorAll('svg.line-draw[viewBox="0 0 260 160"] path')].map((p) => p.getAttribute("d")));
-    await page.goto("/en/services/laser-engraving", { waitUntil: "networkidle" });
-    const plate = await page.evaluate(() => {
-      const svg = document.querySelector("svg.engrave .engr-cut")!;
-      return { lines: [...svg.querySelectorAll(":scope > path")].map((p) => p.getAttribute("d")), ellipses: svg.querySelectorAll("ellipse").length };
-    });
+    // The Stage 1D service pages' drawings, from their shared geometry (src/components/service/visuals/): the nesting
+    // sheet (Laser Cutting: part, dimensions, lead-in, outline, pierce points, head) and the engraved plate (Laser
+    // Engraving: corner marks, line block, rosette). Since Stage TM-2.4 the service pages show these signatures
+    // themselves (commerce-services.spec.ts checks they are the homepage's own).
+    const sheet = [NESTED_PART, ...DIMENSIONS, LEAD_IN, OUTLINE, PIERCES, CUTTING_HEAD.ticks];
+    const plate = { lines: [CORNER_MARKS, ...ENGRAVED_LINES.map(linePath)], ellipses: ROSETTE.outer.angles.length + ROSETTE.inner.angles.length };
     expect(sheet).toHaveLength(7);
 
     for (const path of [home("en"), home("ar")]) {
@@ -813,8 +813,8 @@ test.describe("A V2 · light and dark", () => {
     // The lab keeps its own key: the website's theme choice is never written (checked on a page in the previous design,
     // which has no custom pointer).
     await page.goto(`${home("en")}?theme=dark`, { waitUntil: "networkidle" });
-    // The services overview (About moved to the Modern Commerce design in Stage TM-2.3).
-    await page.goto("/en/services", { waitUntil: "networkidle" });
+    // The projects overview (About and the services moved to the Modern Commerce design in Stages TM-2.3 and TM-2.4).
+    await page.goto("/en/projects", { waitUntil: "networkidle" });
     expect(await page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBeNull();
     await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
     await expect(page.locator(".a2-cursor")).toHaveCount(0);

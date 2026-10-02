@@ -66,6 +66,10 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
   const [home, about, servicesNav, ...rest] = nav;
   const flat = [home, about];
   const here = (key: string) => (key === current ? ("page" as const) : undefined);
+  // A service page belongs to the Services section: the Services menu is marked as the section being viewed, and the
+  // service as the page in it (only where it applies, so the other pages' data carries no empty prop).
+  const section = (key: string) => here(key) ?? (key === "services" && current === "service" ? ("true" as const) : undefined);
+  const herePage = (href: string) => (href === shell.self ? { "aria-current": "page" as const } : {});
 
   return (
     <header className="a2-header">
@@ -85,7 +89,7 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
             ))}
             <li>
               <details data-dropdown className="a2-dd">
-                <summary className="nav-link" aria-current={here(servicesNav.key)}>
+                <summary className="nav-link" aria-current={section(servicesNav.key)}>
                   {servicesNav.label}
                   <Icon name="chevron" size={16} className="chev" />
                 </summary>
@@ -93,7 +97,7 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
                   <ul className="grid grid-cols-2 gap-1">
                     {services.items.map((s) => (
                       <li key={s.slug}>
-                        <a href={s.href} className="a2-dd-item" data-tone={serviceTone[s.slug]}>
+                        <a href={s.href} className="a2-dd-item" data-tone={serviceTone[s.slug]} {...herePage(s.href)}>
                           <span className="icon-chip size-10 shrink-0">
                             <Icon name={serviceIcon[s.slug]} size={20} />
                           </span>
@@ -180,14 +184,14 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
                   ))}
                   <li>
                     <details className="a2-sheet-sub">
-                      <summary className="a2-sheet-row" aria-current={here(servicesNav.key)}>
+                      <summary className="a2-sheet-row" aria-current={section(servicesNav.key)}>
                         {servicesNav.label}
                         <Icon name="chevron" size={20} className="chev" />
                       </summary>
                       <ul className="grid grid-cols-1 gap-2 py-3 min-[480px]:grid-cols-2">
                         {services.items.map((s) => (
                           <li key={s.slug}>
-                            <a href={s.href} className="a2-dd-item border border-line-subtle" data-tone={serviceTone[s.slug]}>
+                            <a href={s.href} className="a2-dd-item border border-line-subtle" data-tone={serviceTone[s.slug]} {...herePage(s.href)}>
                               <span className="icon-chip size-9 shrink-0">
                                 <Icon name={serviceIcon[s.slug]} size={18} />
                               </span>

@@ -55,11 +55,22 @@ export function href(locale: Locale, key: RouteKey, params?: { slug?: string; ha
 
 /**
  * Pages in the Modern Commerce design (Stage TM-1: the homepage; TM-2.1: the privacy policy and the website terms; TM-2.2:
- * contact; TM-2.3: about, industries, clients and certificates).
+ * contact; TM-2.3: about, industries, clients and certificates; TM-2.4: the services overview).
  * They have their own root layout (src/app/(commerce)), so a link to one from a page in the previous design is always
- * a full page load. Static routes only: a dynamic route (service, project) needs a pattern match here before it moves.
+ * a full page load. Static routes here; dynamic routes in `commerceDynamicRoutes`.
  */
-export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", "contact", "about", "industries", "clients", "certificates"];
+export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", "contact", "about", "industries", "clients", "certificates", "services"];
+
+/**
+ * Dynamic routes in the Modern Commerce design (TM-2.4: the six service pages, /{locale}/services/{slug}), matched by
+ * their localized pattern: any one path segment in place of [slug]. The project pages (/projects/[slug]) and
+ * Capabilities stay in the previous design until their own batches.
+ */
+export const commerceDynamicRoutes: readonly RouteKey[] = ["service"];
+
+const commercePatterns = commerceDynamicRoutes.flatMap((key) =>
+  locales.map((locale) => new RegExp(`^${href(locale, key).replace("[slug]", "[^/]+")}$`)),
+);
 
 /**
  * Link props for a page in the previous design: never prefetch a page in the Modern Commerce design. The prefetch could
@@ -67,7 +78,9 @@ export const commerceRoutes: readonly RouteKey[] = ["home", "privacy", "terms", 
  */
 export function crossDesignLink(target: string): { prefetch?: false } {
   const base = target.split(/[?#]/)[0];
-  return commerceRoutes.some((key) => locales.some((locale) => href(locale, key) === base)) ? { prefetch: false } : {};
+  const commerce =
+    commerceRoutes.some((key) => locales.some((locale) => href(locale, key) === base)) || commercePatterns.some((pattern) => pattern.test(base));
+  return commerce ? { prefetch: false } : {};
 }
 
 /** Swap the locale segment of a pathname: "/en/projects/x" → "/ar/projects/x". */

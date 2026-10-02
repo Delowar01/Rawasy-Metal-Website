@@ -5,9 +5,9 @@ import { HTML_LANG, horizontalOverflow, LOCALES, skipIntro, trackErrors } from "
 
 /**
  * Stage TM-2.1: the inner-page kit of the Modern Commerce design, the privacy policy and the website terms in it, and
- * the localized 404 with its catch-all (src/app/(commerce)/[locale]/). The pages still in the previous design keep
- * their own 404 for the routes that match them more precisely (an unknown service or project slug) until those routes
- * move (TM-2.4, TM-2.6). The generic inner-page checks (routes and search metadata, breadcrumbs, sideways scrolling,
+ * the localized 404 with its catch-all (src/app/(commerce)/[locale]/). An unknown service slug has had this design's 404
+ * since its route moved (TM-2.4: commerce-services.spec.ts); the previous design keeps its own 404 for an unknown
+ * project slug until that route moves (TM-2.6). The generic inner-page checks (routes and search metadata, breadcrumbs, sideways scrolling,
  * reduced motion and no JavaScript) stay in stage-1c.spec.ts and run on these pages too.
  */
 
@@ -207,8 +207,9 @@ test.describe("legal pages", () => {
   test("the pages in the previous design never prefetch the legal pages and load none of the new design's faces", async ({ page }) => {
     const prefetched: string[] = [];
     page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-    // Contact (TM-2.2), About and Industries (TM-2.3) moved to the new design: the services and projects overviews stand in.
-    for (const path of ["/en/services", "/ar/projects"]) {
+    // Contact (TM-2.2), About and Industries (TM-2.3) and the services (TM-2.4) moved to the new design: the Capabilities
+    // placeholder and the projects overview stand in.
+    for (const path of ["/en/capabilities", "/ar/projects"]) {
       await page.goto(path, { waitUntil: "networkidle" });
       await page.locator("footer").scrollIntoViewIfNeeded();
       await page.waitForTimeout(800);
@@ -291,11 +292,13 @@ test.describe("localized 404", () => {
       expect(html, path).toContain(`<title>${TITLE_404[locale]}</title>`);
       expect(html, path).toMatch(/<meta name="robots" content="noindex"\/>/);
     }
-    // Unknown slugs of the routes still in the previous design: a real 404 there too.
+    // Unknown service slugs (this design since TM-2.4) and project slugs (the route still in the previous design): a real
+    // 404 too, the services' with this design's localized title.
     for (const path of ["/en/services/not-a-service", "/ar/services/not-a-service", "/en/projects/not-a-project", "/ar/projects/not-a-project"]) {
       const { status: code, html } = await status(request, path);
       expect(code, path).toBe(404);
       expect(html, path).toMatch(/<meta name="robots" content="noindex"\/>/);
+      if (path.includes("/services/")) expect(html, path).toContain(`<title>${TITLE_404[path.startsWith("/ar") ? "ar" : "en"]}</title>`);
     }
     // Without a language: the visitor's language (here English, or Arabic when asked for), then the 404.
     expect(await status(request, "/no-such-page")).toMatchObject({ status: 307, location: expect.stringMatching(/\/en\/no-such-page$/) });
@@ -412,14 +415,15 @@ test.describe("localized 404", () => {
     });
   });
 
-  test("unknown service and project slugs keep the previous design's 404 until their pages move (TM-2.4, TM-2.6)", async ({ page }) => {
-    for (const [path, locale] of [
-      ["/en/services/not-a-service", "en"],
-      ["/ar/projects/not-a-project", "ar"],
+  test("an unknown service slug has this design's 404 since TM-2.4; an unknown project slug keeps the previous design's until TM-2.6", async ({ page }) => {
+    for (const [path, locale, mc] of [
+      ["/en/services/not-a-service", "en", 1],
+      ["/ar/services/not-a-service", "ar", 1],
+      ["/ar/projects/not-a-project", "ar", 0],
     ] as const) {
       const response = await page.goto(path, { waitUntil: "networkidle" });
       expect(response?.status(), path).toBe(404);
-      await expect(page.locator("body.mc"), path).toHaveCount(0);
+      await expect(page.locator("body.mc"), path).toHaveCount(mc);
       await expect(page.locator("h1"), path).toHaveText(NOT_FOUND[locale]);
       await expect(page.locator("html"), path).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
     }
@@ -437,11 +441,13 @@ test.describe("localized 404", () => {
 
   test("no page-data or prefetch loop: one redirect to the page-data address, then an answer; the page loads once", async ({ page, request }) => {
     // As for every page, a page-data request without its cache key is sent once to the address with it; then it is
-    // answered (the new design's 404 sends its payload, the previous design's route a 404) — never redirected again.
+    // answered (the catch-all's 404 sends its payload; a route's own unknown slug answers 404: the services in this
+    // design since TM-2.4, the projects in the previous one) — never redirected again.
     for (const [path, final] of [
       ["/en/no-such-page", 200],
       ["/ar/foo/bar", 200],
       ["/en/services/not-a-service", 404],
+      ["/en/projects/not-a-project", 404],
     ] as const) {
       const headerSets: Record<string, string>[] = [{ RSC: "1" }, { RSC: "1", "Next-Router-Prefetch": "1" }];
       for (const headers of headerSets) {

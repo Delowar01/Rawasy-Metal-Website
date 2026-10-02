@@ -22,7 +22,8 @@ export const inView = (page: Page, selector: string) => page.evaluate((sel) => d
 
 /** The finished picture of the signatures, as the service pages draw them. */
 export async function expectFinished(page: Page, which: readonly ("cut" | "engrave")[] = ["cut", "engrave"]) {
-  const state = await page.evaluate(() => {
+  // Only the signatures asked for are read (a service page shows one of them).
+  const state = await page.evaluate((which) => {
     const css = (sel: string) => getComputedStyle(document.querySelector(sel)!);
     const all = (sel: string) => [...document.querySelectorAll(sel)].map((el) => getComputedStyle(el));
     const head = (sel: string) => {
@@ -30,22 +31,24 @@ export async function expectFinished(page: Page, which: readonly ("cut" | "engra
       return [Math.round(m.e * 10) / 10, Math.round(m.f * 10) / 10];
     };
     const drawn = (list: CSSStyleDeclaration[]) => list.every((s) => s.strokeDasharray === "none" || parseFloat(s.strokeDashoffset) < 0.001);
+    const cut = which.includes("cut");
+    const engrave = which.includes("engrave");
     return {
-      sheet: css(".sig-cut .sig-sheet").opacity,
-      cut: drawn(all(".sig-cut .sig-kerf [pathLength]:not(.sig-slug)")),
-      slugs: all(".sig-cut .sig-kerf .sig-slug").map((s) => s.opacity),
-      pierces: all(".sig-cut .sig-pierce").map((s) => s.opacity),
-      trail: all(".sig-cut :is(.sig-trail > g, .sig-hot, .sig-scan)").map((s) => s.opacity),
-      cutHead: head(".sig-cut .sig-head"),
-      ring: css(".sig-cut .sig-ring").opacity,
-      plate: css(".sig-engrave .sig-plate").opacity,
-      grooves: drawn(all(".sig-engrave .sig-engr [pathLength]")),
-      dots: all(".sig-engrave .sig-dots").map((s) => s.opacity),
-      laser: css(".sig-engrave .sig-on").opacity,
-      beam: css(".sig-engrave .sig-beam-rest").opacity,
-      engraveHead: head(".sig-engrave .sig-head"),
+      sheet: cut ? css(".sig-cut .sig-sheet").opacity : "",
+      cut: cut ? drawn(all(".sig-cut .sig-kerf [pathLength]:not(.sig-slug)")) : false,
+      slugs: cut ? all(".sig-cut .sig-kerf .sig-slug").map((s) => s.opacity) : [],
+      pierces: cut ? all(".sig-cut .sig-pierce").map((s) => s.opacity) : [],
+      trail: cut ? all(".sig-cut :is(.sig-trail > g, .sig-hot, .sig-scan)").map((s) => s.opacity) : [],
+      cutHead: cut ? head(".sig-cut .sig-head") : [],
+      ring: cut ? css(".sig-cut .sig-ring").opacity : "",
+      plate: engrave ? css(".sig-engrave .sig-plate").opacity : "",
+      grooves: engrave ? drawn(all(".sig-engrave .sig-engr [pathLength]")) : false,
+      dots: engrave ? all(".sig-engrave .sig-dots").map((s) => s.opacity) : [],
+      laser: engrave ? css(".sig-engrave .sig-on").opacity : "",
+      beam: engrave ? css(".sig-engrave .sig-beam-rest").opacity : "",
+      engraveHead: engrave ? head(".sig-engrave .sig-head") : [],
     };
-  });
+  }, which);
   if (which.includes("cut")) {
     expect(state.sheet).toBe("1");
     expect(state.cut).toBe(true);

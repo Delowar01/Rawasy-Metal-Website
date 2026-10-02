@@ -769,8 +769,9 @@ test.describe("location and map", () => {
 test("the pages in the previous design link to Contact without prefetching it", async ({ page }) => {
   const prefetched: string[] = [];
   page.on("request", (r) => void (r.headers()["next-router-prefetch"] && prefetched.push(new URL(r.url()).pathname)));
-  // About and Industries moved to this design in Stage TM-2.3: the projects overview stands in for them.
-  for (const path of ["/en/projects", "/ar/services", "/en/services/laser-cutting", "/ar/projects"]) {
+  // About and Industries (Stage TM-2.3) and the services (TM-2.4) moved to this design: the pages left in the previous
+  // design stand in for them.
+  for (const path of ["/en/projects", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     await expect(page.locator('a[href^="/' + path.split("/")[1] + '/contact"]').first()).toBeAttached();
     await page.locator("footer").scrollIntoViewIfNeeded();

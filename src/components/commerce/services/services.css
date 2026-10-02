@@ -1,0 +1,1557 @@
+/*
+ * Services (Stage TM-2.4): the services overview (its tiles, the index and the six rows) and the six service pages — the
+ * hero and its pictures (the signatures, sized by their container, and the four restyled drawings), the sections (scope,
+ * process, machinery, applications, gallery, why, related services, projects) and the closing panel. Text sits on cards,
+ * sheets or a reading zone. Photos are never shown wider than their source. The project cards reuse About's card
+ * (ab-proj). The header and footer mark a service page as the page being viewed.
+ *
+ * Imported by the two service page components only, so no other page loads it. In system.css these rules pushed the
+ * shared stylesheet past the size at which Turbopack splits a chunk: every Modern Commerce page, the homepage included,
+ * then loaded it as two files. The rules sit in the same `components` layer, after system.css's (the page's stylesheets
+ * follow the layout's), so they cascade exactly as they would at the end of that layer; no other page uses these
+ * classes, and the header rules match only on a services page.
+ */
+@layer components {
+  /* Plex Arabic stays at 400/500: the batch's semibold text takes the Tajawal display face in Arabic. */
+  .mc :is(.sv-label, .sv-tagline, .sv-node, .sv-tl-node, .sv-tile-name, .sv-row-n, .sv-call-label, .sv-call-number, .sv-cta-label, .sv-power-label, .sv-power-unit, .sv-support-n):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* The header: on a service page the Services menu is marked as the section being viewed, the service as the page. */
+  .mc .nav-link[aria-current="true"] {
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-weight: 600;
+  }
+
+  .mc .a2-nav .nav-link[aria-current="true"]::after {
+    opacity: 1;
+    scale: 1 1;
+  }
+
+  .mc .a2-sheet-row[aria-current="true"] {
+    color: var(--brand-ink);
+  }
+
+  .mc .a2-dd-item[aria-current="page"] {
+    background: var(--tone-soft);
+    box-shadow: inset 0 0 0 1px var(--tone-line);
+  }
+
+  .mc .a2-dd-item[aria-current="page"] .icon-chip {
+    border-color: var(--tone);
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+
+  /* Small labels over a list (includes, equipment, sectors …), in the card's tone ink */
+  .mc .sv-label {
+    margin: 0;
+    color: var(--tone-ink, var(--ink-2));
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .mc .sv-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* ---------- Hero ---------- */
+  .mc .sv-eyebrow-rule {
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+
+  .mc .sv-tagline {
+    margin-bottom: 0;
+    color: var(--ink);
+    font-family: var(--ff-display);
+    font-size: clamp(1.1rem, 1rem + 0.45vw, 1.3rem);
+    font-weight: 650;
+    line-height: 1.4;
+    text-wrap: balance;
+  }
+
+  .mc .sv-tagline:lang(ar) {
+    font-weight: 700;
+    line-height: 1.7;
+  }
+
+  .mc .sv-visual {
+    position: relative;
+  }
+
+  /* Laser Cutting: the photo, and the signature's nesting sheet on a dark stage over its lower corner */
+  .mc .sv-cut {
+    padding-bottom: clamp(4.5rem, 2rem + 10vw, 7rem);
+  }
+
+  .mc .sv-cut-photo {
+    margin-inline-start: auto;
+  }
+
+  .mc .sv-cut-sheet {
+    position: absolute;
+    bottom: 0;
+    inset-inline-start: 0;
+    z-index: 1;
+    width: min(74%, 24rem);
+    padding: clamp(0.6rem, 0.4rem + 0.8vw, 1rem);
+    border: 1px solid var(--stage-dark-edge);
+    border-radius: 18px;
+    background: var(--stage-dark);
+    box-shadow: var(--sh-float);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-cut-sheet {
+      inset-inline-start: -1.5rem;
+    }
+  }
+
+  /* Laser Engraving: the engraved plate on its brass stage */
+  .mc .sv-plate-stage {
+    max-width: 36rem;
+    margin-inline: auto;
+    padding: clamp(1rem, 0.5rem + 2.5vw, 2.25rem);
+    border: 1px solid var(--brass-line);
+    border-radius: var(--r-panel);
+    background: var(--stage-brass);
+    box-shadow: var(--sh-raised);
+  }
+
+  /* A drawing on a light panel in the service's tone (CNC Bending, Scaffolding) */
+  .mc .sv-panel {
+    position: relative;
+    padding: clamp(0.75rem, 0.4rem + 1.5vw, 1.5rem);
+    border: 1px solid var(--tone-line, var(--line));
+    border-radius: var(--r-panel);
+    background:
+      linear-gradient(180deg, var(--sheen), transparent 40%),
+      linear-gradient(180deg, color-mix(in srgb, var(--tone-soft) 55%, var(--surface)), var(--surface));
+    box-shadow: var(--sh-raised);
+  }
+
+  .mc :is(.sv-press, .sv-tower) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* CNC Bending: the press brake, with the bending photo as an inset at its own size */
+  .mc .sv-fold {
+    padding-bottom: clamp(5.5rem, 3rem + 9vw, 8rem);
+  }
+
+  .mc .sv-fold-photo {
+    position: absolute;
+    bottom: 0;
+    inset-inline-end: 0;
+    z-index: 1;
+    width: min(62%, 295px);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-fold-photo {
+      inset-inline-end: -1rem;
+    }
+  }
+
+  /* Steel Structures: the photo on the structural axis plate (lettered columns, numbered rows; never mirrored) */
+  .mc .sv-frame {
+    --sv-axis: rgb(184 194 208 / 0.42);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 11% 9% 8%;
+    border: 1px solid var(--stage-dark-edge);
+    border-radius: var(--r-panel);
+    background: var(--stage-dark);
+    box-shadow: var(--sh-float);
+  }
+
+  .mc .sv-axes {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    color: var(--on-dark-2);
+  }
+
+  .mc .sv-axis {
+    --reveal-dur: 1s;
+    position: absolute;
+  }
+
+  .mc .sv-axis-v {
+    top: 9%;
+    bottom: 0;
+    width: 1px;
+    background: repeating-linear-gradient(to bottom, var(--sv-axis) 0 12px, transparent 12px 16px, var(--sv-axis) 16px 18px, transparent 18px 22px);
+    transform-origin: top;
+  }
+
+  .mc .sv-axis-h {
+    left: 6.5%;
+    right: 0;
+    height: 1px;
+    background: repeating-linear-gradient(to right, var(--sv-axis) 0 12px, transparent 12px 16px, var(--sv-axis) 16px 18px, transparent 18px 22px);
+    transform-origin: left;
+  }
+
+  .mc .sv-bubble {
+    position: absolute;
+    display: grid;
+    width: 1.6rem;
+    height: 1.6rem;
+    place-items: center;
+    border: 1px solid rgb(184 194 208 / 0.7);
+    border-radius: 50%;
+    background: var(--navy);
+    color: var(--on-dark);
+    font-family: var(--ff-mono);
+    font-size: 0.7rem;
+    line-height: 1;
+    translate: -50% -50%;
+  }
+
+  .mc .sv-axes-section {
+    position: absolute;
+    right: 3%;
+    bottom: 2.5%;
+    width: 3rem;
+  }
+
+  .mc .sv-frame .ip-figure-photo {
+    border-color: rgb(255 255 255 / 0.12);
+  }
+
+  /* Metal Fabrication: two workshop photos on the brass bench plate, joined by the weld seam (mirrored in Arabic) */
+  .mc .sv-bench {
+    padding-bottom: 1.5rem;
+  }
+
+  .mc .sv-bench-plate {
+    position: absolute;
+    inset-block: 10%;
+    inset-inline: 8% -0.5rem;
+    border: 1px solid var(--brass-line);
+    border-radius: var(--r-panel);
+    background:
+      radial-gradient(circle, color-mix(in srgb, var(--brass) 24%, transparent) 1.3px, transparent 1.8px) 0 0 / 16px 16px,
+      linear-gradient(118deg, var(--brass-soft), color-mix(in srgb, var(--brass-line) 70%, var(--brass-soft)) 45%, var(--brass-soft) 75%, color-mix(in srgb, var(--brass-line) 55%, var(--brass-soft)));
+    box-shadow: var(--sh-raised);
+  }
+
+  /* Rivets in the plate's corners */
+  .mc .sv-bench-plate::before {
+    --rivet: color-mix(in srgb, var(--brass) 55%, transparent);
+    content: "";
+    position: absolute;
+    inset: 12px;
+    background:
+      radial-gradient(circle at 4px 4px, var(--rivet) 3px, transparent 3.6px),
+      radial-gradient(circle at calc(100% - 4px) 4px, var(--rivet) 3px, transparent 3.6px),
+      radial-gradient(circle at 4px calc(100% - 4px), var(--rivet) 3px, transparent 3.6px),
+      radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), var(--rivet) 3px, transparent 3.6px);
+  }
+
+  .mc .sv-bench-photos {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .mc .sv-bench-main {
+    grid-column: 1 / span 10;
+  }
+
+  .mc .sv-bench-detail {
+    position: relative;
+    z-index: 1;
+    grid-column: 6 / span 7;
+    margin-top: -18%;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-bench-main {
+      grid-column: 1 / span 9;
+    }
+
+    .mc .sv-bench-detail {
+      grid-column: 7 / span 6;
+    }
+  }
+
+  .mc .sv-seam {
+    position: absolute;
+    bottom: 4%;
+    inset-inline-start: 2%;
+    width: 42%;
+    pointer-events: none;
+  }
+
+  [dir="rtl"] .mc .sv-seam {
+    scale: -1 1;
+  }
+
+  /* Scaffolding: the tower elevation beside the site photo */
+  .mc .sv-bays {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .mc .sv-bays-panel {
+    flex: none;
+    width: 34%;
+    padding: clamp(0.5rem, 0.3rem + 1vw, 1rem);
+  }
+
+  .mc .sv-bays-photo {
+    position: relative;
+    z-index: 1;
+    width: 70%;
+    margin-inline-start: -4%;
+    margin-bottom: 12%;
+  }
+
+  /* ---------- Sections ---------- */
+  .mc .sv-body {
+    margin-top: 2.5rem;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-body {
+      margin-top: 3rem;
+    }
+  }
+
+  /* Overview: the profile text, its lead on an orange rule; what the service includes beside it */
+  .mc .sv-prose {
+    max-width: 44rem;
+    color: var(--ink-2);
+    font-size: 1.0625rem;
+    line-height: 1.72;
+  }
+
+  .mc .sv-prose > p {
+    margin: 0;
+  }
+
+  .mc .sv-prose > p + p {
+    margin-top: 1rem;
+  }
+
+  .mc .sv-lead {
+    position: relative;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+    color: var(--ink);
+    font-size: clamp(1.125rem, 1.04rem + 0.35vw, 1.3rem);
+    line-height: 1.6;
+  }
+
+  /* The orange rule beside a lead or a note is drawn above a reading zone (the zone is the element's ::before when it
+     sits on one), so it keeps its full colour. */
+  .mc :is(.sv-lead, .sv-note)::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    background: var(--brand);
+  }
+
+  .mc .sv-note::after {
+    width: 2px;
+  }
+
+  .mc :is(.sv-prose, .sv-lead):lang(ar) {
+    line-height: 1.85;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-prose > p:not(.sv-lead) {
+      padding-inline-start: calc(1.25rem + 3px);
+    }
+  }
+
+  .mc .sv-overview-figure {
+    margin-top: 2.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-overview-figure {
+      margin-inline-start: calc(1.25rem + 3px);
+    }
+  }
+
+  .mc .sv-includes {
+    padding: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-includes {
+      position: sticky;
+      top: calc(var(--hh) + 1.5rem);
+    }
+  }
+
+  .mc .sv-includes-list {
+    display: grid;
+    margin: 0.85rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--line-subtle);
+  }
+
+  .mc .sv-includes-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-block: 0.75rem;
+    border-bottom: 1px solid var(--line-subtle);
+    color: var(--ink);
+    font-size: 0.97rem;
+    line-height: 1.45;
+  }
+
+  .mc .sv-includes-list li::before {
+    content: "";
+    flex: none;
+    width: 0.42rem;
+    height: 0.42rem;
+    background: var(--tone, var(--brand));
+    rotate: 45deg;
+    translate: 0 -0.12em;
+  }
+
+  .mc .sv-includes .sv-includes-list li:last-child {
+    border-bottom: 0;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-includes-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 1.5rem;
+    }
+  }
+
+  /* Scope · profiles (Laser Cutting): five sections in a row, the featured one across underneath */
+  .mc .sv-profiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (max-width: 39.999rem) {
+    .mc .sv-profiles[data-count="5"] > li:nth-child(5) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-profiles {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-profiles[data-count="5"] {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  .mc .sv-profiles > li {
+    display: flex;
+  }
+
+  .mc .sv-profiles > .sv-profiles-wide {
+    grid-column: 1 / -1;
+  }
+
+  .mc .sv-profile {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.1rem 1.15rem 1.2rem;
+  }
+
+  .mc .sv-profiles-wide .sv-profile {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.25rem;
+    border-color: var(--tone-line);
+  }
+
+  .mc .sv-glyph {
+    width: 3.5rem;
+    height: 3.5rem;
+    flex: none;
+    color: var(--tone-icon, var(--ink));
+  }
+
+  .mc .sv-profiles-wide .sv-glyph {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  /* Scope · formed profiles (CNC Bending), linked phases (Steel Structures), photo cards (Metal Fabrication),
+     material swatches (Laser Engraving) */
+  .mc :is(.sv-folds, .sv-photo-cards, .sv-machines, .sv-related, .sv-projects, .sv-uses) {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc :is(.sv-folds, .sv-photo-cards, .sv-machines, .sv-related, .sv-projects) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc :is(.sv-folds, .sv-photo-cards, .sv-projects) {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+  }
+
+  .mc .sv-fold-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.35rem;
+  }
+
+  .mc .sv-phases {
+    display: grid;
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-phases {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+    }
+  }
+
+  .mc .sv-phase {
+    position: relative;
+    display: flex;
+  }
+
+  .mc .sv-phase-card {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    padding: clamp(1.35rem, 1rem + 1.2vw, 2rem);
+  }
+
+  /* Large text (2.4 rem, 800): at least 3:1 on its card in both themes, still quieter than the card's own text. */
+  .mc .sv-phase-n {
+    color: color-mix(in srgb, var(--ink-3) 72%, var(--surface));
+    font-family: var(--ff-display);
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The link between two phases: down on phones, along the reading direction on large screens */
+  .mc .sv-phase-link {
+    position: absolute;
+    bottom: -1.7rem;
+    left: 50%;
+    z-index: 4;
+    display: grid;
+    width: 1.9rem;
+    height: 1.9rem;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: var(--sh-card);
+    color: var(--brand-ink);
+    rotate: calc(90deg * var(--dir, 1));
+    translate: -50% 0;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-phase-link {
+      top: 50%;
+      bottom: auto;
+      left: auto;
+      inset-inline-end: -1.83rem;
+      rotate: none;
+      translate: 0 -50%;
+    }
+  }
+
+  .mc .sv-photo-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* One track the size of the stage, so a photo's own height never sizes it; shown at most at its own scale. */
+  .mc :is(.sv-stage-photo, .sv-machine-stage) {
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    background: var(--stage-light);
+  }
+
+  .mc .sv-stage-photo {
+    aspect-ratio: 4 / 3;
+  }
+
+  .mc .sv-stage-img {
+    object-fit: cover;
+    object-position: 50% 0;
+  }
+
+  .mc .sv-photo-card-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 1rem 1.15rem 1.2rem;
+  }
+
+  .mc .sv-materials {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-materials {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+
+  .mc .sv-material {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 0.75rem 1.1rem;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-material {
+      padding: 1rem 1rem 1.25rem;
+    }
+  }
+
+  /* Physical materials keep their colours in both themes. */
+  .mc .sv-swatch {
+    --engr-cut: rgb(40 28 12 / 0.7);
+    --engr-hi: rgb(255 255 255 / 0.55);
+    display: grid;
+    aspect-ratio: 5 / 3;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgb(0 0 0 / 0.18);
+    border-radius: 12px;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), var(--sh-xs);
+  }
+
+  .mc .sv-swatch-motif {
+    width: auto;
+    height: 72%;
+  }
+
+  .mc .sv-swatch .sv-engr-cut {
+    stroke: var(--engr-cut);
+  }
+
+  .mc .sv-swatch .sv-engr-hi {
+    stroke: var(--engr-hi);
+  }
+
+  .mc .sv-swatch-metal {
+    --engr-cut: rgb(30 34 36 / 0.75);
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.45), transparent 50%),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.4) 0 1px, transparent 1px 3px),
+      linear-gradient(115deg, #b3b8bb 0%, #e2e4e5 42%, #a4a9ad 72%, #cfd2d4 100%);
+  }
+
+  .mc .sv-swatch-wood {
+    --engr-cut: rgb(62 32 10 / 0.8);
+    --engr-hi: rgb(255 226 180 / 0.45);
+    background:
+      repeating-linear-gradient(87deg, rgb(92 52 20 / 0.2) 0 2px, transparent 2px 9px),
+      repeating-linear-gradient(93deg, rgb(255 228 186 / 0.16) 0 1px, transparent 1px 14px),
+      linear-gradient(100deg, #b98352 0%, #d3a26d 45%, #a8733f 80%, #c48f5a 100%);
+  }
+
+  .mc .sv-swatch-plastics {
+    --engr-cut: rgb(236 238 238 / 0.9);
+    --engr-hi: rgb(0 0 0 / 0.35);
+    background: linear-gradient(160deg, #3a4246 0%, #262c2f 60%, #1f2427 100%);
+  }
+
+  .mc .sv-swatch-leather {
+    --engr-cut: rgb(46 24 8 / 0.8);
+    --engr-hi: rgb(255 214 170 / 0.3);
+    background:
+      radial-gradient(circle at 22% 28%, rgb(255 255 255 / 0.1), transparent 42%),
+      repeating-radial-gradient(circle at 40% 60%, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px),
+      linear-gradient(135deg, #8e5d38 0%, #a8714a 50%, #7a4d2d 100%);
+  }
+
+  /* Scope · support tiles and the site photos (Scaffolding) */
+  .mc .sv-support {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) and (max-width: 63.999rem) {
+    .mc .sv-support {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .mc .sv-support-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.7rem 1rem 0.7rem 0.75rem;
+  }
+
+  .mc .sv-support-n {
+    margin-inline-start: auto;
+    color: var(--ink-3);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .sv-support-figures {
+    display: grid;
+    gap: 1.75rem;
+  }
+
+  .mc .sv-support-detail {
+    justify-self: end;
+    width: 60%;
+  }
+
+  /* Process: the general-workflow note */
+  .mc .sv-note {
+    position: relative;
+    max-width: 40rem;
+    margin: 2.5rem 0 0;
+    padding-inline-start: 1rem;
+    color: var(--ink-2);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  /* Process · rail: numbered stations on a line (down on phones, across on large screens). The line is the list's
+     ::after, so a reading zone (::before) can sit under the same list. */
+  .mc .sv-rail {
+    --rail-w: 2px;
+    position: relative;
+    display: grid;
+    row-gap: 2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .sv-rail::after {
+    content: "";
+    position: absolute;
+    top: 1.375rem;
+    bottom: 1.375rem;
+    inset-inline-start: calc(1.375rem - var(--rail-w) / 2);
+    width: var(--rail-w);
+    background: var(--rail-v);
+  }
+
+  .mc .sv-rail-cut {
+    --rail-h: repeating-linear-gradient(90deg, var(--brand) 0 10px, transparent 10px 16px);
+    --rail-v: repeating-linear-gradient(180deg, var(--brand) 0 10px, transparent 10px 16px);
+  }
+
+  .mc .sv-rail-fold {
+    --rail-w: 12px;
+    --rail-h: linear-gradient(var(--steel), var(--steel)) 0 50% / 100% 1px no-repeat, repeating-linear-gradient(90deg, transparent 0 22px, var(--steel) 22px 24px, transparent 24px 46px);
+    --rail-v: linear-gradient(var(--steel), var(--steel)) 50% 0 / 1px 100% no-repeat, repeating-linear-gradient(180deg, transparent 0 22px, var(--steel) 22px 24px, transparent 24px 46px);
+  }
+
+  .mc .sv-rail-fine {
+    --rail-w: 5px;
+    --rail-h: linear-gradient(var(--brass), var(--brass)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--brass-line), var(--brass-line)) 0 4px / 100% 1px no-repeat;
+    --rail-v: linear-gradient(var(--brass), var(--brass)) 0 0 / 1px 100% no-repeat, linear-gradient(var(--brass-line), var(--brass-line)) 4px 0 / 1px 100% no-repeat;
+  }
+
+  .mc .sv-station {
+    position: relative;
+    padding-inline-start: 4rem;
+  }
+
+  .mc :is(.sv-node, .sv-tl-node) {
+    z-index: 1;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border: 1px solid var(--tone-line, var(--line));
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--sh-card);
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .sv-node {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+  }
+
+  .mc .sv-node-first {
+    border-color: var(--brand);
+    color: var(--brand-ink);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-rail {
+      column-gap: 2rem;
+    }
+
+    .mc .sv-rail[data-count="5"] {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .mc .sv-rail::after {
+      top: calc(1.375rem - var(--rail-w) / 2);
+      bottom: auto;
+      inset-inline: 0;
+      width: auto;
+      height: var(--rail-w);
+      background: var(--rail-h);
+    }
+
+    .mc .sv-station {
+      padding-inline-start: 0;
+      padding-top: 4rem;
+    }
+  }
+
+  /* Process · timeline (Steel Structures, Metal Fabrication) */
+  .mc .sv-timeline {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .sv-tl-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    column-gap: 1.25rem;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-tl-step {
+      column-gap: 1.75rem;
+    }
+  }
+
+  .mc .sv-tl-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 2.75rem;
+    bottom: 0;
+    inset-inline-start: calc(1.375rem - 0.5px);
+    width: 1px;
+    background: var(--line-strong);
+  }
+
+  .mc .sv-tl-node {
+    position: relative;
+  }
+
+  .mc .sv-tl-body {
+    padding: 0.4rem 0 2rem;
+  }
+
+  .mc .sv-tl-step:not(:last-child) .sv-tl-body {
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .sv-tl-aside {
+    overflow: hidden;
+    padding: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-tl-aside {
+      position: sticky;
+      top: calc(var(--hh) + 1.5rem);
+    }
+  }
+
+  /* Process · cycle (Scaffolding): five steps, then back to the start on the next site */
+  .mc .sv-cycle {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-cycle {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-cycle[data-count="5"] {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+  }
+
+  .mc .sv-cycle-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+
+  .mc :is(.sv-cycle-link, .sv-cycle-return) {
+    display: none;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-cycle-link {
+      position: absolute;
+      top: 1.75rem;
+      inset-inline-end: -1.55rem;
+      z-index: 4;
+      display: grid;
+      width: 1.6rem;
+      height: 1.6rem;
+      place-items: center;
+      border: 1px solid var(--tone-line);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--tone-ink);
+    }
+
+    .mc .sv-cycle-return {
+      position: relative;
+      display: block;
+      height: 2.5rem;
+      margin-inline: 10%;
+      border: 1px dashed var(--tone);
+      border-top: 0;
+      border-radius: 0 0 14px 14px;
+    }
+
+    .mc .sv-cycle-return::before {
+      content: "";
+      position: absolute;
+      top: -4px;
+      inset-inline-start: -4px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--tone);
+    }
+  }
+
+  /* Machinery: the machine on a stage, its category, name, rated power (only where stated) and what it does */
+  @media (min-width: 80rem) {
+    .mc .sv-machines {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .mc :is(.sv-machines, .sv-related) > li {
+    display: flex;
+  }
+
+  .mc .sv-machine {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .mc .sv-machine-stage {
+    aspect-ratio: 16 / 10;
+    padding: 1rem 1.25rem;
+  }
+
+  .mc .sv-machine-img {
+    object-fit: contain;
+  }
+
+  .mc .sv-machine-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 1.15rem 1.25rem 1.25rem;
+  }
+
+  .mc .sv-machine-wide {
+    display: grid;
+  }
+
+  @media (min-width: 48rem) {
+    .mc .sv-machine-wide {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    }
+
+    .mc .sv-machine-wide .sv-machine-stage {
+      aspect-ratio: auto;
+      min-height: 15rem;
+      border-bottom: 0;
+      border-inline-end: 1px solid var(--line);
+    }
+  }
+
+  .mc .sv-machine-wide .sv-machine-body {
+    padding: clamp(1.25rem, 1rem + 1.2vw, 2rem);
+  }
+
+  .mc .sv-power {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    margin: 0.9rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--line-subtle);
+  }
+
+  .mc .sv-power-label {
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .sv-power-value {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin-inline-start: auto;
+  }
+
+  .mc .sv-power-value .t-stat {
+    color: var(--ink);
+    font-size: 1.6rem;
+    line-height: 1;
+  }
+
+  .mc .sv-machine-wide .sv-power-value .t-stat {
+    font-size: 2.1rem;
+  }
+
+  .mc .sv-power-unit {
+    color: var(--ink-2);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  /* Applications: sectors by their source — named in the profile (a steel edge) or a website classification (a dashed
+     edge); the label says which, so the edge is never the only cue */
+  @media (min-width: 40rem) {
+    .mc .sv-uses {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .mc .sv-use {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.4rem;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-use {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  .mc .sv-sectors {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0.85rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-sectors {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .mc .sv-sector {
+    padding: 1.05rem 1.2rem 1.1rem;
+  }
+
+  .mc .sv-sector[data-basis="profile"] {
+    border-top: 3px solid var(--steel);
+  }
+
+  .mc .sv-sector[data-basis="inferred"] {
+    border-top: 2px dashed var(--line-ink);
+  }
+
+  .mc .sv-basis {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.45rem 0 0;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .mc .sv-basis-mark {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  .mc [data-basis="profile"] .sv-basis-mark {
+    background: var(--steel);
+  }
+
+  .mc [data-basis="inferred"] .sv-basis-mark {
+    border: 1px solid var(--ink-3);
+  }
+
+  /* Gallery: prints at most at their source size with their captions — rows of equal height (mosaic), a pair on a
+     recessed plate (CNC Bending) or a sheet of small prints on a mat (Metal Fabrication) */
+  .mc .sv-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .sv-gallery > li {
+    max-width: 100%;
+  }
+
+  .mc .sv-print {
+    margin: 0;
+  }
+
+  .mc .sv-print-photo {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-3);
+    box-shadow: var(--sh-image);
+  }
+
+  .mc .sv-print-caption {
+    margin-top: 0.7rem;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .mc .sv-gallery-pair {
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    padding: clamp(1.25rem, 0.75rem + 2.5vw, 2.75rem);
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--surface-2);
+    box-shadow: var(--sh-inset);
+  }
+
+  .mc .sv-gallery-sheet {
+    gap: 2.25rem 2rem;
+    padding: clamp(1.5rem, 1rem + 2.5vw, 2.75rem);
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .sv-gallery-sheet .sv-print-photo {
+    border-radius: 3px;
+    box-shadow:
+      0 0 0 6px var(--surface-2),
+      0 0 0 7px var(--line),
+      var(--sh-image);
+  }
+
+  .mc .sv-gallery-sheet .sv-print-caption {
+    margin-top: 1rem;
+  }
+
+  /* Why RAWASY: cells of one card, divided by hairlines (the card's own colour shows through the gaps) */
+  .mc .sv-why {
+    display: grid;
+    gap: 1px;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: var(--line-subtle);
+  }
+
+  .mc .sv-why > li {
+    padding: clamp(1.35rem, 1rem + 1.2vw, 2rem);
+    background: var(--surface);
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-why {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mc .sv-why[data-count="3"] > li:last-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .sv-why[data-count="3"] {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .mc .sv-why[data-count="3"] > li:last-child {
+      grid-column: auto;
+    }
+
+    .mc .sv-why[data-count="4"] {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* Related services */
+  @media (min-width: 64rem) {
+    .mc .sv-related[data-count="3"] {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .mc .sv-related[data-count="2"] {
+      max-width: 56rem;
+    }
+  }
+
+  .mc .sv-rel {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    padding: 1.35rem 1.35rem 1.25rem;
+  }
+
+  /* Projects: About's card; one project sits beside its summary; a pair of small photos side by side */
+  .mc .sv-projects {
+    align-items: start;
+  }
+
+  .mc .sv-project-single {
+    display: grid;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  @media (min-width: 48rem) {
+    .mc .sv-project-single {
+      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+      gap: 3.5rem;
+    }
+  }
+
+  .mc .sv-project-card {
+    width: 100%;
+    max-width: 22rem;
+  }
+
+  .mc .sv-proj-pair {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    grid-template: minmax(0, 1fr) / repeat(2, minmax(0, 1fr));
+    place-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .mc .sv-proj-pair-img {
+    object-fit: contain;
+  }
+
+  /* Closing panel: the quote action, a direct call and the ways onward */
+  .mc .sv-call {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--on-dark);
+    text-decoration: none;
+  }
+
+  .mc .sv-call-icon {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: none;
+    place-items: center;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    border-radius: 12px;
+    background: rgb(255 255 255 / 0.06);
+    color: var(--brand);
+  }
+
+  .mc .sv-call-label {
+    color: var(--on-dark-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mc .sv-call-number {
+    margin-top: 0.15rem;
+    font-family: var(--ff-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: rgb(255 255 255 / 0.3);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.3em;
+    transition: text-decoration-color var(--dur-1) ease;
+  }
+
+  .mc .sv-call:hover .sv-call-number {
+    text-decoration-color: var(--brand);
+  }
+
+  .mc .sv-cta-label {
+    margin: 0;
+    color: var(--on-dark-2);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  /* ---------- The services overview ---------- */
+  /* The hero's tiles: the six services at a glance, each a jump to its row */
+  .mc .sv-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .sv-tiles {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 64rem) and (max-width: 79.999rem) {
+    .mc .sv-tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .mc .sv-tiles > li {
+    display: flex;
+  }
+
+  .mc .sv-tile {
+    display: flex;
+    width: 100%;
+    min-height: 7.25rem;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem 1rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .mc .sv-tile-name {
+    font-family: var(--ff-display);
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .mc .sv-index {
+    position: relative;
+    padding-bottom: var(--sec-y);
+  }
+
+  /* A service's row: its photos (or the engraving signature) beside its copy, alternating sides on wide screens */
+  .mc .sv-row {
+    display: grid;
+    gap: 2rem;
+    padding: clamp(1.25rem, 0.75rem + 2vw, 2.5rem);
+  }
+
+  @media (min-width: 48rem) {
+    .mc .sv-row {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+      align-items: start;
+      gap: 2.5rem;
+    }
+
+    .mc .sv-row[data-reverse] {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+    }
+
+    .mc .sv-row[data-reverse] .sv-row-media {
+      order: 2;
+    }
+  }
+
+  .mc .sv-row-media {
+    position: relative;
+  }
+
+  .mc .sv-row-support {
+    position: relative;
+    z-index: 1;
+    width: 58%;
+    margin-top: -3.5rem;
+    margin-inline-start: auto;
+    margin-inline-end: -0.5rem;
+  }
+
+  .mc .sv-row[data-reverse] .sv-row-support {
+    margin-inline-start: -0.5rem;
+    margin-inline-end: auto;
+  }
+
+  @media (max-width: 39.999rem) {
+    .mc .sv-row-support {
+      display: none;
+    }
+  }
+
+  .mc .sv-row-sig {
+    padding: clamp(1rem, 0.6rem + 2vw, 1.75rem);
+    border: 1px solid var(--brass-line);
+    border-radius: var(--r-card);
+    background: var(--stage-brass);
+  }
+
+  .mc .sv-row-n {
+    color: var(--ink-3);
+    font-family: var(--ff-display);
+    font-size: 1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .sv-row .t-h2 {
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  }
+
+  /* Forced colours: the sector's source mark is drawn in system colours (its label still says which), and so are the
+     lines drawn with backgrounds, which forced colours would drop: the structural axes, the process rails, the rules
+     beside leads and notes and the list markers. The cutting sheet's stage stays opaque over its photo. */
+  @media (forced-colors: active) {
+    .mc [data-basis="profile"] .sv-basis-mark {
+      background: CanvasText;
+      forced-color-adjust: none;
+    }
+
+    .mc .sv-axis,
+    .mc .sv-rail::after,
+    .mc .sv-tl-step:not(:last-child)::after {
+      background: GrayText;
+      forced-color-adjust: none;
+    }
+
+    .mc :is(.sv-lead, .sv-note)::after,
+    .mc .sv-includes-list li::before {
+      background: CanvasText;
+      forced-color-adjust: none;
+    }
+
+    .mc .sv-cut-sheet {
+      background: Canvas;
+    }
+  }
+
+  /* Line work that draws itself once, when revealed (the four restyled drawings): the revealed SVG sets --draw, which its
+     paths inherit (Chromium does not restyle SVG descendants for a selector keyed on the attribute). The dash ends just
+     short of the path, so nothing shows at its start. Armed only with script and motion: finished otherwise. */
+  @media (prefers-reduced-motion: no-preference) {
+    .js .mc .sv-draw [pathLength] {
+      stroke-dasharray: 1 1.1;
+      stroke-dashoffset: var(--draw, 1.05);
+      transition: stroke-dashoffset 1.8s var(--ease);
+      transition-delay: var(--d, 0ms);
+    }
+
+    .js .mc .sv-draw[data-shown] {
+      --draw: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc :is(.sv-call-number, .sv-tile, .sv-machine, .sv-rel) {
+      transition: none;
+    }
+  }
+}
+
+/* Services (Stage TM-2.4): the structural axes of the Steel Structures hero draw in, each in turn (outside the layer, so
+   the reveal's own transform rule cannot reset them first). Without script or with reduced motion they stay drawn. */
+@media (prefers-reduced-motion: no-preference) {
+  .js .mc .sv-axis-v[data-reveal]:not([data-shown]) {
+    transform: scaleY(0);
+  }
+
+  .js .mc .sv-axis-h[data-reveal]:not([data-shown]) {
+    transform: scaleX(0);
+  }
+}
