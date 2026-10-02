@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-01-tm2-3-about-industries-clients-certificates.md` (earlier:
-  `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
+- Latest report: `docs/reports/2026-10-02-tm2-4-services.md` (earlier:
+  `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
   `2026-09-29-tm2-migration-plan.md`,
@@ -37,7 +37,7 @@
   Google Maps place link, image rights, the two moderate shell accessibility findings for 1I/1J).
 - **Stage 1D (the six service detail pages) is built and awaits the user's visual approval** (report
   `2026-09-25-stage-1D-service-pages.md`). TM-2 decision D3: keep 1D's content and structure; its final visual
-  approval is given on the migrated Modern Commerce versions (TM-2.4). Never self-approve a stage. Do not start 1E (Capabilities &
+  approval is given on the migrated Modern Commerce versions, built in TM-2.4 and awaiting review. Never self-approve a stage. Do not start 1E (Capabilities &
   Machinery), 1F (project detail pages), 1G or later until the user says so; project detail pages
   and Capabilities stay `planned`. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
@@ -80,14 +80,18 @@
   TM-2.2"). Keep TM-2.1's documented limitations as they are unless the user asks (no-JS 404 body, header blur, 44 rem
   legal measure, the 320 px 404 label wrap, the A V2 chunk count). **TM-2.2 (Contact) is approved** (the user's
   "TM-2.2 APPROVED — BEGIN TM-2.3"; report `2026-10-01-tm2-2-contact.md`; rollback checkpoint `preserve/pre-tm2.2` at
-  `e5a3834`). **TM-2.3 (About, Industries, Clients, Certificates) is built** (report
-  `2026-10-01-tm2-3-about-industries-clients-certificates.md`; implementation commit `86a5f19`; rollback checkpoint:
-  GitHub branch `preserve/pre-tm2.3` at `2026047`, the last commit before TM-2.3) and awaits the user's independent
-  review. Never self-approve. **Do not
-  begin TM-2.4 (services overview + six service pages) or any later batch, Stage 1E or 1F, until the user explicitly
-  approves TM-2.3.** TM-2.3 leaves two shared, frozen parts as they are for the user to decide: the homepage's colour
-  switch shows no on/off state in forced colours (the Clients page draws its own), and the kit's `PageHero` fades its
-  text in after the script starts (local LCP about 1–1.4 s on every MC inner page with a hero, Contact included).
+  `e5a3834`). **TM-2.3 (About, Industries, Clients, Certificates) is approved** (the user's "TM-2.3 APPROVED — BEGIN
+  TM-2.4"; report `2026-10-01-tm2-3-about-industries-clients-certificates.md`; rollback checkpoint `preserve/pre-tm2.3`
+  at `2026047`). **TM-2.4 (the services overview and the six service pages) is built** (report
+  `2026-10-02-tm2-4-services.md`; implementation commit `ffe62b9`; rollback checkpoint: GitHub branch
+  `preserve/pre-tm2.4` at `4b28ad2`, the last commit before TM-2.4) and awaits the user's independent review. Never self-approve. **Do not begin TM-2.5 (Projects),
+  TM-2.6 (cleanup), Stage 1E or 1F, or remove the theme lab, until the user explicitly approves TM-2.4.** Shared,
+  frozen parts left as they are for the user to decide (TM-2.3 and TM-2.4 reports): the homepage's colour switch shows
+  no on/off state in forced colours (the Clients page draws its own); the kit's `PageHero` fades its text in after the
+  script starts (local LCP about 1–1.4 s on every MC inner page with a hero); the footer's wordmark disappears in forced
+  colours; `commerce.css`'s `scroll-behavior: smooth` lets a late font swap leave a jump from the address short of its
+  anchor (every MC page, Contact's `#location` too); the phone menu sheet's last row reads "partly obscured" to axe while
+  the open Services list pushes it below the sheet's fold.
   Decisions in short:
   - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
     then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
@@ -248,8 +252,8 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   homepage's sections (parked with `LegacyHomePage.tsx`) and the hero plate geometry (`hero/plate-geometry.ts`).
 - Inner pages: shared system in `src/components/inner/*` and `src/lib/inner-page.ts` (metadata,
   breadcrumb trail, JSON-LD); page components in `src/components/{about,services,projects,industries,
-  clients,certificates,contact,legal}` (About, Industries, Clients, Certificates and Contact there are the parked
-  `Legacy*Page.tsx` copies since TM-2.2/2.3; the live pages are in `src/components/commerce/*`); shared cards in
+  clients,certificates,contact,legal}` (About, Industries, Clients, Certificates, Contact and the services overview
+  there are the parked `Legacy*Page.tsx` copies since TM-2.2/2.3/2.4; the live pages are in `src/components/commerce/*`); shared cards in
   `src/components/cards/*` and teasers in `src/components/teasers/*`; copy in `src/content/{about,pages,contact,legal}.ts`.
 - Projects: `src/components/projects/*`, `src/lib/project-cards.ts`; showcased projects and withheld
   photos in `src/content/projects.ts` (`isShowcased`, `projectImages`).
@@ -261,14 +265,16 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   the visitor to send by email or WhatsApp. Never make it claim a request was sent. Its logic (from `type FieldName` to
   the privacy line) is a verbatim copy of the previous design's `src/components/contact/QuoteForm.tsx`, which stays,
   unrouted, until TM-2.6: change both or neither, and keep `e2e/commerce-contact.spec.ts`'s golden outputs passing.
-- Service detail pages: route `src/app/[locale]/services/[slug]/page.tsx`; components in
-  `src/components/service/*` (hero drawings in `visuals/`, per-service composition in `looks.ts`);
+- Service detail pages (since TM-2.4 in the Modern Commerce design, see below): the previous design's components stay in
+  `src/components/service/*` (hero drawings in `visuals/`, whose geometry the MC signatures share; per-service
+  composition in `looks.ts`; the page parked as `LegacyServicePage.tsx`);
   copy in `src/content/service-details.ts` (per service) and `servicePage` in `src/content/pages.ts`
   (shared labels); captioned galleries and project links in `src/content/services.ts`.
 - Browser tests: `e2e/*.spec.ts` with `playwright.config.ts`; run `npm run test:e2e` after a build.
   `visual-system.spec.ts` covers ambient motion, active states, the pointer light, line drawing and
   decoration semantics; `redesign-v2.spec.ts` covers projects filters, the clients wall, the map, fonts
-  and colour-role contrast; `service-pages.spec.ts` covers the six service pages.
+  and colour-role contrast; `commerce-services.spec.ts` covers the services overview and the six service pages (it
+  replaced `service-pages.spec.ts` in TM-2.4).
 
 ## Before pushing
 
@@ -345,8 +351,9 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   of `system.css`'s components layer; nothing earlier in the file changed. `components/commerce/legal/LegalPage.tsx`
   renders Privacy and Terms from `src/content/legal.ts` (routes `(commerce)/[locale]/privacy|terms/page.tsx`, metadata
   and JSON-LD still from `innerPageMetadata` / `innerPageJsonLd`). `commerceRoutes` is `home`, `privacy`, `terms`,
-  `contact`, `about`, `industries`, `clients`, `certificates` (static routes only: a dynamic route needs a pattern
-  match in `crossDesignLink` before it moves).
+  `contact`, `about`, `industries`, `clients`, `certificates`, `services`; `commerceDynamicRoutes` is `service`
+  (`crossDesignLink` matches it by a pattern per locale, `[slug]` → `[^/]+`; projects and capabilities stay out until
+  their routes move).
 - Contact (TM-2.2): route `(commerce)/[locale]/contact/page.tsx` → `components/commerce/contact/ContactPage.tsx`: the
   split `PageHero` with a "Direct contact" card of `ContactRow`s (`ContactRows.tsx`: both phones, WhatsApp, email, the
   address → `#location`; the action word is visually hidden on rows narrower than 24 rem, the arrow stays; emails may
@@ -390,11 +397,41 @@ design use A V2's faces (see "Modern Commerce design in production" below).
     unlayered dialog cursor rules after the layer; nothing earlier changed. The four previous pages are parked verbatim,
     unrouted, as `src/components/{about,industries,clients,certificates}/Legacy*Page.tsx` (so `globals.css` stays
     byte-identical); they go in TM-2.6.
+- Services (TM-2.4): routes `(commerce)/[locale]/services/page.tsx` → `components/commerce/services/ServicesPage.tsx`
+  (split `PageHero` with six jump tiles, `ContentsNav` index beside six `ServiceRow`s, `ClosingCta`) and
+  `(commerce)/[locale]/services/[slug]/page.tsx` (`generateStaticParams` = locales × the six slugs, `dynamicParams =
+  true`, `notFound()` for an unknown slug, metadata as in 1D) → `ServicePage.tsx`. 1D's content, section order and
+  conditions are kept (`looks.ts` per service: hero picture, scope/process/gallery layouts, icons; `parts.tsx`
+  `SvSection`/`SvHead`/`surfaceAt` alternate plain/muted/raised sheets; `ServiceBlocks.tsx` holds the sections;
+  `ServiceHero.tsx`, `HeroVisual.tsx`, `ServiceCta.tsx` with quote, call and onward links, no floating WhatsApp).
+  Laser Cutting and Laser Engraving (and the overview's engraving row) render the homepage's `LaserCut` /
+  `LaserEngrave` unchanged, sized by their stage (`.sv-cut-sheet`, `.sv-plate-stage`, `.sv-row-sig`), the host
+  `[data-sig-host]` being the hero or the row; the four other drawings are restyled MC copies in `drawings.tsx`
+  (`PressBrake`, `AxisGrid`, `WeldSeam`, `ScaffoldTower`) that only draw on reveal (inherited `--draw`, armed under `.js`
+  + motion allowed; the axis lines scale in through unlayered rules) and `glyphs.tsx` (profile, fold, engraving motif).
+  Photos never above their source size; captioned photos have `alt=""` (the caption names them); the flagged
+  engraving photos are never built (D6). Project cards reuse About's `ab-proj` card and open `/projects#gallery`
+  ("View in the gallery", D4); machines link `/capabilities#<slug>` (D5); power only where the profile states it.
+  - Styles: `components/commerce/services/services.css`, imported by `ServicesPage.tsx` and `ServicePage.tsx` only, its
+    rules in the same `components` layer plus two unlayered axis rules. Never put them in `system.css`: the extra
+    24 KB pushed the layout's stylesheet past Turbopack's chunk size (≈130 KB merged before, 154 KB after) and split
+    it into two files on every MC page, homepage included (one more request, a changed `<head>`). Since the move
+    `system.css` is byte-identical to TM-2.3's and the MC sheet only gained the utilities the service components use.
+  - Header and footer: on a service page the Services summary carries `aria-current="true"` (the section) and the
+    service's dropdown/sheet item `aria-current="page"`; the footer marks the service link. All through conditional
+    spreads (`herePage`), so the other pages' payloads stay identical; the overview keeps the frozen header's own mark
+    (the summary as the page).
+  - `services/[slug]/not-found.tsx` re-exports `(missing)/not-found`: an unknown slug answers 404 with the MC localized
+    404 (browser-built, like the catch-all). The boundary rides in the six service pages' payloads only (≈49 KB raw /
+    11 KB gzip resolved each); the homepage, the overview and every other page are unchanged.
+  - The previous pages are parked verbatim, unrouted, as `src/components/services/LegacyServicesPage.tsx` and
+    `src/components/service/LegacyServicePage.tsx` (so `globals.css` stays byte-identical); they go in TM-2.6.
 - The localized 404: `(commerce)/[locale]/(missing)/[...rest]/page.tsx` (the catch-all, `notFound()`) and
   `(missing)/not-found.tsx`. The `(missing)` group is deliberate: a `not-found.tsx` beside the layout is rendered into
   the payload of every page under it (it added ~52 KB raw / 7.8 KB gzip to the homepage). A migrated route that calls
   `notFound()` (services and projects slugs in TM-2.4 / 2.5) needs this boundary above it or its own; check the
-  homepage payload after. Unknown service and project slugs keep the previous design's 404 until their routes move.
+  homepage payload after. Unknown service slugs get the MC 404 since TM-2.4 (their own boundary, above); unknown
+  project slugs keep the previous design's 404 until their route moves.
   The 404 uses `getShellView(locale, { route: null, path: null })` (nothing marked current) and passes `SamePageLink`
   (client, `usePathname`) to `PageShell`'s `sameAddressLink`, so its language switch keeps the unknown address and no
   other page loads that code. The header renders `LanguageSwitch` in three places (desktop bar, compact phone control,
@@ -410,7 +447,11 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   colours, no-JS; and, on all four pages, nothing spilling out of or cut off by its box);
   `e2e/commerce-certificates.spec.ts` (file hashes, the digit guard, register, anchors, previews no larger than before,
   the dialog with keyboard, backdrop, Arabic-first, no-JS, and the pointer with mouse, keyboard, touch, reduced motion
-  and Arabic). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on pages of the previous design;
+  and Arabic); `e2e/commerce-services.spec.ts` (the overview and six service pages: routes and SEO, the dynamic route's
+  language switch, 404 and page-data answer, prefetch blocking, sourced relations, D4/D5 links, the process note,
+  imagery and source size, the unforked signatures and their replays, the four drawings, reduced motion, no-JS,
+  layout, anchors, keyboard, pointer). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on pages
+  of the previous design (the projects overview, Capabilities and the project placeholders since TM-2.4);
   `stage-1c.spec.ts`'s generic inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still
   cover every migrated inner page through `INNER_PAGES`.
 
@@ -736,3 +777,26 @@ design use A V2's faces (see "Modern Commerce design in production" below).
 - A full-page screenshot resizes the window, which can flip IntersectionObserver-driven state mid-capture (the lab
   header's "past hero" shadow appeared in some captures and not others, on both builds). Recapture, or compare
   viewport captures, before calling such a difference a regression.
+- Turbopack merges a layout's global stylesheets into one CSS chunk only up to a size limit (between the 130 KB that
+  merged and the 154 KB that did not): when `system.css` grew by 24 KB in TM-2.4, every MC page, the homepage included,
+  started loading the MC sheet as two files. Page-specific CSS goes in its own file imported by that page's components
+  (`services/services.css`); after any CSS change compare each page's `<link rel="stylesheet">` list with the checkpoint.
+- `.a2-read`'s reading zone is a `::before` at `z-index: -1` inside an isolated stacking context, so it paints over the
+  element's own border: a rule on a text block in a reading zone (`.sv-note`, `.sv-lead`) is drawn with `::after`.
+- An `<img>` sized only by `max-width` / `max-height` with `width` / `height: auto` in a grid cell collapses to 0 × 0
+  until it loads and can outgrow its card after: give it `width` / `height: min(100%, <source> px)` (the project
+  cards' paired photos).
+- `commerce.css` sets `scroll-behavior: smooth` on `html`, and a page opened at an anchor jumps smoothly; a web font
+  arriving mid-jump (about 300 ms late) leaves it short by the swap's height (24–64 px under the header), on every MC
+  page (Contact's `#location` too). Tests of a landing from the address load the page once first (fonts cached); an
+  in-page jump (a click) is not affected. A frozen, shared behaviour reported in TM-2.4.
+- A signature replay (`useSignature`, not the intro) adds a fade of the finished work (LaserCut: one; LaserEngrave: one
+  per `.sig-engr` layer) and keeps the intro's `keep` animations: a replay holds more animations than the first run.
+  To prove "no duplicates", compare replay with replay, not with the intro.
+- When the module graph changes, the minifier renames the locals of unchanged modules (same length, same logic): a
+  module-by-module JS comparison then shows "changed" code. Compare token streams with identifiers renamed by first
+  appearance, property names kept (`jsalpha.js` in the TM-2.4 proofs), and treat inlined modules separately.
+- Comment words are utilities too: "container" in a TSX comment added `.container` (six rules) to the MC stylesheet.
+  Tailwind's scanner skips `.css` files, so words in stylesheet comments are safe.
+- The `pkill -f "[x]…"` self-kill also happens when the unbracketed name appears in a path later in the same command
+  (`$S/tm24/matrix24.js` in a heredoc): stop the process in a command of its own.
