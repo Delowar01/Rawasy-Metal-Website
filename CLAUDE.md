@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-02-tm2-4-services.md` (earlier:
+- Latest report: `docs/reports/2026-10-02-tm2-5-projects.md` (earlier: `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
@@ -37,7 +37,7 @@
   Google Maps place link, image rights, the two moderate shell accessibility findings for 1I/1J).
 - **Stage 1D (the six service detail pages) is built and awaits the user's visual approval** (report
   `2026-09-25-stage-1D-service-pages.md`). TM-2 decision D3: keep 1D's content and structure; its final visual
-  approval is given on the migrated Modern Commerce versions, built in TM-2.4 and awaiting review. Never self-approve a stage. Do not start 1E (Capabilities &
+  approval is given on the migrated Modern Commerce versions, built in TM-2.4, which the user approved ("TM-2.4 APPROVED — BEGIN TM-2.5"). Never self-approve a stage. Do not start 1E (Capabilities &
   Machinery), 1F (project detail pages), 1G or later until the user says so; project detail pages
   and Capabilities stay `planned`. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
@@ -82,20 +82,23 @@
   "TM-2.2 APPROVED — BEGIN TM-2.3"; report `2026-10-01-tm2-2-contact.md`; rollback checkpoint `preserve/pre-tm2.2` at
   `e5a3834`). **TM-2.3 (About, Industries, Clients, Certificates) is approved** (the user's "TM-2.3 APPROVED — BEGIN
   TM-2.4"; report `2026-10-01-tm2-3-about-industries-clients-certificates.md`; rollback checkpoint `preserve/pre-tm2.3`
-  at `2026047`). **TM-2.4 (the services overview and the six service pages) is built** (report
-  `2026-10-02-tm2-4-services.md`; implementation commit `ffe62b9`; rollback checkpoint: GitHub branch
-  `preserve/pre-tm2.4` at `4b28ad2`, the last commit before TM-2.4) and awaits the user's independent review. Never self-approve. **Do not begin TM-2.5 (Projects),
-  TM-2.6 (cleanup), Stage 1E or 1F, or remove the theme lab, until the user explicitly approves TM-2.4.** Shared,
-  frozen parts left as they are for the user to decide (TM-2.3 and TM-2.4 reports): the homepage's colour switch shows
-  no on/off state in forced colours (the Clients page draws its own); the kit's `PageHero` fades its text in after the
-  script starts (local LCP about 1–1.4 s on every MC inner page with a hero); the footer's wordmark disappears in forced
-  colours; `commerce.css`'s `scroll-behavior: smooth` lets a late font swap leave a jump from the address short of its
-  anchor (every MC page, Contact's `#location` too); the phone menu sheet's last row reads "partly obscured" to axe while
-  the open Services list pushes it below the sheet's fold.
+  at `2026047`). **TM-2.4 (the services overview and the six service pages) is approved** (the user's "TM-2.4 APPROVED —
+  BEGIN TM-2.5"; report `2026-10-02-tm2-4-services.md`; implementation commit `ffe62b9`; rollback checkpoint
+  `preserve/pre-tm2.4` at `4b28ad2`).
+  **TM-2.5 (the Projects overview, D4's exact project anchors and the shared first-jump fix) is built** (report
+  `2026-10-02-tm2-5-projects.md`; anchor fix commit `e0f6f9e`, implementation commit `7d1fa0f`; rollback checkpoint: GitHub
+  branch `preserve/pre-tm2.5` at `304a277`, the last commit before TM-2.5) and awaits the user's independent review. Never
+  self-approve. **Do not begin TM-2.6 (cleanup), Stage 1E or 1F (no project detail pages), or remove the theme lab, until
+  the user explicitly approves TM-2.5.** Shared, frozen parts left as they are for the user to decide (TM-2.3 to TM-2.5
+  reports): the homepage's colour switch shows no on/off state in forced colours (the Clients page draws its own); the
+  kit's `PageHero` fades its text in after the script starts (local LCP about 1–1.4 s on every MC inner page with a hero,
+  the Projects overview included); the footer's wordmark disappears in forced colours; the phone menu sheet's last row
+  reads "partly obscured" to axe while the open Services list pushes it below the sheet's fold. (The late-font jump from
+  an address short of its anchor was fixed in TM-2.5: see "Modern Commerce design in production".)
   Decisions in short:
-  - project cards on About and the service pages open per-project anchors in the migrated gallery (TM-2.5). Until
-    then they open `/projects#gallery` with "View in the gallery". The anchors clear the header and the sticky filter
-    bar. The homepage's six links stay unchanged.
+  - project cards on About and the service pages open their project's place in the migrated gallery,
+    `/projects#<slug>` (since TM-2.5, still "View in the gallery"); the landing clears the header and the sticky filter
+    bar. The homepage's six links stay on `#gallery`, unchanged.
   - Capabilities links stay on the placeholder until 1E.
   - the services overview uses the `LaserEngrave` drawing; the flagged engraving photos go.
   - no floating WhatsApp button.
@@ -201,14 +204,16 @@ The previous design's visual system: every page except the migrated homepage, un
   image transitions, technical measurement detail and industrial depth. V2 locked its colour
   direction: steel blue, graphite, orange active lines, clear cards and panels, technical tables,
   visible borders, shadows and scan lines.
-- **Projects overview** (built in V2, `review`): image-led, with a hero collage, featured project,
-  editorial highlights, a filterable masonry gallery and a text index at the end. Category filters are
-  website classifications. Photos are small: `src/lib/project-cards.ts` picks photo / pair / framed
-  cards and never enlarges a photo much beyond its native size.
+- **Projects overview** (built in V2, in the Modern Commerce design since TM-2.5, `review`): image-led, with a hero
+  collage, featured project, editorial highlights, a filterable masonry gallery (`#gallery`, each project at `#<slug>`)
+  and a text index at the end. Category filters are website classifications. Photos are small:
+  `src/lib/project-cards.ts` picks photo / pair / framed cards, and the MC page never shows a photo above its source size.
 - **1F project detail pages:** hero, gallery, title, category, scope, service; materials, location,
   year and client only if verified; challenge, solution, related projects. Unknown facts stay hidden.
-  The service pages already link to `/projects/<slug>` and the machine cards to `/capabilities#<slug>`
-  (use the machine slugs as anchors in 1E).
+  Until then nothing in the MC design links to `/projects/<slug>`: About and the service pages open `/projects#<slug>`
+  and the overview's featured project, highlights and index jump to `#<slug>` ("View in the gallery"); point them at
+  `href(locale, "project", …)` with "View project" in 1F. The machine cards link `/capabilities#<slug>` (use the machine
+  slugs as anchors in 1E).
 - **Service pages (1D) rules:** each page shares one component set and gets its character from
   `src/components/service/looks.ts` (hero drawing, scope / process / gallery layout, section surfaces).
   Machines, projects and galleries appear only when sourced: related projects are those in
@@ -253,10 +258,11 @@ design use A V2's faces (see "Modern Commerce design in production" below).
 - Inner pages: shared system in `src/components/inner/*` and `src/lib/inner-page.ts` (metadata,
   breadcrumb trail, JSON-LD); page components in `src/components/{about,services,projects,industries,
   clients,certificates,contact,legal}` (About, Industries, Clients, Certificates, Contact and the services overview
-  there are the parked `Legacy*Page.tsx` copies since TM-2.2/2.3/2.4; the live pages are in `src/components/commerce/*`); shared cards in
+  there are the parked `Legacy*Page.tsx` copies since TM-2.2/2.3/2.4, the projects overview since TM-2.5; the live pages are in `src/components/commerce/*`); shared cards in
   `src/components/cards/*` and teasers in `src/components/teasers/*`; copy in `src/content/{about,pages,contact,legal}.ts`.
-- Projects: `src/components/projects/*`, `src/lib/project-cards.ts`; showcased projects and withheld
-  photos in `src/content/projects.ts` (`isShowcased`, `projectImages`).
+- Projects: the MC overview in `src/components/commerce/projects/*` (since TM-2.5; the previous design's components stay
+  in `src/components/projects/*`, its page parked as `LegacyProjectsPage.tsx`), `src/lib/project-cards.ts`; showcased
+  projects and withheld photos in `src/content/projects.ts` (`isShowcased`, `projectImages`).
 - Clients wall (since TM-2.3): `src/components/commerce/clients/ClientsPage.tsx` with `planSpans` from
   `src/lib/logo-wall.ts` (the previous design's `ClientWall.tsx` stays for its parked page). Contact map (since TM-2.2):
   `src/components/commerce/contact/Location.tsx` + `src/lib/maps.ts` (address search only; replace with
@@ -315,6 +321,13 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   the session's intro as seen (`rawasy-intro`), so the previous design's loader does not play after the homepage.
   Page colours `PAGE_COLORS` in `components/commerce/data.ts` (light `#f4f4f1`, dark `#131820`) feed the viewport
   `themeColor`, and `ThemeSwitch` updates `meta[name="theme-color"]`. Without JavaScript the page is light.
+- First jump to an address's anchor (the TM-2.5 shared fix, every MC page): `commerce.css` sets `scroll-behavior: smooth`
+  only on `html[data-smooth-scroll]`, which `commerceBoot` adds after the load event, `document.fonts.ready` and two
+  frames (`BootFallback` runs it on a page that has already loaded). Until then jumps are instant, and Chromium keeps an
+  instant fragment jump on its target through layout changes until the load event, so late fonts no longer leave a
+  landing short (a smooth first jump kept its first destination). Same-page links glide afterwards, as before; reduced
+  motion keeps `scroll-behavior: auto`. Without script the attribute never comes and jumps stay instant: a font that
+  swaps in after the load event can still move a no-JS landing (3 of 36 cold-load cells measured in TM-2.5, 13 before).
 - Shell (`components/commerce/shell/`): `Header` (real routes, Services menu of the six services + "All services" +
   quote, `aria-current="page"`, language, theme, quote, phone menu sheet), `Footer` (real routes, both phones,
   email, WhatsApp, address, legal pages, back to top), `PageShell` (skip link, header, `<main id="main">`, footer),
@@ -332,7 +345,8 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   معرض الأعمال"), never a planned detail page. Per-project anchors were measured and rejected: the gallery's sticky
   filter bar (69 px, 117 px where its chips wrap) would cover the top of the target card, and a clean landing needs
   ids plus an offset or script on the previous design's page. TM-2 decision D4 keeps these six homepage links
-  unchanged. The migrated gallery (TM-2.5) gets per-project anchors for About and the service pages. In 1F, point
+  unchanged. Since TM-2.5 the migrated gallery has an anchor per project (`#<slug>`), which About and the service
+  pages use. In 1F, point
   the cards at `href(locale, "project", …)` again with a "View project" label.
 - Motion: `components/commerce/Motion.tsx` is the production controller (reveals, `data-scrolled`,
   `data-scrolling` cleared 200 ms after the last scroll, menus and dropdowns with Escape / outside click / focus
@@ -351,9 +365,9 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   of `system.css`'s components layer; nothing earlier in the file changed. `components/commerce/legal/LegalPage.tsx`
   renders Privacy and Terms from `src/content/legal.ts` (routes `(commerce)/[locale]/privacy|terms/page.tsx`, metadata
   and JSON-LD still from `innerPageMetadata` / `innerPageJsonLd`). `commerceRoutes` is `home`, `privacy`, `terms`,
-  `contact`, `about`, `industries`, `clients`, `certificates`, `services`; `commerceDynamicRoutes` is `service`
-  (`crossDesignLink` matches it by a pattern per locale, `[slug]` → `[^/]+`; projects and capabilities stay out until
-  their routes move).
+  `contact`, `about`, `industries`, `clients`, `certificates`, `services`, `projects`; `commerceDynamicRoutes` is
+  `service` (`crossDesignLink` matches it by a pattern per locale, `[slug]` → `[^/]+`; `project`, the placeholders, and
+  capabilities stay out until their routes move).
 - Contact (TM-2.2): route `(commerce)/[locale]/contact/page.tsx` → `components/commerce/contact/ContactPage.tsx`: the
   split `PageHero` with a "Direct contact" card of `ContactRow`s (`ContactRows.tsx`: both phones, WhatsApp, email, the
   address → `#location`; the action word is visually hidden on rows narrower than 24 rem, the arrow stays; emails may
@@ -410,8 +424,8 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   (`PressBrake`, `AxisGrid`, `WeldSeam`, `ScaffoldTower`) that only draw on reveal (inherited `--draw`, armed under `.js`
   + motion allowed; the axis lines scale in through unlayered rules) and `glyphs.tsx` (profile, fold, engraving motif).
   Photos never above their source size; captioned photos have `alt=""` (the caption names them); the flagged
-  engraving photos are never built (D6). Project cards reuse About's `ab-proj` card and open `/projects#gallery`
-  ("View in the gallery", D4); machines link `/capabilities#<slug>` (D5); power only where the profile states it.
+  engraving photos are never built (D6). Project cards reuse About's `ab-proj` card and open `/projects#<slug>` since
+  TM-2.5 (`#gallery` before; "View in the gallery", D4); machines link `/capabilities#<slug>` (D5); power only where the profile states it.
   - Styles: `components/commerce/services/services.css`, imported by `ServicesPage.tsx` and `ServicePage.tsx` only, its
     rules in the same `components` layer plus two unlayered axis rules. Never put them in `system.css`: the extra
     24 KB pushed the layout's stylesheet past Turbopack's chunk size (≈130 KB merged before, 154 KB after) and split
@@ -426,10 +440,47 @@ design use A V2's faces (see "Modern Commerce design in production" below).
     11 KB gzip resolved each); the homepage, the overview and every other page are unchanged.
   - The previous pages are parked verbatim, unrouted, as `src/components/services/LegacyServicesPage.tsx` and
     `src/components/service/LegacyServicePage.tsx` (so `globals.css` stays byte-identical); they go in TM-2.6.
+- Projects overview (TM-2.5): route `(commerce)/[locale]/projects/page.tsx` → `components/commerce/projects/
+  ProjectsPage.tsx` (server; `data.ts`: `projectView` = the previous card's data from `projectCard()` without its link,
+  `filterOptions` = the classifications with a showcased project; tones `eng/proc/craft` → `steel/teal/brass`). The
+  previous page's order: split `PageHero` (the quick category toggles as its action, three prints as its aside), the
+  featured project (dark panel), the highlights (`a.card-link` cards, muted sheet), `section#gallery` (bar + wall,
+  `Gallery.tsx`), the index (`ol` of `#<slug>` links) and `ClosingCta`. Copy, references, categories, photos and order
+  are the content layer's; the blueprint decoration is retired (D8). No link to `/projects/<slug>`: the featured
+  project, the highlights and the index jump to `#<slug>` ("View in the gallery"); a gallery card is not a link and
+  takes no focus.
+  - The choice (`Gallery.tsx`, client): `ProjectFilterProvider` holds one choice for the hero's `QuickFilter` and the
+    bar (`role="group"`, `aria-pressed` buttons, a check marks the pressed one, not colour alone; a polite live region
+    says "Showing: …"). The page always opens on "All" (nothing stored), so `#gallery` and an address's `#<slug>` find
+    every project. Items the choice leaves out are `hidden`. A link to a hidden project clears the choice first (a
+    capture-phase document click listener with `flushSync`, before the browser's own jump: no scrolling of ours); an
+    address or history entry naming one clears it on `hashchange`, then `scrollIntoView`. Never scroll to an item while
+    it is `hidden`; no per-breakpoint `scrollTo` arithmetic.
+  - The bar: `.pj-bar`, sticky at `top: var(--hh)`, one row of fixed height (`--pj-bar-h: 3.5rem` on `.pj-gallery`),
+    opaque, no blur; its chips never wrap and scroll sideways. The landing under it is CSS only:
+    `.js .mc :is(.pj-list, .pj-item) { scroll-margin-top: var(--pj-bar-h) }` on top of the page's `scroll-padding-top`,
+    so a project lands 16 px under the bar at every width. Without script the bar and the quick toggles are not drawn
+    (`data-js-only`, the MC attribute; the previous design's `js-only` class is not styled in the MC sheet), no margin
+    is added and every project shows.
+  - A choice re-flows the wall with `document.startViewTransition` + `flushSync`; the items carry names (`--vt-name`)
+    only while `:root[data-vt="gallery-filter"]` (unlayered rules), so the theme switch and page changes never capture
+    27 elements. With reduced motion, without the API, from the quick toggles, or while the bar is pinned over the wall
+    (the wall then restarts under the bar with an instant `scrollIntoView`) the choice applies at once.
+  - The wall: CSS columns 1 / 2 / 3 / 4 (40 / 64 / 80 rem), `break-inside: avoid`, no reveal on items (links land on
+    them). Photos never above their source size: single photos `width: min(100%, <source> px)`, pairs
+    `flex: <ratio> 1 0` with `max-width` = source, prints `max-width` = source (`Prints`: extra prints at 78 %, at most
+    30 % of the lead photo).
+  - Styles: `components/commerce/projects/projects.css` (9.6 KB built, with the chips' forced-colours rules), imported by
+    `ProjectsPage.tsx` only, like `services.css` (never in `system.css`). The previous page is parked verbatim, unrouted,
+    as `src/components/projects/LegacyProjectsPage.tsx` (so `globals.css` stays byte-identical); it goes in TM-2.6. The
+    project placeholders (`/projects/<slug>`) stay in the previous design, `planned`, with its 404 for unknown slugs.
+  - D4 elsewhere: About's four cards and the service pages' project cards link `href(locale, "projects", { hash: slug })`
+    (href only; their pixels did not change). The homepage's six cards keep `#gallery`.
 - The localized 404: `(commerce)/[locale]/(missing)/[...rest]/page.tsx` (the catch-all, `notFound()`) and
   `(missing)/not-found.tsx`. The `(missing)` group is deliberate: a `not-found.tsx` beside the layout is rendered into
   the payload of every page under it (it added ~52 KB raw / 7.8 KB gzip to the homepage). A migrated route that calls
-  `notFound()` (services and projects slugs in TM-2.4 / 2.5) needs this boundary above it or its own; check the
+  `notFound()` (the service slugs since TM-2.4; the project slugs when their route moves) needs this boundary above it
+  or its own; check the
   homepage payload after. Unknown service slugs get the MC 404 since TM-2.4 (their own boundary, above); unknown
   project slugs keep the previous design's 404 until their route moves.
   The 404 uses `getShellView(locale, { route: null, path: null })` (nothing marked current) and passes `SamePageLink`
@@ -450,8 +501,15 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   and Arabic); `e2e/commerce-services.spec.ts` (the overview and six service pages: routes and SEO, the dynamic route's
   language switch, 404 and page-data answer, prefetch blocking, sourced relations, D4/D5 links, the process note,
   imagery and source size, the unforked signatures and their replays, the four drawings, reduced motion, no-JS,
-  layout, anchors, keyboard, pointer). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on pages
-  of the previous design (the projects overview, Capabilities and the project placeholders since TM-2.4);
+  layout, anchors, keyboard, pointer); `e2e/commerce-projects.spec.ts` (the projects overview: parts and order, the 27
+  projects and their ids, withheld photos, featured/highlights parity, SEO, the index, `#<slug>` and `#gallery` arriving
+  unfiltered, the hidden-target click, landings clear of the header and bar, cold loads, D4 on About, the service pages
+  and the homepage, no MC link to `/projects/<slug>`, the placeholders, the shared choice, keyboard, the one-row bar at
+  eight widths, Arabic, the wall's columns, cards out of the tab order, photo source size, focus = hover, the ambient,
+  reduced motion, no-JS); `e2e/commerce-anchors.spec.ts` with `e2e/anchor-helpers.ts` (the first-jump fix: fresh
+  context, fonts held back 300 / 1200 ms, 1440 and 390, on Contact, the legal and two service pages; same-page glide,
+  history, reduced motion, no-JS). The site-shell tests in `site.spec.ts` and `visual-system.spec.ts` run on pages of
+  the previous design (Capabilities and the project placeholders since TM-2.5);
   `stage-1c.spec.ts`'s generic inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still
   cover every migrated inner page through `INNER_PAGES`.
 
@@ -786,10 +844,11 @@ design use A V2's faces (see "Modern Commerce design in production" below).
 - An `<img>` sized only by `max-width` / `max-height` with `width` / `height: auto` in a grid cell collapses to 0 × 0
   until it loads and can outgrow its card after: give it `width` / `height: min(100%, <source> px)` (the project
   cards' paired photos).
-- `commerce.css` sets `scroll-behavior: smooth` on `html`, and a page opened at an anchor jumps smoothly; a web font
-  arriving mid-jump (about 300 ms late) leaves it short by the swap's height (24–64 px under the header), on every MC
-  page (Contact's `#location` too). Tests of a landing from the address load the page once first (fonts cached); an
-  in-page jump (a click) is not affected. A frozen, shared behaviour reported in TM-2.4.
+- A page opened at an address's anchor must jump instantly until it has loaded: Chromium keeps an instant fragment jump
+  on its target through layout changes (fonts, images) until the load event, but a smooth first jump keeps its first
+  destination, so with `scroll-behavior: smooth` on `html` a font arriving ~300 ms late left landings 64–309 px short,
+  under the header, on every MC page until TM-2.5 (`html[data-smooth-scroll]` now). Test landings in a fresh context
+  with the fonts held back (route `**/*.woff2`): a warm cache hides the problem.
 - A signature replay (`useSignature`, not the intro) adds a fade of the finished work (LaserCut: one; LaserEngrave: one
   per `.sig-engr` layer) and keeps the intro's `keep` animations: a replay holds more animations than the first run.
   To prove "no duplicates", compare replay with replay, not with the intro.
@@ -800,3 +859,19 @@ design use A V2's faces (see "Modern Commerce design in production" below).
   Tailwind's scanner skips `.css` files, so words in stylesheet comments are safe.
 - The `pkill -f "[x]…"` self-kill also happens when the unbracketed name appears in a path later in the same command
   (`$S/tm24/matrix24.js` in a heredoc): stop the process in a command of its own.
+- Identifiers become utilities as well: a state variable named `filter` added `.filter` to the MC stylesheet (TM-2.5
+  renamed it `choice`). Avoid utility names as bare words in MC TSX — `filter`, `transition`, `table`, `static`, `grow`,
+  `shrink`, `collapse`, `invisible`, `rounded`, `underline`, `italic`, `container`, `invert`, `resize` — in code and
+  comments alike; method calls such as `.filter(` were not picked up.
+- Script-only controls in the MC design carry the attribute `data-js-only` (hidden by `html:not(.js) .mc [data-js-only]`
+  in `system.css`); the previous design's `js-only` class has no rule in the MC sheet, so it shows without script.
+- Playwright retries a pointer action with `element.scrollIntoView({ block })`, which follows `scroll-behavior: smooth`,
+  and acts at once: the mouse lands before the glide moves the page, and the element under it changes. That made the
+  Industries preview test fail 2 in 20 on the TM-2.4 build (a `focus()` had just glided the list). Let the page come to
+  rest (a few frames at the same `scrollY`) before hovering after a `focus()` or any other glide.
+- A scroll benchmark with the mouse left over the page loses about 7 fps (hover states restyle as content moves under the
+  pointer; the homepage too). Choose with the keyboard, or move the mouse off the page, before measuring.
+- A hover or focus state read after a fixed wait can be mid-transition under load (−2.998 px instead of −3 px): poll the
+  expected state, or wait for `el.getAnimations().length === 0`.
+- When Turbopack merges or splits module factories, an unchanged module can read as "changed" in `jsalpha.js` (module 957
+  on the previous design's pages in TM-2.5): read its source in both chunks before calling it a change.
