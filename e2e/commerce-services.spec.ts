@@ -974,9 +974,8 @@ test.describe("layout", () => {
         ["/ar/services/fabrication#projects", "projects"],
         ["/en/services/scaffolding#gallery", "gallery"],
       ] as const) {
-        // With the page's fonts in the cache (a returning visitor). On a cold load, a font swap that lands while the
-        // browser's smooth jump is under way can leave it short by the swap's height — on every Modern Commerce page
-        // (Contact's #location too): a shared behaviour of the frozen stylesheet, reported in TM-2.4, not this page's.
+        // With the page's fonts in the cache (a returning visitor). Cold loads with late fonts, which a gliding first jump
+        // left short of its target before TM-2.5's shared fix, are tested in commerce-anchors.spec.ts.
         await page.goto(path.split("#")[0], { waitUntil: "networkidle" });
         await page.goto("about:blank");
         await page.goto(path, { waitUntil: "networkidle" });

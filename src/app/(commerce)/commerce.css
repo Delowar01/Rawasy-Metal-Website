@@ -53,8 +53,13 @@
   html {
     color-scheme: light;
     -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
     scroll-padding-top: 5.5rem;
+  }
+
+  /* Same-page jumps glide once the page has loaded (the boot script, src/lib/commerce-boot.ts); the first jump to the
+     address's #anchor stays instant, so a late font swap cannot leave it short of its target. */
+  html[data-smooth-scroll] {
+    scroll-behavior: smooth;
   }
 
   body {
