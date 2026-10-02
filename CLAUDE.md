@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-02-tm3-shared-polish.md` (earlier: `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
+- Latest report: `docs/reports/2026-10-02-tm3-correction-1.md` (earlier: `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
@@ -88,8 +88,10 @@
   `304a277`). **TM-2.6 (retiring the previous design) is approved** (the user's "TM-2.6 APPROVED — BEGIN TM-3"; report
   `2026-10-02-tm2-6-retirement.md`; rollback checkpoint `preserve/pre-tm2.6` at `9c7d2af`). **TM-3 (shared polish of the
   Modern Commerce design: the five deferred items) is built** (report `2026-10-02-tm3-shared-polish.md`; rollback
-  checkpoint: GitHub branch `preserve/pre-tm3` at `de62bc5`, the last commit before TM-3) and awaits the user's independent
-  review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, theme-lab removal or any deployment until the user
+  checkpoint: GitHub branch `preserve/pre-tm3` at `de62bc5`, the last commit before TM-3). It passed the user's independent
+  review with two corrections, applied in **TM-3 correction 1** (report `2026-10-02-tm3-correction-1.md`, on `2cec1b0`): the
+  homepage's Industries cards stack in one column below 22.5 rem (the 320 px overflow), and the fallback 404's logo takes
+  `CanvasText` in forced colours. Correction 1 awaits the user's independent review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, theme-lab removal or any deployment until the user
   says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
   colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
   logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
@@ -97,13 +99,13 @@
   the first layout can still move an address's anchor landing (re-measured in TM-3; two standards-based CSS fixes were
   tried and rejected: root scroll snapping pulls a reader back to the section, and an `overflow-anchor` exclusion built
   on `:has(~ :target)` added 2.6–4.1 ms (+8–11 %) to each full style recalculation of the homepage, for every visitor);
-  the homepage's Industries cards let their English text run past the cards at 320 px (8 px of sideways scroll,
-  pre-existing, frozen homepage); on desktop the About and services overview pages' largest paint is in the section under
+  at 360 and 390 px the homepage's two-column Industries cards still let the longest English names run past their card
+  (up to 17.9 px at 360, 2.9 px at 390; no sideways scroll), left as they were because correction 1 had to keep 360 and
+  390 unchanged (a one-column rule up to about 26 rem would fix it: the user's call); on desktop the About and services overview pages' largest paint is in the section under
   the hero, which keeps its reveal, so their LCP stays about 1.1–1.3 s; Arabic desktop pages show a CLS of 0.003–0.009
   (the Arabic fonts, not preloaded, swap in while the hero is visible; preloading them needs a root layout per language,
-  1J); the fallback 404's logo follows the site's theme ink, so in forced colours it is invisible when the stored theme
-  and the forced palette disagree (one line in `global-not-found.css`; the page is frozen and no address reaches it).
-  Also open: the OG share images (`scripts/generate-og.mjs`) are still rendered with the previous design's faces (a Stage
+  1J); below 320 CSS px (a phone at 200 % page zoom) and with doubled text on phones the header overflows (pre-existing,
+  outside the 320 px boundary). Also open: the OG share images (`scripts/generate-og.mjs`) are still rendered with the previous design's faces (a Stage
   1J / SEO-release task; do not regenerate them before), and the dictionary keys only the retired shell read stay until a
   usage audit.
   Decisions in short:
@@ -302,7 +304,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   lead), Machinery (`MachineShowcase`), Projects, Industries, Clients + Compliance (one sheet), Contact;
   `getHomeView(locale)` in `home/data.ts`. Markup follows the lab's `HomeA2.tsx` one to one (proved by diffing the
   server HTML: only routes, `aria-current`, the added footer WhatsApp link, the copyright period, the hero's primary
-  action and the project cards differ).
+  action and the project cards differ). Industries (TM-3 correction 1): below 22.5 rem its two lists stack in one column
+  (`max-[22.5rem]:grid-cols-1` on the two `ul`s, built as `@media not all and (min-width:22.5rem)`), because two 130 px
+  columns cannot hold the longest English names at 320 px; from 360 px the two columns (four from 1024) are as before.
 - Until the project pages (1F) exist, the six homepage project cards open the Projects overview at its gallery
   (`href(locale, "projects", { hash: "gallery" })`, label `home.projects.inGallery`: "View in the gallery" / "عرض في
   معرض الأعمال"), never a planned detail page. Per-project anchors were measured and rejected: the gallery's sticky
@@ -443,7 +447,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   the boot script): one `h1` with both languages, a `section[lang][dir]` per language with its `h2`, home and contact
   links. Next.js builds it as `/_not-found` (404); no address reaches it today (the proxy gives every address a language,
   and its excluded paths — `/api`, `/media`, `/_next` … — get Next.js's own minimal 404, unchanged), so `site.spec.ts`
-  checks it from the build output.
+  checks it from the build output. In forced colours its logo takes `CanvasText` (`@media (forced-colors: active)` in
+  `global-not-found.css`, TM-3 correction 1), like the site's header and footer logos since TM-3.
 - The localized 404: `(commerce)/[locale]/(missing)/[...rest]/page.tsx` (the catch-all, `notFound()`) and
   `(missing)/not-found.tsx`. The `(missing)` group is deliberate: a `not-found.tsx` beside the layout is rendered into
   the payload of every page under it (it added ~52 KB raw / 7.8 KB gzip to the homepage). A route that calls
@@ -477,8 +482,11 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   history, reduced motion, no-JS); `e2e/commerce-planned.spec.ts` (Capabilities, every project page with no project
   media, the unknown-project 404); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
   forced colours, the inner pages' hero with its script blocked and frame by frame, the phone menu sheet's geometry,
-  keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom); `e2e/site.spec.ts` (internal links, nothing of the previous design on any page and no
-  prefetch, which addresses reach which 404, the fallback 404 from the build output); `stage-1c.spec.ts`'s generic
+  keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom; correction 1: the homepage's Industries cards at 320
+  px in EN/AR × light/dark, and the column count from 320 to 1440); `e2e/site.spec.ts` (internal links, nothing of the
+  previous design on any page and no prefetch, which addresses reach which 404, the fallback 404 from the build output,
+  and since correction 1 its logo in forced colours in four palette/theme pairings, its normal-colour pixels with and
+  without that rule, and its isolation); `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
   assertion map).
@@ -862,3 +870,14 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   walk the page a screen at a time first, and cap every image wait with a timeout (one capture run hung on three images).
 - The site's narrowest supported width is 320 CSS px. A phone at 200 % page zoom (390 → 195 CSS px) overflows in the header
   on every build; test 200 % zoom as a desktop window's CSS viewport (1280 × 720 → 640 × 360).
+- A page-overflow check misses text that runs past its card without leaving the screen (the homepage's Industries names at
+  360 / 390 px): compare each text's line boxes (`Range.getClientRects()`) with its own card, too.
+- In phone emulation (`isMobile`) a page wider than the screen is zoomed out to fit, so a before/after capture of a page that
+  overflowed differs everywhere; and every section below a part whose height changed shifts by a fraction of a pixel. To
+  prove "the rest is unchanged", hide the changed part on both builds and compare the pages screen by screen.
+- Chromium's forced-colours emulation leaves `-webkit-text-fill-color` at the author's colour while `color` is forced and
+  the text is drawn in the forced colour; axe-core's colour-contrast rule reads the fill colour, so in forced colours it
+  reports false "serious" findings (the fallback 404's badges and buttons when the stored theme disagrees, on TM-3 and
+  correction 1 alike). Check the computed `color` and the drawn pixels instead.
+- Tailwind's arbitrary `max-[22.5rem]:` variant builds `@media not all and (min-width:22.5rem)`: at exactly 360 px the
+  rule is off (`min-width` matches).
