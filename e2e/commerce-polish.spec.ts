@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { industries } from "../src/content/industries";
 import { horizontalOverflow, LOCALES, trackErrors } from "./helpers";
 
 /**
@@ -8,7 +9,10 @@ import { horizontalOverflow, LOCALES, trackErrors } from "./helpers";
  *   photos and cards never wait for the script; only its line drawings and the laser signatures draw in;
  * - in forced colours the brand logo in the header and the footer takes the forced text colour;
  * - the phone menu sheet's pages scroll above its foot: the quote button never covers a row, every stop reached with the
- *   keyboard is in full view, every target keeps its size, and the page behind stays locked.
+ *   keyboard is in full view, every target keeps its size, and the page behind stays locked;
+ * - correction 1: below 22.5 rem the homepage's Industries cards stack in one column, so at 320 px every name stays whole
+ *   inside its card and nothing scrolls sideways; from 360 px the cards keep their two columns. (The fallback 404's logo
+ *   in forced colours is tested with that page, in site.spec.ts.)
  */
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -445,4 +449,120 @@ test.describe("the phone menu sheet", () => {
     await expect(quote).toBeVisible();
     await context.close();
   });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Correction 1: the homepage's Industries cards at 320 px
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** The homepage's two Industries lists as laid out: each grid's box, column count and gap, and each card's box, the box
+ * inside its border, its icon chip, its name (as read, its box, every line box of its glyphs as drawn) and whether the
+ * name overflows its box or is shortened. */
+const industryLists = (page: Page) =>
+  page.evaluate(() => {
+    const box = (el: Element) => {
+      const b = el.getBoundingClientRect();
+      return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
+    };
+    return [...document.querySelectorAll("#industries ul")].map((ul) => ({
+      grid: box(ul),
+      columns: getComputedStyle(ul).gridTemplateColumns.split(" ").length,
+      gap: parseFloat(getComputedStyle(ul).columnGap),
+      cards: [...ul.querySelectorAll(".a2-ind")].map((card) => {
+        const name = card.querySelector(".t-h4") as HTMLElement;
+        const range = document.createRange();
+        range.selectNodeContents(name);
+        const style = getComputedStyle(name);
+        const border = getComputedStyle(card);
+        const outer = box(card);
+        return {
+          outer,
+          inner: { left: outer.left + parseFloat(border.borderLeftWidth), right: outer.right - parseFloat(border.borderRightWidth) },
+          chip: box(card.querySelector(".icon-chip")!),
+          name: name.textContent,
+          nameBox: box(name),
+          glyphs: [...range.getClientRects()].map((r) => ({ left: r.left, right: r.right })),
+          overflows: name.scrollWidth > name.clientWidth,
+          shortened: style.textOverflow === "ellipsis" || style.webkitLineClamp !== "none",
+        };
+      }),
+    }));
+  });
+
+test.describe("correction 1: the homepage's Industries cards at 320 px", () => {
+  for (const locale of LOCALES)
+    for (const scheme of ["light", "dark"] as const)
+      test(`320×700, ${locale}, ${scheme}: no sideways scroll; one column; every card inside the screen and its grid; every name whole, inside its card, clear of its icon`, async ({ browser }) => {
+        const context = await browser.newContext({ viewport: { width: 320, height: 700 }, colorScheme: scheme, reducedMotion: "reduce" });
+        const page = await context.newPage();
+        const errors = trackErrors(page);
+        await page.goto(`/${locale}`, { waitUntil: "networkidle" });
+        await page.evaluate(() => document.fonts.ready);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+        expect(await horizontalOverflow(page)).toBe(0);
+        const width = await page.evaluate(() => document.documentElement.clientWidth);
+        const lists = await industryLists(page);
+        expect(lists).toHaveLength(2);
+        // Every name, as the content layer has it (profile sectors first, then the website's classifications).
+        const expected = [industries.filter((i) => i.source.basis !== "inferred"), industries.filter((i) => i.source.basis === "inferred")];
+        expect(lists.map((list) => list.cards.map((card) => card.name))).toEqual(expected.map((group) => group.map((i) => i.name[locale])));
+        for (const list of lists) {
+          expect(list.columns).toBe(1);
+          for (const card of list.cards) {
+            const where = `${locale} ${scheme} ${card.name}`;
+            // The card: inside the screen and inside its grid.
+            expect(card.outer.left, where).toBeGreaterThanOrEqual(0);
+            expect(card.outer.right, where).toBeLessThanOrEqual(width);
+            expect(card.outer.left, where).toBeGreaterThanOrEqual(list.grid.left - 0.5);
+            expect(card.outer.right, where).toBeLessThanOrEqual(list.grid.right + 0.5);
+            // The name: whole (neither running past its box nor shortened), every glyph inside its box and inside the
+            // card's border, none under the icon chip.
+            expect(card.overflows, where).toBe(false);
+            expect(card.shortened, where).toBe(false);
+            expect(card.glyphs.length, where).toBeGreaterThan(0);
+            for (const glyphs of card.glyphs) {
+              expect(glyphs.left, where).toBeGreaterThanOrEqual(Math.max(card.nameBox.left, card.inner.left) - 0.5);
+              expect(glyphs.right, where).toBeLessThanOrEqual(Math.min(card.nameBox.right, card.inner.right) + 0.5);
+              expect(glyphs.right <= card.chip.left || glyphs.left >= card.chip.right, where).toBe(true);
+            }
+          }
+        }
+        // The section's link shows its whole focus ring, inside the sheet and the screen.
+        const link = page.locator("#industries a.link-arrow");
+        await link.focus();
+        const ring = await link.evaluate((el) => {
+          const style = getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          const out = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+          const sheet = el.closest("section")!.getBoundingClientRect();
+          return { style: style.outlineStyle, left: r.left - out, right: r.right + out, from: Math.max(0, sheet.left), to: Math.min(document.documentElement.clientWidth, sheet.right) };
+        });
+        expect(ring.style).toBe("solid");
+        expect(ring.left).toBeGreaterThanOrEqual(ring.from);
+        expect(ring.right).toBeLessThanOrEqual(ring.to);
+        expect(errors).toEqual([]);
+        await context.close();
+      });
+
+  for (const locale of LOCALES)
+    test(`${locale}: one column only below 22.5 rem; from 360 px the two columns of before, four from 1024 px`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`/${locale}`, { waitUntil: "networkidle" });
+      await page.evaluate(() => document.fonts.ready);
+      for (const [width, columns] of [[320, 1], [359, 1], [360, 2], [390, 2], [834, 2], [1024, 4], [1440, 4]] as const) {
+        await page.setViewportSize({ width, height: 900 });
+        const lists = await industryLists(page);
+        for (const list of lists) {
+          expect(list.columns, `${width}`).toBe(columns);
+          if (columns !== 2) continue;
+          // Two equal cards and the gap between them fill the grid, as before the correction.
+          const [a, b] = list.cards;
+          expect(Math.abs(a.outer.right - a.outer.left - (list.grid.right - list.grid.left - list.gap) / 2), `${width}`).toBeLessThan(1);
+          expect(Math.min(Math.abs(b.outer.left - a.outer.right), Math.abs(a.outer.left - b.outer.right)) - list.gap, `${width}`).toBeLessThan(1);
+        }
+        expect(await horizontalOverflow(page), `${width}`).toBe(0);
+      }
+      await context.close();
+    });
 });

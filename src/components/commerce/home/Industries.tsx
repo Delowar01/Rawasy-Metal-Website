@@ -3,7 +3,10 @@ import { industryIcon, industryTone } from "../tones";
 import { delay } from "../ui";
 import type { HomeView } from "./data";
 
-/** Industries by source: the company profile's own sectors, then the website's classifications of its work. */
+/**
+ * Industries by source: the company profile's own sectors, then the website's classifications of its work. Below
+ * 22.5 rem the cards stack in one column: two were too narrow there for the longest English names (TM-3 correction 1).
+ */
 export function Industries({ view }: { view: HomeView }) {
   const { industries, links } = view;
   return (
@@ -33,7 +36,7 @@ export function Industries({ view }: { view: HomeView }) {
                 <Icon name={basis === "profile" ? "check" : "grid"} size={15} className={basis === "profile" ? "text-teal" : "text-brass"} />
                 {industries.basis[basis]}
               </p>
-              <ul className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+              <ul className="mt-3 grid grid-cols-2 gap-2.5 max-[22.5rem]:grid-cols-1 sm:gap-3 lg:grid-cols-4">
                 {industries.items
                   .filter((ind) => (basis === "profile" ? ind.basis !== "inferred" : ind.basis === "inferred"))
                   .map((ind, i) => (

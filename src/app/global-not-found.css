@@ -134,6 +134,14 @@ html[data-theme="dark"] .g404 {
   color: var(--ink);
 }
 
+/* Forced colours keep an inline SVG's own colour, so the lockup's ink followed the stored theme and vanished when the
+   forced palette disagreed with it: it takes the forced text colour there (the orange piece keeps its colour). */
+@media (forced-colors: active) {
+  .g404-logo {
+    color: CanvasText;
+  }
+}
+
 /* A quiet numeral */
 .g404-code {
   margin: 0;

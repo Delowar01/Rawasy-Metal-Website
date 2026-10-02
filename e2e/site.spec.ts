@@ -207,4 +207,122 @@ test.describe("the fallback 404", () => {
     await page.setViewportSize({ width: 320, height: 700 });
     expect(await horizontalOverflow(page)).toBe(0);
   });
+
+  // Stage TM-3 correction 1: forced colours keep an inline SVG's own colour, so the lockup's ink followed the stored
+  // theme and vanished when the forced palette disagreed with it (dark ink on a black page, light ink on a white one).
+  for (const scheme of ["light", "dark"] as const)
+    for (const theme of ["light", "dark"] as const)
+      test(`forced ${scheme}, stored theme ${theme}: the logo takes the forced text colour and shows; the buttons, the focus ring and both parts stay readable`, async ({ page }) => {
+        await page.addInitScript((t) => localStorage.setItem("rawasy-theme", t), theme);
+        await page.emulateMedia({ forcedColors: "active", colorScheme: scheme });
+        await openFallback(page);
+        await page.evaluate(() => document.fonts.ready);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const seen = await page.evaluate(() => {
+          const probe = (colour: string) => {
+            const span = document.createElement("span");
+            span.style.color = colour;
+            document.body.append(span);
+            const value = getComputedStyle(span).color;
+            span.remove();
+            return value;
+          };
+          const logo = document.querySelector(".g404-logo")!;
+          return {
+            text: probe("CanvasText"),
+            canvas: probe("Canvas"),
+            page: getComputedStyle(document.body).backgroundColor,
+            logo: getComputedStyle(logo).color,
+            piece: getComputedStyle(logo.querySelector(".piece-top")!).fill,
+            parts: [...document.querySelectorAll(".g404-part :is(h2, .g404-body)")].map((el) => getComputedStyle(el).color),
+            buttons: [...document.querySelectorAll(".g404-btn")].map((el) => {
+              const style = getComputedStyle(el);
+              return { colour: style.color, border: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}` };
+            }),
+          };
+        });
+        expect(seen.text).toBe(scheme === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)");
+        expect(seen.page).toBe(seen.canvas);
+        expect(seen.logo).toBe(seen.text);
+        expect(seen.piece).toBe("rgb(241, 95, 34)");
+        expect(seen.parts).toEqual(Array(4).fill(seen.text));
+        expect(seen.buttons).toHaveLength(4);
+        for (const button of seen.buttons) {
+          expect(button.colour).not.toBe(seen.canvas);
+          expect(button.border).toBe(`1px solid ${button.colour}`);
+        }
+        // As drawn: the lockup's box holds its ink in the forced text colour, not only the page colour and the orange piece.
+        const shot = await page.locator(".g404-logo").screenshot();
+        const ink = await page.evaluate(
+          async ([png, text]) => {
+            const image = new Image();
+            image.src = `data:image/png;base64,${png}`;
+            await image.decode();
+            const canvas = document.createElement("canvas");
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext("2d")!;
+            context.drawImage(image, 0, 0);
+            const [r, g, b] = text.match(/\d+/g)!.map(Number);
+            const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+            let count = 0;
+            for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i] - r) + Math.abs(data[i + 1] - g) + Math.abs(data[i + 2] - b) < 60) count++;
+            return count / (canvas.width * canvas.height);
+          },
+          [shot.toString("base64"), seen.text] as const,
+        );
+        expect(ink).toBeGreaterThan(0.1);
+        // The first link's focus ring.
+        await page.keyboard.press("Tab");
+        const ring = await page.evaluate(() => {
+          const style = getComputedStyle(document.activeElement!);
+          return { href: document.activeElement!.getAttribute("href"), style: style.outlineStyle, width: parseFloat(style.outlineWidth), colour: style.outlineColor };
+        });
+        expect(ring.href).toBe("/en");
+        expect(ring.style).toBe("solid");
+        expect(ring.width).toBeGreaterThanOrEqual(2);
+        expect(ring.colour).not.toBe(seen.canvas);
+      });
+
+  for (const theme of ["light", "dark"] as const)
+    test(`normal colours, ${theme}: the logo keeps the theme's ink, and the page is drawn pixel for pixel as without its forced-colours rule`, async ({ page }) => {
+      await page.addInitScript((t) => localStorage.setItem("rawasy-theme", t), theme);
+      await openFallback(page);
+      await page.evaluate(() => document.fonts.ready);
+      expect(await page.evaluate(() => getComputedStyle(document.querySelector(".g404-logo")!).color)).toBe(theme === "light" ? "rgb(21, 23, 26)" : "rgb(238, 241, 244)");
+      const drawn = await page.screenshot({ fullPage: true });
+      // The same page with the forced-colours rule taken out of its stylesheet.
+      const rule = "@media (forced-colors:active){.g404-logo{color:canvastext}}";
+      let removed = false;
+      await page.route(/\/_next\/static\/chunks\/[^/]+\.css$/, async (route) => {
+        const response = await route.fetch();
+        const css = await response.text();
+        removed ||= css.includes(rule);
+        await route.fulfill({ response, body: css.replace(rule, "") });
+      });
+      await page.reload({ waitUntil: "networkidle" });
+      await page.evaluate(() => document.fonts.ready);
+      expect(removed).toBe(true);
+      expect((await page.screenshot({ fullPage: true })).equals(drawn)).toBe(true);
+    });
+
+  test("stays on its own: no other page links its stylesheet or its faces, and no script carries its markup", async ({ request }) => {
+    const html = fs.readFileSync(`${BUILT}.html`, "utf8");
+    const head = html.slice(0, html.indexOf("</head>"));
+    const [sheet] = [...head.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
+    const css = fs.readFileSync(path.join(process.cwd(), ".next", sheet.replace("/_next/", "")), "utf8");
+    expect(css).toContain("@media (forced-colors:active){.g404-logo{color:canvastext}}");
+    const faces = [...css.matchAll(/url\(\.\.\/media\/([^)]+\.woff2)\)/g)].map((m) => m[1]);
+    expect(faces.length).toBeGreaterThan(0);
+    for (const url of ["/en", "/ar", "/ar/about", "/en/projects", "/en/services/laser-cutting", "/theme-lab/en/modern-commerce-a-v2"]) {
+      const page = await (await request.get(url)).text();
+      expect(page, url).not.toContain(sheet);
+      expect(page, url).not.toContain("g404");
+      for (const face of faces) expect(page, `${url} ${face}`).not.toContain(face);
+    }
+    // The page ships no script of its own: no chunk carries its markup.
+    const chunks = path.join(process.cwd(), ".next/static/chunks");
+    const scripts = fs.readdirSync(chunks).filter((file) => file.endsWith(".js"));
+    expect(scripts.filter((file) => fs.readFileSync(path.join(chunks, file), "utf8").includes("g404"))).toEqual([]);
+  });
 });
