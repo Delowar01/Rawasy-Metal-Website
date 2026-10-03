@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-02-tm3-correction-2.md` (earlier: `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
+- Latest report: `docs/reports/2026-10-03-stage-1e-capabilities-machinery.md` (earlier: `2026-10-02-tm3-correction-2.md`,
+  `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
   `2026-09-30-tm2-decision-register.md`,
@@ -37,8 +38,11 @@
   Google Maps place link, image rights, the two moderate shell accessibility findings for 1I/1J).
 - **Stage 1D (the six service detail pages)**: TM-2 decision D3 kept 1D's content and structure; its visual approval
   was given on the migrated Modern Commerce versions, built in TM-2.4 ("TM-2.4 APPROVED — BEGIN TM-2.5"). Never
-  self-approve a stage. Do not start 1E (Capabilities & Machinery), 1F (project detail pages), 1G or later until the
-  user says so; project detail pages and Capabilities stay `planned`. Do not start Phase 2 (admin panel) during Phase 1.
+  self-approve a stage. **Stage 1E (Capabilities & Machinery) is built** (the user's "TM-3 FULLY APPROVED — BEGIN STAGE
+  1E" brief; report `2026-10-03-stage-1e-capabilities-machinery.md`; rollback checkpoint: GitHub branch
+  `preserve/pre-stage-1e` at `ca672d7`) and awaits the user's independent review; Capabilities is `review`. Do not start
+  1F (project detail pages), 1G or later until the user says so; project detail pages stay `planned`. Do not start
+  Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
@@ -93,9 +97,9 @@
   homepage's Industries cards stack in one column below 22.5 rem (the 320 px overflow), and the fallback 404's logo takes
   `CanvasText` in forced colours. Correction 1 passed review ("TM-3 Correction 1 passed independent review"); its one new
   finding (English Industries names past their card at 360–421 px) is fixed in **TM-3 correction 2** (report
-  `2026-10-02-tm3-correction-2.md`; correction commit `0f53145` on `9e194e9`): the one-column rule moved to 27 rem, which
-  awaits the user's independent review. Never self-approve. **Do not begin Stage 1E, 1F, 1I or 1J, theme-lab removal or any deployment until the user
-  says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
+  `2026-10-02-tm3-correction-2.md`; correction commit `0f53145` on `9e194e9`): the one-column rule moved to 27 rem. **TM-3
+  and corrections 1–2 are approved and locked** (the user's "TM-3 FULLY APPROVED — BEGIN STAGE 1E"). Never self-approve.
+  **Do not begin Stage 1F, 1I or 1J, theme-lab removal, OG regeneration or any deployment until the user says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
   colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
   logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
   Commerce design in production"). Still open, for the user to decide: (5) without JavaScript a font that swaps in after
@@ -113,13 +117,15 @@
   - project cards on About and the service pages open their project's place in the migrated gallery,
     `/projects#<slug>` (since TM-2.5, still "View in the gallery"); the landing clears the header and the sticky filter
     bar. The homepage's six links stay on `#gallery`, unchanged.
-  - Capabilities links stay on the placeholder until 1E.
+  - machine links (`/capabilities#<slug>`, the homepage showcase and the service pages) land on the 1E page's machine
+    panels since Stage 1E; About links the page itself (D5).
   - the services overview uses the `LaserEngrave` drawing; the flagged engraving photos go.
   - no floating WhatsApp button.
   - the previous design's blueprint/editorial decoration retires.
   - the four other service drawings are restyled, with no new sequences.
   - the Google Maps embed and URLs stay byte-identical, and only the frame is restyled.
-  - placeholders moved to MC in TM-2.6, still `planned`, noindex (text only: no project photos).
+  - the project placeholders moved to MC in TM-2.6, still `planned`, noindex (text only: no project photos); Capabilities
+    left `PlannedPage` in Stage 1E (`PlannedPage` stays for the project pages).
   - the theme lab stays until the user authorizes its removal.
   - every migrated page stays `review`/noindex until 1J.
 
@@ -132,8 +138,8 @@
   - no deployment.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (`noindex, follow`, left out of the sitemap) even after their
-  design is approved: the 1C pages, the projects overview and the service pages; Capabilities and the project pages
-  are `planned`. Only the homepage is `published`.
+  design is approved: the 1C pages, the projects overview, the service pages and Capabilities (since Stage 1E); the
+  project pages are `planned`. Only the homepage is `published`.
 - Approved pages are frozen: after any shared change, compare them with the batch's checkpoint build (a `git worktree`
   of the checkpoint with `cp -al node_modules`): visible server HTML (scripts removed, `/_next/static` paths and the
   `next-size-adjust` meta position normalised), the CSS bytes and each page's stylesheet list, the RSC payloads resolved
@@ -175,12 +181,13 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 
 ## Requirements to carry into later stages (from the 1C-V and V2 briefs)
 
-- **1E Capabilities & Machinery** must become one of the strongest pages, never a plain list: large
-  machinery photography, a machine selector, technical specifications, grid/axis backgrounds, a
-  scanning-line animation, an animated equipment diagram, related services, power figures, machine
-  image transitions, technical measurement detail and industrial depth. V2 locked its colour
-  direction: steel blue, graphite, orange active lines, clear cards and panels, technical tables,
-  visible borders, shadows and scan lines.
+- **1E Capabilities & Machinery** (built in Stage 1E, see "Capabilities & Machinery (Stage 1E)" under "Modern Commerce
+  design in production") had to become one of the
+  strongest pages, never a plain list: a machine selector, technical register, local grid/axis, a scanning line, an
+  animated equipment diagram, related services, power figures, machine transitions and industrial depth; colour
+  direction steel blue, graphite, orange active lines, clear cards and panels, visible borders, shadows. The machine
+  photos are small profile exports, so the page never enlarges them (no "large machinery photography" until RAWASY
+  supplies originals), and it shows no specification the profile does not give.
 - **Projects overview** (built in V2, in the Modern Commerce design since TM-2.5, `review`): image-led, with a hero
   collage, featured project, editorial highlights, a filterable masonry gallery (`#gallery`, each project at `#<slug>`)
   and a text index at the end. Category filters are website classifications. Photos are small:
@@ -191,8 +198,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   carry AI watermarks, renders or authorship questions) and nothing links to it: About and the service pages open
   `/projects#<slug>`
   and the overview's featured project, highlights and index jump to `#<slug>` ("View in the gallery"); point them at
-  `href(locale, "project", …)` with "View project" in 1F. The machine cards link `/capabilities#<slug>` (use the machine
-  slugs as anchors in 1E).
+  `href(locale, "project", …)` with "View project" in 1F. The machine cards link `/capabilities#<slug>` (the 1E machine
+  panels carry these ids).
 - **Service pages (1D) rules:** each page shares one component set and gets its character from
   `src/components/commerce/services/looks.ts` (hero picture, scope / process / gallery layout, section surfaces).
   Machines, projects and galleries appear only when sourced: related projects are those in
@@ -226,6 +233,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   metadata, breadcrumb trail and JSON-LD in `src/lib/inner-page.ts`; copy in `src/content/{about,pages,contact,legal}.ts`.
 - Projects: the overview in `src/components/commerce/projects/*`, `src/lib/project-cards.ts`; showcased projects and
   withheld photos in `src/content/projects.ts` (`isShowcased`, `projectImages`, `withheldMedia`).
+- Capabilities & Machinery (Stage 1E): `src/components/commerce/capabilities/*`; machine facts only in
+  `src/content/machines.ts` (profile p.7), the page's labels and notes in `src/content/capabilities.ts`.
 - Clients wall: `src/components/commerce/clients/ClientsPage.tsx` with `planSpans` from `src/lib/logo-wall.ts`. Contact
   map: `src/components/commerce/contact/Location.tsx` + `src/lib/maps.ts` (address search only; replace with RAWASY's
   own Google Maps place link once confirmed; never invent coordinates).
@@ -437,15 +446,65 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     `ProjectsPage.tsx` only, like `services.css` (never in `system.css`).
   - D4 elsewhere: About's four cards and the service pages' project cards link `href(locale, "projects", { hash: slug })`
     (href only; their pixels did not change). The homepage's six cards keep `#gallery`.
-- Planned pages (TM-2.6): `(commerce)/[locale]/capabilities/page.tsx` and `(commerce)/[locale]/projects/[slug]/page.tsx`
+- Capabilities & Machinery (Stage 1E): route `(commerce)/[locale]/capabilities/page.tsx` (static, `innerPageMetadata`,
+  `PageShell` with `sameAddressLink={MachineAddressLink}`) → `components/commerce/capabilities/CapabilitiesPage.tsx`
+  (server). Data: `data.ts` `getCapabilitiesView(locale)` reads `getCapabilitiesPageContent()` (machines.ts + the page's
+  copy in `src/content/capabilities.ts`, which holds labels and notes only, never machine facts) and puts the machines
+  in `MACHINE_ORDER`, the homepage showcase's order (combo, tube, 6 kW, 3 kW, press brake, welding; machines.ts keeps
+  the profile's). Parts in order: the split `PageHero` (facts 06 machines · 04 laser cutting systems · 12,000 W peak,
+  the reused wording; `FleetPlate` aside: six bays on a graphite plate, each a `#<slug>` link), `#power` (`PowerChart`:
+  bars for the four rated lasers, the two others listed in words, never a 0 bar), `#console` (`MachineConsole`),
+  `#register` (`Register`: a `table` with a sr-only caption, `th scope` cols/rows from 64 rem, one labelled card per
+  machine below), `#service-lines` (the three services and their machines), `#source` (the source note), `ClosingCta`.
+  JSON-LD: CollectionPage (tied to the site's organization) + BreadcrumbList + an ItemList of the six names and
+  `#<slug>` URLs, no specifications.
+  - Facts: only the records' fields; power only for the four lasers ("Not stated in the company profile" for the press
+    brake and laser welding, everywhere), no sums; page 7 prints only names (power inside four of them) and photos, so
+    the types, capability sentences and services are the records' wording and the copy never calls them the profile's
+    (a sentence that did was corrected before review). Never name a maker: some cut-outs show maker markings.
+  - The console (client): plain links `a.cm-pick[href="#<slug>"]` in `nav[aria-label]` (no tabs widget); each machine an
+    `article#<slug>[data-machine]` panel (raw slug ids, never prefixed). The address is the state: `useSyncExternalStore`
+    over `location.hash` (server snapshot `null` → `data-ready` only once hydrated); a choice is
+    `history.replaceState` + the `mc:machine` event (`machine-address.ts`), announced in a polite live region; hidden
+    panels are `inert`; `aria-current="true"` marks the pick. Machine links elsewhere on the page are plain fragment
+    links (a history entry each). Before hydration CSS shows the `:target` panel or the first; transitions are keyed on
+    `[data-ready]` and live inside `prefers-reduced-motion: no-preference`. Panels share the console's grid tracks
+    (subgrid: rail | stage | data), so a landing shows the selector and the stage together.
+  - Cold addresses (`/capabilities#<slug>`): the browser's own fragment jump with the TM-2.5 rules (no script scroll).
+    Two fixes keep it exact with late fonts: the selector's first sideways scroll (phones) waits for
+    `html[data-smooth-scroll]` (a MutationObserver, no timer), and `.cm-rail ol { overflow-anchor: none }` (see gotchas).
+  - Without script the console is a list: every panel with its own stage (`html:not(.js) .mc .cm-shot`), photo, facts and
+    links; the picks jump to the panels. Language links: `MachineAddressLink` (client, passed only by this route) keeps a
+    machine fragment (`/en/capabilities#fiber-laser-6kw` ↔ `/ar/capabilities#fiber-laser-6kw`) in all three header
+    switches; it derives the path from `usePathname` and never imports `@/i18n/routes` (that re-split shared chunks on
+    other pages). `Header.tsx` hands a given `sameAddressLink` to every switch, not only on an unknown address (the 404
+    behaves as before; other pages pass none).
+  - The stage (`capabilities.css`, imported by `CapabilitiesPage.tsx` only, `cm-*` classes; `sk-*` for `Schematic.tsx`):
+    graphite in both themes (lighter edge on dark), a local grid (24/96 px, masked) and a floor axis with unnumbered
+    ticks (no figures, no X/Y), the photo on its floor (`MachinePhoto`: width = min(box, source, box height × ratio), one
+    `sizes` for every instance so each file loads once, never above its source), an orange floor line drawn from the
+    centre, a readout, an index chip and a source chip, the `aria-hidden` process sketch (five kinds, captioned
+    "illustrative, not to scale", plays once per showing, finished with reduced motion / no script, not mirrored in
+    Arabic) and the scan line (`.cm-scan`: `translate` + opacity only, one pass per showing, paused off screen through
+    `--cm-play` / `[data-live]`, not drawn at rest, without script, with reduced motion or in forced colours). Machine
+    changes: opacity and `translate` only. Forced colours: the chosen pick gets a `Highlight` ring on `::after` and an
+    underlined name; bars in `CanvasText`; the sketch in system colours.
+  - Tests: `e2e/commerce-capabilities.spec.ts` (72): content and publication, structured data, six-record parity, the
+    power rule, the unstated-specification guard (per text node), photos (alt, loaded once, ≤ source at six widths, not
+    mirrored), the console (choose, keyboard, a 20-cycle stress test with the page's own listeners compared by type and
+    source, Back/Forward, pre-hydration, language switch EN/AR in all three switches, theme, Arabic faces, phone rail),
+    the 12 cold addresses × desktop/phone × fonts +300/+1200 ms, every machine link from the homepage showcase (6 × 2) and
+    the service pages (6 × 2) followed and landed, the homepage machinery files' hashes, decoration hidden, reduced
+    motion, forced colours, no-JS, twelve sizes.
+- Planned pages (TM-2.6): `(commerce)/[locale]/projects/[slug]/page.tsx` (Capabilities left `PlannedPage` in Stage 1E)
   (`generateStaticParams` = locales × all 34 projects, `dynamicParams = true`, `notFound()` for an unknown slug,
-  metadata and the Home → Projects → Project BreadcrumbList JSON-LD as before; Capabilities has no JSON-LD, as before)
+  metadata and the Home → Projects → Project BreadcrumbList JSON-LD as before)
   → `components/commerce/planned/PlannedPage.tsx`: the kit's `PageHero` (breadcrumb, eyebrow "In development · <stage>",
   the title, the record's description or summary, back home + contact) and a `PendingNote` with the placeholder's
   sentence. Text only: no photo, figure, table or further section (tests: `commerce-planned.spec.ts`, which also
   crawls every project page and its page data for project media). `planned.css` draws the header's section mark: on a
   project page the Projects item carries `aria-current="true"` (`section()` in `Header.tsx`, like Services on a service
-  page); Capabilities is marked as the page. `projects/[slug]/not-found.tsx` re-exports `(missing)/not-found` (an
+  page). `projects/[slug]/not-found.tsx` re-exports `(missing)/not-found` (an
   unknown project slug, a real 404 in this design; deeper paths reach the catch-all).
 - The fallback 404 (`src/app/global-not-found.tsx`, TM-2.6): one bilingual page in the MC look (its own
   `global-not-found.css` with the MC tokens written out, light and dark via `data-theme`, the MC faces without preload,
@@ -484,8 +543,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   eight widths, Arabic, the wall's columns, cards out of the tab order, photo source size, focus = hover, the ambient,
   reduced motion, no-JS); `e2e/commerce-anchors.spec.ts` with `e2e/anchor-helpers.ts` (the first-jump fix: fresh
   context, fonts held back 300 / 1200 ms, 1440 and 390, on Contact, the legal and two service pages; same-page glide,
-  history, reduced motion, no-JS); `e2e/commerce-planned.spec.ts` (Capabilities, every project page with no project
-  media, the unknown-project 404); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
+  history, reduced motion, no-JS); `e2e/commerce-capabilities.spec.ts` (Stage 1E, see "Capabilities & Machinery" above);
+  `e2e/commerce-planned.spec.ts` (every project page with no project media, the unknown-project 404; its Capabilities
+  tests moved to the 1E spec); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
   forced colours, the inner pages' hero with its script blocked and frame by frame, the phone menu sheet's geometry,
   keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom; corrections 1 and 2: the homepage's Industries cards
   at 320, 360 and 390 px in EN/AR × light/dark, around the 27 rem boundary and at common widths, a sweep from 320 to 1440
@@ -904,6 +964,46 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   pages (Projects, the company pages' containment sweep, inner pages without JS, the lab's option C) and the Clients race
   below. The same build then passed 421 / 421 twice, once from an empty image cache. `next build` keeps that cache;
   `rm -rf .next` empties it.
-- `commerce-company.spec.ts`'s "in forced colours the switch still shows its state" reads the track colour once, right
-  after the dot starts moving, while the knob's background transitions over `--dur-2` (320 ms): under heavy load it read
-  the start colour (`Canvas`) once (TM-3 correction 2, left as is: outside its scope). Poll the colour if it recurs.
+- `commerce-company.spec.ts`'s "in forced colours the switch still shows its state" used to read the track colour once,
+  right after the dot started moving (its `translate` turns from `none` to `0px` on the transition's first frame), and
+  under heavy load read the start colour (`Canvas`) once in TM-3 correction 2. Since the Stage 1E preflight (`86d80a1`,
+  test only) it waits until the knob's transitions have ended (`getAnimations({ subtree: true })` sees the `::after`
+  slide too) and checks the settled system colours. Read a state after its transition, never on a moving frame.
+- Any programmatic scroll during page load, even `scrollBy` on an inner scroller (the 1E selector on phones), ends
+  Chromium's fragment anchoring (the instant jump is no longer kept on its target through layout changes), so a font
+  arriving later moves the landing (2.16 px on the Arabic phone `#laser-welding` with fonts +300 ms). Defer such scrolls
+  until `html[data-smooth-scroll]` (after load and fonts); watch the attribute with a MutationObserver, not a timer.
+- Scroll anchoring picks a node near the top of the screen; with a sub-pixel landing it can pick one inside a sideways
+  scroller (the selector's centred thumbnail) and move the page when that scroller's layout changes (−8.58 px under CPU
+  load, −24 px reproduced deterministically). `overflow-anchor: none` on the scroller's list keeps the anchor outside.
+- Class prefixes are global: `cp-*` belongs to Contact (`cp-down` is its arrow), so Capabilities uses `cm-*` (and `sk-*`
+  for its sketch). List each new prefix's rules in `system.css` and the page sheets before using it.
+- Comment words became utilities again in 1E: "table" (also inside "route table") added `.table`, "container" added
+  `.container`. Reword comments in MC TSX ("rows and columns", "size container" only in `.css` files).
+- A client component that imports `@/i18n/routes` (or a server data module that imports it) re-splits shared chunks on
+  other routes: `MachineAddressLink` importing it changed `SamePageLink`'s chunk on the service and project pages (+552
+  bytes). Derive paths from `usePathname`, and import only types from server data modules in client code.
+- In forced colours the author's `outline-color` is overridden, so a selected state drawn as a coloured outline looks
+  like focus or vanishes: draw it on `::after` with `forced-color-adjust: none` and `Highlight`, plus a text cue.
+- A CSS animation restarts only when `animation-name` changes: give the sketch's animations only to the shown panel
+  (each showing replays them). The `animation` shorthand resets `animation-play-state`, so carry the play state inside
+  the shorthand through a variable (`--cm-play`), set to `running` by `[data-live]`.
+- `:is()` cannot hold pseudo-elements (`:is(.a::before, .b)` drops the rule): write separate selectors.
+- Transitions that may run before hydration (the `:target` panel handing over to `[data-active]`) showed two panels at
+  once: key them on the hydrated state (`[data-ready]`). A later reduced-motion override can lose to a more specific
+  rule: put transitions inside `@media (prefers-reduced-motion: no-preference)` instead.
+- For contrast probes, hide the sticky header with `visibility: hidden`, not `position: absolute` (that moved the page and
+  measured the breadcrumbs under the header: false failures).
+- A cloud session stops a background command at its own time limit (30 min unless a longer `timeout` is given): a
+  `next start` launched that way died in the middle of a full e2e run (Stage 1E: 66 tests failed with
+  `ERR_CONNECTION_REFUSED`). Give the server the longest limit (2 h) or let Playwright start it, and check that every
+  failure is a real assertion before reading a run.
+- A long-running `next start` can get one image-optimizer variant stuck: in Stage 1E,
+  `/_next/image?url=/media/services/scaffolding-2.webp&w=828&q=75` never answered on a server that had served a full e2e
+  run (curl: no reply in 15 s), so the theme lab's option C sweep timed out at 834 px on every try. A fresh server on
+  the same build and cache answered in 0.16 s, and the test passed. Probably the same cause as the lab C timeout in TM-3
+  correction 2. When a photo-heavy page times out on `networkidle`, list the requests still open; if one image hangs,
+  restart the server (or let Playwright start its own) before reading the run.
+- `DOMDebugger.getEventListeners` (DevTools protocol) also reports Playwright's own window listeners (its injected
+  script has no URL; around each click it adds hit-target listeners — click, mousedown, pointerdown… — and under load
+  a set can still be there when read). Count only listeners whose script has a URL (the site's chunks).
