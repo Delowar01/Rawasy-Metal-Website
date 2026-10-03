@@ -15,7 +15,7 @@ test("internal links on the homepage, the inner pages and the planned pages reso
   test.setTimeout(180_000);
   const links = new Set<string>();
   for (const locale of ["en", "ar"]) {
-    for (const route of ["", ...INNER_PAGES.map((p) => `/${p}`), "/capabilities", "/projects/geometric-lanterns"]) {
+    for (const route of ["", ...INNER_PAGES.map((p) => `/${p}`), "/projects/geometric-lanterns"]) {
       await page.goto(`/${locale}${route}`, { waitUntil: "domcontentloaded" });
       const hrefs = await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")));
       for (const href of hrefs) {

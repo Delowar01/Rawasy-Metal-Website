@@ -4,6 +4,7 @@
  * changing any component.
  */
 import { about } from "./about";
+import { capabilitiesPage } from "./capabilities";
 import { certificates } from "./certificates";
 import { clients } from "./clients";
 import { company } from "./company";
@@ -45,6 +46,11 @@ export async function getServicePageContent(slug: string) {
 
 export async function getMachines() {
   return machines;
+}
+
+/** Capabilities & Machinery (Stage 1E): the machines and the page's own labels. */
+export async function getCapabilitiesPageContent() {
+  return { machines, page: capabilitiesPage };
 }
 
 export async function getProjects() {

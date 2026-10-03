@@ -1,0 +1,1734 @@
+/*
+ * Capabilities & Machinery (Stage 1E): the hero's six-machine plate, the rated-power chart, the machinery console (the
+ * selector, the graphite equipment stage and the machine's data), the technical register, the service lines and the
+ * source note. Imported by CapabilitiesPage.tsx only, so no other page loads it (never in system.css: see the chunk-size
+ * gotcha). The rules sit in the `components` layer after system.css's, like services.css.
+ *
+ * The graphite stage is local to this page: its grid and floor axis carry no figures or letters; its scan line passes
+ * once when a machine is shown (with script and motion allowed), moved by transform and opacity only, and is not drawn
+ * at rest, without script or with reduced motion. Machine photos are never shown above their source size: each is the
+ * smallest of its box's width, its source width and the width its box's height allows (`--w` / `--h` from
+ * MachinePhoto); the box is a size container.
+ *
+ * Without script the console is a list: every machine's panel shows, each with its own stage. With script one machine
+ * shows at a time — the address's (:target) or the first until the console hydrates, then the chosen one
+ * (`[data-ready]`, `[data-active]`).
+ */
+@layer components {
+  /* Plex Arabic stays at 400/500: the page's semibold text takes the Tajawal display face in Arabic. */
+  .mc :is(.cm-fleet-name, .cm-pick-name, .cm-pick-power, .cm-category, .cm-spec dd, .cm-bar-name, .cm-unrated a, .cm-reg-table th, .cm-reg-card-head, .cm-reg-card dt, .cm-reg-service, .cm-line-label, .cm-line-open, .cm-source-label, .cm-readout-label, .cm-chip b):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* Figures in the system monospace stack; in Arabic the unit beside them takes the display face. */
+  .mc :is(.cm-fleet-power, .cm-spec-power, .cm-bar-value, .cm-reg-power):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* ---------- The graphite stage: the same in both themes, with an edge that shows on the dark page ---------- */
+  .mc :is(.cm-fleet, .cm-console) {
+    --cm-top: #1e2935;
+    --cm-bottom: #111820;
+    --cm-spot: rgb(140 176 212 / 0.2);
+    --cm-grid: rgb(150 180 215 / 0.07);
+    --cm-grid-major: rgb(150 180 215 / 0.13);
+    --cm-rule: rgb(160 188 220 / 0.24);
+    --cm-tick: rgb(170 195 225 / 0.42);
+    --cm-ink: #f3f6f9;
+    --cm-ink-2: #b4bfcc;
+    --cm-steel: #7fb0d8;
+    --cm-edge: #0c1218;
+    --cm-hot: #f26a2e;
+    --cm-dir: 1;
+  }
+
+  html[data-theme="dark"] .mc :is(.cm-fleet, .cm-console) {
+    --cm-edge: #354353;
+  }
+
+  [dir="rtl"] .mc :is(.cm-fleet, .cm-console) {
+    --cm-dir: -1;
+  }
+
+  .mc :is(.cm-fleet, .cm-bay),
+  html:not(.js) .mc .cm-shot {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid var(--cm-edge);
+    border-radius: var(--r-panel);
+    background:
+      radial-gradient(58% 46% at 50% 74%, var(--cm-spot), transparent 72%),
+      linear-gradient(180deg, var(--cm-top), var(--cm-bottom));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      var(--sh-raised);
+    color: var(--cm-ink);
+  }
+
+  /* The local grid: fine lines every 24 px, stronger ones every 96 px, fading out before the edges. */
+  .mc :is(.cm-fleet, .cm-bay)::before,
+  html:not(.js) .mc .cm-shot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-image:
+      linear-gradient(var(--cm-grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cm-grid-major) 1px, transparent 1px),
+      linear-gradient(var(--cm-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cm-grid) 1px, transparent 1px);
+    background-position: center;
+    background-size:
+      96px 96px,
+      96px 96px,
+      24px 24px,
+      24px 24px;
+    mask-image: radial-gradient(75% 70% at 50% 50%, #000 35%, transparent 100%);
+  }
+
+  /* The floor axis: one line with unnumbered ticks, the machine standing on it. */
+  .mc .cm-axis,
+  html:not(.js) .mc .cm-shot::after {
+    content: "";
+    position: absolute;
+    inset-inline: 1rem;
+    bottom: var(--cm-floor);
+    height: 7px;
+    border-top: 1px solid var(--cm-rule);
+    background:
+      repeating-linear-gradient(90deg, var(--cm-tick) 0 1px, transparent 1px 96px) 0 0 / 100% 7px no-repeat,
+      repeating-linear-gradient(90deg, var(--cm-rule) 0 1px, transparent 1px 24px) 0 0 / 100% 4px no-repeat;
+    pointer-events: none;
+  }
+
+  /* A photo in its box: the box is a size container; the photo, the smallest of its width, its source and its height. */
+  .mc .cm-photo {
+    display: block;
+    width: min(100cqw, calc(var(--w) * 1px), calc(100cqh * var(--w) / var(--h)));
+    height: auto;
+  }
+
+  /* ---------- The scan line: one pass across the stage, clipped to it ---------- */
+  .mc .cm-scan {
+    position: absolute;
+    z-index: 2;
+    overflow: hidden;
+    container-type: inline-size;
+    pointer-events: none;
+  }
+
+  /* The line, and the light it leaves behind it while it moves */
+  .mc .cm-scan::before,
+  .mc .cm-scan::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    opacity: 0;
+  }
+
+  .mc .cm-scan::before {
+    inset-inline-start: 0;
+    width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, transparent, var(--cm-hot) 18%, var(--cm-hot) 82%, transparent);
+  }
+
+  .mc .cm-scan::after {
+    inset-inline-start: -3.5rem;
+    width: 3.5rem;
+    background: linear-gradient(90deg, transparent, rgb(242 106 46 / 0.22));
+  }
+
+  [dir="rtl"] .mc .cm-scan::after {
+    background: linear-gradient(270deg, transparent, rgb(242 106 46 / 0.22));
+  }
+
+  @keyframes cm-scan-line {
+    0% {
+      translate: 0 0;
+      opacity: 0;
+    }
+
+    8%,
+    88% {
+      opacity: 1;
+    }
+
+    100% {
+      translate: calc((100cqw - 2px) * var(--cm-dir)) 0;
+      opacity: 0;
+    }
+  }
+
+  @keyframes cm-scan-trail {
+    0% {
+      translate: 0 0;
+      opacity: 0;
+    }
+
+    12%,
+    78% {
+      opacity: 1;
+    }
+
+    100% {
+      translate: calc((100cqw - 2px) * var(--cm-dir)) 0;
+      opacity: 0;
+    }
+  }
+
+  /* ---------- Hero: the six machines on one plate ---------- */
+  .mc .cm-fleet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    padding: 0.375rem;
+    list-style: none;
+  }
+
+  .mc .cm-fleet-grid > li {
+    min-width: 0;
+    border-bottom: 1px solid var(--cm-rule);
+  }
+
+  .mc .cm-fleet-grid > li:nth-child(odd) {
+    border-inline-end: 1px solid var(--cm-rule);
+  }
+
+  .mc .cm-fleet-grid > li:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .mc .cm-fleet-bay {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "n power"
+      "photo photo"
+      "name name";
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    height: 100%;
+    padding: 0.7rem 0.8rem 0.75rem;
+    border-radius: calc(var(--r-panel) - 0.5rem);
+    color: var(--cm-ink);
+    transition: background-color var(--dur-2) ease;
+  }
+
+  .mc .cm-fleet-bay:hover {
+    background: rgb(255 255 255 / 0.04);
+  }
+
+  .mc .cm-fleet-bay:focus-visible {
+    outline: 2px solid var(--cm-ink);
+    outline-offset: -3px;
+  }
+
+  .mc .cm-fleet-n {
+    grid-area: n;
+    color: var(--cm-ink-2);
+    font-family: var(--ff-mono);
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+
+  .mc .cm-fleet-power {
+    grid-area: power;
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--cm-rule);
+    border-radius: var(--r-pill);
+    color: var(--cm-ink);
+    font-family: var(--ff-mono);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .mc .cm-fleet-photo {
+    grid-area: photo;
+    position: relative;
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: end center;
+    height: var(--cm-fleet-h, 5.25rem);
+    container-type: size;
+  }
+
+  /* Each bay's floor line, lit in orange on hover and focus */
+  .mc .cm-fleet-photo::after {
+    content: "";
+    position: absolute;
+    inset-inline: 8%;
+    bottom: -1px;
+    height: 1px;
+    background: var(--cm-rule);
+    transition: background-color var(--dur-2) ease;
+  }
+
+  .mc .cm-fleet-photo .cm-photo {
+    position: relative;
+    z-index: 1;
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .cm-fleet-bay:is(:hover, :focus-visible) .cm-fleet-photo::after {
+    background: var(--cm-hot);
+  }
+
+  .mc .cm-fleet-bay:is(:hover, :focus-visible) .cm-photo {
+    translate: 0 -3px;
+  }
+
+  .mc .cm-fleet-name {
+    grid-area: name;
+    min-width: 0;
+    color: var(--cm-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mc .cm-fleet > .cm-scan {
+    inset: 0.75rem 1rem;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .cm-fleet {
+      --cm-fleet-h: 7rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .cm-fleet {
+      --cm-fleet-h: 6rem;
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .mc .cm-fleet {
+      --cm-fleet-h: 6.75rem;
+    }
+
+    .mc .cm-fleet-bay {
+      padding: 0.85rem 1rem 0.9rem;
+    }
+
+    .mc .cm-fleet-name {
+      font-size: 0.875rem;
+    }
+  }
+
+  /* ---------- The console ---------- */
+  .mc .cm-console {
+    --cm-gap: 1rem;
+    --cm-floor: 3.75rem;
+    --cm-stage-h: clamp(20rem, 15rem + 20vw, 26rem);
+    --cm-play: paused;
+    position: relative;
+  }
+
+  .mc .cm-console[data-live] {
+    --cm-play: running;
+  }
+
+  /* The selector: a row of cards that scrolls sideways on phones, a grid on tablets, a list beside the stage on wide
+     screens. The machine shown is marked (aria-current) by an orange edge and index, and in words for assistive
+     technology. */
+  .mc .cm-rail ol {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.125rem 0.125rem 0.5rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    list-style: none;
+  }
+
+  .mc .cm-rail li {
+    flex: none;
+    width: min(15rem, 76vw);
+    scroll-snap-align: start;
+  }
+
+  .mc .cm-pick {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    height: 100%;
+    min-height: 4.5rem;
+    padding: 0.45rem;
+    padding-inline-end: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+    color: var(--ink);
+    transition:
+      border-color var(--dur-2) ease,
+      box-shadow var(--dur-2) ease,
+      background-color var(--dur-2) ease;
+  }
+
+  .mc .cm-pick:hover {
+    border-color: var(--line-strong);
+    box-shadow: var(--sh-card);
+  }
+
+  .mc .cm-pick[aria-current="true"] {
+    border-color: var(--brand);
+    background: linear-gradient(90deg, var(--brand-soft), var(--surface) 72%);
+    box-shadow:
+      0 0 0 1px var(--brand),
+      var(--sh-card);
+  }
+
+  [dir="rtl"] .mc .cm-pick[aria-current="true"] {
+    background: linear-gradient(270deg, var(--brand-soft), var(--surface) 72%);
+  }
+
+  .mc .cm-pick-thumb {
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center;
+    width: 4.5rem;
+    height: 3.25rem;
+    padding: 0.35rem 0.3rem 0.25rem;
+    border-radius: 10px;
+    background:
+      radial-gradient(70% 60% at 50% 75%, var(--cm-spot), transparent 75%),
+      linear-gradient(180deg, var(--cm-top), var(--cm-bottom));
+    container-type: size;
+  }
+
+  .mc .cm-pick-text {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  .mc .cm-pick-name {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .mc .cm-pick-n {
+    flex: none;
+    color: var(--ink-3);
+    font-family: var(--ff-mono);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    transition: color var(--dur-2) ease;
+  }
+
+  .mc .cm-pick[aria-current="true"] .cm-pick-n {
+    color: var(--brand-ink);
+    font-weight: 600;
+  }
+
+  .mc .cm-pick-power {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .mc .cm-pick-service {
+    color: var(--ink-2);
+  }
+
+  /* Scroll anchoring: an address naming a machine lands with the selector's top on the scroll padding's edge, often a
+     fraction of a pixel above it, and Chromium then anchors on the first card's contents (its thumbnail, centred in the
+     card). A font arriving after the page has loaded re-wraps that card's name, the thumbnail moves and the page follows
+     it (up to 9 px measured). With the list out of anchor selection the selector itself is the anchor: its top is the
+     machine panel's top. */
+  .mc .cm-rail ol {
+    overflow-anchor: none;
+  }
+
+  @media (min-width: 48rem) {
+    .mc .cm-rail ol {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 0;
+      overflow: visible;
+    }
+
+    .mc .cm-rail li {
+      width: auto;
+    }
+  }
+
+  /* The shared stage and sheet only exist with script (one machine at a time). */
+  .mc :is(.cm-bay, .cm-sheet) {
+    display: none;
+  }
+
+  .mc .cm-sheet {
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    box-shadow: var(--sh-raised);
+  }
+
+  /* A machine: its stage (the shot) and its data. Without script each panel is a card in a list. */
+  .mc .cm-panels {
+    display: grid;
+    gap: var(--cm-gap);
+    margin-top: var(--cm-gap);
+  }
+
+  .mc .cm-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    box-shadow: var(--sh-raised);
+  }
+
+  /* The stage: the place in the order and the process sketch on top, the machine on its floor, the readout under it. */
+  .mc .cm-shot {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) var(--cm-floor);
+    grid-template-areas:
+      "index schem"
+      "figure figure"
+      "readout source";
+    column-gap: 0.75rem;
+    min-height: var(--cm-stage-h);
+    padding: 0.875rem 1rem 0;
+    container-type: inline-size;
+  }
+
+  html:not(.js) .mc .cm-shot {
+    margin: -1px -1px 0;
+  }
+
+  .mc .cm-chip {
+    padding: 0.15rem 0.55rem;
+    border: 1px solid var(--cm-rule);
+    border-radius: var(--r-pill);
+    background: rgb(255 255 255 / 0.04);
+    color: var(--cm-ink-2);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .mc .cm-chip b {
+    color: var(--cm-ink);
+    font-weight: 600;
+  }
+
+  .mc .cm-chip-index {
+    grid-area: index;
+    align-self: start;
+    justify-self: start;
+    font-family: var(--ff-mono);
+  }
+
+  .mc .cm-chip-source {
+    grid-area: source;
+    align-self: center;
+    justify-self: end;
+  }
+
+  .mc .cm-schem {
+    grid-area: schem;
+    align-self: start;
+    width: clamp(8.5rem, 30cqw, 14.5rem);
+    margin: 0;
+    padding: 0.5rem 0.55rem 0.45rem;
+    border: 1px solid var(--cm-rule);
+    border-radius: 12px;
+    background: rgb(8 12 17 / 0.35);
+  }
+
+  .mc .cm-schem figcaption {
+    margin-top: 0.3rem;
+    color: var(--cm-ink-2);
+    font-size: 0.6875rem;
+    line-height: 1.35;
+  }
+
+  .mc .cm-figure {
+    grid-area: figure;
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: end center;
+    min-height: 0;
+    margin-top: 0.5rem;
+    padding-inline: 0.75rem;
+    container-type: size;
+  }
+
+  /* The machine's place on the floor: a short orange line under it while it is shown */
+  .mc .cm-floor-active {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    align-self: start;
+    justify-self: center;
+    width: min(64%, 20rem);
+    height: 2px;
+    margin-top: -1px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--cm-hot) 30%, var(--cm-hot) 70%, transparent);
+    box-shadow: 0 0 14px rgb(242 106 46 / 0.45);
+  }
+
+  /* The readout under the floor: the rated power, or that the profile states none */
+  .mc .cm-readout {
+    grid-area: readout;
+    align-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem 0.6rem;
+    min-width: 0;
+  }
+
+  .mc .cm-readout-label {
+    color: var(--cm-ink-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .mc .cm-readout-value {
+    color: var(--cm-ink);
+    font-family: var(--ff-mono);
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  .mc .cm-readout-value small {
+    color: var(--cm-ink-2);
+    font-family: var(--ff-body);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .mc .cm-readout-none {
+    color: var(--cm-ink-2);
+    font-size: 0.8125rem;
+  }
+
+  .mc .cm-shot > .cm-scan {
+    top: 2.75rem;
+    bottom: var(--cm-floor);
+    inset-inline: 1rem;
+  }
+
+  /* A narrow stage leaves the source to the data below it, and the readout takes the whole floor. */
+  @container (max-width: 30rem) {
+    .mc .cm-chip-source {
+      display: none;
+    }
+
+    .mc .cm-readout {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* The machine's data */
+  .mc .cm-data {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
+  }
+
+  .mc .cm-category {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+    color: var(--steel);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .mc .cm-capability {
+    margin-top: 0.85rem;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+
+  .mc .cm-capability:lang(ar) {
+    line-height: 1.85;
+  }
+
+  /* Labels in one column as wide as the longest, values beside them (each row a subgrid, so the rules run across). */
+  .mc .cm-spec {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 1rem;
+    margin: 1.1rem 0 0;
+    border-top: 1px solid var(--line-subtle);
+  }
+
+  .mc .cm-spec > div {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: baseline;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+
+  .mc .cm-spec dt {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  .mc .cm-spec dt .mc-icon {
+    flex: none;
+    color: var(--steel);
+  }
+
+  .mc .cm-spec dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mc .cm-spec-power {
+    font-family: var(--ff-mono);
+    font-size: 0.9375rem;
+  }
+
+  .mc .cm-spec-none {
+    color: var(--ink-2);
+    font-weight: 400;
+  }
+
+  .mc .cm-spec dd .cm-spec-none:lang(ar) {
+    font-family: var(--ff-body);
+  }
+
+  .mc .cm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.25rem;
+    padding-top: 0.25rem;
+  }
+
+  @media (min-width: 64rem) {
+    .mc .cm-console {
+      --cm-gap: 1.25rem;
+    }
+
+    .mc .cm-actions {
+      margin-top: auto;
+      padding-top: 1.5rem;
+    }
+
+    html:not(.js) .mc .cm-panel {
+      grid-template-columns: minmax(0, 1fr) 22rem;
+    }
+
+    html:not(.js) .mc .cm-shot {
+      min-height: 30rem;
+      margin-block: -1px;
+      margin-inline: -1px 0;
+    }
+  }
+
+  /* ---------- With script: one machine at a time ----------
+     Below 64 rem: the selector, the stage, the data (one column). 64–80 rem: the selector across, then the stage and the
+     data side by side. From 80 rem: the selector, the stage and the data side by side. The panels share the console's
+     tracks (subgrid), so each panel's box starts at the selector's row: an address's #<slug> lands with the selector in
+     view above the stage. The shared stage and sheet stay still while the machines change in front of them. */
+  .js .mc .cm-console {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto var(--cm-stage-h) auto;
+    gap: var(--cm-gap);
+  }
+
+  .js .mc .cm-rail {
+    position: relative;
+    z-index: 3;
+    grid-area: 1 / 1;
+  }
+
+  .js .mc :is(.cm-bay, .cm-sheet) {
+    display: block;
+  }
+
+  .js .mc .cm-bay {
+    grid-area: 2 / 1;
+  }
+
+  .js .mc .cm-sheet {
+    grid-area: 3 / 1;
+  }
+
+  .js .mc .cm-panels {
+    grid-area: 1 / 1 / 4 / 2;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    margin: 0;
+  }
+
+  .js .mc .cm-panel {
+    grid-area: 1 / 1 / 4 / 2;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  .js .mc .cm-shot {
+    grid-area: 2 / 1;
+    min-height: 0;
+  }
+
+  .js .mc .cm-data {
+    grid-area: 3 / 1;
+  }
+
+  /* The machine shown: the address's or the first until the console hydrates, then the chosen one. */
+  .js .mc .cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child,
+  .js .mc .cm-console:not([data-ready]) .cm-panel:target,
+  .js .mc .cm-console[data-ready] .cm-panel[data-active] {
+    z-index: 1;
+    visibility: visible;
+    opacity: 1;
+  }
+
+  /* The change of machine, once the console runs: the one leaving fades out quickly, the one coming in fades in, rises
+     onto its floor and its floor line draws out from the centre (motion allowed only; otherwise, and before the console
+     runs — the address's machine replacing the first as the page loads — the change is immediate). */
+  @media (prefers-reduced-motion: no-preference) {
+    .js .mc .cm-console[data-ready] .cm-panel {
+      transition:
+        opacity var(--dur-1) ease,
+        visibility 0s linear var(--dur-1);
+    }
+
+    .js .mc .cm-console[data-ready] .cm-panel[data-active] {
+      transition:
+        opacity var(--dur-3) var(--ease) 0.08s,
+        visibility 0s;
+    }
+
+    .js .mc .cm-data {
+      transition: translate var(--dur-3) var(--ease);
+    }
+
+    .mc .cm-figure .cm-photo {
+      transition:
+        translate var(--dur-4) var(--ease),
+        opacity var(--dur-3) var(--ease);
+    }
+
+    .mc .cm-floor-active {
+      transition:
+        scale var(--dur-4) var(--ease),
+        opacity var(--dur-3) ease;
+    }
+  }
+
+  /* A machine coming in rises onto its floor; its line on the floor draws out from the centre. Only once the console
+     runs: before that the shown machine is already in place. */
+  .js .mc .cm-console[data-ready] .cm-panel:not([data-active]) .cm-figure .cm-photo {
+    opacity: 0;
+    translate: 0 14px;
+  }
+
+  .js .mc .cm-console[data-ready] .cm-panel:not([data-active]) .cm-floor-active {
+    opacity: 0;
+    scale: 0 1;
+  }
+
+  .js .mc .cm-console[data-ready] .cm-panel:not([data-active]) .cm-data {
+    translate: 0 8px;
+  }
+
+  @media (min-width: 64rem) {
+    .js .mc .cm-console {
+      grid-template-columns: minmax(0, 1fr) 22rem;
+      grid-template-rows: auto minmax(27rem, auto);
+    }
+
+    .js .mc .cm-rail {
+      grid-area: 1 / 1 / 2 / 3;
+    }
+
+    .js .mc .cm-bay {
+      grid-area: 2 / 1;
+    }
+
+    .js .mc .cm-sheet {
+      grid-area: 2 / 2;
+    }
+
+    .js .mc .cm-panels,
+    .js .mc .cm-panel {
+      grid-area: 1 / 1 / 3 / 3;
+    }
+
+    .js .mc .cm-shot {
+      grid-area: 2 / 1;
+    }
+
+    .js .mc .cm-data {
+      grid-area: 2 / 2;
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .js .mc .cm-console {
+      grid-template-columns: 17.5rem minmax(0, 1fr) 22rem;
+      grid-template-rows: minmax(32rem, auto);
+    }
+
+    .js .mc .cm-rail {
+      grid-area: 1 / 1;
+    }
+
+    .js .mc .cm-rail ol {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.5rem;
+    }
+
+    .js .mc .cm-bay {
+      grid-area: 1 / 2;
+    }
+
+    .js .mc .cm-sheet {
+      grid-area: 1 / 3;
+    }
+
+    .js .mc .cm-panels {
+      grid-area: 1 / 2 / 2 / 4;
+    }
+
+    .js .mc .cm-panel {
+      grid-area: 1 / 1 / 2 / 3;
+    }
+
+    .js .mc .cm-shot {
+      grid-area: 1 / 1;
+    }
+
+    .js .mc .cm-data {
+      grid-area: 1 / 2;
+    }
+  }
+
+  /* The scan line passes once over the hero plate as the page opens and over each machine as it is shown (the console's
+     waits, at its first frame, until the console is on screen). */
+  @media (prefers-reduced-motion: no-preference) {
+    .js .mc .cm-fleet > .cm-scan::before {
+      animation: cm-scan-line 2.2s var(--ease-io) 0.5s both;
+    }
+
+    .js .mc .cm-fleet > .cm-scan::after {
+      animation: cm-scan-trail 2.2s var(--ease-io) 0.5s both;
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .cm-scan::before {
+      animation: cm-scan-line 1.5s var(--ease-io) 0.25s both var(--cm-play);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .cm-scan::after {
+      animation: cm-scan-trail 1.5s var(--ease-io) 0.25s both var(--cm-play);
+    }
+  }
+
+  /* ---------- The process sketch: light lines on the graphite stage ---------- */
+  .mc .sk {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .mc .sk :is(.sk-plate, .sk-cabin) {
+    fill: rgb(255 255 255 / 0.035);
+    stroke: var(--cm-tick);
+    stroke-width: 1.25;
+  }
+
+  .mc .sk .sk-window {
+    fill: rgb(255 255 255 / 0.03);
+    stroke: var(--cm-rule);
+  }
+
+  .mc .sk :is(.sk-seam, .sk-nested) {
+    stroke: var(--cm-steel);
+    stroke-opacity: 0.6;
+    stroke-width: 1.25;
+  }
+
+  .mc .sk .sk-guide {
+    stroke: var(--cm-tick);
+    stroke-dasharray: 3 4;
+  }
+
+  .mc .sk .sk-cut {
+    stroke: var(--cm-hot);
+    stroke-width: 2.25;
+    stroke-dasharray: 1 1.1;
+    stroke-dashoffset: 0;
+  }
+
+  .mc .sk .sk-bead {
+    stroke-width: 2;
+  }
+
+  .mc .sk .sk-tube {
+    fill: rgb(255 255 255 / 0.04);
+    stroke: var(--cm-steel);
+    stroke-width: 1.5;
+  }
+
+  .mc .sk :is(.sk-turn, .sk-turn-tip) {
+    stroke: var(--cm-steel);
+    stroke-width: 1.25;
+  }
+
+  .mc .sk .sk-tool {
+    fill: rgb(127 176 216 / 0.14);
+    stroke: var(--cm-steel);
+    stroke-width: 1.25;
+  }
+
+  .mc .sk .sk-blank {
+    stroke: var(--cm-ink-2);
+    stroke-width: 3;
+    transform-box: view-box;
+    transform-origin: 120px 80px;
+  }
+
+  .mc .sk .sk-blank-a {
+    rotate: 20deg;
+  }
+
+  .mc .sk .sk-blank-b {
+    rotate: -20deg;
+  }
+
+  .mc .sk .sk-bend-point {
+    fill: var(--cm-hot);
+    stroke: none;
+  }
+
+  .mc .sk .sk-head-glow {
+    fill: var(--cm-hot);
+    opacity: 0;
+  }
+
+  .mc .sk .sk-head-ring {
+    fill: var(--cm-bottom);
+    stroke: var(--cm-ink);
+    stroke-width: 1.25;
+  }
+
+  .mc .sk .sk-head-dot {
+    fill: var(--cm-hot);
+  }
+
+  /* Welding ends at the foot of the seam. */
+  .mc .sk[data-kind="weld"] .sk-head {
+    translate: 0 76px;
+  }
+
+  /* The sketch plays once each time its machine is shown (a new animation each time: the name changes from none), while
+     the console is on screen — it waits, paused at its first frame, until then. Without script or with reduced motion
+     it shows the finished work. */
+  .mc .cm-console {
+    --sk-run: 3.2s linear 0.35s both var(--cm-play);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk .sk-cut {
+      animation: sk-cut var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk .sk-head-glow {
+      animation: sk-glow var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk[data-kind="sheet"] .sk-head {
+      animation: sk-head-sheet var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk[data-kind="enclosed"] .sk-head {
+      animation: sk-head-enclosed var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk[data-kind="weld"] .sk-head {
+      animation: sk-head-weld var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk .sk-punch {
+      animation: sk-punch var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk .sk-blank-a {
+      animation: sk-bend-a var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk .sk-blank-b {
+      animation: sk-bend-b var(--sk-run);
+    }
+
+    .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .sk .sk-bend-point {
+      animation: sk-press var(--sk-run);
+    }
+  }
+
+  @keyframes sk-cut {
+    0%,
+    8% {
+      stroke-dashoffset: 1.05;
+    }
+
+    86%,
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes sk-glow {
+    0%,
+    6%,
+    92%,
+    100% {
+      opacity: 0;
+    }
+
+    10%,
+    86% {
+      opacity: 0.3;
+    }
+  }
+
+  /* The head follows the contour at a steady feed: each corner at its share of the path's length. */
+  @keyframes sk-head-sheet {
+    0%,
+    8% {
+      translate: 0 0;
+    }
+
+    30.53% {
+      translate: 88px 0;
+    }
+
+    36.33% {
+      translate: 104px 16px;
+    }
+
+    44.53% {
+      translate: 104px 48px;
+    }
+
+    48.87% {
+      translate: 92px 60px;
+    }
+
+    69.36% {
+      translate: 12px 60px;
+    }
+
+    73.71% {
+      translate: 0 48px;
+    }
+
+    86%,
+    100% {
+      translate: 0 0;
+    }
+  }
+
+  @keyframes sk-head-enclosed {
+    0%,
+    8% {
+      translate: 0 0;
+    }
+
+    30.85% {
+      translate: 66px 0;
+    }
+
+    36.73% {
+      translate: 78px 12px;
+    }
+
+    45.04% {
+      translate: 78px 36px;
+    }
+
+    48.96% {
+      translate: 70px 44px;
+    }
+
+    69.04% {
+      translate: 12px 44px;
+    }
+
+    74.92% {
+      translate: 0 32px;
+    }
+
+    86%,
+    100% {
+      translate: 0 0;
+    }
+  }
+
+  @keyframes sk-head-weld {
+    0%,
+    8% {
+      translate: 0 0;
+    }
+
+    86%,
+    100% {
+      translate: 0 76px;
+    }
+  }
+
+  @keyframes sk-punch {
+    0%,
+    10% {
+      translate: 0 0;
+    }
+
+    40%,
+    66% {
+      translate: 0 36px;
+    }
+
+    92%,
+    100% {
+      translate: 0 0;
+    }
+  }
+
+  @keyframes sk-bend-a {
+    0%,
+    40% {
+      rotate: 0deg;
+    }
+
+    66%,
+    100% {
+      rotate: 20deg;
+    }
+  }
+
+  @keyframes sk-bend-b {
+    0%,
+    40% {
+      rotate: 0deg;
+    }
+
+    66%,
+    100% {
+      rotate: -20deg;
+    }
+  }
+
+  @keyframes sk-press {
+    0%,
+    36%,
+    72%,
+    100% {
+      opacity: 0.35;
+    }
+
+    44%,
+    62% {
+      opacity: 1;
+    }
+  }
+
+  /* ---------- Rated power: one series, one baseline, the value at each bar's tip ---------- */
+  .mc .cm-power {
+    margin: 0;
+    padding: clamp(1.25rem, 0.9rem + 1.2vw, 2rem);
+  }
+
+  .mc .cm-power-caption {
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .mc .cm-bars {
+    display: grid;
+    gap: 0.35rem;
+    margin: 1.1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .cm-bar-row {
+    display: grid;
+    gap: 0.4rem;
+    margin-inline: -0.6rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    transition: background-color var(--dur-1) ease;
+  }
+
+  .mc .cm-bar-row:hover {
+    background: var(--surface-2);
+  }
+
+  .mc .cm-bar-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .mc .cm-bar-track {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 1.5rem;
+    border-inline-start: 2px solid var(--ink-3);
+  }
+
+  .mc .cm-bar {
+    flex: none;
+    width: calc(var(--v) * (100% - 6.5rem));
+    height: 14px;
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
+    background: var(--steel);
+    transform-origin: left center;
+    transition: background-color var(--dur-1) ease;
+  }
+
+  [dir="rtl"] .mc .cm-bar {
+    transform-origin: right center;
+  }
+
+  .mc .cm-bar-row:is(:hover, :focus-visible) .cm-bar {
+    background: var(--brand);
+  }
+
+  .mc .cm-bar-value {
+    color: var(--ink);
+    font-family: var(--ff-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .mc .cm-unrated {
+    display: grid;
+    gap: 0.5rem;
+    margin: 1rem 0 0;
+    padding: 1rem 0 0;
+    border-top: 1px dashed var(--line-strong);
+    list-style: none;
+  }
+
+  .mc .cm-unrated li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.15rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .mc .cm-unrated a {
+    color: var(--ink);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 0.25em;
+  }
+
+  .mc .cm-unrated a:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .mc .cm-unrated span {
+    color: var(--ink-2);
+  }
+
+  /* ---------- The technical register: a table from 64 rem, one card per machine below ---------- */
+  .mc .cm-reg-wide {
+    display: none;
+    overflow: hidden;
+  }
+
+  .mc .cm-reg-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+
+  .mc .cm-reg-table :is(th, td) {
+    padding: 0.95rem 1.1rem;
+    border-bottom: 1px solid var(--line-subtle);
+    text-align: start;
+    vertical-align: middle;
+  }
+
+  .mc .cm-reg-table tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .mc .cm-reg-table thead th {
+    border-bottom-color: var(--line);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .mc .cm-reg-table tbody tr {
+    transition: background-color var(--dur-1) ease;
+  }
+
+  .mc .cm-reg-table tbody tr:hover {
+    background: var(--surface-2);
+  }
+
+  .mc .cm-reg-table tbody th {
+    font-weight: 600;
+  }
+
+  .mc .cm-reg-n {
+    width: 3.5rem;
+    color: var(--ink-3);
+    font-family: var(--ff-mono);
+    font-size: 0.8125rem;
+  }
+
+  .mc .cm-reg-machine {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.3em;
+    transition: text-decoration-color var(--dur-1) ease;
+  }
+
+  .mc .cm-reg-machine:hover {
+    text-decoration-color: var(--brand);
+  }
+
+  .mc .cm-reg-power {
+    font-family: var(--ff-mono);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .mc .cm-reg-none {
+    color: var(--ink-2);
+    font-size: 0.875rem;
+  }
+
+  .mc .cm-reg-service {
+    color: var(--steel);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--steel-line);
+    text-underline-offset: 0.3em;
+  }
+
+  .mc .cm-reg-service:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .mc .cm-reg-source {
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+
+  .mc .cm-reg-cards {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .cm-reg-card {
+    padding: 1.1rem 1.25rem;
+  }
+
+  .mc .cm-reg-card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .mc .cm-reg-card dl {
+    margin: 0.75rem 0 0;
+  }
+
+  .mc .cm-reg-card dl > div {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--line-subtle);
+    font-size: 0.875rem;
+  }
+
+  .mc .cm-reg-card dt {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  .mc .cm-reg-card dd {
+    margin: 0;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .cm-reg-cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .cm-reg-wide {
+      display: block;
+    }
+
+    .mc .cm-reg-cards {
+      display: none;
+    }
+  }
+
+  /* ---------- From machine to service ---------- */
+  .mc .cm-lines {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mc .cm-lines > li {
+    display: flex;
+  }
+
+  .mc .cm-line {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
+  }
+
+  .mc .cm-line-label {
+    margin-top: 1.25rem;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .cm-line-machines {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    border-top: 1px solid var(--line-subtle);
+    list-style: none;
+  }
+
+  .mc .cm-line-machines a {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--line-subtle);
+    color: var(--ink);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    transition: color var(--dur-1) ease;
+  }
+
+  .mc .cm-line-machines a:hover {
+    color: var(--tone-ink);
+  }
+
+  .mc .cm-line-n {
+    flex: none;
+    color: var(--ink-3);
+    font-family: var(--ff-mono);
+    font-size: 0.75rem;
+  }
+
+  .mc .cm-line-open {
+    align-self: flex-start;
+    margin-top: auto;
+    padding-top: 1.25rem;
+  }
+
+  @media (min-width: 48rem) {
+    .mc .cm-lines {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .cm-lines {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  /* ---------- The source note ---------- */
+  .mc .cm-source {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 1rem 1.25rem;
+    padding: clamp(1.25rem, 0.9rem + 1.2vw, 2rem);
+    border-inline-start: 4px solid var(--steel);
+  }
+
+  .mc .cm-source-label {
+    color: var(--steel);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .mc .cm-source-body {
+    max-width: 48rem;
+    margin-top: 0.6rem;
+    color: var(--ink-2);
+    line-height: 1.65;
+  }
+
+  .mc .cm-source-body:lang(ar) {
+    line-height: 1.85;
+  }
+
+  @media (max-width: 30rem) {
+    .mc .cm-source {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* ---------- Reduced motion: nothing moves ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .mc :is(.cm-fleet-bay, .cm-fleet-photo .cm-photo, .cm-pick, .cm-pick-n, .cm-bar, .cm-bar-row, .cm-reg-machine, .cm-line-machines a),
+    .mc .cm-fleet-photo::after {
+      transition: none;
+    }
+
+    .mc .cm-fleet-bay:is(:hover, :focus-visible) .cm-photo {
+      translate: none;
+    }
+  }
+}
+
+/* ---------- Forced colours: states drawn in system colours, never by orange, fills or shadows alone ---------- */
+@media (forced-colors: active) {
+  /* The chosen machine's card: a ring in the selection colour (drawn by a pseudo-element, whose colours are kept), and
+     its name underlined. */
+  .mc .cm-pick[aria-current="true"]::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border: 3px solid Highlight;
+    border-radius: 17px;
+    forced-color-adjust: none;
+    pointer-events: none;
+  }
+
+  .mc .cm-pick[aria-current="true"] .cm-pick-name {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.25em;
+  }
+
+  .mc .cm-bar,
+  .mc .cm-bar-row:is(:hover, :focus-visible) .cm-bar {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  .mc :is(.cm-scan, .cm-floor-active) {
+    display: none;
+  }
+
+  .mc .cm-fleet-photo::after,
+  .mc .cm-axis,
+  html:not(.js) .mc .cm-shot::after {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  .mc .cm-axis,
+  html:not(.js) .mc .cm-shot::after {
+    height: 1px;
+    border: 0;
+  }
+
+  .mc .cm-fleet-bay:is(:hover, :focus-visible) .cm-fleet-photo::after {
+    background: Highlight;
+  }
+
+  .mc .sk :is(.sk-plate, .sk-cabin, .sk-window, .sk-tube, .sk-tool) {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .mc .sk :is(.sk-guide, .sk-nested, .sk-seam, .sk-turn, .sk-turn-tip, .sk-blank, .sk-head-ring) {
+    stroke: CanvasText;
+  }
+
+  .mc .sk :is(.sk-cut, .sk-bead) {
+    stroke: Highlight;
+  }
+
+  .mc .sk :is(.sk-head-dot, .sk-bend-point) {
+    fill: Highlight;
+  }
+}
+
+/* The bars grow from the baseline once their chart is revealed (script and motion allowed). Unlayered, like the reveal
+   rules they follow. */
+@media (prefers-reduced-motion: no-preference) {
+  .js .mc .cm-power .cm-bar {
+    transition:
+      scale var(--dur-4) var(--ease) 0.2s,
+      background-color var(--dur-1) ease;
+  }
+
+  .js .mc [data-reveal]:not([data-shown]) .cm-power .cm-bar {
+    scale: 0 1;
+  }
+}

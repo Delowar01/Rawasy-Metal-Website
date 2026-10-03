@@ -172,7 +172,7 @@ test.describe("navigation", () => {
   test("Capabilities opens from the header in this design, marked as the page, and leads back", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto("/en", { waitUntil: "networkidle" });
-    // Capabilities is planned (Stage 1E); its in-development page is in this design since Stage TM-2.6.
+    // Capabilities (Stage 1E) is in this design.
     await page.locator('.a2-nav a[href="/en/capabilities"]').click();
     await page.waitForURL("**/en/capabilities");
     await expect(page.locator("main h1")).toContainText("Capabilities");

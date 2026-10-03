@@ -6,10 +6,11 @@ import { href, path } from "@/i18n/routes";
 import { isPublished } from "./page-meta";
 import { breadcrumbJsonLd, buildMetadata, SITE_URL, webPageJsonLd } from "./seo";
 
-/** Built inner pages (Stage 1C, plus the projects overview brought forward in V2). */
+/** Built inner pages (Stage 1C, the projects overview brought forward in V2, Capabilities since Stage 1E). */
 export type InnerRoute =
   | "about"
   | "services"
+  | "capabilities"
   | "projects"
   | "industries"
   | "clients"

@@ -386,7 +386,7 @@ test.describe("sourced relations", () => {
     });
   }
 
-  test("no link to an unfinished project page on any of the fourteen pages; Capabilities keeps its placeholder (D4, D5)", async ({ page, request }) => {
+  test("no link to an unfinished project page on any of the fourteen pages; every machine link names a machine on Capabilities (D4, D5)", async ({ page, request }) => {
     for (const locale of LOCALES) {
       for (const path of PAGES) {
         await page.goto(`/${locale}/${path}`, { waitUntil: "domcontentloaded" });
@@ -395,10 +395,11 @@ test.describe("sourced relations", () => {
         for (const href of hrefs.filter((h) => h.includes("/capabilities"))) expect(href, path).toMatch(new RegExp(`^/${locale}/capabilities(#[a-z0-9-]+)?$`));
       }
     }
-    // The destination is still the planned placeholder (Stage 1E builds it).
+    // Since Stage 1E the destination is the Capabilities page itself: every machine a service page names is a panel there,
+    // under its slug (commerce-capabilities.spec.ts follows the links and checks the landing).
     const capabilities = await (await request.get("/en/capabilities")).text();
-    expect(capabilities).toContain("In development");
-    expect(capabilities).toContain("1E");
+    expect(capabilities).not.toContain("In development");
+    for (const machine of new Set(Object.values(MACHINES).flat())) expect(capabilities).toMatch(new RegExp(`<article[^>]*\\bid="${machine}"[^>]*data-machine`));
   });
 
   test("rated power appears only where the profile states it; nothing else is stated about the machines", async ({ page }) => {

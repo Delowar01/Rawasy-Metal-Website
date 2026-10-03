@@ -282,7 +282,7 @@ test.describe("localized 404", () => {
     expect(await status(request, "/no-such-page")).toMatchObject({ status: 307, location: expect.stringMatching(/\/en\/no-such-page$/) });
     expect(await status(request, "/foo/bar", { "accept-language": "ar" })).toMatchObject({ status: 307, location: expect.stringMatching(/\/ar\/foo\/bar$/) });
     expect((await request.get("/no-such-page")).status()).toBe(404);
-    // Known pages still answer 200 (Capabilities and the project pages in this design since TM-2.6, planned).
+    // Known pages still answer 200 (Capabilities since Stage 1E; the project pages planned, in this design since TM-2.6).
     for (const path of ["/en", "/ar", "/en/privacy", "/ar/privacy", "/en/terms", "/ar/terms", "/en/about", "/ar/contact", "/en/services/laser-cutting", "/en/projects", "/ar/projects", "/en/capabilities", "/en/projects/geometric-lanterns"]) {
       expect((await status(request, path)).status, path).toBe(200);
     }

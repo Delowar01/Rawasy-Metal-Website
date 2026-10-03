@@ -9,8 +9,9 @@ import { serviceIcon } from "../ui";
 import { LocaleLink } from "./LocaleLink";
 
 /**
- * A link to the address being viewed, in another language. A page without an address of its own (the 404) passes
- * SamePageLink here, so the pages that never need it do not load its code.
+ * A link to the address being viewed, in another language, for a page whose address the server cannot fully know: the
+ * 404 (any unknown path) passes SamePageLink, Capabilities (the machine named in the address's fragment) passes
+ * MachineAddressLink. Pages that never need one do not load its code.
  */
 export type SameAddressLink = ComponentType<{ locale: Locale; remember?: boolean; children: ReactNode } & Omit<ComponentProps<"a">, "href">>;
 
@@ -25,8 +26,9 @@ function LanguageSwitch({ shell, sameAddressLink: SameAddress, className = "" }:
         const { htmlLang } = localeConfig[code];
         const label = code === "en" ? "EN" : "عربي";
         const name = code === "en" ? "English" : "العربية";
-        // The 404 does not know its address on the server: both links follow the address being viewed.
-        if (self === null || alternate.href === null)
+        // The 404 does not know its address on the server, and Capabilities keeps a machine in its fragment: given a
+        // `sameAddressLink`, or without an address of its own, both links follow the address being viewed.
+        if (SameAddress || self === null || alternate.href === null)
           return (
             SameAddress && (
               <SameAddress
@@ -137,7 +139,7 @@ export function Header({ shell, sameAddressLink: SameAddress }: Props) {
 
         <div className="ms-auto flex items-center gap-2">
           <LanguageSwitch shell={shell} sameAddressLink={SameAddress} className="max-md:hidden" />
-          {alternate.href === null ? (
+          {SameAddress || alternate.href === null ? (
             SameAddress && (
               <SameAddress
                 locale={alternate.locale}

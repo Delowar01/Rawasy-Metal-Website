@@ -232,6 +232,8 @@ export interface MetaItem {
 
 export interface PageLink {
   route: RouteKey;
+  /** A place on the page, e.g. "quote" for the quotation form on Contact. */
+  hash?: string;
   label: Localized;
   description?: Localized;
 }
@@ -544,4 +546,45 @@ export interface ServicePageContent {
   allServices: Localized;
   allProjects: Localized;
   cta: { call: Localized; or: Localized; services: Localized; projects: Localized };
+}
+
+/**
+ * Capabilities & Machinery (Stage 1E): the page's own labels and notes only. Every fact about a machine — its name,
+ * type, capability, rated power, service, photo and source — stays in machines.ts.
+ */
+export interface CapabilitiesPageContent {
+  hero: {
+    eyebrow: Localized;
+    explore: Localized;
+    /** Name of the hero's six-machine plate (a list of links into the console). */
+    fleet: Localized;
+    facts: { machines: Localized; laser: Localized; peak: Localized };
+  };
+  power: {
+    label: Localized;
+    title: Localized;
+    intro: Localized;
+    /** The chart's caption: what the bars show. */
+    chart: Localized;
+    unit: Localized;
+  };
+  console: {
+    label: Localized;
+    title: Localized;
+    intro: Localized;
+    /** Name of the machine selector (a navigation landmark). */
+    list: Localized;
+    /** Announced to screen readers when the machine changes, e.g. "Showing: CNC Press Brake Machine". */
+    showing: Localized;
+    schematic: Localized;
+  };
+  register: { label: Localized; title: Localized; intro: Localized; caption: Localized; number: Localized; machine: Localized; type: Localized };
+  services: { label: Localized; title: Localized; intro: Localized; machines: Localized; open: Localized };
+  source: { label: Localized; title: Localized; body: Localized };
+  /** Shared by the console, the register and the stage readouts. */
+  fields: { power: Localized; service: Localized; source: Localized; notStated: Localized; profile: Localized; page: Localized };
+  quote: Localized;
+  /** A link to a machine's service page: "{service}" is replaced by the service's name. */
+  serviceLink: Localized;
+  cta: PageCta;
 }

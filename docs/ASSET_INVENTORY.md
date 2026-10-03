@@ -145,8 +145,9 @@ Redaction is a solid hatched block (nothing of the original survives). Thumbnail
     service. So the stainless handrails (#31) are not linked to CNC bending, and the calligraphic
     sculptures (#13) and cannon replicas (#11) are not linked to laser engraving. RAWASY can confirm
     the services behind each project to enrich these links.
-15. **Machine anchors.** Machine cards on the service pages link to `/capabilities#<machine>`; the
-    Capabilities & Machinery page (Stage 1E) is still in development.
+15. **Machine anchors.** Machine links on the homepage and the service pages point to
+    `/capabilities#<machine>`; since Stage 1E the Capabilities & Machinery page has a panel for each machine at that
+    address (the same in English and Arabic).
 16. **Photo resolution for the Modern Commerce direction (theme lab).** All three explored themes lean
     on large imagery, but the supplied photos are low-resolution profile exports: most project photos
     are 150–470 px wide, the service covers 290–890 px, and only `site/riyadh-night` exceeds 1,100 px.
@@ -154,3 +155,21 @@ Redaction is a solid hatched block (nothing of the original survives). Thumbnail
     they read smaller and softer on high-density screens than the final site should. Original
     photography — ideally 2,000 px or wider for heroes and 1,200 px for cards — is the single biggest
     upgrade for whichever theme is chosen, together with the licence answers in items 2 and 13.
+17. **Machine photography (Stage 1E).** The Capabilities & Machinery page uses only the six profile cut-outs
+    (section 2), 181–557 px wide. They are never enlarged: on the page's equipment stage each is shown at most at
+    its own size (display / source ≤ 1.0), so the stage carries the composition and the machines read small, and
+    softer on high-density screens. Please supply original photographs of the six machines — ideally 2,000 px or
+    wider, each machine whole, on a plain background or in the workshop — and say whether the photos may be shown.
+    Some cut-outs carry small maker markings on the machines; the site never names a maker or model, and RAWASY
+    should confirm the markings may stay visible (or supply photos without them).
+18. **Machine descriptions to confirm (Stage 1E).** Page 7 of the profile prints only the six machine names (four
+    with their power in watts) and their photos. The type, the one-sentence capability and the related service of
+    each machine are the site's own descriptions, written from those names and photos in Stage 1A and shown since
+    on the homepage, About and the service pages; Stage 1E shows them again and calls none of them the profile's.
+    Please confirm in particular: what "Combo" covers on the 12,000 W fibre laser (described as an enclosed
+    high-power laser, "RAWASY's highest-rated laser cutting platform" — the 12,000 W tube cutter has the same
+    rating); "flatbed" for the 6,000 W and 3,000 W lasers; "handheld" for the laser welding machine; and the service
+    each machine supports (the four lasers → Laser Cutting, the press brake → CNC Bending, laser welding → Metal
+    Fabrication). Whether RAWASY operates other machines than the six on page 7 is also open: the page says six
+    machines, as the profile lists them. No other specification (maker, model, bed size, tonnage, thickness,
+    tolerance, speed…) is shown anywhere until RAWASY supplies it.

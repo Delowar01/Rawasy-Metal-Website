@@ -81,7 +81,7 @@ test.describe("about", () => {
     }
   });
 
-  test("onward links: the six services, Capabilities (placeholder until Stage 1E), projects, clients and certificates", async ({ page }) => {
+  test("onward links: the six services, Capabilities, projects, clients and certificates", async ({ page }) => {
     await page.goto("/en/about", { waitUntil: "networkidle" });
     for (const route of ["capabilities", "projects", "clients", "certificates", "services", "contact"]) {
       expect(await page.locator(`main a[href="/en/${route}"]`).count(), route).toBeGreaterThan(0);
@@ -89,7 +89,7 @@ test.describe("about", () => {
     for (const slug of ["laser-cutting", "cnc-bending", "steel-structures", "fabrication", "laser-engraving", "scaffolding"]) {
       expect(await page.locator(`main a[href="/en/services/${slug}"]`).count(), slug).toBeGreaterThan(0);
     }
-    // Decision D5: Capabilities keeps its placeholder; About links to the page itself.
+    // Decision D5: About links to the Capabilities page itself (built in Stage 1E), not to a machine.
     await expect(page.locator("#machinery a.btn")).toHaveAttribute("href", "/en/capabilities");
     // The division panels jump to their sections.
     await expect(page.locator('#what a[href="#metal"]')).toHaveCount(1);

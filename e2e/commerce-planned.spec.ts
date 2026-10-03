@@ -2,16 +2,18 @@ import { expect, test, type Page } from "@playwright/test";
 import { mediaRegistry } from "../src/content/media.generated";
 import { routeLabels } from "../src/content/navigation";
 import { projects, withheldMedia } from "../src/content/projects";
-import { seo } from "../src/content/seo";
 import { getDictionary } from "../src/i18n/dictionaries";
 import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, trackErrors, type TestLocale } from "./helpers";
 
 /**
- * Stage TM-2.6: the planned pages in the Modern Commerce design — Capabilities (Stage 1E) and the 34 project pages
- * (Stage 1F) — and the 404 of an unknown project. They keep the previous placeholders' addresses, titles, descriptions,
- * stages, breadcrumbs and search metadata (planned, noindex, follow), and show text only: no project photograph (some
- * held-back projects carry AI watermarks, renders or authorship questions), no machinery figures, no case-study parts.
- * Replaces the previous design's shell tests that ran on these pages (site, redesign-v2 and visual-system specs).
+ * Stage TM-2.6: the planned pages in the Modern Commerce design — the 34 project pages (Stage 1F) — and the 404 of an
+ * unknown project. They keep the previous placeholders' addresses, titles, descriptions, stages, breadcrumbs and search
+ * metadata (planned, noindex, follow), and show text only: no project photograph (some held-back projects carry AI
+ * watermarks, renders or authorship questions), no case-study parts. Replaces the previous design's shell tests that ran
+ * on these pages (site, redesign-v2 and visual-system specs). Capabilities was planned here until Stage 1E built it: its
+ * tests (the same title, description, breadcrumb, search metadata, header and footer marks, language switch, Arabic
+ * faces, phone sheet, reduced motion, no-JS and decoration checks, now on the built page) are in
+ * commerce-capabilities.spec.ts, and stage-1c.spec.ts runs the generic inner-page checks on it (INNER_PAGES).
  */
 
 const SITE = { en: "RAWASY", ar: "رواسي" } as const;
@@ -44,138 +46,6 @@ function mainParts(page: Page) {
     };
   });
 }
-
-// ---------------------------------------------------------------------------------------------------------------------
-// Capabilities (Stage 1E)
-// ---------------------------------------------------------------------------------------------------------------------
-
-test.describe("Capabilities", () => {
-  for (const locale of LOCALES) {
-    test(`/${locale}/capabilities: this design, the unchanged title and description, Stage 1E, planned and noindex`, async ({ page, request }) => {
-      const errors = trackErrors(page);
-      const dict = getDictionary(locale);
-      const response = await page.goto(`/${locale}/capabilities`, { waitUntil: "networkidle" });
-      expect(response?.status()).toBe(200);
-      await expect(page.locator("body.mc")).toHaveCount(1);
-      await expect(page.locator("html")).toHaveAttribute("lang", HTML_LANG[locale]);
-      await expect(page.locator("html")).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
-      await expect(page).toHaveTitle(`${seo.capabilities.title[locale]} | ${SITE[locale]}`);
-      await expect(page.locator("h1")).toHaveCount(1);
-      await expect(page.locator("h1")).toHaveText(seo.capabilities.title[locale]);
-      await expect(page.locator("main .t-lead")).toHaveText(seo.capabilities.description[locale]);
-      // The in-development status and its stage, as before.
-      await expect(page.locator("main .eyebrow")).toHaveText(`${dict.placeholder.badge} · 1E`);
-      await expect(page.locator('main [role="note"]')).toContainText(`${dict.placeholder.body} 1E.`);
-      await expect(page.locator(`main a.btn[href="/${locale}"]`)).toContainText(dict.placeholder.back);
-      await expect(page.locator(`main a.btn[href="/${locale}/contact"]`)).toContainText(dict.placeholder.contact);
-      // Breadcrumb: Home → Capabilities.
-      const crumbs = page.getByRole("navigation", { name: BREADCRUMB[locale] }).locator("li");
-      await expect(crumbs).toHaveCount(2);
-      await expect(crumbs.first().locator("a")).toHaveAttribute("href", `/${locale}`);
-      await expect(crumbs.last().locator('[aria-current="page"]')).toHaveText(routeLabels.capabilities[locale]);
-      // Search: planned, never indexed; canonical, languages and social cards as before; not in the sitemap.
-      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, follow");
-      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`/${locale}/capabilities$`));
-      for (const lang of ["en", "ar", "x-default"]) await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveCount(1);
-      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", seo.capabilities.title[locale]);
-      await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", seo.capabilities.description[locale]);
-      await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
-      expect(await (await request.get("/sitemap.xml")).text()).not.toContain("/capabilities");
-      // The header and the footer mark the page.
-      await expect(page.locator('.a2-nav a[aria-current="page"]')).toHaveAttribute("href", `/${locale}/capabilities`);
-      await expect(page.locator('footer a[aria-current="page"]')).toHaveAttribute("href", `/${locale}/capabilities`);
-      // Nothing that Stage 1E builds: no machines, photos, figures, tables or further sections.
-      expect(await mainParts(page)).toEqual({ images: 0, drawings: 0, backgrounds: 0, tables: 0, headings: ["h1"], sections: 0 });
-      expect(await page.locator("main").innerText()).not.toMatch(/\b(kW|كيلوواط|Rated power)\b/);
-      expect(await horizontalOverflow(page)).toBe(0);
-      expect(errors).toEqual([]);
-    });
-  }
-
-  test("the language switch opens the page in the other language and remembers the choice; the theme applies and toggles", async ({ page, context }) => {
-    const errors = trackErrors(page);
-    await context.addInitScript(() => {
-      if (!sessionStorage.getItem("seeded")) {
-        localStorage.setItem("rawasy-theme", "dark");
-        sessionStorage.setItem("seeded", "1");
-      }
-    });
-    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(19, 24, 32)");
-    await page.locator(".a2-header .a2-lang").first().locator('a[hreflang="ar-SA"]').click();
-    await page.waitForURL("**/ar/capabilities");
-    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    expect((await context.cookies()).find((c) => c.name === "NEXT_LOCALE")?.value).toBe("ar");
-    await page.locator(".a2-header [role=group] button").first().click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    expect(await page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBe("light");
-    expect(errors).toEqual([]);
-  });
-
-  test("Arabic: the Tajawal title, IBM Plex Sans Arabic text, never letter-spaced; self-hosted faces only", async ({ page }) => {
-    const external: string[] = [];
-    page.on("request", (r) => void (/fonts\.(googleapis|gstatic)\.com/.test(r.url()) && external.push(r.url())));
-    await page.goto("/ar/capabilities", { waitUntil: "networkidle" });
-    await page.evaluate(() => document.fonts.ready);
-    const h1 = page.locator("h1");
-    expect(await h1.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Tajawal/);
-    expect(await h1.evaluate((el) => getComputedStyle(el).letterSpacing)).toMatch(/^(normal|0px)$/);
-    expect(await page.locator("main .t-lead").evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/IBM Plex Sans Arabic/);
-    expect(external).toEqual([]);
-  });
-
-  test.describe("phone", () => {
-    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-
-    test("the menu sheet marks Capabilities; nothing spills sideways at 390 or 320 px", async ({ page }) => {
-      for (const width of [390, 320]) {
-        await page.setViewportSize({ width, height: 844 });
-        for (const locale of LOCALES) {
-          await page.goto(`/${locale}/capabilities`, { waitUntil: "networkidle" });
-          expect(await horizontalOverflow(page), `${locale} ${width}`).toBe(0);
-          const wide = await page.evaluate(() =>
-            [...document.querySelectorAll("main *")].filter((el) => {
-              const r = el.getBoundingClientRect();
-              return r.width > 0 && (r.left < -1 || r.right > innerWidth + 1);
-            }).length,
-          );
-          expect(wide, `${locale} ${width}`).toBe(0);
-        }
-      }
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page.locator("details[data-sheet] > summary").tap();
-      await expect(page.locator('.a2-sheet a.a2-sheet-row[aria-current="page"]')).toHaveAttribute("href", "/ar/capabilities");
-    });
-  });
-
-  test.describe("reduced motion", () => {
-    test.use({ contextOptions: { reducedMotion: "reduce" } });
-
-    test("nothing in view stays hidden", async ({ page }) => {
-      for (const path of ["/en/capabilities", "/ar/projects/clock-tower-landmark"]) {
-        await page.goto(path, { waitUntil: "networkidle" });
-        await expect.poll(() => hiddenReveals(page), { message: path, timeout: 3_000 }).toBe(0);
-      }
-    });
-  });
-
-  test.describe("without JavaScript", () => {
-    test.use({ javaScriptEnabled: false });
-
-    test("the planned pages are complete from the server, in the light theme", async ({ page }) => {
-      for (const path of ["/en/capabilities", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects/billboard-support-structure"]) {
-        await page.goto(path, { waitUntil: "load" });
-        await expect(page.locator("h1"), path).toHaveCount(1);
-        await expect(page.locator('main [role="note"]'), path).toBeVisible();
-        const hidden = await page.evaluate(() => [...document.querySelectorAll("[data-reveal]")].filter((el) => getComputedStyle(el).opacity === "0").length);
-        expect(hidden, path).toBe(0);
-        expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), path).toBe("rgb(244, 244, 241)");
-      }
-    });
-  });
-});
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Project pages (Stage 1F)
@@ -287,6 +157,32 @@ test.describe("project pages", () => {
   });
 });
 
+test.describe("project pages: reduced motion", () => {
+  test.use({ contextOptions: { reducedMotion: "reduce" } });
+
+  test("nothing in view stays hidden", async ({ page }) => {
+    for (const path of ["/ar/projects/clock-tower-landmark", "/en/projects/geometric-lanterns"]) {
+      await page.goto(path, { waitUntil: "networkidle" });
+      await expect.poll(() => hiddenReveals(page), { message: path, timeout: 3_000 }).toBe(0);
+    }
+  });
+});
+
+test.describe("project pages: without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the planned pages are complete from the server, in the light theme", async ({ page }) => {
+    for (const path of ["/en/projects/geometric-lanterns", "/ar/projects/billboard-support-structure"]) {
+      await page.goto(path, { waitUntil: "load" });
+      await expect(page.locator("h1"), path).toHaveCount(1);
+      await expect(page.locator('main [role="note"]'), path).toBeVisible();
+      const hidden = await page.evaluate(() => [...document.querySelectorAll("[data-reveal]")].filter((el) => getComputedStyle(el).opacity === "0").length);
+      expect(hidden, path).toBe(0);
+      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), path).toBe("rgb(244, 244, 241)");
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // An unknown project
 // ---------------------------------------------------------------------------------------------------------------------
@@ -354,7 +250,7 @@ test.describe("unknown project", () => {
 });
 
 test("decoration is hidden from assistive technology on the planned pages and the unknown-project 404", async ({ page }) => {
-  for (const path of ["/en/capabilities", "/ar/capabilities", "/en/projects/geometric-lanterns", "/ar/projects/clock-tower-landmark", "/en/projects/not-a-project"]) {
+  for (const path of ["/en/projects/geometric-lanterns", "/ar/projects/clock-tower-landmark", "/en/projects/not-a-project"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     const exposed = await page.evaluate(() =>
       [...document.querySelectorAll(".a2-ambient, .a2-cursor, svg.mc-icon, .ip-404-code")]
