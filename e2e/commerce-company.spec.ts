@@ -401,20 +401,40 @@ test.describe("clients", () => {
   test("in forced colours the switch still shows its state: an outlined track, a dot that moves, a filled track when on", async ({ page }) => {
     await page.emulateMedia({ forcedColors: "active" });
     await page.goto("/en/clients", { waitUntil: "networkidle" });
+    // The forced palette's system colours, as this page resolves them.
+    const system = await page.evaluate(() =>
+      Object.fromEntries(
+        ["Canvas", "ButtonText", "Highlight", "HighlightText"].map((name) => {
+          const probe = document.body.appendChild(document.createElement("div"));
+          probe.style.cssText = `background: ${name}; forced-color-adjust: none`;
+          const value = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return [name, value];
+        }),
+      ),
+    );
     const toggle = page.getByRole("button", { name: "Original colours" });
+    const knob = toggle.locator(".knob");
     const look = () =>
-      toggle.locator(".knob").evaluate((el) => {
+      knob.evaluate((el) => {
         const k = getComputedStyle(el);
         const d = getComputedStyle(el, "::after");
-        return { track: k.backgroundColor, border: k.borderTopStyle, dot: d.backgroundColor, at: d.translate };
+        return { track: k.backgroundColor, border: k.borderTopStyle, edge: k.borderTopColor, dot: d.backgroundColor, at: d.translate };
       });
+    // Read the switch only once its own transitions (the track's colour over 320 ms, the dot's slide on ::after) have run to
+    // their end: the state as it stays, never a frame of the change (a single read after the dot started moving could
+    // catch the track's first frame under load).
+    const settled = () => knob.evaluate((el) => el.getAnimations({ subtree: true }).length);
+    await expect.poll(settled).toBe(0);
     const off = await look();
     expect(off.border).toBe("solid");
-    expect(off.dot).not.toBe(off.track);
+    expect(off).toMatchObject({ track: system.Canvas, edge: system.ButtonText, dot: system.ButtonText });
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    await expect.poll(async () => (await look()).at).not.toBe(off.at);
+    await expect.poll(settled).toBe(0);
     const on = await look();
+    expect(on.at).not.toBe(off.at);
+    expect(on).toMatchObject({ track: system.Highlight, edge: system.Highlight, dot: system.HighlightText });
     expect(on.track).not.toBe(off.track);
     expect(on.dot).not.toBe(on.track);
   });
