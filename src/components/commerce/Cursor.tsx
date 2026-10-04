@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { FINE_POINTER, FORCED_COLORS, REDUCED_MOTION, useMedia } from "./useMedia";
 
 /*
  * The laser pointer (Modern Commerce): a small laser point with a precision ring that trails it
@@ -9,7 +10,8 @@ import { useEffect, useRef } from "react";
  * tightens it. It also moves the soft light of the card under it (--mx / --my).
  * Desktop mouse only: touch, pens, reduced motion and forced colours keep the
  * system cursor, and so do text fields (the I-beam) and anything outside `scope`. The system
- * cursor gives way only once the mouse moves. It only follows the mouse — no
+ * cursor gives way only once the mouse moves, and comes back at once if reduced motion or
+ * forced colours are turned on while the page is open. It only follows the mouse — no
  * information depends on it, and keyboard focus is untouched.
  */
 
@@ -22,14 +24,13 @@ const REGION = ".a2-theme-light, .a2-theme-dark, .a2-footer, .a2-cta-dark, .a2-s
 
 export function Cursor({ scope = ".mc" }: { scope?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const fine = useMedia(FINE_POINTER);
+  const calm = useMedia(REDUCED_MOTION, true);
+  const forced = useMedia(FORCED_COLORS, true);
 
   useEffect(() => {
     const cursor = ref.current;
-    if (!cursor) return;
-    const fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
-    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const forced = matchMedia("(forced-colors: active)").matches;
-    if (!fine || calm || forced) return;
+    if (!cursor || !fine || calm || forced) return;
 
     const root = document.documentElement;
     const dot = cursor.querySelector<HTMLElement>(".a2-cursor-dot")!;
@@ -73,6 +74,10 @@ export function Cursor({ scope = ".mc" }: { scope?: string }) {
         rx = x;
         ry = y;
         place(ring, x, y);
+        // The mouse may have entered its element before this script was listening (while the page was starting, or
+        // before reduced motion was turned off again): the first move reads what is under it, so the page never hides
+        // the system cursor without showing this one.
+        over(event.target);
       }
       place(dot, x, y);
       if (!frame) frame = requestAnimationFrame(follow);
@@ -83,10 +88,9 @@ export function Cursor({ scope = ".mc" }: { scope?: string }) {
       }
     };
 
-    // What is under the pointer decides the state (only when it enters a new element).
-    const onOver = (event: PointerEvent) => {
-      if (event.pointerType !== "mouse") return;
-      const target = event.target instanceof Element ? event.target : null;
+    // What is under the pointer decides the state (when it enters a new element, and on the first move).
+    const over = (under: EventTarget | null) => {
+      const target = under instanceof Element ? under : null;
       const inside = target?.closest(scope);
       const typing = target?.closest(TEXT);
       show(Boolean(inside && !typing));
@@ -95,6 +99,9 @@ export function Cursor({ scope = ".mc" }: { scope?: string }) {
       cursor.dataset.state = target.closest("[data-cursor='plate']") ? "plate" : target.closest(ACTIVE) ? "active" : "idle";
       const region = target.closest(REGION);
       cursor.toggleAttribute("data-dark", region ? !region.matches(".a2-theme-light") : root.getAttribute("data-theme") === "dark");
+    };
+    const onOver = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") over(event.target);
     };
     const onOut = (event: PointerEvent) => {
       if (!event.relatedTarget) show(false);
@@ -110,13 +117,14 @@ export function Cursor({ scope = ".mc" }: { scope?: string }) {
     return () => {
       cancelAnimationFrame(frame);
       root.removeAttribute("data-cursor-on");
+      show(false);
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerover", onOver);
       document.removeEventListener("pointerout", onOut);
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("pointerup", onUp);
     };
-  }, [scope]);
+  }, [scope, fine, calm, forced]);
 
   return (
     <div ref={ref} className="a2-cursor" data-state="idle" aria-hidden>

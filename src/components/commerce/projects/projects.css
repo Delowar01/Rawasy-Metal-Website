@@ -59,7 +59,7 @@
       color var(--dur-1) ease;
   }
 
-  .mc .pj-chip:hover {
+  .mc .pj-chip:is(:hover, :focus-visible) {
     border-color: var(--ink-2);
   }
 
@@ -719,6 +719,13 @@
    new places; the names exist only then, so no other animated update captures them. */
 :root[data-vt="gallery-filter"] .mc .pj-item {
   view-transition-name: var(--vt-name);
+}
+
+/* Only the items move: the page itself is not captured, so the rest of it simply updates instead of cross-fading two
+   full-screen pictures, which held the re-flow to about 25 frames a second in the software-compositing benchmark
+   (Stage 1I; 60 without it). */
+:root[data-vt="gallery-filter"] {
+  view-transition-name: none;
 }
 
 :root[data-vt="gallery-filter"]::view-transition-group(*) {

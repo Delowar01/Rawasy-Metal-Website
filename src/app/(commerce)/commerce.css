@@ -160,6 +160,11 @@
     clip-path: none;
     scale: none;
   }
+
+  /* The photo inside does not settle either (its own transition would still run, unseen, when it is revealed). */
+  .js [data-reveal="clip"] img {
+    transition: none;
+  }
 }
 
 /* ---------- Shared primitives (tuned by the tokens in system.css) ---------- */

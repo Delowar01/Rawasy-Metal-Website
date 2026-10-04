@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
+import { REDUCED_MOTION, useMedia } from "../useMedia";
 
 /*
  * Plays a signature illustration (laser cutting, laser engraving) once when it
  * is half in view, and again when its host card is hovered with a mouse or
  * receives keyboard focus. A run that loops (the hero plate) repeats instead,
- * cycle after cycle, while it is on screen and the page is visible, and rests
- * where it is otherwise. The markup is the finished state; CSS arms the start
- * state only for script-enabled, motion-allowed visitors, so the picture is
- * complete without JavaScript and with reduced motion. Animations run on the
- * elements themselves (Web Animations API) — no canvas, no library.
+ * cycle after cycle. Every run moves only while it is on screen and the page is
+ * visible, and rests where it is otherwise (a one-time run carries on from there
+ * when it is back, so it never plays unseen). The markup is the finished state;
+ * CSS arms the start state only for script-enabled, motion-allowed visitors, so
+ * the picture is complete without JavaScript and with reduced motion — also when
+ * reduced motion is turned on while the page is open: every run stops and the
+ * finished picture shows. Animations run on the elements themselves (Web
+ * Animations API) — no canvas, no library.
  */
 
 export interface SignatureRun {
@@ -40,6 +44,8 @@ export interface SignatureOptions {
 }
 
 export function useSignature(ref: RefObject<HTMLElement | null>, setup: SignatureSetup, { freeze, replay: replays = true }: SignatureOptions = {}) {
+  const calm = useMedia(REDUCED_MOTION, true);
+
   useEffect(() => {
     const root = ref.current;
     if (!root || typeof root.animate !== "function") return;
@@ -56,15 +62,16 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
       return () => all.forEach((a) => a.cancel());
     }
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (calm) return;
 
     const run = setup(root);
     let current: SignatureRun | undefined;
     let kept: Animation[] = [];
-    let busyUntil = 0;
     let onScreen = false;
-    // A loop moves only while it is on screen and the page is visible; otherwise it rests where it is.
+    // A run moves only while it is on screen and the page is visible; otherwise it rests where it is.
     const live = () => onScreen && document.visibilityState === "visible";
+    // Until every animation of the run has ended (paused ones included), a replay waits.
+    const busy = () => current !== undefined && current.anims.some((a) => a.playState === "running" || a.playState === "paused");
 
     const play = (intro: boolean) => {
       current?.anims.forEach((a) => a.cancel());
@@ -75,7 +82,6 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
       const next = run(intro);
       current = next;
       kept.push(...(next.keep ?? []));
-      busyUntil = performance.now() + next.total;
       const loop = next.loop;
       if (loop) {
         let cycle = 1;
@@ -109,28 +115,29 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
 
     const rest = () => {
       const run = current;
-      if (!run?.loop) return;
+      if (!run) return;
       const moving = live();
-      run.anims.forEach((a) => {
+      // A loop rests with its cycle (its entrance is short); a one-time run rests with its entrance too.
+      (run.loop ? run.anims : [...run.anims, ...kept]).forEach((a) => {
         if (moving && a.playState === "paused") a.play();
         if (!moving && a.playState === "running") a.pause();
       });
       // A pause or a restart takes effect on the next frame: only then does the clock show where the loop stands.
-      run.anims[0].ready.then(
-        () => current === run && run.onChange?.(),
-        () => {},
-      );
+      if (run.loop)
+        run.anims[0].ready.then(
+          () => current === run && run.onChange?.(),
+          () => {},
+        );
     };
 
     const io = new IntersectionObserver(
       (entries) => {
         const entry = entries[entries.length - 1];
         onScreen = entry.isIntersecting;
-        // The first run starts once the illustration is half in view; only a loop needs watching after that.
-        if (current) return current.loop ? rest() : io.disconnect();
+        // The first run starts once the illustration is half in view; after that, runs rest and carry on with it.
+        if (current) return rest();
         if (entry.intersectionRatio < 0.5) return;
         play(true);
-        if (!current!.loop) io.disconnect();
       },
       { threshold: [0, 0.5] },
     );
@@ -140,7 +147,7 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
     const host = root.closest("[data-sig-host]") ?? root;
     const replay = (event: Event) => {
       if (!replays || (event.type === "pointerenter" && (event as PointerEvent).pointerType !== "mouse")) return;
-      if (!current || performance.now() < busyUntil) return;
+      if (!current || busy()) return;
       play(false);
     };
     // `sig:replay` (design-system sheet, captures) replays on demand; `{ detail: { intro: true } }` includes the entrance.
@@ -158,7 +165,7 @@ export function useSignature(ref: RefObject<HTMLElement | null>, setup: Signatur
       root.removeAttribute("data-cycle");
       [...(current?.anims ?? []), ...kept].forEach((a) => a.cancel());
     };
-  }, [ref, setup, freeze, replays]);
+  }, [ref, setup, freeze, replays, calm]);
 }
 
 export type Stop = readonly [ms: number, frame: Keyframe, easing?: string];

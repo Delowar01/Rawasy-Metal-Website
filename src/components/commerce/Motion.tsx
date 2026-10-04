@@ -6,11 +6,12 @@ import { useEffect } from "react";
 /**
  * The Modern Commerce pages' one motion and state script. It reveals content as it scrolls into view, marks the page
  * as scrolled and past the hero (the header's shadow), rests the site-wide ambient while the page scrolls
- * (`data-scrolling` on the root), runs a section's own ambient motion only while it is on screen (`data-live` on
- * `[data-ambient]`: the hero plate's hot points), and drives the header's disclosures — the Services dropdown
- * (`details[data-dropdown]`) and the phone menu sheet (`details[data-menu][data-sheet]`) — and the toggle buttons
- * (`button[data-toggle]`). The signature animations and the hero plate run their own clocks (useSignature), and the
- * pointer is Cursor.tsx. Everything works without it; it only adds motion and state.
+ * (`data-scrolling` on the root) or is hidden (`data-page-hidden`), runs a section's own ambient motion only while it
+ * is on screen and the page is visible (`data-live` on `[data-ambient]`: the hero plate's hot points, the machinery
+ * console), and drives the header's disclosures — the Services dropdown (`details[data-dropdown]`) and the phone menu
+ * sheet (`details[data-menu][data-sheet]`) — and the toggle buttons (`button[data-toggle]`). The signature animations
+ * and the hero plate run their own clocks (useSignature), and the pointer is Cursor.tsx. Everything works without it;
+ * it only adds motion and state.
  */
 export function Motion() {
   const pathname = usePathname();
@@ -23,12 +24,19 @@ export function Motion() {
       cleanups.push(() => document.removeEventListener(type, handler));
     };
 
+    const show = (el: Element) => {
+      el.setAttribute("data-shown", "");
+      reveal.unobserve(el);
+    };
     const reveal = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
-          entry.target.setAttribute("data-shown", "");
-          reveal.unobserve(entry.target);
+          show(entry.target);
+          // A rail that scrolls sideways (phones) shows all its cards with the first ones, so a swipe never lands on a
+          // card that is only beginning to appear.
+          const rail = entry.target.closest(".rail");
+          if (rail && rail.scrollWidth > rail.clientWidth) rail.querySelectorAll("[data-reveal]:not([data-shown])").forEach(show);
         }
       },
       { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
@@ -127,10 +135,25 @@ export function Motion() {
       cleanups.push(() => io.disconnect());
     });
 
-    // A section's own ambient motion (the hero plate's hot points) runs only while the section is on screen.
-    const ambient = new IntersectionObserver((entries) => entries.forEach((e) => e.target.toggleAttribute("data-live", e.isIntersecting)));
+    // A section's own ambient motion (the hero plate's hot points, the console's scan) runs only while the section is on
+    // screen and the page is visible; the site-wide ambient rests while the page is hidden, as it does while it scrolls.
+    const onScreen = new Map<Element, boolean>();
+    const visible = () => document.visibilityState === "visible";
+    const ambient = new IntersectionObserver((entries) =>
+      entries.forEach((e) => {
+        onScreen.set(e.target, e.isIntersecting);
+        e.target.toggleAttribute("data-live", e.isIntersecting && visible());
+      }),
+    );
     document.querySelectorAll("[data-ambient]").forEach((el) => ambient.observe(el));
     cleanups.push(() => ambient.disconnect());
+    const onVisibility = () => {
+      root.toggleAttribute("data-page-hidden", !visible());
+      onScreen.forEach((seen, el) => el.toggleAttribute("data-live", seen && visible()));
+    };
+    onVisibility();
+    listen("visibilitychange", onVisibility);
+    cleanups.push(() => root.removeAttribute("data-page-hidden"));
 
     return () => cleanups.forEach((fn) => fn());
   }, [pathname]);

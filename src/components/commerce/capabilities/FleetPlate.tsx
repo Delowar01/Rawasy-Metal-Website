@@ -10,7 +10,7 @@ import { MachinePhoto } from "./MachinePhoto";
  */
 export function FleetPlate({ machines, label }: { machines: CapabilityMachine[]; label: string }) {
   return (
-    <div className="cm-fleet">
+    <div className="cm-fleet" data-ambient>
       <ul className="cm-fleet-grid" aria-label={label}>
         {machines.map((m) => (
           <li key={m.slug}>

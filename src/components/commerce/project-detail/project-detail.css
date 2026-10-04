@@ -60,7 +60,7 @@
       text-decoration-color var(--dur-1) ease;
   }
 
-  .mc .pd-link:hover {
+  .mc .pd-link:is(:hover, :focus-visible) {
     color: var(--brand-ink);
     text-decoration-color: currentColor;
   }

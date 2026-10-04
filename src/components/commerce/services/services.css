@@ -1365,7 +1365,7 @@
     transition: text-decoration-color var(--dur-1) ease;
   }
 
-  .mc .sv-call:hover .sv-call-number {
+  .mc .sv-call:is(:hover, :focus-visible) .sv-call-number {
     text-decoration-color: var(--brand);
   }
 

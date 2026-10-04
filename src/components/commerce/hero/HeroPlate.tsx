@@ -6,6 +6,7 @@ import { HOLE_R, HOLES, PERF, PLATE, SLOT, STAR, VIEW, circlePath, perforations,
 import type { CommerceImage } from "../types";
 import { EASE_IN_OUT, EASE_OUT, animate, at, samplePath, useSignature, type SignatureSetup, type Stop } from "../signature/useSignature";
 import { Photo } from "../ui";
+import { REDUCED_MOTION, useMedia } from "../useMedia";
 
 /*
  * A V2 hero: the website's approved hero plate (same geometry), redrawn for the
@@ -281,6 +282,9 @@ export function HeroPlate({
         const tick = () => {
           clearTimeout(timer);
           cancelAnimationFrame(frame);
+          // A cancelled run (reduced motion turned on, the page left) no longer owns the readout: a frame already queued
+          // can still come before the cancel event, and would read its empty clock as 00.
+          if (clock.playState === "idle") return;
           const now = Number(clock.currentTime ?? 0);
           const going = clock.playState === "running";
           const read = readRef.current;
@@ -306,14 +310,17 @@ export function HeroPlate({
     [],
   );
   useSignature(ref, counted, { freeze, replay: false });
+  const calm = useMedia(REDUCED_MOTION, true);
 
-  // Armed (script and motion): the count starts from zero until the plate is cut.
+  // Armed (script and motion): the count starts from zero until the plate is cut. With reduced motion — also when it is
+  // turned on while the loop runs — the readout shows the finished plate's count, at rest.
   useEffect(() => {
     const read = readRef.current;
-    if (!read || freeze !== undefined || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    counter.current = `${pad(0)}/${pad(STEPS)}`;
-    read.textContent = counter.current;
-  }, [freeze]);
+    if (!read || freeze !== undefined) return;
+    counter.current = calm ? done : `${pad(0)}/${pad(STEPS)}`;
+    if (calm) read.closest("p")?.removeAttribute("data-running");
+    if (!read.closest("p")?.hasAttribute("data-pointer")) read.textContent = counter.current;
+  }, [freeze, calm, done]);
 
   // Desktop mouse: X / Y in plate millimetres, and the plate leans towards the pointer while its reflection
   // follows it — inline transforms on two elements, eased on the compositor (no restyle of the plate).
@@ -322,7 +329,6 @@ export function HeroPlate({
     const read = readRef.current;
     const stage = root?.closest<HTMLElement>(".a2-plate-stage");
     if (!root || !read || !stage || freeze !== undefined || !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const svg = root.querySelector("svg")!;
     const tilt = root.querySelector<HTMLElement>(".a2-plate-tilt")!;
     const shine = root.querySelector<HTMLElement>(".a2-plate-shine > span")!;
@@ -368,8 +374,11 @@ export function HeroPlate({
       cancelAnimationFrame(frame);
       stage.removeEventListener("pointermove", onMove);
       stage.removeEventListener("pointerleave", onLeave);
+      // Reduced motion turned on with the plate leaning: it settles back (at once: its easing is off then).
+      tilt.style.transform = "";
+      shine.style.translate = "";
     };
-  }, [freeze]);
+  }, [freeze, calm]);
 
   const material = (d: string) => (
     <>

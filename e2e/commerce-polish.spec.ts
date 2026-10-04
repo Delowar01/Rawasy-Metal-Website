@@ -308,18 +308,21 @@ test.describe("the inner pages' hero", () => {
       const seen = await page.evaluate(() => (window as unknown as { __title: { frames: number; min: number } }).__title);
       expect(seen.frames).toBeGreaterThan(10);
       expect(seen.min).toBe(1);
-      // No transition or animation on the hero's text and photos (the drawings and signatures have their own clocks).
-      const moving = await page.evaluate(
-        () =>
-          document
-            .querySelector(".ip-hero")!
-            .getAnimations({ subtree: true })
-            .filter((a) => {
-              const target = (a.effect as KeyframeEffect | null)?.target as Element | null;
-              return target && !target.closest(".sv-draw, .sv-axis, .sv-bubble, .sv-cut-sheet, .sv-plate-stage, .sig") && a.playState === "running";
-            }).length,
+      // No transition or animation on the hero's text and photos (the drawings, the signatures and the Capabilities fleet
+      // plate's scan have their own clocks; since Stage 1I the scan starts once the plate is on screen, so it can still be
+      // passing now — and it may only be the scan's own two layers).
+      const moving = await page.evaluate(() =>
+        document
+          .querySelector(".ip-hero")!
+          .getAnimations({ subtree: true })
+          .filter((a) => a.playState === "running")
+          .map((a) => {
+            const target = (a.effect as KeyframeEffect | null)?.target as Element | null;
+            return { own: !!target?.closest(".sv-draw, .sv-axis, .sv-bubble, .sv-cut-sheet, .sv-plate-stage, .sig"), scan: !!target?.matches(".cm-fleet > .cm-scan"), name: (a as CSSAnimation).animationName ?? "" };
+          }),
       );
-      expect(moving).toBe(0);
+      expect(moving.filter((m) => !m.own && !m.scan)).toEqual([]);
+      for (const m of moving.filter((m) => m.scan)) expect(m.name).toMatch(/^cm-scan-(line|trail)$/);
       expect(errors).toEqual([]);
     });
 });

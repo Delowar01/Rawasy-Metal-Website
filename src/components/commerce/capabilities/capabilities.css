@@ -294,6 +294,16 @@
     inset: 0.75rem 1rem;
   }
 
+  /* The plate's scan rests, at its frame, while the plate is off screen or the page is hidden, like the console's
+     (data-live from Motion.tsx; Stage 1I): it never passes unseen. */
+  .mc .cm-fleet {
+    --cm-play: paused;
+  }
+
+  .mc .cm-fleet[data-live] {
+    --cm-play: running;
+  }
+
   @media (min-width: 40rem) {
     .mc .cm-fleet {
       --cm-fleet-h: 7rem;
@@ -375,7 +385,7 @@
       background-color var(--dur-2) ease;
   }
 
-  .mc .cm-pick:hover {
+  .mc .cm-pick:is(:hover, :focus-visible) {
     border-color: var(--line-strong);
     box-shadow: var(--sh-card);
   }
@@ -945,11 +955,11 @@
      waits, at its first frame, until the console is on screen). */
   @media (prefers-reduced-motion: no-preference) {
     .js .mc .cm-fleet > .cm-scan::before {
-      animation: cm-scan-line 2.2s var(--ease-io) 0.5s both;
+      animation: cm-scan-line 2.2s var(--ease-io) 0.5s both var(--cm-play);
     }
 
     .js .mc .cm-fleet > .cm-scan::after {
-      animation: cm-scan-trail 2.2s var(--ease-io) 0.5s both;
+      animation: cm-scan-trail 2.2s var(--ease-io) 0.5s both var(--cm-play);
     }
 
     .js .mc :is(.cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child, .cm-console:not([data-ready]) .cm-panel:target, .cm-console[data-ready] .cm-panel[data-active]) .cm-scan::before {
