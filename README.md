@@ -12,14 +12,17 @@ light and dark themes, a precision pointer and a site-wide ambient background. I
 clients, certificates, the services overview and the six service pages, the projects overview) and the previous
 design was retired in TM-2.6. Capabilities & Machinery was built in Stage 1E: the six machines of the company
 profile in a machinery console (a selector and a graphite equipment stage, each machine at `/capabilities#<slug>`),
-a rated-power chart and a technical register, with no specification the profile does not give. The project detail
-pages (Stage 1F) are routed and localized and show an "in development" page until their stage is built. Every page
-except the homepage is `review` or `planned` (noindex); publishing waits for the Stage 1J launch approval.
+a rated-power chart and a technical register, with no specification the profile does not give. The project pages
+were built in Stage 1F: one page per project record (34, in both languages), showing only what the record holds — the
+title, the summary, the website's classifications, the related services, the gallery reference in the company profile
+and the photos that may be shown (none for a project whose authorship or product ownership is still to be confirmed,
+never a withheld file). Every page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch
+approval.
 
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
-| Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css`, page stylesheets beside their components (`services.css`, `projects.css`, `capabilities.css`, `planned.css`) |
+| Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css`, page stylesheets beside their components (`services.css`, `projects.css`, `capabilities.css`, `project-detail.css`) |
 | Motion | CSS transitions and the Web Animations API (hero plate, signatures), IntersectionObserver for reveals; no animation library |
 | Fonts | Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text), the system monospace stack for technical figures. All self-hosted via `next/font` |
 | Rendering | Static pages for every route in both languages (109 site pages + 16 theme-lab previews at build time) |
@@ -56,7 +59,8 @@ src/
     brand/                 Vector logo (from the official master artwork)
     commerce/              The Modern Commerce design: shell (header, phone menu sheet, footer), homepage
                            sections, inner-page kit (`inner/`), the pages' components (about, services,
-                           capabilities, projects, industries, clients, certificates, contact, legal, planned), hero
+                           capabilities, projects, project-detail, industries, clients, certificates, contact,
+                           legal), hero
                            plate, signature illustrations, ambient, pointer, theme switch, motion (shared
                            with the theme lab's A V2, which re-exports them)
     home/hero/             The hero plate's geometry
@@ -93,11 +97,11 @@ through the async functions in `src/content/repository.ts`, so the admin panel c
 without changing any components. Unknown facts (client, year, location, materials…) are optional
 fields and are simply not shown. Nothing has been made up to fill them.
 
-`src/lib/page-meta.ts` is the approval gate. Each route is `planned` (shows the in-development page),
-`review` (built, awaiting approval) or `published`. Only published routes are indexed and listed in
-the sitemap (currently the homepage); `planned` and `review` routes are served with `noindex, follow`. When a
-stage is approved, set its routes to `published`. The inner pages, the projects overview, the service pages and
-Capabilities are `review`, the project pages `planned`; publishing waits for the Stage 1J launch approval.
+`src/lib/page-meta.ts` is the approval gate. Each route is `planned` (routed, not built yet), `review` (built,
+awaiting approval) or `published`. Only published routes are indexed and listed in the sitemap (currently the
+homepage); `planned` and `review` routes are served with `noindex, follow`. When a stage is approved, set its routes to
+`published`. The inner pages, the projects overview, the service pages, Capabilities and the project pages are
+`review` (no route is `planned` any more); publishing waits for the Stage 1J launch approval.
 
 ### Theme engine
 
@@ -213,7 +217,10 @@ filters), `commerce-capabilities.spec.ts` (Capabilities & Machinery: the six mac
 power rule and a guard against unstated specifications, the photos' source size, the console, the 12 cold machine
 addresses with late fonts, every machine link from the homepage and the service pages, the language switch keeping
 the machine, a 20-cycle stress test, reduced motion, forced colours, no-JS, twelve screen sizes),
-`commerce-planned.spec.ts` (the 34 project pages with no project media, an unknown project),
+`commerce-project-detail.spec.ts` (the 34 project pages in both languages: the record's parts and nothing else, the
+photo rule by flag, no withheld or held-back file in any page or its page data, no internal note or flag, search
+metadata and structured data, photos never above their source size, Arabic, themes, forced colours, twelve sizes,
+no-JS, an unknown project),
 `commerce-polish.spec.ts` (the forced-colours switch, logo and header marks, the inner pages' hero shown with the first
 paint, the phone menu sheet's geometry and keyboard order, the homepage's Industries cards at every width),
 `commerce-anchors.spec.ts` (first jumps to an address's anchor with late fonts), `site.spec.ts` (internal links,
@@ -225,7 +232,6 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 ## Next stages
 
-1F project detail pages (the projects overview was built in V2; 1E, the capabilities and machinery page, is
-built and in review) · 1G (its clients,
+1F project pages built and in review (1E, the capabilities and machinery page, is approved) · 1G (its clients,
 certificates and contact pages moved into 1C) · 1H Arabic completion · 1I motion polish ·
 1J SEO/performance QA and release. Phase 2 (admin panel) follows Phase 1 approval.

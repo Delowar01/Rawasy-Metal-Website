@@ -173,3 +173,26 @@ Redaction is a solid hatched block (nothing of the original survives). Thumbnail
     Fabrication). Whether RAWASY operates other machines than the six on page 7 is also open: the page says six
     machines, as the profile lists them. No other specification (maker, model, bed size, tonnage, thickness,
     tolerance, speed…) is shown anywhere until RAWASY supplies it.
+19. **Project details to confirm (Stage 1F).** Each project page shows only what the project's record holds: the title,
+    the summary (written in Stage 1A from what the profile's photos show), the website's classifications, the related
+    services, the gallery reference ("Company profile · Ref. 04", "… · p.3") and the photos that may be shown. Client,
+    location, year, materials, scope, a longer description, challenge and solution appear on a page only once RAWASY
+    supplies and confirms them for that project; no record holds any yet, so no page shows them, and nothing is inferred
+    from photos, signage or file names (the #10 gateway signs' photos show a governorate's name on the signage; no
+    location is published until RAWASY confirms it). Please send, per project, what may be published, and the services
+    behind each (item 14).
+20. **Project pages without photos (Stage 1F).** Seven of the 34 pages show no photo, by the records' flags: three await
+    authorship confirmation (#02 illuminated lattice cubes, #17 perforated seed sculpture, p.3 canopy tree sculpture),
+    two are catalogue renders (#12 laser-cut bench, #28 street litter bins: please confirm they are RAWASY products,
+    and whether a render may be shown labelled as one), and two have only their AI-watermarked photo (#14 stainless
+    landmark, #21 billboard structure). The wheat monument (#07–08) shows its two workshop photos, never the
+    watermarked finished one. Once RAWASY confirms a project (or supplies genuine photos), its record changes and its
+    page shows the photos without any code change.
+21. **Summaries that describe the photos (Stage 1F).** The summaries were written from the profile's photos ("pictured lit
+    on site at night…", "(design render)", "standing in open desert"). On the seven pages without photos (item 20) they
+    describe photos the page does not show; the pages use each summary exactly as the record holds it. RAWASY may want
+    to confirm or reword them (for example the bench's "(design render)").
+22. **One photo on two project pages (Stage 1F).** `services/fabrication-workshop` (the workshop with the lattice tower
+    replica and the geometric lanterns under fabrication) is listed by both records (#23 geometric lanterns, p.3 lattice
+    tower replica), so it shows on both pages; section 4 above lists it under the tower replica only. Please confirm it
+    may show on both.

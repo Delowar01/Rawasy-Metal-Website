@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-03-stage-1e-capabilities-machinery.md` (earlier: `2026-10-02-tm3-correction-2.md`,
+- Latest report: `docs/reports/2026-10-04-stage-1f-project-details.md` (earlier: `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
   `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
@@ -38,11 +38,12 @@
   Google Maps place link, image rights, the two moderate shell accessibility findings for 1I/1J).
 - **Stage 1D (the six service detail pages)**: TM-2 decision D3 kept 1D's content and structure; its visual approval
   was given on the migrated Modern Commerce versions, built in TM-2.4 ("TM-2.4 APPROVED — BEGIN TM-2.5"). Never
-  self-approve a stage. **Stage 1E (Capabilities & Machinery) is built** (the user's "TM-3 FULLY APPROVED — BEGIN STAGE
-  1E" brief; report `2026-10-03-stage-1e-capabilities-machinery.md`; rollback checkpoint: GitHub branch
-  `preserve/pre-stage-1e` at `ca672d7`) and awaits the user's independent review; Capabilities is `review`. Do not start
-  1F (project detail pages), 1G or later until the user says so; project detail pages stay `planned`. Do not start
-  Phase 2 (admin panel) during Phase 1.
+  self-approve a stage. **Stage 1E (Capabilities & Machinery) is approved** (the user's "STAGE 1E APPROVED — BEGIN STAGE
+  1F"; report `2026-10-03-stage-1e-capabilities-machinery.md`; rollback checkpoint `preserve/pre-stage-1e` at `ca672d7`);
+  Capabilities stays `review`. **Stage 1F (the project pages: source-strict project records, not case studies) is built**
+  (report `2026-10-04-stage-1f-project-details.md`; rollback checkpoint: GitHub branch `preserve/pre-stage-1f` at
+  `c2aed58`, the last commit before 1F) and awaits the user's independent review; the project pages are `review`. Do not
+  start 1G or later until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
@@ -99,7 +100,8 @@
   finding (English Industries names past their card at 360–421 px) is fixed in **TM-3 correction 2** (report
   `2026-10-02-tm3-correction-2.md`; correction commit `0f53145` on `9e194e9`): the one-column rule moved to 27 rem. **TM-3
   and corrections 1–2 are approved and locked** (the user's "TM-3 FULLY APPROVED — BEGIN STAGE 1E"). Never self-approve.
-  **Do not begin Stage 1F, 1I or 1J, theme-lab removal, OG regeneration or any deployment until the user says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
+  **Do not begin Stage 1G or later (1I, 1J included), theme-lab removal, OG regeneration, publication or any deployment
+  until the user says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
   colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
   logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
   Commerce design in production"). Still open, for the user to decide: (5) without JavaScript a font that swaps in after
@@ -124,8 +126,8 @@
   - the previous design's blueprint/editorial decoration retires.
   - the four other service drawings are restyled, with no new sequences.
   - the Google Maps embed and URLs stay byte-identical, and only the frame is restyled.
-  - the project placeholders moved to MC in TM-2.6, still `planned`, noindex (text only: no project photos); Capabilities
-    left `PlannedPage` in Stage 1E (`PlannedPage` stays for the project pages).
+  - the project placeholders moved to MC in TM-2.6; Capabilities left `PlannedPage` in Stage 1E and the project pages in
+    Stage 1F, which retired `PlannedPage` and `planned.css` (no route used them any more).
   - the theme lab stays until the user authorizes its removal.
   - every migrated page stays `review`/noindex until 1J.
 
@@ -138,8 +140,8 @@
   - no deployment.
 - Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
   pages stay `review` in `src/lib/page-meta.ts` (`noindex, follow`, left out of the sitemap) even after their
-  design is approved: the 1C pages, the projects overview, the service pages and Capabilities (since Stage 1E); the
-  project pages are `planned`. Only the homepage is `published`.
+  design is approved: the 1C pages, the projects overview, the service pages, Capabilities (since Stage 1E) and the
+  project pages (since Stage 1F). Nothing is `planned` any more. Only the homepage is `published`.
 - Approved pages are frozen: after any shared change, compare them with the batch's checkpoint build (a `git worktree`
   of the checkpoint with `cp -al node_modules`): visible server HTML (scripts removed, `/_next/static` paths and the
   `next-size-adjust` meta position normalised), the CSS bytes and each page's stylesheet list, the RSC payloads resolved
@@ -192,14 +194,12 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   collage, featured project, editorial highlights, a filterable masonry gallery (`#gallery`, each project at `#<slug>`)
   and a text index at the end. Category filters are website classifications. Photos are small:
   `src/lib/project-cards.ts` picks photo / pair / framed cards, and the MC page never shows a photo above its source size.
-- **1F project detail pages:** hero, gallery, title, category, scope, service; materials, location,
-  year and client only if verified; challenge, solution, related projects. Unknown facts stay hidden.
-  Until then `/projects/<slug>` is the planned page (TM-2.6: text only, never a project photo — some held-back projects
-  carry AI watermarks, renders or authorship questions) and nothing links to it: About and the service pages open
-  `/projects#<slug>`
-  and the overview's featured project, highlights and index jump to `#<slug>` ("View in the gallery"); point them at
-  `href(locale, "project", …)` with "View project" in 1F. The machine cards link `/capabilities#<slug>` (the 1E machine
-  panels carry these ids).
+- **1F project pages** (built in Stage 1F, see "Project pages (Stage 1F)" under "Modern Commerce design in production"):
+  source-strict project records from the company profile, never case studies. Client, location, year, materials,
+  scope, description, challenge and solution show only once a record holds them (none does); nothing is inferred from
+  photos, signage, file names or anything else. Only the overview's gallery cards link the pages ("View project"); About
+  and the service pages keep `/projects#<slug>` (D4), the homepage's six cards `#gallery`, the overview's featured project,
+  highlights and index `#<slug>` (the Stage 1F brief kept all of them). The machine cards link `/capabilities#<slug>`.
 - **Service pages (1D) rules:** each page shares one component set and gets its character from
   `src/components/commerce/services/looks.ts` (hero picture, scope / process / gallery layout, section surfaces).
   Machines, projects and galleries appear only when sourced: related projects are those in
@@ -232,7 +232,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - Every page: `src/app/(commerce)/[locale]/` with components in `src/components/commerce/*` (see below); inner-page
   metadata, breadcrumb trail and JSON-LD in `src/lib/inner-page.ts`; copy in `src/content/{about,pages,contact,legal}.ts`.
 - Projects: the overview in `src/components/commerce/projects/*`, `src/lib/project-cards.ts`; showcased projects and
-  withheld photos in `src/content/projects.ts` (`isShowcased`, `projectImages`, `withheldMedia`).
+  withheld photos in `src/content/projects.ts` (`isShowcased`, `projectImages`, `withheldMedia`, and the project pages'
+  `projectDetailMedia`). Project pages (Stage 1F): `src/components/commerce/project-detail/*`, labels in
+  `projectDetailPage` (`src/content/pages.ts`), read through `getProjectDetailContent` (`src/content/repository.ts`).
 - Capabilities & Machinery (Stage 1E): `src/components/commerce/capabilities/*`; machine facts only in
   `src/content/machines.ts` (profile p.7), the page's labels and notes in `src/content/capabilities.ts`.
 - Clients wall: `src/components/commerce/clients/ClientsPage.tsx` with `planSpans` from `src/lib/logo-wall.ts`. Contact
@@ -267,7 +269,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   replay buttons — left out, nav active state keyed on `aria-current="page"`). Class names keep the `a2-` prefix
   shared with the lab. `Icon` renders `mc-icon lab-icon` (each design styles its own class; drop `lab-icon` when the
   lab is deleted). Page stylesheets beside their components: `services/services.css`, `projects/projects.css`,
-  `planned/planned.css` (never in `system.css`, see the chunk-size gotcha).
+  `capabilities/capabilities.css`, `project-detail/project-detail.css` (never in `system.css`, see the chunk-size
+  gotcha).
 - Fonts (`src/app/(commerce)/fonts.ts`): Plus Jakarta Sans (English display) and Inter (English text) preloaded;
   Tajawal 500/700/800 (Arabic display) and IBM Plex Sans Arabic 400/500 (Arabic text) not preloaded (one root layout
   serves both languages); technical figures use the system monospace stack. Variables `--font-mc-*`. Arabic is never
@@ -321,14 +324,12 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   422 px in Plus Jakarta Sans and from 432 px in the widest fallback face measured (DejaVu Sans, where `local(Arial)`
   is missing); 360–421 px let English names run up to 17.9 px past their card before (correction 1's 22.5 rem rule).
   Arabic names are shorter but take the same columns.
-- Until the project pages (1F) exist, the six homepage project cards open the Projects overview at its gallery
-  (`href(locale, "projects", { hash: "gallery" })`, label `home.projects.inGallery`: "View in the gallery" / "عرض في
-  معرض الأعمال"), never a planned detail page. Per-project anchors were measured and rejected: the gallery's sticky
-  filter bar (69 px, 117 px where its chips wrap) would cover the top of the target card, and a clean landing needs
-  ids plus an offset or script. TM-2 decision D4 keeps these six homepage links
-  unchanged. Since TM-2.5 the migrated gallery has an anchor per project (`#<slug>`), which About and the service
-  pages use. In 1F, point
-  the cards at `href(locale, "project", …)` again with a "View project" label.
+- The six homepage project cards open the Projects overview at its gallery (`href(locale, "projects", { hash:
+  "gallery" })`, label `home.projects.inGallery`: "View in the gallery" / "عرض في معرض الأعمال"), never a project page.
+  Per-project anchors were measured and rejected: the gallery's sticky filter bar (69 px, 117 px where its chips wrap)
+  would cover the top of the target card, and a clean landing needs ids plus an offset or script. TM-2 decision D4
+  keeps these six homepage links unchanged, and the Stage 1F brief kept them on `#gallery` (the homepage is frozen).
+  Since TM-2.5 the migrated gallery has an anchor per project (`#<slug>`), which About and the service pages use.
 - Motion: `components/commerce/Motion.tsx` is the production controller (reveals, `data-scrolled`,
   `data-scrolling` cleared 200 ms after the last scroll, menus and dropdowns with Escape / outside click / focus
   return and closing when keyboard focus leaves them, the sheet's `--menu-top`, toggles, `data-past-hero`, `data-live` on `[data-ambient]`); no scroll-spy or
@@ -496,16 +497,30 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     the 12 cold addresses × desktop/phone × fonts +300/+1200 ms, every machine link from the homepage showcase (6 × 2) and
     the service pages (6 × 2) followed and landed, the homepage machinery files' hashes, decoration hidden, reduced
     motion, forced colours, no-JS, twelve sizes.
-- Planned pages (TM-2.6): `(commerce)/[locale]/projects/[slug]/page.tsx` (Capabilities left `PlannedPage` in Stage 1E)
-  (`generateStaticParams` = locales × all 34 projects, `dynamicParams = true`, `notFound()` for an unknown slug,
-  metadata and the Home → Projects → Project BreadcrumbList JSON-LD as before)
-  → `components/commerce/planned/PlannedPage.tsx`: the kit's `PageHero` (breadcrumb, eyebrow "In development · <stage>",
-  the title, the record's description or summary, back home + contact) and a `PendingNote` with the placeholder's
-  sentence. Text only: no photo, figure, table or further section (tests: `commerce-planned.spec.ts`, which also
-  crawls every project page and its page data for project media). `planned.css` draws the header's section mark: on a
-  project page the Projects item carries `aria-current="true"` (`section()` in `Header.tsx`, like Services on a service
-  page). `projects/[slug]/not-found.tsx` re-exports `(missing)/not-found` (an
-  unknown project slug, a real 404 in this design; deeper paths reach the catch-all).
+- Project pages (Stage 1F): `(commerce)/[locale]/projects/[slug]/page.tsx` (`generateStaticParams` = locales × all 34
+  records, `dynamicParams = true`, `notFound()` for an unknown slug; metadata: the record's title and summary, canonical,
+  hreflang, `noindex, follow`; JSON-LD: WebPage + BreadcrumbList only) → `components/commerce/project-detail/
+  ProjectDetailPage.tsx` (server, no client code) with `data.ts` (`projectDetailView(content, locale)`: the record only).
+  One page, three variants from the data: several photos (the first leads the hero beside the text, the others follow in
+  "More photographs", never repeated), one photo, no photo (a text hero with the source plate: "Company profile" and the
+  gallery reference set as type, no picture or stand-in). The kit's `PageHero` (split; shows with the first paint) holds
+  the breadcrumb, eyebrow "Selected work", the title, the record's summary exactly, the facts (Classification: the
+  record's categories with `projectCategories` labels; Related services: the record's services, linked) and the ways
+  on (quote `/contact#quote`, Back to Projects); the gallery reference is the lead photo's caption or the plate:
+  "Company profile · Ref. 04", "… · p.3" (raw value, left to right; never "project/job number"). Optional details
+  (client, location, year, materials, scope; description, challenge, solution) render only for fields a record holds
+  (none yet: the part never shows; never "—", "N/A", "Not stated"). `ClosingCta`: quote, Back to Projects, services.
+  - Photos: `projectDetailMedia(project)` in `projects.ts` — none if any flag other than `ai-watermark` (so
+    `confirm-authorship`, `render` and any flag added later hold every photo back), otherwise `projectImages` (withheld
+    files excluded). Never another project's photo, a render, a stand-in or a generated image. Each photo shows at most
+    at its source size (the `img` keeps its width attribute, `max-width: 100%`; frames fit the photo), alt text from
+    approved text only: the title, or "title, photo n of N".
+  - Never rendered: the record's `note`, its `flags` (no badges, no ownership talk), any detail it does not hold.
+  - Styles: `project-detail/project-detail.css` (`pd-*`), imported by the page component only; it also carries the
+    header's Projects section mark (`aria-current="true"`, moved from the retired `planned.css`).
+  - The overview's gallery cards carry one "View project" link each (`a.pj-card-go`, an sr-only suffix names the
+    project); the card itself is no link. `projects/[slug]/not-found.tsx` re-exports `(missing)/not-found` (an unknown
+    project slug, a real 404 in this design; deeper paths reach the catch-all).
 - The fallback 404 (`src/app/global-not-found.tsx`, TM-2.6): one bilingual page in the MC look (its own
   `global-not-found.css` with the MC tokens written out, light and dark via `data-theme`, the MC faces without preload,
   the boot script): one `h1` with both languages, a `section[lang][dir]` per language with its `h2`, home and contact
@@ -539,13 +554,19 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   layout, anchors, keyboard, pointer); `e2e/commerce-projects.spec.ts` (the projects overview: parts and order, the 27
   projects and their ids, withheld photos, featured/highlights parity, SEO, the index, `#<slug>` and `#gallery` arriving
   unfiltered, the hidden-target click, landings clear of the header and bar, cold loads, D4 on About, the service pages
-  and the homepage, no link to `/projects/<slug>`, the planned project pages, the shared choice, keyboard, the one-row bar at
-  eight widths, Arabic, the wall's columns, cards out of the tab order, photo source size, focus = hover, the ambient,
-  reduced motion, no-JS); `e2e/commerce-anchors.spec.ts` with `e2e/anchor-helpers.ts` (the first-jump fix: fresh
+  and the homepage, project pages linked only by the cards' "View project" (one per showcased project), the built
+  project pages, the shared choice, keyboard, the one-row bar at eight widths, Arabic, the wall's columns, each card's
+  one link in the tab order, photo source size, focus = hover, the ambient, reduced motion, no-JS); `e2e/commerce-anchors.spec.ts` with `e2e/anchor-helpers.ts` (the first-jump fix: fresh
   context, fonts held back 300 / 1200 ms, 1440 and 390, on Contact, the legal and two service pages; same-page glide,
   history, reduced motion, no-JS); `e2e/commerce-capabilities.spec.ts` (Stage 1E, see "Capabilities & Machinery" above);
-  `e2e/commerce-planned.spec.ts` (every project page with no project media, the unknown-project 404; its Capabilities
-  tests moved to the 1E spec); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
+  `e2e/commerce-project-detail.spec.ts` (Stage 1F, replacing `commerce-planned.spec.ts`: the 34 records and the photo
+  rule by flag (a flag added later included), the optional-detail rule on made-up records, all 68 pages served (status,
+  title, description, canonical, hreflang, noindex, WebPage + BreadcrumbList only), each page and its page data
+  referring to exactly its allowed photos, no note or flag anywhere, the sitemap, every page in the browser (title,
+  summary, classifications, services, reference, photos in order with their alt, headings, no unconfirmed detail, ways
+  on, language switch), each flagged project's requests, the wheat monument, photo source size and frames at 1440 and
+  390 on every page with photos, Arabic order and faces, the header mark, the quote link and an empty form, the phone
+  sheet, twelve sizes, light/dark, forced colours, reduced motion, no-JS, the unknown-project 404); `e2e/commerce-polish.spec.ts` (TM-3: the switch, the logo and the header's marks in
   forced colours, the inner pages' hero with its script blocked and frame by frame, the phone menu sheet's geometry,
   keyboard order and target sizes at 390 / 360 / 320 and 200 % zoom; corrections 1 and 2: the homepage's Industries cards
   at 320, 360 and 390 px in EN/AR × light/dark, around the 27 rem boundary and at common widths, a sweep from 320 to 1440
@@ -969,6 +990,15 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   under heavy load read the start colour (`Canvas`) once in TM-3 correction 2. Since the Stage 1E preflight (`86d80a1`,
   test only) it waits until the knob's transitions have ended (`getAnimations({ subtree: true })` sees the `::after`
   slide too) and checks the settled system colours. Read a state after its transition, never on a moving frame.
+- `commerce-polish.spec.ts`'s homepage switch test (forced colours) had the same race until Stage 1F: it polled until the
+  dot's `translate` changed, then read the track at once, and the Stage 1F full run read the start colour (`rgb(0, 0, 0)`,
+  ar forced dark) once. Since `cee1236` (test only) it waits until the knob has no running animation before each read.
+- Two more reads raced the page under the full suite's load in Stage 1F (fixed in `cfc17d5`, test only): the 1E spec's
+  "choosing a machine" read the console straight after network idle and once saw it before hydration (no active panel,
+  no inert panels: the address store's server snapshot is `null`), and the legal contents test jumped to `#information`
+  while the click's glide to `#quote-form` was still running, so the glide carried the page on past the jump. Poll any
+  state that hydration sets (`expect.poll`), and let a glide land (its target at the scroll padding, or the page at its
+  end) before an instant scroll.
 - Any programmatic scroll during page load, even `scrollBy` on an inner scroller (the 1E selector on phones), ends
   Chromium's fragment anchoring (the instant jump is no longer kept on its target through layout changes), so a font
   arriving later moves the landing (2.16 px on the Arabic phone `#laser-welding` with fonts +300 ms). Defer such scrolls
@@ -1007,3 +1037,24 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - `DOMDebugger.getEventListeners` (DevTools protocol) also reports Playwright's own window listeners (its injected
   script has no URL; around each click it adds hit-target listeners — click, mousedown, pointerdown… — and under load
   a set can still be there when read). Count only listeners whose script has a URL (the site's chunks).
+- A worktree build after `rm -rf .next` failed in Stage 1F with `next/font/google queries have exactly one entry`
+  (Module not found …/font/google/font) on the lab's Google faces; copying the main checkout's `.next/cache` into the
+  worktree's `.next/cache` before `next build` fixed it. Keep the cache when rebuilding a checkpoint.
+- A flex item with `width: 100%` inside a `fit-content` flex container (the project gallery) wrapped onto extra rows: the
+  container sizes from the items' contributions, then each item claims the full width. Size a photo by its own width
+  attribute (`max-width: 100%`, `height: auto`) and let its frame fit it; never stretch the frame.
+- React 19 adds `<link rel="preload" as="image">` (with the srcset) to `<head>` for an image with `fetchPriority="high"`.
+  A "no image on this page" check must allow it only on pages that show the photo.
+- A request filter on `/media/` also matches the fonts under `/_next/static/media/`: test the URL's pathname start
+  (`/media/`, `/_next/image`).
+- Contrast probes: the header must be hidden with `visibility: hidden` (also the overview's pinned `.pj-bar`), never made
+  `position: absolute` (Stage 1F re-hit this through the 1E script: the breadcrumbs slid under the header and read
+  1.2–2.0:1). Also turn transitions off in the "text hidden" style: links that fade their colour (`.ip-crumbs a`) are
+  still half drawn 120 ms later.
+- Pixel captures that pause every animation at 0: a transition still running (the header's shadow after the scroll back
+  to the top) freezes at its start and differs by timing. Wait until no `CSSTransition` runs, then pause.
+- A keyboard focus that the page scrolls to glides there (`scroll-behavior: smooth` once loaded) and a revealed part fades
+  in on the way: measure a focused element's position after it is in view (poll), not on the next frame.
+- DevTools network events report `data:` URIs too: each `next/image` blur placeholder and the ambient's light sweep arrive
+  as type `Image` with 0 bytes (the 3-photo clock tower page: 7 "images" = 3 photos + 3 placeholders + the sweep). Count
+  photo downloads by URL (`/_next/image`, `/media/`), not by resource type.
