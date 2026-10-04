@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-04-stage-1f-project-details.md` (earlier: `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
+- Latest report: `docs/reports/2026-10-05-stage-1i-motion-polish.md` (earlier: `2026-10-04-stage-1f-project-details.md`,
+  `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
   `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
   `2026-10-01-tm2-1-inner-kit-legal-404.md`,
@@ -40,10 +41,14 @@
   was given on the migrated Modern Commerce versions, built in TM-2.4 ("TM-2.4 APPROVED — BEGIN TM-2.5"). Never
   self-approve a stage. **Stage 1E (Capabilities & Machinery) is approved** (the user's "STAGE 1E APPROVED — BEGIN STAGE
   1F"; report `2026-10-03-stage-1e-capabilities-machinery.md`; rollback checkpoint `preserve/pre-stage-1e` at `ca672d7`);
-  Capabilities stays `review`. **Stage 1F (the project pages: source-strict project records, not case studies) is built**
-  (report `2026-10-04-stage-1f-project-details.md`; rollback checkpoint: GitHub branch `preserve/pre-stage-1f` at
-  `c2aed58`, the last commit before 1F) and awaits the user's independent review; the project pages are `review`. Do not
-  start 1G or later until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
+  Capabilities stays `review`. **Stage 1F (the project pages: source-strict project records, not case studies) is
+  approved** (the user's "STAGE 1F APPROVED — BEGIN STAGE 1I"; report `2026-10-04-stage-1f-project-details.md`; rollback
+  checkpoint `preserve/pre-stage-1f` at `c2aed58`); the project pages stay `review`. Stages 1G and 1H needed no batch
+  (Clients, Certificates, Contact and both languages were already built). **Stage 1I (motion and interaction polish: one
+  coherent motion system, no redesign, no new content) is built** (report `2026-10-05-stage-1i-motion-polish.md`;
+  implementation commit `c2fb607`; rollback checkpoint: GitHub branch `preserve/pre-stage-1i` at `b1f4fe1`, the last
+  commit before 1I) and awaits the user's independent review. Do not start 1J or later until the user says so. Do not
+  start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
@@ -100,8 +105,7 @@
   finding (English Industries names past their card at 360–421 px) is fixed in **TM-3 correction 2** (report
   `2026-10-02-tm3-correction-2.md`; correction commit `0f53145` on `9e194e9`): the one-column rule moved to 27 rem. **TM-3
   and corrections 1–2 are approved and locked** (the user's "TM-3 FULLY APPROVED — BEGIN STAGE 1E"). Never self-approve.
-  **Do not begin Stage 1G or later (1I, 1J included), theme-lab removal, OG regeneration, publication or any deployment
-  until the user says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
+  **Do not begin Stage 1J, theme-lab removal, OG regeneration, publication or any deployment until the user says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
   colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
   logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
   Commerce design in production"). Still open, for the user to decide: (5) without JavaScript a font that swaps in after
@@ -336,6 +340,27 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   parallax (the header links pages now). `Ambient`, `Cursor` (scoped to `.mc`), `HeroPlate`, the signatures
   (`useSignature`, `LaserCut`, `LaserEngrave`, `signature.css`), `MachineShowcase`, `ThemeSwitch`, `Icon` and `ui`
   live in `components/commerce/` and the lab re-exports them: one implementation, one animation controller.
+- Motion system (Stage 1I; report `2026-10-05-stage-1i-motion-polish.md` has the full inventory):
+  - Tokens (`system.css`, scoped to `.mc`): `--dur-1` 180 ms (colours, borders, underlines), `--dur-2` 320 ms (every hover
+    lift, arrows, knobs, dropdown, sheet, dialog), `--dur-3` 600 ms (cross-fades, card edges, the sector line), `--dur-4`
+    900 ms (hero entrance, slow photo moves), `--ease`, `--ease-io` (scans, sketches); reveals 700 ms / 18 px
+    (`--reveal-dur`). No motion library. Authored sequences (hero loop, signatures, scans, sketches, the primary shine
+    750 ms, the filter's 450 ms) keep their own timings.
+  - Media queries are read live through `components/commerce/useMedia.ts` (`useSyncExternalStore`, the calm answer before
+    hydration: `true` for reduced motion / forced colours, `false` for the fine pointer): `useSignature`, `HeroPlate`
+    (readout, lean) and `Cursor` follow a change made while the page is open. Never read a media query once in an effect.
+  - Nothing runs unseen: every signature run (not only the hero loop) rests off screen and while the page is hidden and
+    carries on from there; `Motion.tsx` sets `html[data-page-hidden]` while hidden (the ambient rests, as while
+    scrolling) and clears `data-live` on every `[data-ambient]` (hero hot points, the console, the Capabilities fleet
+    plate, whose one-time scan waits invisible at its first frame until the plate is on screen). No polling.
+  - Keyboard focus shows what hover shows: controls that lift, fill, underline or move an arrow use
+    `:is(:hover, :focus-visible)` (buttons of every variant, arrow links, picks, chips, switches, certificate cards,
+    closing-panel links, service links); cards use `:focus-within`. Keep new affordances on both.
+  - Reduced motion: every moving part is still (colours and shadows may still change gradually); the Industries line and
+    other pseudo-elements need their own selector (never inside `:is()`).
+  - Phones: when a reveal inside a `.rail` that scrolls sideways is shown, all its cards are shown with it.
+  - `HeroPlate`'s readout tick ignores a cancelled clock (`playState === "idle"`): a frame queued before the cancel event
+    wrote "00/07" over the finished count under load.
 - Inner pages (TM-2.1): the kit is `components/commerce/inner/` — `PageHero` (compact / split / stacked; text on an
   `.a2-read` zone; breadcrumbs, eyebrow, the one `h1#page-title`, lead, a `dl` of page facts, actions), `Breadcrumbs`,
   `ContentsNav` (client; the shared `useScrollSpy` marks the section with `aria-current`; pinned from 64 rem below the
@@ -437,7 +462,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     is added and every project shows.
   - A choice re-flows the wall with `document.startViewTransition` + `flushSync`; the items carry names (`--vt-name`)
     only while `:root[data-vt="gallery-filter"]` (unlayered rules), so the theme switch and page changes never capture
-    27 elements. With reduced motion, without the API, from the quick toggles, or while the bar is pinned over the wall
+    27 elements; the root is not captured then (`view-transition-name: none`, Stage 1I): only the cards move and the rest
+    of the page updates at once (the full-page cross-fade held the re-flow to ~25 fps in the software-compositing
+    benchmark; 56 fps since). With reduced motion, without the API, from the quick toggles, or while the bar is pinned over the wall
     (the wall then restarts under the bar with an instant `scrollIntoView`) the choice applies at once.
   - The wall: CSS columns 1 / 2 / 3 / 4 (40 / 64 / 80 rem), `break-inside: avoid`, no reveal on items (links land on
     them). Photos never above their source size: single photos `width: min(100%, <source> px)`, pairs
@@ -487,7 +514,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     centre, a readout, an index chip and a source chip, the `aria-hidden` process sketch (five kinds, captioned
     "illustrative, not to scale", plays once per showing, finished with reduced motion / no script, not mirrored in
     Arabic) and the scan line (`.cm-scan`: `translate` + opacity only, one pass per showing, paused off screen through
-    `--cm-play` / `[data-live]`, not drawn at rest, without script, with reduced motion or in forced colours). Machine
+    `--cm-play` / `[data-live]`, not drawn at rest, without script, with reduced motion or in forced colours; since
+    Stage 1I the hero's fleet plate is a `[data-ambient]` section and its one-time scan uses the same gate). Machine
     changes: opacity and `translate` only. Forced colours: the chosen pick gets a `Highlight` ring on `::after` and an
     underlined name; bars in `CanvasText`; the sketch in system colours.
   - Tests: `e2e/commerce-capabilities.spec.ts` (72): content and publication, structured data, six-record parity, the
@@ -575,7 +603,12 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   links, nothing of the
   previous design on any page and no prefetch, which addresses reach which 404, the fallback 404 from the build output,
   and since correction 1 its logo in forced colours in four palette/theme pairings, its normal-colour pixels with and
-  without that rule, and its isolation); `stage-1c.spec.ts`'s generic
+  without that rule, and its isolation); `e2e/commerce-motion.spec.ts` (Stage 1I: reduced motion from the first paint on
+  11 pages and turned on while a page is open, forced colours turned on, signatures resting off screen, nothing long or
+  repeating left running off screen, hidden pages resting, the fleet plate's scan, phone rails, reveals once, focus equal
+  to hover with `still()` before each pointer action, one lift duration, the scaled Industries line in EN/AR, twenty quick
+  cycles of the menu sheet, dropdown, filters, clients switch and certificate dialog with listener counts, the filter
+  capturing only its cards); `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
   assertion map).
@@ -1058,3 +1091,36 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - DevTools network events report `data:` URIs too: each `next/image` blur placeholder and the ambient's light sweep arrive
   as type `Image` with 0 bytes (the 3-photo clock tower page: 7 "images" = 3 photos + 3 placeholders + the sweep). Count
   photo downloads by URL (`/_next/image`, `/media/`), not by resource type.
+- Never run two Playwright runs at once in this project: each run empties `test-results` first, so the second wipes the
+  first's traces mid-run (Stage 1I: two services tests failed with `ENOENT` on their trace files; not a product issue).
+- A pseudo-element inside `:is()` is invalid and silently dropped (the rest of the list stays): the reduced-motion rule
+  `.mc :is(…, .in-row::before, …)` never reached the Industries line until Stage 1I gave it its own selector.
+- A media query read once (`matchMedia(…).matches` in an effect) misses a change while the page is open (reduced motion or
+  forced colours turned on): use `useMedia(query, serverAnswer)` (`components/commerce/useMedia.ts`,
+  `useSyncExternalStore`), with the calm answer before hydration (`true` for reduced motion / forced colours, `false` for
+  the fine pointer), so nothing starts until the real answer is known.
+- The pointer listens only after hydration: a mouse already over an element then gets no `pointerover`, so `Cursor.tsx`
+  reads what is under the pointer on its first move (without it, `data-cursor-on` hid the system cursor with the laser
+  pointer undrawn). In tests, move the mouse after the page has hydrated (e.g. once the hero loop runs).
+- Reduced motion in Playwright: `test.use({ contextOptions: { reducedMotion: "reduce" } })` (`reducedMotion` is not a
+  `test.use` option) or `page.emulateMedia({ reducedMotion })` to switch it while the page is open.
+- `locator.focus()` matches `:focus-visible` only after a key press in the page (`page.keyboard.press("Shift")` first);
+  otherwise Chromium treats it as a mouse-like focus and hover-equals-focus checks compare nothing.
+- Before a pointer action, wait until the target and its revealing section stand still (`still()` in
+  `commerce-motion.spec.ts`): Playwright retries a moving target with its own `scrollIntoView`, which glides (smooth
+  scrolling after load) after the mouse has landed, so the element leaves the mouse and loses its hover. Count only
+  running animations: a finished entrance that fills forwards (`a2-rise`) stays in `getAnimations()`.
+- `element.getAnimations()` leaves out the element's `::before` / `::after` animations; use `{ subtree: true }` (the effect's
+  `target` is then the element and `pseudoElement` names the pseudo-element).
+- A test that counts "nothing running" at a fixed time after load must leave out decorations with their own clocks that
+  wait for the script (`[data-live]` gates start at hydration, not at the first paint): the Capabilities fleet plate's
+  scan since Stage 1I.
+- A cloud session's container can restart in the middle of a long run (twice in Stage 1I): servers and running scripts are
+  killed, the disk survives. Commit finished work before long QA, and write long QA scripts to resume from a JSONL of
+  finished states (the Stage 1I `loads.js`, `matrix.js`, `axe.js`).
+- A same-document view transition with the root captured cross-fades two full-screen pictures every frame: in software
+  compositing that costs more than the moving elements themselves. Set `view-transition-name: none` on the root for
+  transitions that only move named elements.
+- Playwright can fail a test while writing its trace zip ("file data stream has unexpected number of bytes", a truncated
+  zip) on a long test with its own contexts under load; the assertions did not fail. Re-run the test alone before
+  reading it as a product failure.

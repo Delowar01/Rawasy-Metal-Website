@@ -16,8 +16,9 @@ a rated-power chart and a technical register, with no specification the profile 
 were built in Stage 1F: one page per project record (34, in both languages), showing only what the record holds — the
 title, the summary, the website's classifications, the related services, the gallery reference in the company profile
 and the photos that may be shown (none for a project whose authorship or product ownership is still to be confirmed,
-never a withheld file). Every page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch
-approval.
+never a withheld file). Stage 1I polished the motion into one system without changing a page at rest: live
+reduced-motion and forced-colours handling, nothing animating unseen, keyboard focus showing what hover shows. Every
+page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch approval.
 
 | | |
 | --- | --- |
@@ -127,10 +128,15 @@ always `aria-hidden`.
   with its measurements and readout, repeating every 10 s while on screen and the page is visible.
 - **Signatures:** the laser cutting of the nesting sheet and the engraving of the brass plate, once in view and
   again on hover or focus.
-- Reveals on scroll, the site-wide ambient (micro-dots and one periodic light sweep, resting while the page
-  scrolls), and a precision pointer for a desktop mouse.
+- Reveals on scroll (once each; a phone's sideways rail shows its cards together), the site-wide ambient
+  (micro-dots and one periodic light sweep, resting while the page scrolls or is hidden), and a precision pointer
+  for a desktop mouse.
+- Nothing runs unseen: the hero loop, the signatures, the console's scans and the hot points rest off screen and
+  while the page is hidden. Keyboard focus shows what hover shows. Interface transitions take their durations from
+  four tokens (180 / 320 / 600 / 900 ms); the projects filter moves only the cards (a view transition without a
+  full-page capture).
 - **Reduced motion:** the finished plate and signatures at once, no loop, a still background and the system
-  pointer. Without JavaScript, all content is visible.
+  pointer — also when it is turned on while a page is open. Without JavaScript, all content is visible.
 
 ### SEO
 
@@ -223,7 +229,10 @@ metadata and structured data, photos never above their source size, Arabic, them
 no-JS, an unknown project),
 `commerce-polish.spec.ts` (the forced-colours switch, logo and header marks, the inner pages' hero shown with the first
 paint, the phone menu sheet's geometry and keyboard order, the homepage's Industries cards at every width),
-`commerce-anchors.spec.ts` (first jumps to an address's anchor with late fonts), `site.spec.ts` (internal links,
+`commerce-motion.spec.ts` (the motion system: reduced motion from the start and turned on mid-visit, nothing left
+running off screen or while hidden, reveals, keyboard focus equal to hover, twenty quick cycles of the menu,
+dropdown, filters, clients switch and certificate dialog), `commerce-anchors.spec.ts` (first jumps to an address's
+anchor with late fonts), `site.spec.ts` (internal links,
 nothing of the previous design on any page, which addresses reach which 404, the fallback 404 and its logo in forced
 colours),
 `stage-1c.spec.ts` (generic inner-page checks: routes, SEO and the noindex gate, breadcrumbs, overflow, keyboard,
@@ -232,6 +241,6 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 ## Next stages
 
-1F project pages built and in review (1E, the capabilities and machinery page, is approved) · 1G (its clients,
-certificates and contact pages moved into 1C) · 1H Arabic completion · 1I motion polish ·
-1J SEO/performance QA and release. Phase 2 (admin panel) follows Phase 1 approval.
+1I motion and interaction polish built and in review (1F, the project pages, is approved; 1G and 1H needed no
+batch: their pages and the Arabic site were already built) · 1J SEO/performance QA and release. Phase 2 (admin
+panel) follows Phase 1 approval.
