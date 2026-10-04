@@ -51,8 +51,9 @@ and for a glide to land in two tests (test only)". Product code is the implement
 
 ## 4. Branch HEAD
 
-The commit that adds this report and the documentation, on top of `cfc17d5`. Its hash is given in the hand-over
-message, since a commit cannot contain its own hash.
+Two documentation commits on top of `cfc17d5`: `00c8204200280927f6b788990765c1af70dd5a8f` adds this report and the
+documentation, and the next one adds this report's "How to run" and "Next steps" sections. The branch HEAD (that second
+commit) is given in the hand-over message, since a commit cannot contain its own hash.
 
 ## 5. Files changed
 
@@ -83,7 +84,8 @@ Test-only commit `cfc17d5`: `e2e/commerce-capabilities.spec.ts` — "choosing a 
 page has hydrated; `e2e/commerce-inner.spec.ts` — the legal contents test lets the chosen entry's glide land before it
 scrolls on (item 55). Every assertion kept.
 
-Report commit: this report, `CLAUDE.md`, `README.md`, `docs/ASSET_INVENTORY.md` (items 19–22).
+Report commits: this report, `CLAUDE.md`, `README.md`, `docs/ASSET_INVENTORY.md` (items 19–22) in `00c8204`; this
+report's "How to run" and "Next steps" in the commit after it.
 
 ## 6. Route architecture
 
@@ -522,6 +524,31 @@ Stage 1E build beside Stage 1F build, 0 pixels differ).
 5. The summaries that describe photos (inventory item 21), and the workshop photo on two pages (item 22).
 6. The services behind each project (inventory item 14), which drive the Related services.
 7. Original, higher-resolution project photography (inventory item 16).
+
+---
+
+## How to run
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm run build
+npm run test:e2e        # starts next start on :3400 (or reuses it); E2E_BASE_URL for another server
+npx playwright test e2e/commerce-project-detail.spec.ts
+```
+
+Pages: `/en/projects/<slug>` and `/ar/projects/<slug>` for the 34 records, for example
+`/en/projects/clock-tower-landmark` (several photos), `/en/projects/palm-leaf-shade-canopies` (one photo),
+`/ar/projects/stainless-landmark-sculpture` (text page); the overview's "View project" links at `/en/projects#gallery`.
+
+## Next steps
+
+- **Independent review** of Stage 1F.
+- RAWASY's answers (item 58) change project records only: a confirmed photo or detail appears on its page without a code
+  change.
+- **Not started**, waiting for the user's word: Stage 1G and later (1I and 1J included), the theme lab's removal, OG
+  regeneration, publication and deployment.
 
 ---
 
