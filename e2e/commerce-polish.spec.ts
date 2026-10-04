@@ -27,6 +27,13 @@ const knob = (page: Page) =>
     return { track: k.backgroundColor, border: `${k.borderTopWidth} ${k.borderTopStyle} ${k.borderTopColor}`, dot: d.backgroundColor, at: d.translate };
   });
 
+/**
+ * The switch's own transitions (the track's colour, the dot's slide on ::after) still running. The switch is read only
+ * once they have ended: a read on the slide's first frame can still see the track's start colour under load (the Stage 1F
+ * full run caught it once, as the Clients page's test did in TM-3 correction 2).
+ */
+const moving = (page: Page) => page.locator("#clients .a2-toggle .knob").evaluate((el) => el.getAnimations({ subtree: true }).length);
+
 test.describe("the homepage's colour switch in forced colours", () => {
   for (const locale of LOCALES)
     for (const scheme of ["light", "dark"] as const)
@@ -36,6 +43,7 @@ test.describe("the homepage's colour switch in forced colours", () => {
         await page.goto(`/${locale}`, { waitUntil: "networkidle" });
         const toggle = page.locator("#clients .a2-toggle");
         await toggle.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+        await expect.poll(() => moving(page)).toBe(0);
         const off = await knob(page);
         expect(off.border).toMatch(/^1px solid /);
         expect(off.dot).not.toBe(off.track);
@@ -48,8 +56,9 @@ test.describe("the homepage's colour switch in forced colours", () => {
         await page.keyboard.press("Space");
         await expect(toggle).toHaveAttribute("aria-pressed", "true");
         await expect(page.locator("#client-wall")).toHaveAttribute("data-colour", "");
-        await expect.poll(async () => (await knob(page)).at).not.toBe(off.at);
+        await expect.poll(() => moving(page)).toBe(0);
         const on = await knob(page);
+        expect(on.at).not.toBe(off.at);
         expect(on.track).not.toBe(off.track);
         expect(on.dot).not.toBe(on.track);
         await page.keyboard.press("Enter");
