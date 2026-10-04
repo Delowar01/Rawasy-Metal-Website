@@ -554,6 +554,46 @@
     line-height: 1.45;
   }
 
+  /* Since Stage 1F: the card's one link, to the project's own page (the card itself stays a plain card, not a link). */
+  .mc .pj-card-go {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.7rem;
+    color: var(--tone-ink, var(--brand-ink));
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+  }
+
+  .mc .pj-card-go:lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  .mc .pj-card-go .mc-icon {
+    transition: translate var(--dur-2) var(--ease);
+  }
+
+  .mc .pj-card-go:is(:hover, :focus-visible) {
+    text-decoration-line: underline;
+    text-underline-offset: 0.22em;
+  }
+
+  .mc .pj-card-go:is(:hover, :focus-visible) .mc-icon {
+    translate: calc(3px * var(--dir, 1)) 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc .pj-card-go .mc-icon {
+      transition: none;
+    }
+
+    .mc .pj-card-go:is(:hover, :focus-visible) .mc-icon {
+      translate: none;
+    }
+  }
+
   /* ---------- Project index: every project by gallery reference, each a jump to its place in the gallery ---------- */
   .mc .pj-index {
     display: grid;

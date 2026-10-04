@@ -14,7 +14,7 @@ import { industries } from "./industries";
 import { legalChrome, legalDocuments } from "./legal";
 import { machines } from "./machines";
 import { capabilityStatements, metrics } from "./metrics";
-import { certificatesPage, clientsPage, industriesPage, projectsPage, servicePage, servicesPage } from "./pages";
+import { certificatesPage, clientsPage, industriesPage, projectDetailPage, projectsPage, servicePage, servicesPage } from "./pages";
 import { pillars } from "./pillars";
 import { processSteps } from "./process";
 import { featuredProjects, getProject, isShowcased, projectCategories, projects } from "./projects";
@@ -72,6 +72,16 @@ export async function getProjectsPageContent() {
 
 export async function getProjectBySlug(slug: string) {
   return getProject(slug);
+}
+
+/**
+ * A project's own page (Stage 1F): its record, the page's labels and the gallery's reference label. The page shows
+ * only what the record holds (photos: `projectDetailMedia`).
+ */
+export async function getProjectDetailContent(slug: string) {
+  const project = getProject(slug);
+  if (!project) return undefined;
+  return { project, page: projectDetailPage, refLabel: projectsPage.refLabel };
 }
 
 export async function getProjectCategories() {

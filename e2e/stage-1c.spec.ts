@@ -75,7 +75,7 @@ test.describe("no sideways scrolling", () => {
   }
 });
 
-// On the Capabilities page (planned; in the Modern Commerce design since TM-2.6, like every inner page).
+// On the Capabilities page (built in Stage 1E; in the Modern Commerce design, like every inner page).
 test("dark theme applies to inner pages and toggles back", async ({ page, context }) => {
   await context.addInitScript(() => localStorage.setItem("rawasy-theme", "dark"));
   await page.goto("/en/capabilities", { waitUntil: "networkidle" });

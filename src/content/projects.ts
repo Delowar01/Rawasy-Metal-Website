@@ -477,6 +477,23 @@ export function isShowcased(project: Project) {
   return !project.flags?.some((flag) => withheldFlags.includes(flag)) && projectImages(project).length > 0;
 }
 
+/**
+ * The only flag that still lets a project's own page (Stage 1F) show photos: an AI-image watermark is a property of
+ * single files, which `withheldMedia` names, so the project's other photos may show.
+ */
+const photoSafeFlags: readonly ProjectFlag[] = ["ai-watermark"];
+
+/**
+ * The photos a project's own page may show, in record order (the first leads the page). A project awaiting authorship
+ * or product-ownership confirmation (`confirm-authorship`, `render`) shows none; any flag not listed in
+ * `photoSafeFlags` withholds every photo the same way, so a flag added later holds a project's photos back until
+ * someone decides otherwise. Otherwise the photos that may be shown at all (`projectImages`: withheld files excluded).
+ */
+export function projectDetailMedia(project: Project): MediaId[] {
+  if (project.flags?.some((flag) => !photoSafeFlags.includes(flag))) return [];
+  return projectImages(project);
+}
+
 export function getProject(slug: string) {
   return projects.find((p) => p.slug === slug);
 }

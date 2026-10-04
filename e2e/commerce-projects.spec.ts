@@ -18,9 +18,10 @@ import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, trackErr
  * one anchor per showcased project (#<slug>) and every way onto it — the index, the featured project and the highlights
  * on this page, About's and the service pages' cards (decision D4), the address itself — with the choice cleared first
  * when it hides the target; the bar as one row of fixed height that scrolls sideways; landings clear of the header and
- * the bar, cold and with late fonts; photos never above their source size; and the project pages, planned for Stage 1F
- * (their in-development pages: commerce-planned.spec.ts). The generic inner-page checks of stage-1c.spec.ts still run on
- * this page (INNER_PAGES).
+ * the bar, cold and with late fonts; photos never above their source size. Since Stage 1F each gallery card carries one
+ * link, "View project", to the project's own page (the pages themselves: commerce-project-detail.spec.ts); nothing else on
+ * the website links a project page. The generic inner-page checks of stage-1c.spec.ts still run on this page
+ * (INNER_PAGES).
  */
 
 const SHOWCASED = projects.filter(isShowcased);
@@ -339,20 +340,26 @@ test.describe("decision D4 across the site", () => {
     await expect.poll(async () => placed(await placement(page, "gallery"))).toBe(true);
   });
 
-  test("no page in the Modern Commerce design links to a project page (Stage 1F)", async ({ page }) => {
+  test("only the overview's gallery cards link the project pages (Stage 1F): one link per showcased project, none anywhere else", async ({ page }) => {
     test.setTimeout(120_000);
     const pages = ["", "/about", "/services", "/services/laser-cutting", "/services/cnc-bending", "/services/steel-structures", "/services/fabrication", "/services/laser-engraving", "/services/scaffolding", "/capabilities", "/projects", "/industries", "/clients", "/certificates", "/contact", "/privacy", "/terms", "/no-such-page"];
     for (const locale of LOCALES) {
       for (const path of pages) {
         await page.goto(`/${locale}${path}`, { waitUntil: "domcontentloaded" });
         await expect(page.locator("body.mc"), path).toHaveCount(1);
-        const hrefs = await page.locator("a[href]").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
-        expect(hrefs.filter((h) => /\/projects\/[^/#?]/.test(h)), `${locale}${path}`).toEqual([]);
+        const links = await page
+          .locator("a[href]")
+          .evaluateAll((as) => as.map((a) => ({ href: a.getAttribute("href") ?? "", card: !!a.closest("#gallery li[data-project]") && a.matches(".pj-card-go") })));
+        const projectLinks = links.filter((l) => /\/projects\/[^/#?]/.test(l.href));
+        if (path === "/projects") {
+          expect(projectLinks.map((l) => l.href), `${locale}${path}`).toEqual(SLUGS.map((s) => `/${locale}/projects/${s}`));
+          expect(projectLinks.every((l) => l.card), `${locale}${path}`).toBe(true);
+        } else expect(projectLinks, `${locale}${path}`).toEqual([]);
       }
     }
   });
 
-  test("project pages are planned (Stage 1F): a known slug its in-development page in this design, an unknown one this design's 404", async ({ page }) => {
+  test("project pages are built (Stage 1F): a known slug its own page in this design, an unknown one this design's 404", async ({ page }) => {
     for (const [path, title] of [
       ["/en/projects/geometric-lanterns", "Geometric Lanterns"],
       ["/ar/projects/clock-tower-landmark", "برج الساعة"],
@@ -361,7 +368,8 @@ test.describe("decision D4 across the site", () => {
       expect(response?.status(), path).toBe(200);
       await expect(page.locator("body.mc"), path).toHaveCount(1);
       await expect(page.locator("h1"), path).toHaveText(title);
-      await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", /noindex/);
+      await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", "noindex, follow");
+      await expect(page.locator("main"), path).not.toContainText(/In development|قيد التطوير/);
       // Back to this page from the trail.
       await expect(page.locator(`.ip-crumbs a[href="/${path.split("/")[1]}/projects"]`), path).toHaveCount(1);
     }
@@ -543,20 +551,48 @@ test.describe("the wall", () => {
     expect(Math.abs(box.list - box.first)).toBeLessThanOrEqual(1);
   });
 
-  test("gallery cards are not links or tab stops; the featured project, the highlights and the index are", async ({ page }) => {
+  test("a gallery card is not a link: since Stage 1F it holds one, its \"View project\" link, the only tab stop in it", async ({ page }) => {
     await page.goto("/en/projects", { waitUntil: "networkidle" });
-    expect(await page.locator(`${ITEMS} a, ${ITEMS} [tabindex], ${ITEMS} button`).count()).toBe(0);
+    expect(await page.locator(`${ITEMS} [tabindex], ${ITEMS} button`).count()).toBe(0);
+    expect(await page.locator(`${ITEMS} a`).count()).toBe(SLUGS.length);
     const stops: string[] = [];
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 90; i++) {
       await page.keyboard.press("Tab");
       stops.push(await page.evaluate(() => document.activeElement?.getAttribute("href") ?? document.activeElement?.tagName ?? ""));
     }
-    // The featured project, the four highlights, the bar's nine toggles, then the index — never a gallery card.
+    // The featured project, the four highlights, the bar's nine toggles, each card's one link in the wall's order, then
+    // the index.
     const featured = stops.indexOf(`#${projectsPage.featured.slug}`);
     expect(featured).toBeGreaterThan(0);
     expect(stops.slice(featured, featured + 5)).toEqual([projectsPage.featured.slug, ...HIGHLIGHTS].map((s) => `#${s}`));
     expect(stops.slice(featured + 5, featured + 14)).toEqual(Array(9).fill("BUTTON"));
-    expect(stops.slice(featured + 14, featured + 17)).toEqual(INDEXED.slice(0, 3).map((s) => `#${s}`));
+    expect(stops.slice(featured + 14, featured + 14 + SLUGS.length)).toEqual(SLUGS.map((s) => `/en/projects/${s}`));
+    expect(stops.slice(featured + 14 + SLUGS.length, featured + 17 + SLUGS.length)).toEqual(INDEXED.slice(0, 3).map((s) => `#${s}`));
+  });
+
+  test("each card's link: \"View project\" in its language, naming the project for assistive technology, to the project's own page", async ({ page }) => {
+    for (const locale of LOCALES) {
+      await page.goto(`/${locale}/projects`, { waitUntil: "networkidle" });
+      const links = await page.locator(`${ITEMS} a`).evaluateAll((as) =>
+        as.map((a) => ({
+          card: a.closest("li[data-project]")!.id,
+          href: a.getAttribute("href"),
+          visible: [...a.childNodes].filter((n) => n.nodeType === 3 || !(n as Element).matches(".sr-only, svg")).map((n) => n.textContent).join("").trim(),
+          name: a.textContent!.replace(/\s+/g, " ").trim(),
+        })),
+      );
+      expect(links.map((l) => l.card)).toEqual(SLUGS);
+      for (const [i, link] of links.entries()) {
+        const project = SHOWCASED[i];
+        expect(link.href).toBe(`/${locale}/projects/${project.slug}`);
+        expect(link.visible).toBe(projectsPage.view[locale]);
+        expect(link.name).toBe(`${projectsPage.view[locale]}: ${project.title[locale]}`);
+      }
+    }
+    // Followed: the project's page, in the same language.
+    await page.locator(`${ITEMS}#clock-tower-landmark a`).click();
+    await page.waitForURL("**/ar/projects/clock-tower-landmark");
+    await expect(page.locator("h1")).toHaveText("برج الساعة");
   });
 
   for (const width of [1440, 1024, 390]) {

@@ -68,7 +68,7 @@ test.describe("the homepage", () => {
     }
   });
 
-  test("its own stylesheet and typefaces, the same on a planned page: none of the previous design's load anywhere", async ({ page }) => {
+  test("its own stylesheet and typefaces, the same on a project page: none of the previous design's load anywhere", async ({ page }) => {
     const sheet = (selector: string) =>
       page.evaluate(
         (sel) =>
@@ -90,8 +90,8 @@ test.describe("the homepage", () => {
     expect(await families()).toEqual(["IBM Plex Sans Arabic", "Inter", "Plus Jakarta Sans", "Tajawal"]);
     // Only the Latin faces of this design are preloaded; the previous design's six files no longer are.
     expect(await preloads()).toBe(2);
-    // A project page (planned, in this design since Stage TM-2.6) has the same stylesheet, faces and preloads; the
-    // previous design's (Sora, Manrope, Noto Kufi Arabic, Geist Mono) are gone from the website.
+    // A project page (built in Stage 1F, in this design since TM-2.6) has the same stylesheet, faces and font preloads;
+    // the previous design's (Sora, Manrope, Noto Kufi Arabic, Geist Mono) are gone from the website.
     await page.goto("/en/projects/geometric-lanterns", { waitUntil: "networkidle" });
     expect(await sheet(".mc .a2-header")).toBe(true);
     expect(await sheet(".btn-face")).toBe(false);
@@ -157,7 +157,7 @@ test.describe("navigation", () => {
       await expect(cards).toHaveCount(6);
       expect(new Set(await cards.evaluateAll((els) => els.map((a) => a.getAttribute("href"))))).toEqual(new Set([`/${locale}/projects#gallery`]));
       for (const cta of await cards.locator(".a2-proj-cta").allTextContents()) expect(cta.trim()).toBe(locale === "en" ? "View in the gallery" : "عرض في معرض الأعمال");
-      // Nothing on the homepage links a project detail page (Stage 1F) any more.
+      // Nothing on the homepage links a project page: decision D4 keeps the six cards on the gallery, Stage 1F included.
       expect(await page.locator(`a[href^="/${locale}/projects/"]`).count()).toBe(0);
     }
     // Following a card: the Projects overview opens at its gallery, with each of the six projects shown there.

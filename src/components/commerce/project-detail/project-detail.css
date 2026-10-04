@@ -1,0 +1,286 @@
+/*
+ * A project's own page (Stage 1F): the hero's facts (classifications, related services), the lead photo on its stage
+ * with the gallery reference under it, the source plate of a project with no photo that may be shown, "More
+ * photographs" and the confirmed details (a part no record fills yet). Every photo is shown at most at its source size:
+ * the company profile's photos are small exports, so the layout gives them a stage, never a bigger box.
+ *
+ * Imported by the project page component only, as services.css and projects.css are by theirs (in system.css the rules
+ * would change the stylesheet of every Modern Commerce page). The rules sit in the same `components` layer, after
+ * system.css's. It also draws the header's section mark, as planned.css did for the project pages until Stage 1F: on
+ * a project page the Projects item is the section being viewed (aria-current="true"), drawn as services.css draws the
+ * Services menu on a service page.
+ */
+@layer components {
+  .mc .nav-link[aria-current="true"] {
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-weight: 600;
+  }
+
+  .mc .a2-nav .nav-link[aria-current="true"]::after {
+    opacity: 1;
+    scale: 1 1;
+  }
+
+  .mc .a2-sheet-row[aria-current="true"] {
+    color: var(--brand-ink);
+  }
+
+  /* Plex Arabic stays at 400/500: the page's semibold labels take the Tajawal display face in Arabic. */
+  .mc :is(.pd-source, .pd-plate-source, .pd-plate-label, .pd-plate-num, .pd-details dt):lang(ar) {
+    font-family: var(--ff-display);
+  }
+
+  /* ---------- The hero's facts: a classification or a service per item, separated by a dot ---------- */
+  .mc .pd-inline {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* The dot ends an item, so a wrapped line never starts with one. */
+  .mc .pd-inline > li:not(:last-child)::after {
+    content: "·" / "";
+    margin-inline-start: 0.45rem;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+
+  .mc .pd-link {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 0.22em;
+    transition:
+      color var(--dur-1) ease,
+      text-decoration-color var(--dur-1) ease;
+  }
+
+  .mc .pd-link:hover {
+    color: var(--brand-ink);
+    text-decoration-color: currentColor;
+  }
+
+  /* ---------- The lead photo: a print on a stage, never above its source size ---------- */
+  .mc .pd-lead {
+    display: grid;
+    justify-items: center;
+    gap: 0.85rem;
+    margin: 0;
+  }
+
+  .mc .pd-stage {
+    display: grid;
+    place-items: center;
+    width: fit-content;
+    min-width: min(100%, 17rem);
+    max-width: 100%;
+    padding: clamp(1rem, 0.55rem + 1.8vw, 2rem);
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--stage-light);
+    box-shadow: var(--sh-card);
+  }
+
+  /* A print: the frame fits the photo; the photo keeps its source width (its width attribute) unless the space is
+     narrower, never more. */
+  .mc .pd-print,
+  .mc .pd-shot {
+    max-width: 100%;
+    padding: 0.375rem;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    box-shadow: var(--sh-float);
+  }
+
+  .mc .pd-img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    background: var(--surface-2);
+  }
+
+  .mc .pd-source {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc .pd-source::before {
+    content: "";
+    flex: none;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--tone, var(--brand));
+  }
+
+  /* ---------- No photo to show: the record's source set as type on a plate ---------- */
+  .mc .pd-plate {
+    position: relative;
+    display: grid;
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 24rem;
+    margin-inline: auto;
+    padding: clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    box-shadow: var(--sh-card);
+  }
+
+  /* The project's colour role as the plate's top edge (decoration; the text carries the content). */
+  .mc .pd-plate::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 3px;
+    background: var(--tone, var(--brand));
+  }
+
+  .mc .pd-plate-source {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .mc .pd-plate-ref {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .mc .pd-plate-label {
+    color: var(--ink-2);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .mc .pd-plate-num {
+    color: var(--ink);
+    font-family: var(--ff-display);
+    font-size: clamp(3rem, 2.2rem + 3vw, 4.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- More photographs: the other prints on one stage that fits them, each at most at its source size ---------- */
+  .mc .pd-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(1rem, 0.7rem + 1.2vw, 2rem);
+    width: fit-content;
+    min-width: min(100%, 17rem);
+    max-width: 100%;
+    margin: clamp(2rem, 1.4rem + 2vw, 3rem) 0 0;
+    padding: clamp(1.25rem, 0.8rem + 2vw, 2.75rem);
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--stage-light);
+    box-shadow: var(--sh-card);
+    list-style: none;
+  }
+
+  .mc .pd-shot {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  /* ---------- Confirmed details (only the fields a record holds) ---------- */
+  .mc .pd-details {
+    display: grid;
+    gap: 0.75rem;
+    margin: clamp(1.5rem, 1.1rem + 1.4vw, 2.25rem) 0 0;
+  }
+
+  .mc .pd-details > div {
+    display: grid;
+    gap: 0.25rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    box-shadow: var(--sh-xs);
+  }
+
+  .mc .pd-details dt {
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mc .pd-details dd {
+    margin: 0;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .mc .pd-passage {
+    max-width: 44rem;
+    margin-top: clamp(1.5rem, 1.1rem + 1.4vw, 2.25rem);
+  }
+
+  .mc .pd-passage p {
+    margin: 0.5rem 0 0;
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+
+  @media (min-width: 40rem) {
+    .mc .pd-details {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .mc .pd-details {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc .pd-link {
+      transition: none;
+    }
+  }
+
+  /* Forced colours: the dots and the plate's edge keep a system colour; links keep their underline. */
+  @media (forced-colors: active) {
+    .mc .pd-source::before,
+    .mc .pd-plate::before {
+      forced-color-adjust: none;
+      background: CanvasText;
+    }
+
+    .mc .pd-link {
+      text-decoration-color: currentColor;
+    }
+  }
+}

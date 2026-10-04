@@ -90,7 +90,8 @@ test.describe("the page", () => {
     });
     for (const m of machines) expect(m.source.pages, m.slug).toEqual([7]);
     expect(pageStatus.capabilities).toBe("review");
-    expect(pageStatus.project).toBe("planned");
+    // The project pages were planned until Stage 1F built them (review since, like every built inner page).
+    expect(pageStatus.project).toBe("review");
   });
 
   for (const locale of LOCALES) {

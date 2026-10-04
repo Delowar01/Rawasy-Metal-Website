@@ -39,10 +39,10 @@ function Head({ id, index, label, title, intro, tone, read = false }: { id: stri
  * The Projects overview in the Modern Commerce design (Stage TM-2.5), in the previous page's order: the hero (with the
  * quick category toggles and three prints), the featured project, the highlights, the gallery (#gallery: the bar of
  * category toggles and every showcased project, each at #<slug>), the project index and the closing call to action.
- * Copy, references, categories, photos and order are the previous page's (the content layer). Until the project pages
- * exist (Stage 1F) nothing links to them: the featured project, the highlights and the index go to the project's place
- * in the gallery (decision D4), and a gallery card is not a link. Photos are never shown above their source size; the
- * blueprint decoration is retired (D8).
+ * Copy, references, categories, photos and order are the previous page's (the content layer). The featured project,
+ * the highlights and the index go to the project's place in the gallery (decision D4); a gallery card is not a link,
+ * and since Stage 1F carries one link, "View project", to the project's own page. Photos are never shown above their
+ * source size; the blueprint decoration is retired (D8).
  */
 export async function ProjectsPage({ locale }: { locale: Locale }) {
   const [page, showcased, home] = await Promise.all([getProjectsPageContent(), getShowcasedProjects(), getHomeContent()]);
@@ -169,7 +169,7 @@ export async function ProjectsPage({ locale }: { locale: Locale }) {
           <Gallery
             projects={projects}
             options={options}
-            labels={{ group: page.gallery.filterLabel[locale], all: page.gallery.all[locale], showing: page.gallery.showing[locale], ref: refLabel }}
+            labels={{ group: page.gallery.filterLabel[locale], all: page.gallery.all[locale], showing: page.gallery.showing[locale], ref: refLabel, view: page.view[locale] }}
           />
         </section>
       </ProjectFilterProvider>

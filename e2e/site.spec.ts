@@ -11,7 +11,7 @@ import { horizontalOverflow, INNER_PAGES, trackErrors } from "./helpers";
  * says where each behaviour is checked now.
  */
 
-test("internal links on the homepage, the inner pages and the planned pages resolve", async ({ page, request }) => {
+test("internal links on the homepage, the inner pages and a project page resolve", async ({ page, request }) => {
   test.setTimeout(180_000);
   const links = new Set<string>();
   for (const locale of ["en", "ar"]) {
@@ -28,8 +28,9 @@ test("internal links on the homepage, the inner pages and the planned pages reso
     const response = await request.get(href, { maxRedirects: 0 });
     if (response.status() >= 400) broken.push(`${href} → ${response.status()}`);
   }
-  // Since Stage TM-2.5 the pages link each project to its place in the gallery (#<slug>, decision D4), so the crawl finds
-  // the website's own pages only; commerce-projects.spec.ts checks every one of those anchors.
+  // Since Stage TM-2.5 the pages link each project to its place in the gallery (#<slug>, decision D4); since Stage 1F the
+  // overview's gallery cards also link the project pages, so the crawl reaches all 27 of those in both languages too
+  // (commerce-projects.spec.ts checks every anchor and card link, commerce-project-detail.spec.ts every project page).
   expect(links.size).toBeGreaterThan(30);
   expect(broken).toEqual([]);
 });

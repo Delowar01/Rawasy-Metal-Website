@@ -359,7 +359,7 @@ test.describe("sourced relations", () => {
         if (MACHINES[slug].length) await expect(main.locator(`#machinery a[href="/${locale}/capabilities"]`)).toHaveCount(1);
 
         // Projects: only those whose own record lists the service, each opening its own place in the gallery and saying so
-        // (D4; #<slug> since TM-2.5, never the planned project page).
+        // (D4; #<slug> since TM-2.5, unchanged by Stage 1F: never a project page).
         if (PROJECTS[slug].length === 0) await expect(page.locator("#projects")).toHaveCount(0);
         else {
           const cards = main.locator("#projects a.ab-proj");

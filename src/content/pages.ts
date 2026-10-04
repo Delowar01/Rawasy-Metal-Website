@@ -2,6 +2,7 @@ import type {
   CertificatesPageContent,
   ClientsPageContent,
   IndustriesPageContent,
+  ProjectDetailPageContent,
   ProjectsPageContent,
   ServicePageContent,
   ServicesPageContent,
@@ -275,6 +276,47 @@ export const projectsPage: ProjectsPageContent = {
       { route: "contact", label: { en: "Request a quote", ar: "اطلب عرض سعر" } },
       { route: "services", label: { en: "Our services", ar: "خدماتنا" } },
       { route: "about", label: { en: "About RAWASY", ar: "عن رواسي" } },
+    ],
+  },
+};
+
+/**
+ * A project's own page (Stage 1F): labels only. The page shows what the project's record holds — its title, summary,
+ * website classifications, related services, gallery reference and the photos that may be shown — and a detail only
+ * once RAWASY has confirmed it and the record holds it (no record does yet). Nothing else is stated.
+ */
+export const projectDetailPage: ProjectDetailPageContent = {
+  eyebrow: { en: "Selected work", ar: "مختارات من أعمالنا" },
+  facts: {
+    classification: { en: "Classification", ar: "التصنيف" },
+    services: { en: "Related services", ar: "الخدمات المرتبطة" },
+  },
+  source: { en: "Company profile", ar: "الملف التعريفي" },
+  photos: {
+    title: { en: "More photographs", ar: "صور أخرى للمشروع" },
+    intro: { en: "From RAWASY's company profile.", ar: "من الملف التعريفي لرواسي." },
+  },
+  photoAlt: { en: "{title}, photo {n} of {total}", ar: "{title}، الصورة {n} من {total}" },
+  details: {
+    title: { en: "Project details", ar: "تفاصيل المشروع" },
+    client: { en: "Client", ar: "العميل" },
+    location: { en: "Location", ar: "الموقع" },
+    year: { en: "Year", ar: "السنة" },
+    materials: { en: "Materials", ar: "الخامات" },
+    scope: { en: "Scope", ar: "نطاق العمل" },
+    description: { en: "Description", ar: "الوصف" },
+    challenge: { en: "Challenge", ar: "التحدي" },
+    solution: { en: "Solution", ar: "الحل" },
+  },
+  back: { en: "Back to Projects", ar: "العودة إلى المشاريع" },
+  quote: { en: "Request a quote", ar: "اطلب عرض سعر" },
+  cta: {
+    label: { en: "Start a project", ar: "ابدأ مشروعك" },
+    title: { en: "Have a piece like this in mind?", ar: "لديك فكرة لقطعة مماثلة؟" },
+    links: [
+      { route: "contact", hash: "quote", label: { en: "Request a quote", ar: "اطلب عرض سعر" } },
+      { route: "projects", label: { en: "Back to Projects", ar: "العودة إلى المشاريع" } },
+      { route: "services", label: { en: "Our services", ar: "خدماتنا" } },
     ],
   },
 };

@@ -321,6 +321,34 @@ export interface ProjectsPageContent {
   cta: PageCta;
 }
 
+/**
+ * A project's own page (Stage 1F): labels only. Every fact on the page comes from the project's record (projects.ts);
+ * the optional details are labelled here and shown only for the fields a record holds.
+ */
+export interface ProjectDetailPageContent {
+  eyebrow: Localized;
+  facts: { classification: Localized; services: Localized };
+  /** Where every record comes from: the company profile (an item of its work gallery, or one of its pages: "p.3"). */
+  source: Localized;
+  photos: { title: Localized; intro: Localized };
+  /** A photo's text alternative when the project has several: "{title}", "{n}" and "{total}" are filled in. */
+  photoAlt: Localized;
+  details: {
+    title: Localized;
+    client: Localized;
+    location: Localized;
+    year: Localized;
+    materials: Localized;
+    scope: Localized;
+    description: Localized;
+    challenge: Localized;
+    solution: Localized;
+  };
+  back: Localized;
+  quote: Localized;
+  cta: PageCta;
+}
+
 export interface ClientsPageContent {
   hero: PageHero;
   listLabel: Localized;

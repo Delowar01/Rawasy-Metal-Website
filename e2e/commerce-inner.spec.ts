@@ -7,7 +7,7 @@ import { HTML_LANG, horizontalOverflow, LOCALES, trackErrors } from "./helpers";
  * Stage TM-2.1: the inner-page kit of the Modern Commerce design, the privacy policy and the website terms in it, and
  * the localized 404 with its catch-all (src/app/(commerce)/[locale]/). An unknown service slug has had this design's 404
  * since its route moved (TM-2.4: commerce-services.spec.ts), an unknown project slug since TM-2.6
- * (commerce-planned.spec.ts). The generic inner-page checks (routes and search metadata, breadcrumbs, sideways
+ * (commerce-project-detail.spec.ts since Stage 1F). The generic inner-page checks (routes and search metadata, breadcrumbs, sideways
  * scrolling, reduced motion and no JavaScript) stay in stage-1c.spec.ts and run on these pages too.
  */
 
@@ -282,7 +282,7 @@ test.describe("localized 404", () => {
     expect(await status(request, "/no-such-page")).toMatchObject({ status: 307, location: expect.stringMatching(/\/en\/no-such-page$/) });
     expect(await status(request, "/foo/bar", { "accept-language": "ar" })).toMatchObject({ status: 307, location: expect.stringMatching(/\/ar\/foo\/bar$/) });
     expect((await request.get("/no-such-page")).status()).toBe(404);
-    // Known pages still answer 200 (Capabilities since Stage 1E; the project pages planned, in this design since TM-2.6).
+    // Known pages still answer 200 (Capabilities since Stage 1E; the project pages built in Stage 1F).
     for (const path of ["/en", "/ar", "/en/privacy", "/ar/privacy", "/en/terms", "/ar/terms", "/en/about", "/ar/contact", "/en/services/laser-cutting", "/en/projects", "/ar/projects", "/en/capabilities", "/en/projects/geometric-lanterns"]) {
       expect((await status(request, path)).status, path).toBe(200);
     }

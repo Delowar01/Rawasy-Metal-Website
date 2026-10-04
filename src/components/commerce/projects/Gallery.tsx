@@ -4,6 +4,7 @@ import Image from "next/image";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import type { ProjectCategory } from "@/content/types";
+import { Icon } from "../Icon";
 import type { Tone } from "../types";
 import type { ProjectView } from "./data";
 
@@ -168,7 +169,7 @@ export function Gallery({
 }: {
   projects: ProjectView[];
   options: FilterOption[];
-  labels: { group: string; all: string; showing: string; ref: string };
+  labels: { group: string; all: string; showing: string; ref: string; view: string };
 }) {
   const { choice, select } = useProjectFilter();
   const bar = useRef<HTMLDivElement>(null);
@@ -210,7 +211,7 @@ export function Gallery({
                 data-categories={p.categories.map((c) => c.slug).join(" ")}
                 style={{ ["--vt-name" as string]: `pj-${p.slug}` }}
               >
-                <GalleryCard project={p} refLabel={labels.ref} />
+                <GalleryCard project={p} refLabel={labels.ref} viewLabel={labels.view} />
               </li>
             );
           })}
@@ -220,8 +221,12 @@ export function Gallery({
   );
 }
 
-/** A project in the wall: its photos (never above their source size), reference, name and classifications. Not a link. */
-function GalleryCard({ project: p, refLabel }: { project: ProjectView; refLabel: string }) {
+/**
+ * A project in the wall: its photos (never above their source size), reference, name and classifications. The card is
+ * not a link; since Stage 1F one explicit link under the classifications opens the project's own page (its text names
+ * the project for assistive technology).
+ */
+function GalleryCard({ project: p, refLabel, viewLabel }: { project: ProjectView; refLabel: string; viewLabel: string }) {
   const [first, second] = p.images;
   return (
     <div className="card pj-card" data-tone={p.tone}>
@@ -266,6 +271,11 @@ function GalleryCard({ project: p, refLabel }: { project: ProjectView; refLabel:
         </p>
         <h3 className="t-h4 pj-card-title">{p.title}</h3>
         <p className="pj-cats">{p.categories.slice(0, 2).map((c) => c.label).join(" · ")}</p>
+        <a href={p.href} className="pj-card-go">
+          {viewLabel}
+          <span className="sr-only">: {p.title}</span>
+          <Icon name="arrow" size={16} />
+        </a>
       </div>
     </div>
   );
