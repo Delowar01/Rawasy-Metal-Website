@@ -143,6 +143,14 @@ test.describe("legal pages", () => {
     await expect(third).toHaveAttribute("aria-current", "true");
     await expect(nav.locator('a[aria-current="true"]')).toHaveCount(1);
     await expect(page).toHaveURL(/#quote-form$/);
+    // The chosen entry's section is reached with a glide (smooth once the page has loaded): wait until it has landed
+    // below the header before scrolling on, or the glide can carry the page past the jump below under load (the Stage
+    // 1F full run ended on the chosen section once).
+    await page.waitForFunction(() => {
+      const top = document.getElementById("quote-form")!.getBoundingClientRect().top;
+      const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      return Math.abs(top - pad) < 2 || window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 1;
+    });
     // Scrolling on marks the section being read …
     await page.locator("#information").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
     await expect(nav.locator('a[href="#information"]')).toHaveAttribute("aria-current", "true");

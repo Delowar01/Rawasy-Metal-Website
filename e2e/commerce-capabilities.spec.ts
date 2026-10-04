@@ -364,8 +364,9 @@ test.describe("the console", () => {
   test("choosing a machine shows it alone, marks it, writes its address (no new history entry) and announces it", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto("/en/capabilities", { waitUntil: "networkidle" });
-    // The first machine until one is chosen; the others are out of reach.
-    expect(await shown(page)).toEqual({ visible: [ORDER[0]], active: [ORDER[0]], inert: 5, current: [`#${ORDER[0]}`], hash: "" });
+    // The first machine until one is chosen; the others are out of reach. The console marks this once it has hydrated,
+    // which can come after "network idle" under load (the Stage 1F full run read the server state once): poll for it.
+    await expect.poll(() => shown(page)).toEqual({ visible: [ORDER[0]], active: [ORDER[0]], inert: 5, current: [`#${ORDER[0]}`], hash: "" });
     const entries = await page.evaluate(() => history.length);
     for (const slug of [...ORDER.slice(1), ORDER[0]]) {
       await page.locator(`.cm-pick[href="#${slug}"]`).click();
