@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-05-stage-1i-motion-polish.md` (earlier: `2026-10-04-stage-1f-project-details.md`,
+- Latest report: `docs/reports/2026-10-05-stage-1i-correction-1.md` (earlier: `2026-10-05-stage-1i-motion-polish.md`,
+  `2026-10-04-stage-1f-project-details.md`,
   `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
   `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
   `2026-10-01-tm2-3-about-industries-clients-certificates.md`, `2026-10-01-tm2-2-contact.md`, `2026-10-01-tm2-1-correction-1.md`,
@@ -47,8 +48,11 @@
   (Clients, Certificates, Contact and both languages were already built). **Stage 1I (motion and interaction polish: one
   coherent motion system, no redesign, no new content) is built** (report `2026-10-05-stage-1i-motion-polish.md`;
   implementation commit `c2fb607`, test-only fix `528f53a`; rollback checkpoint: GitHub branch `preserve/pre-stage-1i` at
-  `b1f4fe1`, the last commit before 1I) and awaits the user's independent review. Do not start 1J or later until the user says so. Do not
-  start Phase 2 (admin panel) during Phase 1.
+  `b1f4fe1`, the last commit before 1I). It passed the user's independent review except one accessibility condition: text
+  passed through a contrast-breaking opacity in the Capabilities machine change and the certificate dialog's opening and
+  closing. **Stage 1I correction 1** fixes that (report `2026-10-05-stage-1i-correction-1.md`; implementation commit
+  `1f7b9fc`, CSS only, plus `e2e/commerce-motion-contrast.spec.ts`) and awaits the user's independent review. Do not start 1J
+  or later until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
@@ -256,8 +260,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 
 - Run `npm run lint`, `npm run typecheck`, `npm run build` and then `npm run test:e2e`.
 - Check pages in a browser with Playwright: EN/AR × light/dark × desktop/mobile, console errors, and
-  sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`. An axe-core audit (installed
-  in the scratchpad, not the project) is a cheap extra check.
+  sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`. An axe-core audit is a cheap extra check:
+  `axe-core` 4.13.0 is a dev dependency since Stage 1I correction 1 (`require.resolve("axe-core/axe.min.js")` in a spec,
+  then `page.addScriptTag({ path })`; the specs compile as CommonJS, so no `import.meta`).
 
 ## Modern Commerce design in production (Stages TM-1 and TM-2)
 
@@ -358,6 +363,16 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     closing-panel links, service links); cards use `:focus-within`. Keep new affordances on both.
   - Reduced motion: every moving part is still (colours and shadows may still change gradually); the Industries line and
     other pseudo-elements need their own selector (never inside `:is()`).
+  - Words never fade where they change (Stage 1I correction 1): a panel or dialog that holds text is shown or hidden whole
+    and moves by `translate` only; opacity is for media, surfaces, backdrops and decoration. A half-faded word falls below
+    AA (the console's buttons read 3.44:1 at 160 ms, the dialog's preview labels 3.30:1). The Capabilities console: a
+    panel has no opacity in any state (`visibility` + `z-index`); the coming machine's words show at full strength at once
+    and its data rises 8 px (600 ms); the leaving machine goes at once except its photo and floor line, which fade out in
+    180 ms under the new one (`visibility 0s linear var(--dur-1)` on its `.cm-figure` and `.cm-floor-active`); the coming
+    photo and floor line fade in after 80 ms. The certificate dialog rises 12 px at full opacity while the backdrop fades
+    in; closing, it goes at once (no opacity transition) while the backdrop fades out, held in the top layer by its
+    `overlay` / `display` transitions. Not yet applied elsewhere (outside the correction's brief): the scroll reveals
+    (opacity + 18 px on text, every page) and the homepage machine showcase's 600 ms panel cross-fade (frozen homepage).
   - Phones: when a reveal inside a `.rail` that scrolls sideways is shown, all its cards are shown with it.
   - `HeroPlate`'s readout tick ignores a cancelled clock (`playState === "idle"`): a frame queued before the cancel event
     wrote "00/07" over the finished count under load.
@@ -398,7 +413,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     card and dialog preview at or below the previous size (`certsize.js` in the TM-2.3 proofs). No filter, transform,
     zoom or reveal on a certificate image. The native `<dialog>` opens with `showModal()` from links to the raw files
     (no-JS fallback), is labelled by its `h2`, closes with Escape, the close button or the backdrop, returns focus,
-    puts the Arabic version first on `/ar`, and its body is a focusable labelled group (it scrolls). The register's
+    puts the Arabic version first on `/ar`, and its body is a focusable labelled group (it scrolls). Opening, it rises
+    12 px at full opacity while the backdrop fades in; closing, it goes at once while the backdrop fades out (its words
+    never fade, Stage 1I correction 1). The register's
     anchored cards carry no reveal (its transform moved them after the jump).
   - The dialog and the pointer: a modal dialog sits in the top layer above the MC pointer, so `useDialogPointer` marks
     `html[data-cursor-modal]` while one is open (the pointer fades out) and unlayered rules give the dialog, its
@@ -474,7 +491,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     `ProjectsPage.tsx` only, like `services.css` (never in `system.css`).
   - D4 elsewhere: About's four cards and the service pages' project cards link `href(locale, "projects", { hash: slug })`
     (href only; their pixels did not change). The homepage's six cards keep `#gallery`.
-- Capabilities & Machinery (Stage 1E): route `(commerce)/[locale]/capabilities/page.tsx` (static, `innerPageMetadata`,
+- Capabilities & Machinery (Stage 1E; the machine change since Stage 1I correction 1: "Words never fade" above): route
+  `(commerce)/[locale]/capabilities/page.tsx` (static, `innerPageMetadata`,
   `PageShell` with `sameAddressLink={MachineAddressLink}`) → `components/commerce/capabilities/CapabilitiesPage.tsx`
   (server). Data: `data.ts` `getCapabilitiesView(locale)` reads `getCapabilitiesPageContent()` (machines.ts + the page's
   copy in `src/content/capabilities.ts`, which holds labels and notes only, never machine facts) and puts the machines
@@ -516,8 +534,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     Arabic) and the scan line (`.cm-scan`: `translate` + opacity only, one pass per showing, paused off screen through
     `--cm-play` / `[data-live]`, not drawn at rest, without script, with reduced motion or in forced colours; since
     Stage 1I the hero's fleet plate is a `[data-ambient]` section and its one-time scan uses the same gate). Machine
-    changes: opacity and `translate` only. Forced colours: the chosen pick gets a `Highlight` ring on `::after` and an
-    underlined name; bars in `CanvasText`; the sketch in system colours.
+    changes: the panel is shown or hidden whole (never faded, Stage 1I correction 1); the data's `translate`, the photo's
+    opacity and `translate`, the floor line's `scale` and opacity. Forced colours: the chosen pick gets a `Highlight`
+    ring on `::after` and an underlined name; bars in `CanvasText`; the sketch in system colours.
   - Tests: `e2e/commerce-capabilities.spec.ts` (72): content and publication, structured data, six-record parity, the
     power rule, the unstated-specification guard (per text node), photos (alt, loaded once, ≤ source at six widths, not
     mirrored), the console (choose, keyboard, a 20-cycle stress test with the page's own listeners compared by type and
@@ -608,7 +627,12 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   repeating left running off screen, hidden pages resting, the fleet plate's scan, phone rails, reveals once, focus equal
   to hover with `still()` before each pointer action, one lift duration, the scaled Industries line in EN/AR, twenty quick
   cycles of the menu sheet, dropdown, filters, clients switch and certificate dialog with listener counts, the filter
-  capturing only its cards); `stage-1c.spec.ts`'s generic
+  capturing only its cards); `e2e/commerce-motion-contrast.spec.ts` (Stage 1I correction 1: the Capabilities machine
+  change held at 0 / 80 / 150 / 160 / 240 / 300 / 320 / 450 / 480 / 600 ms and settled, the certificate dialog's opening
+  at 0 / 80 / 160 / 240 / 320 ms and closing at 80 / 160 / 240 ms, in EN/AR × light/dark at 1440 and EN light / AR dark at
+  390; in each held frame axe-core (WCAG 2.0–2.2 A/AA + best practice) finds nothing, every text shown is at opacity 1
+  through its ancestors and reaches AA per pixel (unrounded) against what is drawn under it, one machine's words only,
+  the pick's focus ring drawn); `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
   assertion map).
@@ -1129,3 +1153,24 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   a read 900 ms after the click failed under the full suite's load (Stage 1I; 2 of 10 at 4× CPU throttling, 10 of 10 at
   6×). Wrap `document.startViewTransition` to keep the transition, await its `finished`, then one task, so the page's own
   `.finally` has cleared its mark (`528f53a`).
+- To check a transition mid-way, hold it instead of sampling it on a timer: snapshot `document.getAnimations()`, make the
+  change in the same task, wait for React's commit (a few microtasks, then `setTimeout(0)`), read styles once, pause every
+  animation and set each new one's `currentTime = T` (a CSS transition's delay counts in T). Let go with `cancel()` on
+  what the change started and `play()` only on what was running before: Chromium keeps a CSS animation the API has
+  touched after its rule stops applying, and `play()` on a finished one replays it (a stale scan line drew over the
+  sketch caption at 1.6:1 in a correction-1 probe — a test artefact, identical on both builds).
+- The Capabilities selector on phones scrolls sideways with `scrollBy({ behavior: "smooth" })`, which no hold pauses: wait
+  until its `scrollLeft` stands still for a few frames before reading glyph boxes or pixels (reading on the moving rail
+  put text boxes over the dark thumbnails: ~1.0:1, not a page defect).
+- axe-core's colour-contrast rule leaves text over stacked or translucent layers as "needs review" (94–99 nodes on
+  Capabilities, the header over the ambient included), and it flagged one node where 268 texts were below AA in the same
+  held frame. Pair it with a per-pixel check (text hidden, the frame captured, each text's colour through its opacity
+  set against every pixel under its glyphs).
+- With motion allowed, pixel captures differ between builds and between runs of one build wherever a decoration keeps
+  its own clock (the ambient's stepped drift and breathing, the fleet plate's and the console's scans, a floor line
+  mid-way). For "resting pixels identical" compare with reduced motion, or hide those layers on both builds and finish
+  every finite animation, repeating until nothing runs for a few frames (`rest2.js` in the correction-1 proofs).
+- The certificate dialog on a 390 px phone (EN, dark, reduced motion) is drawn one of two ways from run to run: open,
+  10,320 pixels around the first preview's lower edge and its label (at most 23 levels apart); just closed, 127 pixels of
+  the card under it (at most 2). The Stage 1I build differs from itself in exactly the same pixels, with identical layout,
+  styles and image bytes. Recapture (or compare a build with itself) before calling it a change.

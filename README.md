@@ -17,7 +17,9 @@ were built in Stage 1F: one page per project record (34, in both languages), sho
 title, the summary, the website's classifications, the related services, the gallery reference in the company profile
 and the photos that may be shown (none for a project whose authorship or product ownership is still to be confirmed,
 never a withheld file). Stage 1I polished the motion into one system without changing a page at rest: live
-reduced-motion and forced-colours handling, nothing animating unseen, keyboard focus showing what hover shows. Every
+reduced-motion and forced-colours handling, nothing animating unseen, keyboard focus showing what hover shows; its
+correction 1 keeps every word at full strength while the Capabilities console changes machine and while the
+certificate dialog opens and closes (only photos, lines and the backdrop fade). Every
 page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch approval.
 
 | | |
@@ -231,7 +233,9 @@ no-JS, an unknown project),
 paint, the phone menu sheet's geometry and keyboard order, the homepage's Industries cards at every width),
 `commerce-motion.spec.ts` (the motion system: reduced motion from the start and turned on mid-visit, nothing left
 running off screen or while hidden, reveals, keyboard focus equal to hover, twenty quick cycles of the menu,
-dropdown, filters, clients switch and certificate dialog), `commerce-anchors.spec.ts` (first jumps to an address's
+dropdown, filters, clients switch and certificate dialog), `commerce-motion-contrast.spec.ts` (the Capabilities
+machine change and the certificate dialog held part-way: axe-core, full opacity and per-pixel AA contrast in every held
+frame), `commerce-anchors.spec.ts` (first jumps to an address's
 anchor with late fonts), `site.spec.ts` (internal links,
 nothing of the previous design on any page, which addresses reach which 404, the fallback 404 and its logo in forced
 colours),
@@ -241,6 +245,6 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 ## Next stages
 
-1I motion and interaction polish built and in review (1F, the project pages, is approved; 1G and 1H needed no
+1I motion and interaction polish built, its correction 1 in review (1F, the project pages, is approved; 1G and 1H needed no
 batch: their pages and the Arabic site were already built) · 1J SEO/performance QA and release. Phase 2 (admin
 panel) follows Phase 1 approval.
