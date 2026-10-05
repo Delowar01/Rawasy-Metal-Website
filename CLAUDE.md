@@ -46,8 +46,8 @@
   checkpoint `preserve/pre-stage-1f` at `c2aed58`); the project pages stay `review`. Stages 1G and 1H needed no batch
   (Clients, Certificates, Contact and both languages were already built). **Stage 1I (motion and interaction polish: one
   coherent motion system, no redesign, no new content) is built** (report `2026-10-05-stage-1i-motion-polish.md`;
-  implementation commit `c2fb607`; rollback checkpoint: GitHub branch `preserve/pre-stage-1i` at `b1f4fe1`, the last
-  commit before 1I) and awaits the user's independent review. Do not start 1J or later until the user says so. Do not
+  implementation commit `c2fb607`, test-only fix `528f53a`; rollback checkpoint: GitHub branch `preserve/pre-stage-1i` at
+  `b1f4fe1`, the last commit before 1I) and awaits the user's independent review. Do not start 1J or later until the user says so. Do not
   start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
@@ -1124,3 +1124,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - Playwright can fail a test while writing its trace zip ("file data stream has unexpected number of bytes", a truncated
   zip) on a long test with its own contexts under load; the assertions did not fail. Re-run the test alone before
   reading it as a product failure.
+- Read a view transition's end state on its own `finished`, never after a fixed time: the projects filter's 450 ms
+  transition takes 711–799 ms from click to `finished` in headless Chromium (its captures in software compositing), and
+  a read 900 ms after the click failed under the full suite's load (Stage 1I; 2 of 10 at 4× CPU throttling, 10 of 10 at
+  6×). Wrap `document.startViewTransition` to keep the transition, await its `finished`, then one task, so the page's own
+  `.finally` has cleared its mark (`528f53a`).
