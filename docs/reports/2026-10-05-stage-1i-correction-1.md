@@ -472,12 +472,12 @@ The one pair that differed is not a change: the open dialog on a 390 px phone (E
 two ways from run to run — 10,320 pixels around the first preview's lower edge and its label, at most 23 levels apart.
 Re-captured: Stage 1I vs corrected 6 more times (3 differed), corrected vs corrected 3 times (0 differed) and **Stage 1I
 vs Stage 1I 3 times (1 differed, by exactly the same 10,320 pixels**, same box, same maximum). Layout (every rect to
-1/1000 px), computed styles, the chosen image candidates and the optimizer's bytes (SHA-256 of the served preview) are
-identical on both servers, and with reduced motion none of the dialog's changed rules apply (they all sit inside
-`prefers-reduced-motion: no-preference`). With motion allowed (the earlier, weaker freeze), 24 views differed, all where
-a decoration keeps its own clock — the ambient's stepped drift and breathing, the fleet plate's and the console's scan
-lines, a floor line caught mid-way — which the stricter freeze above holds on both builds; the correction changed none
-of those rules.
+1/1000 px), the chosen image candidates, the decoded image sizes and the optimizer's bytes (SHA-256 of the served
+preview) are identical on both servers, and with reduced motion none of the dialog's changed rules apply (they all sit
+inside `prefers-reduced-motion: no-preference`). With motion allowed (the earlier, weaker freeze), 23 of 40 views
+differed, all where a decoration keeps its own clock — the ambient's stepped drift and breathing, the fleet plate's and
+the console's scan lines, a floor line caught mid-way — which the stricter freeze above holds on both builds; the
+correction changed none of those rules.
 
 Every other page: no rule that changed can match anything on it — of the 120 prerendered HTML pages only
 `/{en,ar}/capabilities` (the panels: 36 elements) and `/{en,ar}/certificates` (the dialog: 1) contain an element the

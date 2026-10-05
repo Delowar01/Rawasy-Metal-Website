@@ -1173,4 +1173,4 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - The certificate dialog on a 390 px phone (EN, dark, reduced motion) is drawn one of two ways from run to run: open,
   10,320 pixels around the first preview's lower edge and its label (at most 23 levels apart); just closed, 127 pixels of
   the card under it (at most 2). The Stage 1I build differs from itself in exactly the same pixels, with identical layout,
-  styles and image bytes. Recapture (or compare a build with itself) before calling it a change.
+  image candidates and image bytes. Recapture (or compare a build with itself) before calling it a change.
