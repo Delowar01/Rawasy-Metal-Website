@@ -633,7 +633,9 @@ test.describe("twenty quick cycles end consistent", () => {
     await page.goto("/en/projects", { waitUntil: "networkidle" });
     await page.locator("#gallery").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
     await page.evaluate(() => window.scrollBy({ top: -240, behavior: "instant" }));
-    // Read the names inside the transition's own update, when the browser has taken the old picture.
+    // Read the names inside the transition's own update, when the browser has taken the old picture, and again once the
+    // transition has ended: on its own `finished` (not a fixed time; under the full suite's load the 450 ms transition
+    // was still running 900 ms after the click), plus one task, so the page's own `finally` has cleared its mark.
     const seen = await page.evaluate(async () => {
       const read = () => ({
         root: getComputedStyle(document.documentElement).viewTransitionName,
@@ -642,9 +644,12 @@ test.describe("twenty quick cycles end consistent", () => {
       });
       const start = document.startViewTransition.bind(document);
       let during: ReturnType<typeof read> | undefined;
-      document.startViewTransition = ((update: () => void) => start(() => (update(), (during = read())))) as typeof document.startViewTransition;
+      let running: ViewTransition | undefined;
+      document.startViewTransition = ((update: () => void) =>
+        (running = start(() => (update(), (during = read()))))) as typeof document.startViewTransition;
       document.querySelectorAll<HTMLButtonElement>(".pj-bar .pj-chip")[2].click();
-      await new Promise((r) => setTimeout(r, 900));
+      await running?.finished;
+      await new Promise((r) => setTimeout(r, 0));
       return { during, after: read() };
     });
     expect(seen.during?.mark).toBe("gallery-filter");
