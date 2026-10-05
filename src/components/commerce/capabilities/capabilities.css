@@ -809,7 +809,6 @@
     background: none;
     box-shadow: none;
     visibility: hidden;
-    opacity: 0;
   }
 
   .js .mc .cm-shot {
@@ -821,31 +820,22 @@
     grid-area: 3 / 1;
   }
 
-  /* The machine shown: the address's or the first until the console hydrates, then the chosen one. */
+  /* The machine shown: the address's or the first until the console hydrates, then the chosen one. A panel is shown or
+     hidden whole, never faded: its words are always at full strength (Stage 1I correction 1). */
   .js .mc .cm-console:not([data-ready]):not(:has(.cm-panel:target)) .cm-panel:first-child,
   .js .mc .cm-console:not([data-ready]) .cm-panel:target,
   .js .mc .cm-console[data-ready] .cm-panel[data-active] {
     z-index: 1;
     visibility: visible;
-    opacity: 1;
   }
 
-  /* The change of machine, once the console runs: the one leaving fades out quickly, the one coming in fades in, rises
-     onto its floor and its floor line draws out from the centre (motion allowed only; otherwise, and before the console
-     runs — the address's machine replacing the first as the page loads — the change is immediate). */
+  /* The change of machine, once the console runs. No text fades, so it never passes through a contrast below AA and two
+     machines' words never show together: the machine leaving goes at once, all but its photo and its floor line, which
+     fade out (180 ms) under the one coming in; the machine coming in shows its words at full strength at once, its data
+     rising 8 px, while its photo fades in after 80 ms and rises onto its floor and its floor line draws out from the
+     centre (motion allowed only; otherwise, and before the console runs — the address's machine replacing the first as
+     the page loads — the change is immediate). */
   @media (prefers-reduced-motion: no-preference) {
-    .js .mc .cm-console[data-ready] .cm-panel {
-      transition:
-        opacity var(--dur-1) ease,
-        visibility 0s linear var(--dur-1);
-    }
-
-    .js .mc .cm-console[data-ready] .cm-panel[data-active] {
-      transition:
-        opacity var(--dur-3) var(--ease) 0.08s,
-        visibility 0s;
-    }
-
     .js .mc .cm-data {
       transition: translate var(--dur-3) var(--ease);
     }
@@ -853,13 +843,30 @@
     .mc .cm-figure .cm-photo {
       transition:
         translate var(--dur-4) var(--ease),
-        opacity var(--dur-3) var(--ease);
+        opacity var(--dur-3) var(--ease) 0.08s;
     }
 
     .mc .cm-floor-active {
       transition:
         scale var(--dur-4) var(--ease),
-        opacity var(--dur-3) ease;
+        opacity var(--dur-3) ease 0.08s;
+    }
+
+    .js .mc .cm-console[data-ready] .cm-panel:not([data-active]) .cm-figure {
+      transition: visibility 0s linear var(--dur-1);
+    }
+
+    .js .mc .cm-console[data-ready] .cm-panel:not([data-active]) .cm-figure .cm-photo {
+      transition:
+        translate var(--dur-4) var(--ease),
+        opacity var(--dur-1) ease;
+    }
+
+    .js .mc .cm-console[data-ready] .cm-panel:not([data-active]) .cm-floor-active {
+      transition:
+        visibility 0s linear var(--dur-1),
+        scale var(--dur-4) var(--ease),
+        opacity var(--dur-1) ease;
     }
   }
 

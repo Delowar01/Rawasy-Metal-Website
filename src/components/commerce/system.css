@@ -5285,13 +5285,13 @@
     font-size: 0.875rem;
   }
 
-  /* Opening and closing: a short fade and rise (the closing one holds the dialog in the top layer while it fades). */
+  /* Opening and closing. The dialog's words never fade (a half-faded label falls below AA contrast): opening, it rises
+     12 px into place at full strength while the backdrop fades in; closing, it goes at once while the backdrop fades out
+     (the dialog is held in the top layer meanwhile, so its backdrop can). */
   @media (prefers-reduced-motion: no-preference) {
     .mc .ct-dialog {
       opacity: 0;
-      translate: 0 12px;
       transition:
-        opacity var(--dur-2) ease,
         translate var(--dur-2) var(--ease),
         overlay var(--dur-2) allow-discrete,
         display var(--dur-2) allow-discrete;
@@ -5299,12 +5299,10 @@
 
     .mc .ct-dialog[open] {
       opacity: 1;
-      translate: none;
     }
 
     @starting-style {
       .mc .ct-dialog[open] {
-        opacity: 0;
         translate: 0 12px;
       }
     }

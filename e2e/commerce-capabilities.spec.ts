@@ -435,13 +435,18 @@ test.describe("the console", () => {
     }
     const last = ORDER[ORDER.length - 1];
     await expect.poll(() => shown(page)).toEqual({ visible: [last], active: [last], inert: 5, current: [`#${last}`], hash: `#${last}` });
-    // Once settled: no animation left running, every photo back in place (no transform piled up), one panel opaque.
+    // Once settled: no animation left running, every photo back in place (no transform piled up), one panel drawn. A panel
+    // is shown or hidden whole, never faded (Stage 1I correction 1), so "drawn" is its visibility and that of every part
+    // of it (the photo and floor line of a machine leaving linger 180 ms), and only the shown machine's photo is opaque.
     await expect.poll(() => page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running" && (a.effect as KeyframeEffect)?.target?.closest?.(".cm-console")).length), { timeout: 8_000 }).toBe(0);
     const photos = await page.locator(".cm-panel .cm-figure img").evaluateAll((imgs) =>
       imgs.map((img) => ({ id: img.closest(".cm-panel")!.id, translate: getComputedStyle(img).translate, opacity: getComputedStyle(img).opacity })),
     );
     for (const p of photos) expect(p.translate, p.id).toBe(p.id === last ? "none" : "0px 14px");
-    expect(await page.locator(".cm-panel").evaluateAll((ps) => ps.filter((p) => getComputedStyle(p).opacity === "1").map((p) => p.id))).toEqual([last]);
+    for (const p of photos) expect(p.opacity, p.id).toBe(p.id === last ? "1" : "0");
+    expect(
+      await page.locator(".cm-panel").evaluateAll((ps) => ps.filter((p) => [p, ...p.querySelectorAll("*")].some((el) => getComputedStyle(el).visibility === "visible")).map((p) => p.id)),
+    ).toEqual([last]);
     // No listener left behind by the 120 changes.
     expect(await listeners()).toEqual(before);
     // The selector still works from the keyboard: Tab moves to the next machine, Enter shows it.
@@ -727,6 +732,9 @@ test.describe("accessibility", () => {
       expect(await moving()).toBe(0);
       expect((await shown(page)).visible).toEqual(["cnc-press-brake"]);
       expect(await page.locator("#cnc-press-brake").evaluate((p) => getComputedStyle(p).opacity)).toBe("1");
+      // At once: its photo opaque and on its floor (no rise), its data in place.
+      expect(await page.locator("#cnc-press-brake .cm-figure img").evaluate((el) => [getComputedStyle(el).opacity, getComputedStyle(el).translate])).toEqual(["1", "none"]);
+      expect(await page.locator("#cnc-press-brake .cm-data").evaluate((el) => getComputedStyle(el).translate)).toBe("none");
       // The finished work: the cut drawn in full; the bend at its angle; the weld head at the foot of the seam.
       for (const cut of await page.locator(".sk-cut").all()) expect(await cut.evaluate((el) => getComputedStyle(el).strokeDashoffset)).toBe("0px");
       expect(await page.locator("#cnc-press-brake .sk-blank-a").evaluate((el) => getComputedStyle(el).rotate)).toBe("20deg");
