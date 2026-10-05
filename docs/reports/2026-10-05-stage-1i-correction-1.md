@@ -55,9 +55,10 @@ axe-core dev dependency, together. No product file changed after it.
 
 ## 3. Branch HEAD
 
-`ba64a1b` → `1f7b9fc` (implementation, pushed) → the report commit that adds this file and updates `CLAUDE.md` and
-`README.md` = HEAD, pushed to `origin/claude/new-session-5eijs6` without force (a commit cannot name its own hash; it is
-given in the hand-off message). `preserve/pre-stage-1i` still points to `b1f4fe1`.
+`ba64a1b` → `1f7b9fc` (implementation) → `8854198` (this report, `CLAUDE.md`, `README.md`) → documentation-only
+follow-ups to this report (the last one is HEAD; a commit cannot name its own hash, so HEAD is given in the hand-off
+message), all pushed to `origin/claude/new-session-5eijs6` without force. `preserve/pre-stage-1i` still points to
+`b1f4fe1`.
 
 ## 4. Files changed
 
