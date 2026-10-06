@@ -19,7 +19,9 @@ and the photos that may be shown (none for a project whose authorship or product
 never a withheld file). Stage 1I polished the motion into one system without changing a page at rest: live
 reduced-motion and forced-colours handling, nothing animating unseen, keyboard focus showing what hover shows; its
 correction 1 keeps every word at full strength while the Capabilities console changes machine and while the
-certificate dialog opens and closes (only photos, lines and the backdrop fade). Every
+certificate dialog opens and closes (only photos, lines and the backdrop fade), and its correction 2 does the same for
+the homepage machinery, the scroll reveals, the homepage entrance, the Services dropdown, the phone menu and the
+homepage project cards' label (words show whole and move; only photos, logos and drawings fade). Every
 page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch approval.
 
 | | |
@@ -77,7 +79,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-10-02, Stage TM-3 correction 2)
+docs/reports/                Stage reports (latest: 2026-10-06, Stage 1I correction 2)
 ```
 
 ### Languages and RTL
@@ -233,8 +235,9 @@ no-JS, an unknown project),
 paint, the phone menu sheet's geometry and keyboard order, the homepage's Industries cards at every width),
 `commerce-motion.spec.ts` (the motion system: reduced motion from the start and turned on mid-visit, nothing left
 running off screen or while hidden, reveals, keyboard focus equal to hover, twenty quick cycles of the menu,
-dropdown, filters, clients switch and certificate dialog), `commerce-motion-contrast.spec.ts` (the Capabilities
-machine change and the certificate dialog held part-way: axe-core, full opacity and per-pixel AA contrast in every held
+dropdown, filters, clients switch and certificate dialog), `commerce-motion-contrast.spec.ts` (the Capabilities and
+homepage machine changes, the certificate dialog, the scroll reveals, the homepage entrance, the Services dropdown, the
+phone menu and the project cards' label held part-way: axe-core, full opacity and per-pixel AA contrast in every held
 frame), `commerce-anchors.spec.ts` (first jumps to an address's
 anchor with late fonts), `site.spec.ts` (internal links,
 nothing of the previous design on any page, which addresses reach which 404, the fallback 404 and its logo in forced
@@ -245,6 +248,7 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 ## Next stages
 
-1I motion and interaction polish built, its correction 1 in review (1F, the project pages, is approved; 1G and 1H needed no
+1I motion and interaction polish built, its correction 1 approved and correction 2 in review (1F, the project pages, is
+approved; 1G and 1H needed no
 batch: their pages and the Arabic site were already built) · 1J SEO/performance QA and release. Phase 2 (admin
 panel) follows Phase 1 approval.

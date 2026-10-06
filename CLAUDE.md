@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-05-stage-1i-correction-1.md` (earlier: `2026-10-05-stage-1i-motion-polish.md`,
+- Latest report: `docs/reports/2026-10-06-stage-1i-correction-2.md`, with its census `2026-10-06-stage-1i-correction-2-census.md`
+  (earlier: `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
   `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
   `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
@@ -51,8 +52,16 @@
   `b1f4fe1`, the last commit before 1I). It passed the user's independent review except one accessibility condition: text
   passed through a contrast-breaking opacity in the Capabilities machine change and the certificate dialog's opening and
   closing. **Stage 1I correction 1** fixes that (report `2026-10-05-stage-1i-correction-1.md`; implementation commit
-  `1f7b9fc`, CSS only, plus `e2e/commerce-motion-contrast.spec.ts`) and awaits the user's independent review. Do not start 1J
-  or later until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
+  `1f7b9fc`, CSS only, plus `e2e/commerce-motion-contrast.spec.ts`) and **is approved and locked** (the user's "Stage 1I
+  Correction 1 is independently APPROVED"). **Stage 1I correction 2** closes the same defect everywhere else words faded:
+  the homepage machinery, the scroll reveals, the homepage entrance, the Services dropdown, the phone menu sheet and the
+  homepage project cards' label (census `2026-10-06-stage-1i-correction-2-census.md`, taken before those changes; report
+  `2026-10-06-stage-1i-correction-2.md`; implementation commit `75d7f73`, CSS only, plus the extended spec; a separate
+  lockfile-only commit `f492577` patched `sharp` 0.35.5 and `source-map-js` 1.2.2 for two production advisories published
+  after correction 1, proven to change nothing served) and awaits the user's independent review. Its one measured
+  worsening, left for the user: the Arabic homepage's CLS at 1440 rose 0.0390 → 0.0459 (the same late Arabic-font shift,
+  now counted on hero words that no longer fade in; the fix is the 1J Arabic font preload). Do not start 1J or later
+  until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
@@ -323,7 +332,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     current language and the pressed theme button take `Highlight` / `HighlightText` (as the projects' pressed chips do).
     Normal colours are unchanged.
 - Homepage sections (`components/commerce/home/`): Hero (+ capability strip), About, Services (the two signatures
-  lead), Machinery (`MachineShowcase`), Projects, Industries, Clients + Compliance (one sheet), Contact;
+  lead), Machinery (`MachineShowcase`; in forced colours the chosen machine's card has a `Highlight` ring on `::after` and
+  its words underlined, Stage 1I correction 2), Projects, Industries, Clients + Compliance (one sheet), Contact;
   `getHomeView(locale)` in `home/data.ts`. Markup follows the lab's `HomeA2.tsx` one to one (proved by diffing the
   server HTML: only routes, `aria-current`, the added footer WhatsApp link, the copyright period, the hero's primary
   action and the project cards differ). Industries (TM-3 corrections 1 and 2): below 27 rem its two lists stack in one
@@ -363,16 +373,27 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     closing-panel links, service links); cards use `:focus-within`. Keep new affordances on both.
   - Reduced motion: every moving part is still (colours and shadows may still change gradually); the Industries line and
     other pseudo-elements need their own selector (never inside `:is()`).
-  - Words never fade where they change (Stage 1I correction 1): a panel or dialog that holds text is shown or hidden whole
-    and moves by `translate` only; opacity is for media, surfaces, backdrops and decoration. A half-faded word falls below
+  - Words never fade where they change (Stage 1I corrections 1 and 2): a panel, dialog, menu or reveal that holds text is
+    shown or hidden whole and moves by `translate` / `transform` only; opacity is for media, surfaces, backdrops and
+    decoration. A half-faded word falls below
     AA (the console's buttons read 3.44:1 at 160 ms, the dialog's preview labels 3.30:1). The Capabilities console: a
     panel has no opacity in any state (`visibility` + `z-index`); the coming machine's words show at full strength at once
     and its data rises 8 px (600 ms); the leaving machine goes at once except its photo and floor line, which fade out in
     180 ms under the new one (`visibility 0s linear var(--dur-1)` on its `.cm-figure` and `.cm-floor-active`); the coming
     photo and floor line fade in after 80 ms. The certificate dialog rises 12 px at full opacity while the backdrop fades
     in; closing, it goes at once (no opacity transition) while the backdrop fades out, held in the top layer by its
-    `overlay` / `display` transitions. Not yet applied elsewhere (outside the correction's brief): the scroll reveals
-    (opacity + 18 px on text, every page) and the homepage machine showcase's 600 ms panel cross-fade (frozen homepage).
+    `overlay` / `display` transitions. Correction 2 (census in its own report): the homepage machine showcase works like
+    the console (panels `visibility` + `z-index` 0 / 1, grid items; the leaving photo and its floor shadow fade out in
+    180 ms under the coming machine, the coming ones fade in after 80 ms; `.a2-mx-spec` only rises 8 px). Scroll reveals:
+    `.js [data-reveal]` keeps `opacity: 0` until its turn and then shows at once (`opacity 0s` with the stagger delay
+    `--d`) while it rises 18 px; a "fade" reveal simply appears; only what holds no words keeps the fade (an exemption
+    list in `commerce.css`: `.sv-draw`, `.sv-axis`, `.sv-cut-sheet`, `.sv-plate-stage`, `.sv-row-sig`,
+    `.sv-cycle-return`, `.ip-figure` without a `figcaption`, `#client-wall > li`, `.ab-logos > li`; a new reveal that holds
+    no words goes on that list, one that does needs nothing). The homepage entrance (`a2-rise`) and the menus (`a2-pop`,
+    `a2-sheet`) animate `transform` only; the project cards' label (`.a2-proj-cta`) shows at once and rises 6 px. A text
+    whose colour and fill swap (the machine selector's power badge) swaps at once: a colour transition between the two
+    blends them (1.33:1 at 80 ms). Two such colour transitions outside correction 2's brief were reported, not changed:
+    the Projects filter chip pressed and the certificate plate's open label on hover.
   - Phones: when a reveal inside a `.rail` that scrolls sideways is shown, all its cards are shown with it.
   - `HeroPlate`'s readout tick ignores a cancelled clock (`playState === "idle"`): a frame queued before the cancel event
     wrote "00/07" over the finished count under load.
@@ -632,7 +653,14 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   at 0 / 80 / 160 / 240 / 320 ms and closing at 80 / 160 / 240 ms, in EN/AR × light/dark at 1440 and EN light / AR dark at
   390; in each held frame axe-core (WCAG 2.0–2.2 A/AA + best practice) finds nothing, every text shown is at opacity 1
   through its ancestors and reaches AA per pixel (unrounded) against what is drawn under it, one machine's words only,
-  the pick's focus ring drawn); `stage-1c.spec.ts`'s generic
+  the pick's focus ring drawn; correction 2 added, in EN/AR × light/dark at 1440 × 900 and 390 × 844: the homepage machine
+  change at 0 / 80 / 150 / 160 / 300 / 450 / 600 / 900 ms and settled, a default reveal (About) and a "fade" reveal (Laser
+  Cutting) at 0 / 175 / 350 / 525 / 700 ms from their turn and settled (also at 320 × 700), the homepage entrance at 0 / 70
+  / 140 / 330 / 660 / 990 / 1320 ms and finished, the Services dropdown (desktop) and the phone menu sheet (phones) at 0 /
+  80 / 160 / 240 / 320 ms and settled, the project cards' label on keyboard focus (desktop) at the same times; a
+  reduced-motion test (none of these starts motion) and a no-script test of the machinery's `:target` list; glyph boxes are
+  cut to every ancestor that clips its overflow, so text scrolled out of the sheet is not measured);
+  `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
   assertion map).
@@ -1174,3 +1202,33 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   10,320 pixels around the first preview's lower edge and its label (at most 23 levels apart); just closed, 127 pixels of
   the card under it (at most 2). The Stage 1I build differs from itself in exactly the same pixels, with identical layout,
   image candidates and image bytes. Recapture (or compare a build with itself) before calling it a change.
+- Chromium does not restart a CSS animation that the Web Animations API has cancelled (or paused and moved) when its rule
+  applies again: a `details` menu closed and reopened in the same document played no `a2-pop` the second time, so a probe
+  read every later frame of the dropdown as already open. Hold such an animation once per document (reload between holds).
+- Per-pixel text checks must cut each glyph box to every ancestor that clips its overflow: "Call" and "WhatsApp" scrolled
+  out of the phone sheet's list were measured against its quote button (2.35:1) though not drawn.
+- axe's `target-size` reports "partiallyObscured" for links partly under the sticky header at a given scroll position (the
+  homepage capability strip on phones, every frame of those views): a scroll-position finding, not motion. Choose scroll
+  positions in tests accordingly; never exclude the rule.
+- A transition of both a text's colour and its fill, when the two swap (dark on light → light on dark), passes through a
+  blend of the two: the machine selector's power badge read 1.33:1 at 80 ms of 320, the Projects chip 1.65:1 at 25 % of
+  180 ms. Swap such pairs at once; colour changes that keep the text dark on light (or light on dark) are fine.
+- A `0s` transition with a delay (`opacity 0s` + `transition-delay: var(--d)`) holds the start value through the delay,
+  then jumps: how a reveal waits for its turn unseen and then shows whole.
+- Grid items take `z-index` without being positioned (and it makes each one a stacking context): the showcase's panels.
+- `getComputedStyle(el).textDecorationLine` reads `none` on a descendant of an underlined link (decorations propagate,
+  they are not inherited): check the decorating element or the pixels.
+- Chromium did not count the homepage entrance's items in the layout-shift score while they faded in from opacity 0, so
+  removing that fade raised the Arabic homepage's CLS (0.0390 → 0.0459, Stage 1I correction 2) without any new movement:
+  the late Arabic font swap moves the same boxes, now drawn. Record the shift's `sources` (the `layout-shift` entries)
+  before calling a CLS change a regression.
+- `npm audit` can turn red between stages with no change here (new advisories): correction 2 found two production ones
+  on an unchanged lockfile. `npm audit fix` without `--force` patched them in the lockfile only; prove such a patch serves
+  nothing new — compare the build with the previous one and fetch every `/_next/image` URL the pages reference from the
+  old and the new server, both with emptied image caches (`.next/cache/images`): all 1,484 were byte-identical.
+- A capture taken after transitions have run keeps what Chromium's incremental repaint drew: rounded corners can differ by
+  1–3 levels from the same state drawn afresh (correction 2: the chosen machine's card and power badge after the
+  baseline's badge colour transition). When two builds run different transitions into the same resting state, compare
+  each build with itself and both after a full repaint: scroll to the far end of the page and back (`REPAINT=scroll` in
+  the correction 2 `rest.js`); making the window 1 px wider and back also repaints but re-picks some images' srcset
+  candidates (the machine thumbnails drew smaller on both builds).
