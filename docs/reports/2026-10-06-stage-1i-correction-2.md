@@ -74,9 +74,10 @@ source changed after it. One more product-level commit followed, on its own: `f4
 ## 3. Branch HEAD
 
 `577b54f` → `34e88ed` (the census, docs only, committed and pushed before the systems it lists were changed) → `75d7f73`
-(implementation) → `f492577` (lockfile patch) → the report commit that adds this file and updates `CLAUDE.md` and
-`README.md` = HEAD, all pushed to `origin/claude/new-session-5eijs6` without force (a commit cannot name its own hash;
-it is given in the hand-off message). `preserve/pre-stage-1i` still points to `b1f4fe1`.
+(implementation) → `f492577` (lockfile patch) → `8cb72b8` (this report, `CLAUDE.md`, `README.md`) → documentation-only
+follow-ups to this report (the last one is HEAD; a commit cannot name its own hash, so HEAD is given in the hand-off
+message), all pushed to `origin/claude/new-session-5eijs6` without force. `preserve/pre-stage-1i` still points to
+`b1f4fe1`.
 
 ## 4. Files changed
 
@@ -562,7 +563,7 @@ checks the SHA-1 of each file on disk and of each served response against its fi
 No lab file changed (`src/app/theme-lab/**`, `src/components/theme-lab/**`); its 96 prerendered files, its stylesheet
 (`lab.css`'s build: same file name and bytes) and its JS are identical (item 4). The lab keeps its own copies of the
 keyframes (`a2-pop`, `a2-rise` with their fades): the brief's frozen reference is not edited. `theme-lab.spec.ts` and
-`theme-lab-a-v2.spec.ts`: 45 of 45 and 39 of 39 passed in the full run.
+`theme-lab-a-v2.spec.ts`: 39 of 39 and 45 of 45 passed in the full run.
 
 ## 33. `npm audit`
 
