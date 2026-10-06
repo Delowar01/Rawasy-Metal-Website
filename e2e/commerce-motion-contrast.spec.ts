@@ -1,9 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Text keeps AA contrast through the motion, not only at rest (Stage 1I correction 1).
+ * Text keeps AA contrast through the motion, not only at rest (Stage 1I corrections 1 and 2).
  *
- * The Capabilities machine change and the certificate dialog are held part-way through — every animation the change
+ * The Capabilities machine change and the certificate dialog (correction 1), and the homepage machine change, the scroll
+ * reveals, the homepage entrance, the Services dropdown, the phone menu sheet and the homepage project cards' label
+ * (correction 2) are held part-way through — every animation the change
  * starts is paused at exactly T ms (a CSS transition's delay counts in that time), everything else where it stands —
  * and each held frame is checked as it is drawn: axe-core finds nothing; every text node shown is at full strength
  * (its opacity through every ancestor is 1, so it never passes through a half-faded, lower-contrast frame); each one's
@@ -34,7 +36,7 @@ const ratio = (a: number[], b: number[]) => {
   return (x + 0.05) / (y + 0.05);
 };
 
-async function open(page: Page, c: Combo, path: string) {
+async function open(page: Page, c: Pick<Combo, "locale" | "theme">, path: string) {
   await page.addInitScript((t) => {
     try {
       localStorage.setItem("rawasy-theme", t);
@@ -45,12 +47,13 @@ async function open(page: Page, c: Combo, path: string) {
   await page.addScriptTag({ path: AXE });
 }
 
-type Change = { pick: string } | { dialog: "open" | "close" };
+type Change = { pick: string } | { dialog: "open" | "close" } | { machine: number } | { menu: "dropdown" | "sheet" } | { card: number };
 
 /**
- * Makes a change inside one page task — a machine chosen (focused, then clicked) or the dialog opened or closed — and
- * holds everything it starts at T ms (null: lets it finish). React renders the change after the event, so the hold waits
- * for it to be committed first (a few microtasks at most).
+ * Makes a change inside one page task — a machine chosen (focused, then clicked; on Capabilities or the homepage), the
+ * dialog opened or closed, a menu opened from its focused button, a project card focused — and holds everything it starts
+ * at T ms (null: lets it finish). React renders the change after the event, so the hold waits for it to be committed first
+ * (a few microtasks at most).
  */
 async function hold(page: Page, change: Change, T: number | null) {
   return page.evaluate(
@@ -65,6 +68,22 @@ async function hold(page: Page, change: Change, T: number | null) {
         pick.focus({ preventScroll: true });
         pick.click();
         done = () => document.querySelector(".cm-panel[data-active]")?.id === change.pick;
+      } else if ("machine" in change) {
+        const pick = document.querySelectorAll<HTMLAnchorElement>(".a2-mx-pick")[change.machine];
+        const panel = document.querySelectorAll(".a2-mx-panel")[change.machine];
+        pick.focus({ preventScroll: true });
+        pick.click();
+        done = () => panel.classList.contains("is-active");
+      } else if ("menu" in change) {
+        const menu = document.querySelector<HTMLDetailsElement>(change.menu === "dropdown" ? "details[data-dropdown]" : "details[data-sheet]")!;
+        const button = menu.querySelector<HTMLElement>(":scope > summary")!;
+        button.focus({ preventScroll: true });
+        button.click();
+        done = () => menu.open;
+      } else if ("card" in change) {
+        const card = document.querySelectorAll<HTMLAnchorElement>(".a2-proj")[change.card];
+        card.focus({ preventScroll: true });
+        done = () => card.matches(":focus-within");
       } else if (change.dialog === "open") {
         document.querySelector<HTMLAnchorElement>(".ct-plate")!.click();
         done = () => !!dialog?.open && !!dialog.querySelector(".ct-dialog-inner");
@@ -74,7 +93,8 @@ async function hold(page: Page, change: Change, T: number | null) {
       }
       for (let i = 0; i < 20 && !done(); i++) await (i < 5 ? Promise.resolve() : new Promise((r) => setTimeout(r, 0)));
       document.body.getBoundingClientRect();
-      for (const el of document.querySelectorAll(".cm-panel, .cm-panel *, dialog, dialog *")) getComputedStyle(el).getPropertyValue("opacity");
+      for (const el of document.querySelectorAll(".cm-panel, .cm-panel *, dialog, dialog *, .a2-mx-stage, .a2-mx-stage *, details[data-menu], details[data-menu] *, .a2-proj, .a2-proj *"))
+        getComputedStyle(el).getPropertyValue("opacity");
       const fresh = document.getAnimations().filter((a) => !before.has(a));
       (window as unknown as { __held: Animation[] }).__held = fresh;
       if (T === null) {
@@ -163,6 +183,9 @@ function textsShown(page: Page, scope: string) {
         if (!n.textContent?.trim()) continue;
         const el = n.parentElement!;
         if (el.closest(".sr-only")) continue;
+        // Text drawn inside a decorative drawing (SVG in aria-hidden art, such as the hero plate's part mark) is part of
+        // the drawing, which the brief leaves out of this check.
+        if (el.closest("svg") && el.closest('[aria-hidden="true"]')) continue;
         const st = getComputedStyle(el);
         if (st.visibility !== "visible") continue;
         let opacity = 1;
@@ -170,14 +193,32 @@ function textsShown(page: Page, scope: string) {
         if (opacity === 0) continue;
         const r = document.createRange();
         r.selectNodeContents(n);
+        // A glyph box counts only where it is drawn: cut to every ancestor that clips its overflow (a scrolling list or
+        // sheet), so text scrolled out of a menu is not measured against what is drawn there instead. Nothing above a
+        // modal dialog (the top layer) or a fixed element clips it.
+        const cut = (b: DOMRect) => {
+          let [left, top, right, bottom] = [b.left, b.top, b.right, b.bottom];
+          for (let e = el.parentElement; e && e !== document.documentElement; e = e.parentElement) {
+            const cs = getComputedStyle(e);
+            if (cs.overflowX !== "visible" || cs.overflowY !== "visible") {
+              const c = e.getBoundingClientRect();
+              const [x, y] = [c.left + e.clientLeft, c.top + e.clientTop];
+              if (cs.overflowX !== "visible") [left, right] = [Math.max(left, x), Math.min(right, x + e.clientWidth)];
+              if (cs.overflowY !== "visible") [top, bottom] = [Math.max(top, y), Math.min(bottom, y + e.clientHeight)];
+            }
+            if (e.matches(":modal") || cs.position === "fixed") break;
+          }
+          return { left, top, right, bottom, width: right - left, height: bottom - top };
+        };
         const boxes = [...r.getClientRects()]
+          .map(cut)
           .filter((b) => b.width > 1 && b.height > 1 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth)
           .map((b) => [b.left, b.top, b.width, b.height]);
         if (!boxes.length) continue;
         const size = parseFloat(st.fontSize);
         out.push({
           text: n.textContent.trim().slice(0, 40),
-          owner: el.closest(".cm-panel")?.id ?? null,
+          owner: el.closest(".cm-panel, .a2-mx-panel")?.id ?? null,
           opacity,
           color: rgba(st.color),
           large: size >= 24 || (size >= 18.66 && Number(st.fontWeight) >= 700),
@@ -199,10 +240,10 @@ async function contrastOf(page: Page, scope: string, shown: Shown[]) {
     const before = new Set(document.getAnimations());
     const s = document.createElement("style");
     s.id = "hide-text";
-    s.textContent = `${scope} *, ${scope} *::before, ${scope} *::after { color: transparent !important; -webkit-text-fill-color: transparent !important; text-decoration-color: transparent !important; text-shadow: none !important } ${scope} svg.mc-icon { visibility: hidden !important }`;
+    s.textContent = `${scope}, ${scope} *, ${scope} *::before, ${scope} *::after { color: transparent !important; -webkit-text-fill-color: transparent !important; text-decoration-color: transparent !important; text-shadow: none !important } ${scope} svg.mc-icon { visibility: hidden !important }`;
     document.head.append(s);
     document.body.getBoundingClientRect();
-    for (const el of document.querySelectorAll(`${scope} *`)) getComputedStyle(el).getPropertyValue("color");
+    for (const el of document.querySelectorAll(`${scope}, ${scope} *`)) getComputedStyle(el).getPropertyValue("color");
     for (const a of document.getAnimations().filter((a) => !before.has(a)))
       try {
         a.finish();
@@ -341,3 +382,315 @@ for (const c of COMBOS) {
     });
   });
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Stage 1I correction 2: the rest of the motion that showed text — the homepage machine change, the scroll reveals, the
+// homepage entrance, the Services dropdown, the phone menu sheet and the homepage project cards' label — held at 0, 25,
+// 50, 75 and 100 % (with a few early frames), and settled, in EN/AR × light/dark at 1440 × 900 and 390 × 844 (the
+// reveals also at 320 × 700).
+// ---------------------------------------------------------------------------------------------------------------------
+
+type View = "desktop" | "phone" | "small";
+type Combo2 = { locale: "en" | "ar"; theme: "light" | "dark"; view: View };
+const VIEWPORTS: Record<View, { width: number; height: number }> = {
+  desktop: { width: 1440, height: 900 },
+  phone: { width: 390, height: 844 },
+  small: { width: 320, height: 700 },
+};
+const COMBOS2: Combo2[] = (["desktop", "phone", "small"] as const).flatMap((view) =>
+  (["en", "ar"] as const).flatMap((locale) => (["light", "dark"] as const).map((theme) => ({ locale, theme, view }))),
+);
+const label2 = (c: Combo2) => `${c.locale} ${c.theme} ${VIEWPORTS[c.view].width} × ${VIEWPORTS[c.view].height}`;
+
+/**
+ * A fresh document, at the top of the page: Chromium does not restart a CSS animation the API has cancelled when its rule
+ * applies again, and a reveal happens once per document.
+ */
+async function reload(page: Page) {
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.evaluate(() => document.fonts.ready);
+  await page.addScriptTag({ path: AXE });
+}
+
+/** Waits until nothing under `scope` moves (polled; a few frames at most once the motion is over). */
+async function still(page: Page, scope: string) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          (scope) => [...document.querySelectorAll(scope)].flatMap((el) => el.getAnimations({ subtree: true })).filter((a) => a.playState === "running").length,
+          scope,
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(0);
+}
+
+/** Whether the focused element shows its focus ring (keyboard modality). */
+function focusShown(page: Page) {
+  return page.evaluate(() => {
+    const a = document.activeElement as HTMLElement;
+    const s = getComputedStyle(a);
+    return { ring: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) >= 2, visible: a.matches(":focus-visible") };
+  });
+}
+
+/**
+ * A scroll reveal held part-way: the first element of the kind that holds words and waits below the fold is scrolled into
+ * view, the page's own observer shows it (caught by a MutationObserver in the same task), and everything that starts is
+ * held at the element's own turn (its stagger delay) + T ms (null: finished).
+ */
+async function holdReveal(page: Page, kind: "default" | "fade", T: number | null) {
+  return page.evaluate(
+    ({ kind, T }) =>
+      new Promise<{ held: number; own: number; text: string }>((resolve, reject) => {
+        const sel = kind === "fade" ? '[data-reveal="fade"]' : '[data-reveal]:not([data-reveal="fade"]):not([data-reveal="clip"])';
+        const words = (el: Element) => [el, ...el.querySelectorAll("*")].some((e) => !e.closest("svg") && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim()));
+        const el = [...document.querySelectorAll(`main ${sel}:not([data-shown])`)].find((e) => !e.closest(".ip-hero") && e.getBoundingClientRect().top > innerHeight && words(e));
+        if (!el) return reject(new Error(`no ${kind} reveal with words below the fold`));
+        el.setAttribute("data-held-reveal", "");
+        const before = new Set(document.getAnimations());
+        const w = window as unknown as { __held: Animation[]; __resume: Animation[] };
+        w.__resume = [...before].filter((a) => a.playState === "running");
+        const mo = new MutationObserver(() => {
+          if (!el.hasAttribute("data-shown")) return;
+          mo.disconnect();
+          document.body.getBoundingClientRect();
+          for (const e of document.querySelectorAll("[data-reveal], [data-reveal] *")) getComputedStyle(e).getPropertyValue("opacity");
+          const delay = parseFloat(getComputedStyle(el).transitionDelay) * 1000 || 0;
+          const fresh = document.getAnimations().filter((a) => !before.has(a));
+          w.__held = fresh;
+          if (T === null)
+            for (const a of fresh)
+              try {
+                a.finish();
+              } catch {}
+          else {
+            document.getAnimations().forEach((a) => a.pause());
+            for (const a of fresh) {
+              a.pause();
+              a.currentTime = delay + T;
+            }
+          }
+          resolve({ held: fresh.length, own: fresh.filter((a) => el.contains((a.effect as KeyframeEffect).target)).length, text: el.textContent!.trim().slice(0, 40) });
+        });
+        mo.observe(el, { attributes: true, attributeFilter: ["data-shown"] });
+        el.scrollIntoView({ block: "center", behavior: "instant" });
+      }),
+    { kind, T },
+  );
+}
+
+/** The homepage entrance held t ms after it began (each item at its own point of its staggered run; null: finished). */
+function holdEntrance(page: Page, t: number | null) {
+  return page.evaluate((t) => {
+    const items = document.getAnimations().filter((a) => (a as CSSAnimation).animationName === "a2-rise");
+    document.getAnimations().forEach((a) => a.pause());
+    for (const a of items) a.currentTime = t ?? Number(a.effect!.getComputedTiming().endTime);
+    return items.length;
+  }, t);
+}
+
+const pauseAll = (page: Page) => page.evaluate(() => document.getAnimations().forEach((a) => a.pause()));
+
+for (const c of COMBOS2) {
+  test.describe(`held part-way, ${label2(c)}`, () => {
+    test.use({ viewport: VIEWPORTS[c.view], colorScheme: c.theme, ...(c.view !== "desktop" ? { isMobile: true, hasTouch: true } : {}) });
+
+    test("scroll reveals: a reveal's words are at full strength and AA in every frame, from its first (an inner page and a service page)", async ({ page }) => {
+      test.setTimeout(180_000);
+      for (const [path, kind] of [
+        ["/about", "default"],
+        ["/services/laser-cutting", "fade"],
+      ] as const) {
+        await open(page, c, path);
+        // 0, 25, 50, 75 and 100 % of the 700 ms reveal from the element's own turn, then settled; a fresh document for each.
+        for (const T of [0, 175, 350, 525, 700, null]) {
+          if (T !== 0) await reload(page);
+          const r = await holdReveal(page, kind, T);
+          if (kind === "default") expect(r.own, `${path}: the reveal at ${T} ms moves`).toBeGreaterThan(0);
+          if (T === null) await pauseAll(page);
+          const shown = await checkFrame(page, "[data-held-reveal]", `${path}, ${kind} reveal, ${T ?? "settled"} ms ("${r.text}")`);
+          // Its words show from its first frame: never half-faded, never waiting unseen once its turn has come.
+          expect(shown.length, `${path}: words shown at ${T ?? "settled"} ms`).toBeGreaterThan(0);
+          await release(page);
+        }
+      }
+    });
+
+    if (c.view === "small") return;
+
+    test("homepage: a machine change shows one machine's words, at full strength and AA, in every frame; the focus ring stays drawn", async ({ page }) => {
+      test.setTimeout(120_000);
+      await open(page, c, "");
+      const stage = page.locator(".a2-mx-stage");
+      await expect(stage).toHaveAttribute("data-js", "");
+      await stage.evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+      await expect.poll(() => stage.evaluate((el) => el.closest("[data-reveal]")!.hasAttribute("data-shown"))).toBe(true);
+      await still(page, "#machinery");
+      await page.keyboard.press("Shift"); // keyboard modality, so the pick's focus ring is :focus-visible
+      // 0, 25, 50, 75 and 100 % of the 600 ms hand-off, 80 and 160 ms (the old cross-fade's worst) and 900 ms (the photo
+      // settled).
+      for (const [i, T] of [0, 80, 150, 160, 300, 450, 600, 900].entries()) {
+        const machine = (i % 5) + 1;
+        const r = await hold(page, { machine }, T);
+        expect(r.committed, `machine ${machine} chosen`).toBe(true);
+        expect(r.held, `a change at ${T} ms starts motion`).toBeGreaterThan(0);
+        const id = await page.locator(".a2-mx-panel").nth(machine).getAttribute("id");
+        const shown = await checkFrame(page, ".a2-mx-stage", `${T} ms (${id})`);
+        // One machine's words at a time: the one coming in.
+        expect([...new Set(shown.map((t) => t.owner).filter(Boolean))], `machines with words shown at ${T} ms`).toEqual([id]);
+        const focus = await page.evaluate(() => {
+          const a = document.activeElement as HTMLElement;
+          const s = getComputedStyle(a);
+          return { pick: a.getAttribute("href"), current: a.getAttribute("aria-current"), ring: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) >= 2, visible: a.matches(":focus-visible") };
+        });
+        expect(focus, `focus at ${T} ms`).toEqual({ pick: `#${id}`, current: "true", ring: true, visible: true });
+        await release(page);
+        await still(page, ".a2-mx-stage");
+      }
+      // Settled, the same holds.
+      await hold(page, { machine: 0 }, null);
+      await pauseAll(page);
+      const shown = await checkFrame(page, ".a2-mx-stage", "settled");
+      expect([...new Set(shown.map((t) => t.owner).filter(Boolean))]).toEqual([await page.locator(".a2-mx-panel").first().getAttribute("id")]);
+    });
+
+    test("homepage entrance: the hero's words are at full strength and AA in every frame", async ({ page }) => {
+      test.setTimeout(120_000);
+      await open(page, c, "");
+      // Each item runs 900 ms, staggered over 420 ms: held at 0, 25, 50, 75 and 100 % of the 1,320 ms (and at 70 and 140 ms,
+      // the first items' early frames), then finished.
+      for (const t of [0, 70, 140, 330, 660, 990, 1320, null]) {
+        expect(await holdEntrance(page, t), "the entrance's items").toBe(8);
+        const items = await page.locator("[data-enter]").evaluateAll((els) => els.map((el) => getComputedStyle(el).opacity));
+        expect(items, `the items' opacity at ${t ?? "the end"} ms`).toEqual(Array(8).fill("1"));
+        const shown = await checkFrame(page, "[data-enter]", `entrance, ${t ?? "finished"} ms`);
+        expect(shown.length, `words shown at ${t ?? "the end"} ms`).toBeGreaterThan(5);
+      }
+    });
+
+    if (c.view === "desktop") {
+      test("Services dropdown: its words are at full strength and AA in every frame of its opening; its button keeps its focus ring", async ({ page }) => {
+        test.setTimeout(120_000);
+        await open(page, c, "");
+        // 0, 25, 50, 75 and 100 % of its 320 ms, then open and settled; a fresh document for each.
+        for (const T of [0, 80, 160, 240, 320, null]) {
+          if (T !== 0) await reload(page);
+          await page.keyboard.press("Shift");
+          const r = await hold(page, { menu: "dropdown" }, T);
+          expect(r.committed).toBe(true);
+          if (T === null) await pauseAll(page);
+          else expect(r.held, `the opening at ${T} ms moves`).toBeGreaterThan(0);
+          const shown = await checkFrame(page, ".a2-dd-panel", `opening, ${T ?? "settled"} ms`);
+          // All of it from the first frame: the six services with their lines, all services and the quote.
+          expect(shown.length, `words shown at ${T ?? "settled"} ms`).toBeGreaterThanOrEqual(8);
+          expect(await focusShown(page), `focus at ${T ?? "settled"} ms`).toEqual({ ring: true, visible: true });
+        }
+      });
+
+      test("homepage project card: its label is at full strength and AA in every frame of its appearance on keyboard focus", async ({ page }) => {
+        test.setTimeout(120_000);
+        await open(page, c, "");
+        const first = page.locator(".a2-proj").first();
+        await first.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+        await expect.poll(() => first.evaluate((el) => el.closest("[data-reveal]")!.hasAttribute("data-shown"))).toBe(true);
+        await still(page, "#projects");
+        await page.keyboard.press("Shift");
+        // 0, 25, 50, 75 and 100 % of its 320 ms, then settled; two cards in turn.
+        for (const [i, T] of [0, 80, 160, 240, 320, null].entries()) {
+          const card = i % 2;
+          const r = await hold(page, { card }, T);
+          expect(r.committed).toBe(true);
+          if (T === null) await pauseAll(page);
+          else expect(r.held, `the label at ${T} ms moves`).toBeGreaterThan(0);
+          await page.locator(".a2-proj").nth(card).evaluate((el) => el.setAttribute("data-held-card", ""));
+          const shown = await checkFrame(page, "[data-held-card]", `card ${card}, ${T ?? "settled"} ms`);
+          // The title and "View in the gallery", from the first frame.
+          expect(shown.some((t) => /gallery|معرض/.test(t.text)), `the label shown at ${T ?? "settled"} ms`).toBe(true);
+          expect(await focusShown(page), `focus at ${T ?? "settled"} ms`).toEqual({ ring: true, visible: true });
+          await page.locator("[data-held-card]").evaluate((el) => el.removeAttribute("data-held-card"));
+          await release(page);
+          await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+          await still(page, ".a2-proj");
+        }
+      });
+    }
+
+    if (c.view === "phone")
+      test("phone menu: its words are at full strength and AA in every frame of its opening; its button keeps its focus ring", async ({ page }) => {
+        test.setTimeout(120_000);
+        await open(page, c, "");
+        // 0, 25, 50, 75 and 100 % of its 320 ms, then open and settled; a fresh document for each.
+        for (const T of [0, 80, 160, 240, 320, null]) {
+          if (T !== 0) await reload(page);
+          await page.keyboard.press("Shift");
+          const r = await hold(page, { menu: "sheet" }, T);
+          expect(r.committed).toBe(true);
+          if (T === null) await pauseAll(page);
+          else expect(r.held, `the opening at ${T} ms moves`).toBeGreaterThan(0);
+          const shown = await checkFrame(page, ".a2-sheet", `opening, ${T ?? "settled"} ms`);
+          // All of it from the first frame: the pages, the services' row, the language, the theme and the quote.
+          expect(shown.length, `words shown at ${T ?? "settled"} ms`).toBeGreaterThanOrEqual(8);
+          expect(await focusShown(page), `focus at ${T ?? "settled"} ms`).toEqual({ ring: true, visible: true });
+        }
+      });
+  });
+}
+
+test.describe("with reduced motion, correction 2's changes are immediate", () => {
+  test.use({ viewport: { width: 1440, height: 900 }, contextOptions: { reducedMotion: "reduce" } });
+
+  test("the entrance, a machine change, the dropdown and a reveal start no motion, and every word is at full strength", async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const locale of ["en", "ar"] as const) {
+      await open(page, { locale, theme: "light" }, "");
+      expect(await page.evaluate(() => document.getAnimations().filter((a) => (a as CSSAnimation).animationName === "a2-rise").length), "entrance").toBe(0);
+      expect(await page.locator("[data-enter]").evaluateAll((els) => els.map((el) => getComputedStyle(el).opacity))).toEqual(Array(8).fill("1"));
+      await page.locator(".a2-mx-stage").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+      await page.keyboard.press("Shift");
+      await hold(page, { machine: 3 }, 0);
+      expect(await page.locator(".a2-mx-stage").evaluate((el) => el.getAnimations({ subtree: true }).length), "machine change").toBe(0);
+      const id = await page.locator(".a2-mx-panel").nth(3).getAttribute("id");
+      const shown = await checkFrame(page, ".a2-mx-stage", `${locale} machine change, reduced motion`);
+      expect([...new Set(shown.map((t) => t.owner).filter(Boolean))]).toEqual([id]);
+      await release(page);
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await hold(page, { menu: "dropdown" }, 0);
+      expect(await page.locator(".a2-dd-panel").evaluate((el) => el.getAnimations({ subtree: true }).length), "dropdown").toBe(0);
+      await checkFrame(page, ".a2-dd-panel", `${locale} dropdown, reduced motion`);
+      await release(page);
+      await page.keyboard.press("Escape");
+      const r = await holdReveal(page, "default", 0);
+      expect(r.own, "reveal").toBe(0);
+      expect((await checkFrame(page, "[data-held-reveal]", `${locale} reveal, reduced motion`)).length).toBeGreaterThan(0);
+      await release(page);
+    }
+  });
+});
+
+test.describe("without JavaScript, the homepage machinery is a list of anchors", () => {
+  test.use({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
+
+  test("one machine shows at a time, the first or the one the address names, with its words at full strength", async ({ page }) => {
+    for (const locale of ["en", "ar"] as const) {
+      await page.goto(`/${locale}`);
+      const shown = () =>
+        page.locator(".a2-mx-panel").evaluateAll((els) =>
+          els
+            .filter((el) => getComputedStyle(el).visibility === "visible")
+            .map((el) => {
+              let o = 1;
+              for (let e: Element | null = el.querySelector("h3"); e; e = e.parentElement) o *= Number(getComputedStyle(e).opacity);
+              return `${el.id} ${o}`;
+            }),
+        );
+      const ids = await page.locator(".a2-mx-panel").evaluateAll((els) => els.map((el) => el.id));
+      expect(await shown()).toEqual([`${ids[0]} 1`]);
+      await page.locator(".a2-mx-pick").nth(4).click();
+      await expect(page).toHaveURL(new RegExp(`#${ids[4]}$`));
+      expect(await shown()).toEqual([`${ids[4]} 1`]);
+    }
+  });
+});

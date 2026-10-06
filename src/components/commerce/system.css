@@ -1941,21 +1941,17 @@
     grid-area: 1 / 1;
     display: grid;
     grid-template-rows: 1fr auto;
+    z-index: 0;
     visibility: hidden;
-    opacity: 0;
-    transition:
-      opacity var(--dur-3) var(--ease),
-      visibility 0s linear var(--dur-3);
   }
 
+  /* The machine shown. A panel is shown or hidden whole, never faded, so its words are always at full strength and two
+     machines' words never show together; the shown one sits above the others (Stage 1I correction 2). */
   .mc .a2-mx-panel.is-active,
   .mc .a2-mx-stage:not([data-js]):not(:has(.a2-mx-panel:target)) .a2-mx-panel:first-child,
   .mc .a2-mx-stage:not([data-js]) .a2-mx-panel:target {
+    z-index: 1;
     visibility: visible;
-    opacity: 1;
-    transition:
-      opacity var(--dur-3) var(--ease),
-      visibility 0s;
   }
 
   .mc .a2-mx-img {
@@ -1987,6 +1983,11 @@
   .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-img img {
     scale: 0.94;
     translate: 0 10px;
+    opacity: 0;
+  }
+
+  .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-img::after {
+    opacity: 0;
   }
 
   .mc .a2-mx-stage:hover .a2-mx-panel.is-active .a2-mx-img img {
@@ -1994,14 +1995,41 @@
   }
 
   .mc .a2-mx-spec {
-    transition:
-      opacity var(--dur-3) var(--ease) 0.12s,
-      translate var(--dur-3) var(--ease) 0.12s;
+    transition: translate var(--dur-3) var(--ease) 0.12s;
   }
 
   .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-spec {
-    opacity: 0;
     translate: 0 8px;
+  }
+
+  /* The change of machine (motion allowed): the machine leaving goes at once, all but its photo and the photo's floor
+     shadow, which fade out (180 ms) under the one coming in; the machine coming in shows its words at full strength at
+     once while its photo fades in after 80 ms and settles, and its specification rises 8 px. */
+  @media (prefers-reduced-motion: no-preference) {
+    .mc .a2-mx-img img {
+      transition:
+        scale var(--dur-4) var(--ease),
+        translate var(--dur-4) var(--ease),
+        opacity var(--dur-3) var(--ease) 0.08s;
+    }
+
+    .mc .a2-mx-img::after {
+      transition: opacity var(--dur-3) var(--ease) 0.08s;
+    }
+
+    .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-img img {
+      transition:
+        scale var(--dur-4) var(--ease),
+        translate var(--dur-4) var(--ease),
+        opacity var(--dur-1) ease,
+        visibility 0s linear var(--dur-1);
+    }
+
+    .mc .a2-mx-stage[data-js] .a2-mx-panel:not(.is-active) .a2-mx-img::after {
+      transition:
+        opacity var(--dur-1) ease,
+        visibility 0s linear var(--dur-1);
+    }
   }
 
   .mc .a2-mx-pick {
@@ -2050,13 +2078,8 @@
     background: var(--stage-light);
   }
 
-  .mc .a2-mx-pick .badge-power {
-    transition:
-      background-color var(--dur-2) ease,
-      color var(--dur-2) ease,
-      border-color var(--dur-2) ease;
-  }
-
+  /* The power badge of the machine chosen (or hovered) takes the brand fill. Its text and fill swap at once, never through
+     a blend of the two, where the figure fell below AA contrast (Stage 1I correction 2). */
   .mc .a2-mx-pick:is(:hover, [aria-current="true"]) .badge-power {
     border-color: var(--brand);
     background: var(--brand);
@@ -2101,6 +2124,7 @@
     --edge-from: right;
   }
 
+  /* Shown at once on hover or focus, at full strength, and rising 6 px: never half-faded (Stage 1I correction 2). */
   .mc .a2-proj-cta {
     display: inline-flex;
     align-items: center;
@@ -2110,9 +2134,7 @@
     font-weight: 600;
     opacity: 0;
     translate: 0 6px;
-    transition:
-      opacity var(--dur-2) ease,
-      translate var(--dur-2) var(--ease);
+    transition: translate var(--dur-2) var(--ease);
   }
 
   .mc .a2-proj-title {
@@ -2472,16 +2494,16 @@
     color: #ffffff;
   }
 
+  /* The Services dropdown and the phone menu sheet open whole, their words at full strength, and settle into place (a
+     half-faded word falls below AA contrast; Stage 1I correction 2). */
   @keyframes a2-pop {
     from {
-      opacity: 0;
       transform: translateY(-6px) scale(0.985);
     }
   }
 
   @keyframes a2-sheet {
     from {
-      opacity: 0;
       transform: translateY(-8px);
     }
   }
@@ -5455,6 +5477,26 @@ html:not(.js) .mc [data-js-only] {
   }
 }
 
+/* Forced colours drop the tint, the orange edge and the shadow that mark the machine chosen in the homepage's selector:
+   it gets a ring in the selection colour (drawn by a pseudo-element, whose colours are kept) and its words underlined,
+   as the Capabilities page's selector does (Stage 1I correction 2). */
+@media (forced-colors: active) {
+  .mc .a2-mx-pick[aria-current="true"]::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border: 3px solid Highlight;
+    border-radius: 17px;
+    forced-color-adjust: none;
+    pointer-events: none;
+  }
+
+  .mc .a2-mx-pick[aria-current="true"] {
+    text-decoration: underline 2px;
+    text-underline-offset: 0.25em;
+  }
+}
+
 /* ---------- Site-wide ambient motion: slow, in whole-pixel steps, transform and opacity only ----------
    The surface drifts 48 × 24 px in 24 steps of 2 × 1 px (one every 1.33 s) and breathes in 28 steps (one a second);
    the light drifts with it and crosses one dot column (24 px) at a time. Back and forth, or restarting off screen: no
@@ -5596,9 +5638,10 @@ html:not(.js) .mc [data-js-only] {
     }
   }
 
+  /* The homepage's entrance: each item rises 18 px into place at full strength from the first paint, never faded (a
+     half-faded word falls below AA contrast; Stage 1I correction 2). */
   @keyframes a2-rise {
     from {
-      opacity: 0;
       transform: translate3d(0, 18px, 0);
     }
   }
