@@ -702,6 +702,13 @@
       color: HighlightText;
     }
 
+    /* The focus ring in the system's focus colour, as the browser draws every other ring in forced colours: with
+       `forced-color-adjust: none` above, the toggle kept the site's --focus, 2.02:1 against a light palette's page
+       colour when the site's own theme is dark (Stage 1J). */
+    .mc .pj-chip:focus-visible {
+      outline-color: Highlight;
+    }
+
     .mc .pj-chip-mark::before {
       background: currentColor;
     }

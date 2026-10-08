@@ -728,3 +728,108 @@ test.describe("motion and focus", () => {
     });
   });
 });
+
+/**
+ * In forced colours the toggles draw their own system colours (`forced-color-adjust: none`), which also kept the site's
+ * --focus as their ring: 2.02:1 against a light palette's page colour when the site's own theme is dark. Since Stage 1J
+ * the ring takes the system's focus colour, Highlight, as the browser gives every other focus ring in forced colours.
+ * Measured per pixel: the ring (2 px, 2 px outside the toggle) against the page colour just outside it.
+ */
+async function ringContrast(page: Page) {
+  const box = await page.evaluate(() => {
+    const r = document.activeElement!.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  });
+  const clip = { x: Math.floor(box.x - 12), y: Math.floor(box.y - 12), width: Math.ceil(box.width + 24), height: Math.ceil(box.height + 24) };
+  const png = (await page.screenshot({ clip })).toString("base64");
+  return page.evaluate(
+    async ({ png, clip, box }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${png}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const g = canvas.getContext("2d")!;
+      g.drawImage(img, 0, 0);
+      const at = (x: number, y: number) => [...g.getImageData(Math.round(x - clip.x), Math.round(y - clip.y), 1, 1).data].slice(0, 3);
+      const lum = ([r, gr, b]: number[]) => {
+        const f = (c: number) => ((c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * f(r) + 0.7152 * f(gr) + 0.0722 * f(b);
+      };
+      const ratio = (a: number[], b: number[]) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+      let worst = Infinity;
+      // Along the straight top and bottom edges (the pill's rounded ends left out): the ring's middle row against the
+      // row just outside it.
+      for (let x = box.x + box.height / 2 + 2; x < box.x + box.width - box.height / 2 - 2; x += 2) {
+        worst = Math.min(worst, ratio(at(x, box.y - 3), at(x, box.y - 7)), ratio(at(x, box.y + box.height + 2), at(x, box.y + box.height + 6)));
+      }
+      return worst;
+    },
+    { png, clip, box },
+  );
+}
+
+test.describe("category toggles in forced colours", () => {
+  for (const palette of ["light", "dark"] as const)
+    test.describe(`${palette} palette`, () => {
+      test.use({ colorScheme: palette, contextOptions: { forcedColors: "active" } });
+
+      for (const theme of ["light", "dark"] as const)
+        test(`with the site's ${theme} theme: the focus ring stands out at 3:1 or more, by keyboard, in both languages; pressed shows without focus; nothing moves`, async ({ page }) => {
+          test.setTimeout(120_000);
+          await page.addInitScript((t) => localStorage.setItem("rawasy-theme", t), theme);
+          for (const locale of LOCALES) {
+            await page.goto(`/${locale}/projects`, { waitUntil: "networkidle" });
+            const highlight = await page.evaluate(() => {
+              const probe = document.createElement("div");
+              probe.style.cssText = "forced-color-adjust: none; color: Highlight";
+              document.body.append(probe);
+              const colour = getComputedStyle(probe).color;
+              probe.remove();
+              return colour;
+            });
+            for (const group of [BAR, QUICK]) {
+              const where = `${palette} palette, ${theme} theme, ${locale}, ${group}`;
+              if (group === BAR) await page.locator("#gallery").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+              else await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+              const chips = page.locator(`${group} .pj-chip`);
+              const rest = await chips.nth(1).boundingBox();
+              // From the keyboard only: Tab from the control before the toggles to the second one.
+              await page.keyboard.press("Shift");
+              await chips.first().evaluate((first) => {
+                const all = [...document.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])")].filter((el) => !el.closest("[hidden]"));
+                all[all.indexOf(first as HTMLElement) - 1].focus({ preventScroll: true });
+              });
+              await page.keyboard.press("Tab");
+              await page.keyboard.press("Tab");
+              await expect(chips.nth(1)).toBeFocused();
+              const ring = () => chips.nth(1).evaluate((el) => ({ visible: el.matches(":focus-visible"), colour: getComputedStyle(el).outlineColor, width: getComputedStyle(el).outlineWidth }));
+              expect(await ring(), where).toEqual({ visible: true, colour: highlight, width: "2px" });
+              expect(await ringContrast(page), `${where}: plain`).toBeGreaterThanOrEqual(3);
+              expect(await chips.nth(1).boundingBox(), `${where}: focus moves nothing`).toEqual(rest);
+              // Pressed from the keyboard: the system highlight and the check, the ring still clear of it.
+              await page.keyboard.press("Space");
+              await expect(chips.nth(1)).toHaveAttribute("aria-pressed", "true");
+              await expect.poll(() => page.locator("html").getAttribute("data-vt")).toBeNull();
+              // A hero toggle's choice jumps the page to the gallery: bring the toggle back into view.
+              await chips.nth(1).evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+              await expect(chips.nth(1)).toBeFocused();
+              expect(await ringContrast(page), `${where}: pressed`).toBeGreaterThanOrEqual(3);
+              // Focus moves on; the pressed toggle keeps its state without the ring.
+              await page.keyboard.press("Tab");
+              const state = await chips.nth(1).evaluate((el) => ({
+                ring: el.matches(":focus-visible"),
+                fill: getComputedStyle(el).backgroundColor,
+                check: getComputedStyle(el.querySelector(".pj-chip-mark svg")!).display !== "none",
+              }));
+              expect(state, where).toEqual({ ring: false, fill: highlight, check: true });
+              // Back to All for the next round.
+              await chips.first().evaluate((el) => (el as HTMLElement).click());
+              await expect(chips.first()).toHaveAttribute("aria-pressed", "true");
+              await expect.poll(() => page.locator("html").getAttribute("data-vt")).toBeNull();
+            }
+          }
+        });
+    });
+});
