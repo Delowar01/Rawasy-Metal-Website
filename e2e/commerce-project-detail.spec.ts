@@ -624,6 +624,34 @@ test.describe("sizes, themes and modes", () => {
     }
   });
 
+  test("Stage 1J: related-service links that wrap on a phone stay 24 px apart centre to centre (WCAG 2.5.8 target spacing)", async ({ browser }) => {
+    // The pages whose three services wrap onto two rows at 320 and 390 px (rows were 22.3 px apart before Stage 1J).
+    const wrapping = projects.filter((p) => p.services.length >= 3).map((p) => p.slug);
+    expect(wrapping.length).toBeGreaterThan(0);
+    for (const width of [320, 390]) {
+      const context = await browser.newContext({ viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
+      const page = await context.newPage();
+      for (const locale of LOCALES)
+        for (const slug of wrapping) {
+          await page.goto(`/${locale}/projects/${slug}`, { waitUntil: "networkidle" });
+          const lists = await page.locator(".pd-inline").evaluateAll((uls) =>
+            uls.map((ul) => {
+              const centres = [...ul.querySelectorAll("a")].map((a) => {
+                const r = a.getBoundingClientRect();
+                return [r.left + r.width / 2, r.top + r.height / 2, r.height];
+              });
+              let nearest = Infinity;
+              for (let i = 0; i < centres.length; i++)
+                for (let j = i + 1; j < centres.length; j++) nearest = Math.min(nearest, Math.hypot(centres[i][0] - centres[j][0], centres[i][1] - centres[j][1]));
+              return { links: centres.length, tall: centres.every((c) => c[2] >= 24), nearest };
+            }),
+          );
+          for (const list of lists.filter((l) => l.links > 1 && !l.tall)) expect(list.nearest, `${width} ${locale} ${slug}`).toBeGreaterThanOrEqual(24);
+        }
+      await context.close();
+    }
+  });
+
   test("light and dark: the theme applies to every part, the source plate and the photo stage included", async ({ page, context }) => {
     for (const [theme, background] of [
       ["light", "rgb(244, 244, 241)"],
