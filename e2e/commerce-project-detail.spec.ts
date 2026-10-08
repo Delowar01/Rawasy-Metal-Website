@@ -14,7 +14,7 @@ import { HTML_LANG, hiddenReveals, horizontalOverflow, jsonLd, LOCALES, trackErr
  * Stage 1F: the project pages (src/app/(commerce)/[locale]/projects/[slug]/, components in
  * src/components/commerce/project-detail/): one page per record of src/content/projects.ts, in both languages, built
  * from the record only. Replaces commerce-planned.spec.ts (the in-development pages of Stage TM-2.6), assertion by
- * assertion: the addresses, titles, descriptions, trails and search metadata (now `review`: noindex, follow), the
+ * assertion: the addresses, titles, descriptions, trails and search metadata (published since Stage 1J: indexable), the
  * header's Projects mark, the language switch keeping the project, the phone sheet, reduced motion, no-JS, the hidden
  * decoration and the unknown project's 404. Added: the photos each page may show (`projectDetailMedia`: none for a
  * project awaiting authorship or product-ownership confirmation, never a withheld file, the lead photo never repeated),
@@ -97,9 +97,10 @@ test.describe("records and the photo rule", () => {
     expect([MEDIA_RICH.length, SINGLE.length, TEXT_ONLY.length]).toEqual([17, 10, 7]);
     // The text pages are exactly the projects the gallery holds back.
     expect(TEXT_ONLY.map((p) => p.slug).sort()).toEqual(projects.filter((p) => !isShowcased(p)).map((p) => p.slug).sort());
-    expect(pageStatus.project).toBe("review");
-    expect(pageStatus.projects).toBe("review");
-    expect(Object.entries(pageStatus).filter(([, s]) => s === "published").map(([k]) => k)).toEqual(["home"]);
+    // Stage 1J published every page: nothing is planned or in review any more.
+    expect(pageStatus.project).toBe("published");
+    expect(pageStatus.projects).toBe("published");
+    expect(Object.entries(pageStatus).filter(([, s]) => s !== "published")).toEqual([]);
   });
 
   test("the watermarked files are withheld, and a page shows its photos by flag: none when authorship or ownership is open, never a withheld file", () => {
@@ -168,7 +169,7 @@ test.describe("records and the photo rule", () => {
 // ---------------------------------------------------------------------------------------------------------------------
 
 test.describe("every project page, as served", () => {
-  test("68 pages (34 records × 2 languages) answer 200: title, description, canonical, languages, noindex, follow; WebPage and BreadcrumbList only", async ({ request }) => {
+  test("68 pages (34 records × 2 languages) answer 200: title, description, canonical, languages, indexable; WebPage and BreadcrumbList only", async ({ request }) => {
     test.setTimeout(180_000);
     let count = 0;
     for (const locale of LOCALES) {
@@ -183,7 +184,8 @@ test.describe("every project page, as served", () => {
         const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         expect(html, path).toContain(`<title>${escapeHtml(`${want.title} | ${SITE[locale]}`)}</title>`);
         expect(html, path).toContain(`<meta name="description" content="${escapeHtml(want.summary)}"/>`);
-        expect(html, path).toContain(`<meta name="robots" content="noindex, follow"/>`);
+        // Published (Stage 1J): no robots rule, so the page may be indexed and its links followed.
+        expect(html, path).not.toContain(`<meta name="robots"`);
         expect(html, path).toContain(`<link rel="canonical" href="https://www.rawasymetal.com${path}"/>`);
         for (const [lang, loc] of [["en", "en"], ["ar", "ar"], ["x-default", "en"]] as const)
           expect(html, `${path} ${lang}`).toContain(`<link rel="alternate" hrefLang="${lang}" href="https://www.rawasymetal.com/${loc}/projects/${project.slug}"/>`);
@@ -227,10 +229,13 @@ test.describe("every project page, as served", () => {
     }
   });
 
-  test("not in the sitemap: the sitemap lists the homepage only", async ({ request }) => {
+  test("in the sitemap: every project page once in each language, with its language alternates", async ({ request }) => {
     const sitemap = await (await request.get("/sitemap.xml")).text();
-    expect(sitemap).not.toContain("/projects");
-    expect([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])).toEqual(["https://www.rawasymetal.com/en", "https://www.rawasymetal.com/ar"]);
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    for (const locale of LOCALES)
+      for (const project of projects)
+        expect(locs.filter((l) => l === `https://www.rawasymetal.com/${locale}/projects/${project.slug}`), `${locale} ${project.slug}`).toHaveLength(1);
+    expect(locs.filter((l) => /\/projects\/[^/]+$/.test(l))).toHaveLength(68);
   });
 });
 

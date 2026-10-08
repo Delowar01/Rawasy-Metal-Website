@@ -137,10 +137,10 @@ test.describe("routes, language and search metadata", () => {
         expect(service?.provider?.["@id"]).toMatch(/#organization$/);
         expect(data.find((d) => d["@type"] === "BreadcrumbList")?.itemListElement).toHaveLength(3);
 
-        // Localized canonical and alternates; noindex until Stage 1J.
+        // Localized canonical and alternates; published since Stage 1J, so no robots rule.
         await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`/${locale}/services/${slug}$`));
         for (const lang of ["en", "ar", "x-default"]) await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveCount(1);
-        await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+        await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
         expect(await page.locator('meta[property="og:title"]').getAttribute("content")).toContain(NAMES[slug][locale]);
         await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
 
@@ -154,9 +154,12 @@ test.describe("routes, language and search metadata", () => {
     }
   }
 
-  test("the service pages and the overview stay out of the sitemap", async ({ request }) => {
+  test("the service pages and the overview are in the sitemap once each, in both languages (published in Stage 1J)", async ({ request }) => {
     const xml = await (await request.get("/sitemap.xml")).text();
-    expect(xml).not.toContain("/services");
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    for (const locale of ["en", "ar"])
+      for (const path of ["/services", ...Object.keys(NAMES).map((slug) => `/services/${slug}`)])
+        expect(locs.filter((l) => l === `https://www.rawasymetal.com/${locale}${path}`), `${locale}${path}`).toHaveLength(1);
   });
 });
 

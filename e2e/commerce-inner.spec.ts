@@ -472,9 +472,11 @@ test.describe("localized 404", () => {
     await expect(page).toHaveTitle("404: This page could not be found.");
   });
 
-  test("the sitemap and robots: unchanged, nothing new listed", async ({ request }) => {
+  test("the sitemap and robots: the legal pages are listed (published in Stage 1J), the 404 never", async ({ request }) => {
     const xml = await (await request.get("/sitemap.xml")).text();
-    expect([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname).sort()).toEqual(["/ar", "/en"]);
+    const paths = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+    for (const path of ["/en/privacy", "/ar/privacy", "/en/terms", "/ar/terms"]) expect(paths.filter((p) => p === path), path).toHaveLength(1);
+    expect(paths.filter((p) => /not-found|no-such|404/.test(p))).toEqual([]);
     const robots = await (await request.get("/robots.txt")).text();
     expect(robots).toMatch(/User-Agent: \*\s+Allow: \//);
   });

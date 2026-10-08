@@ -95,13 +95,13 @@ test.describe("the page", () => {
       "laser-welding": null,
     });
     for (const m of machines) expect(m.source.pages, m.slug).toEqual([7]);
-    expect(pageStatus.capabilities).toBe("review");
-    // The project pages were planned until Stage 1F built them (review since, like every built inner page).
-    expect(pageStatus.project).toBe("review");
+    // Published in Stage 1J, like every page (the project pages were planned until Stage 1F, then in review).
+    expect(pageStatus.capabilities).toBe("published");
+    expect(pageStatus.project).toBe("published");
   });
 
   for (const locale of LOCALES) {
-    test(`/${locale}/capabilities: built (not the planned page), its title and description, review and noindex, marked in the header and footer`, async ({ page, request }) => {
+    test(`/${locale}/capabilities: built (not the planned page), its title and description, published and indexable, marked in the header and footer`, async ({ page, request }) => {
       const errors = trackErrors(page);
       const response = await page.goto(`/${locale}/capabilities`, { waitUntil: "networkidle" });
       expect(response?.status()).toBe(200);
@@ -134,14 +134,14 @@ test.describe("the page", () => {
       await expect(crumbs).toHaveCount(2);
       await expect(crumbs.first().locator("a")).toHaveAttribute("href", `/${locale}`);
       await expect(crumbs.last().locator('[aria-current="page"]')).toHaveText(routeLabels.capabilities[locale]);
-      // Search: in review, never indexed; canonical, languages and social cards as before; not in the sitemap.
-      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, follow");
+      // Search: published (Stage 1J), so no robots rule; canonical, languages and social cards as before; in the sitemap.
+      await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`/${locale}/capabilities$`));
       for (const lang of ["en", "ar", "x-default"]) await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveCount(1);
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", seo.capabilities.title[locale]);
       await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", seo.capabilities.description[locale]);
       await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
-      expect(await (await request.get("/sitemap.xml")).text()).not.toContain("/capabilities");
+      expect(await (await request.get("/sitemap.xml")).text()).toContain(`<loc>https://www.rawasymetal.com/${locale}/capabilities</loc>`);
       // The header and the footer mark the page.
       await expect(page.locator('.a2-nav a[aria-current="page"]')).toHaveAttribute("href", `/${locale}/capabilities`);
       await expect(page.locator('footer a[aria-current="page"]')).toHaveAttribute("href", `/${locale}/capabilities`);

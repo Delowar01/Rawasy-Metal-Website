@@ -106,8 +106,9 @@ test.describe("the page", () => {
         expect(html, p.slug).not.toContain(p.title[locale]);
       }
     }
+    // Published since Stage 1J: no robots rule.
     await page.goto("/en/projects");
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
   });
 
   test("the featured project and the highlights keep their content; their action goes to the project's place in the gallery", async ({ page }) => {
@@ -140,7 +141,7 @@ test.describe("the page", () => {
     }
   });
 
-  test("SEO as before: title, description, canonical, languages, social tags, CollectionPage and breadcrumbs; noindex; not in the sitemap", async ({ page, request }) => {
+  test("SEO as before: title, description, canonical, languages, social tags, CollectionPage and breadcrumbs; published (Stage 1J): indexable and in the sitemap", async ({ page, request }) => {
     for (const locale of LOCALES) {
       await page.goto(`/${locale}/projects`, { waitUntil: "networkidle" });
       await expect(page).toHaveTitle(`${seo.projects.title[locale]} | ${locale === "en" ? "RAWASY" : "رواسي"}`);
@@ -149,12 +150,12 @@ test.describe("the page", () => {
       for (const lang of ["en", "ar", "x-default"]) await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveCount(1);
       await expect(page.locator('meta[property="og:title"]')).toHaveCount(1);
       await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
-      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+      await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
       const data = await jsonLd(page);
       expect(data.map((d) => d["@type"]).sort()).toEqual(expect.arrayContaining(["BreadcrumbList", "CollectionPage"]));
     }
     const sitemap = await (await request.get("/sitemap.xml")).text();
-    expect(sitemap).not.toContain("/projects</loc>");
+    for (const locale of LOCALES) expect(sitemap).toContain(`<loc>https://www.rawasymetal.com/${locale}/projects</loc>`);
     const robots = await (await request.get("/robots.txt")).text();
     expect(robots).toMatch(/Sitemap:/);
   });
@@ -368,7 +369,7 @@ test.describe("decision D4 across the site", () => {
       expect(response?.status(), path).toBe(200);
       await expect(page.locator("body.mc"), path).toHaveCount(1);
       await expect(page.locator("h1"), path).toHaveText(title);
-      await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", "noindex, follow");
+      await expect(page.locator('meta[name="robots"]'), path).toHaveCount(0);
       await expect(page.locator("main"), path).not.toContainText(/In development|قيد التطوير/);
       // Back to this page from the trail.
       await expect(page.locator(`.ip-crumbs a[href="/${path.split("/")[1]}/projects"]`), path).toHaveCount(1);

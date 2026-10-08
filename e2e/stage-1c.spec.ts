@@ -32,14 +32,14 @@ test.describe("routes, language and SEO", () => {
         expect(trail.itemListElement[1].item).toMatch(new RegExp(`/${locale}/${route}$`));
         expect(data.some((d) => ["WebPage", "AboutPage", "CollectionPage", "ContactPage"].includes(d["@type"]))).toBe(true);
 
-        // Canonical, hreflang, social tags and the review gate (noindex until approved).
+        // Canonical, hreflang, social tags; published since Stage 1J (no robots rule: indexable).
         await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`/${locale}/${route}$`));
         for (const lang of ["en", "ar", "x-default"]) {
           await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveCount(1);
         }
         await expect(page.locator('meta[property="og:title"]')).toHaveCount(1);
         await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
-        await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+        await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 
         expect(await horizontalOverflow(page)).toBe(0);
         expect(errors).toEqual([]);
@@ -47,11 +47,11 @@ test.describe("routes, language and SEO", () => {
     }
   }
 
-  test("the sitemap lists published pages only", async ({ request }) => {
+  test("the sitemap lists every published page: the homepages and each inner page in both languages", async ({ request }) => {
     const xml = await (await request.get("/sitemap.xml")).text();
     expect(xml).toMatch(/\/en<\/loc>/);
     expect(xml).toMatch(/\/ar<\/loc>/);
-    for (const route of INNER_PAGES) expect(xml).not.toContain(`/${route}</loc>`);
+    for (const route of INNER_PAGES) for (const locale of LOCALES) expect(xml).toContain(`/${locale}/${route}</loc>`);
   });
 });
 

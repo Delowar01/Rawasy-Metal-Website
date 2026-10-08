@@ -8,24 +8,24 @@ import type { RouteKey } from "@/i18n/routes";
  * - `published` approved: indexed and listed in the sitemap
  *
  * A stage's routes move from `review` to `published` only once the user
- * approves that stage.
+ * approves that stage. The Stage 1J brief published every route for the release candidate.
  */
 export type PageStatus = "planned" | "review" | "published";
 
 export const pageStatus: Record<RouteKey, PageStatus> = {
   home: "published",
-  about: "review",
-  services: "review",
-  service: "review",
-  capabilities: "review",
-  projects: "review",
-  project: "review",
-  industries: "review",
-  clients: "review",
-  certificates: "review",
-  contact: "review",
-  privacy: "review",
-  terms: "review",
+  about: "published",
+  services: "published",
+  service: "published",
+  capabilities: "published",
+  projects: "published",
+  project: "published",
+  industries: "published",
+  clients: "published",
+  certificates: "published",
+  contact: "published",
+  privacy: "published",
+  terms: "published",
 };
 
 export function isPublished(key: RouteKey) {

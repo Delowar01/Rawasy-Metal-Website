@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { horizontalOverflow, INNER_PAGES, trackErrors } from "./helpers";
+import { projects } from "../src/content/projects";
+import { services } from "../src/content/services";
+import { horizontalOverflow, INNER_PAGES, LOCALES, trackErrors } from "./helpers";
 
 /**
  * Site-wide checks, one design since Stage TM-2.6: every internal link resolves; no page loads anything of the
@@ -90,6 +92,35 @@ test("no page loads anything of the previous design, and nothing is prefetched",
   for (const code of await Promise.all(scripts)) expect(code).not.toMatch(/greensock|_gsap\b|gsap\.(registerPlugin|timeline|to|from)\(/i);
   expect(external).toEqual([]);
   expect(prefetched).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The sitemap and robots.txt (Stage 1J: every page published)
+// ---------------------------------------------------------------------------------------------------------------------
+
+test("the sitemap lists every page once in each language — 102 addresses — on the site's domain, each with its en / ar / x-default alternates, and each answers 200; robots.txt lets crawlers in and names it", async ({ request }) => {
+  test.setTimeout(120_000);
+  const SITE = "https://www.rawasymetal.com";
+  const xml = await (await request.get("/sitemap.xml")).text();
+  const entries = xml.split("<url>").slice(1);
+  const locs = entries.map((e) => e.match(/<loc>([^<]+)<\/loc>/)![1]);
+  // The homepage, the ten inner pages, the six services and the 34 projects, in both languages.
+  const paths = ["", ...INNER_PAGES.map((route) => `/${route}`), ...services.map((s) => `/services/${s.slug}`), ...projects.map((p) => `/projects/${p.slug}`)];
+  const expected = LOCALES.flatMap((locale) => paths.map((path) => `${SITE}/${locale}${path}`));
+  expect(expected).toHaveLength(102);
+  expect([...locs].sort()).toEqual([...expected].sort());
+  expect(new Set(locs).size).toBe(locs.length);
+  for (const entry of entries) {
+    const loc = entry.match(/<loc>([^<]+)<\/loc>/)![1];
+    const path = loc.replace(/^https:\/\/www\.rawasymetal\.com\/(en|ar)/, "");
+    const alternates = [...entry.matchAll(/<xhtml:link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
+    expect(alternates.sort(), loc).toEqual([`ar ${SITE}/ar${path}`, `en ${SITE}/en${path}`, `x-default ${SITE}/en${path}`]);
+  }
+  for (const loc of locs) expect((await request.get(loc.slice(SITE.length), { maxRedirects: 0 })).status(), loc).toBe(200);
+  const robots = await (await request.get("/robots.txt")).text();
+  expect(robots).toMatch(/User-Agent: \*\s+Allow: \//);
+  expect(robots).not.toMatch(/Disallow/i);
+  expect(robots).toContain(`Sitemap: ${SITE}/sitemap.xml`);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
