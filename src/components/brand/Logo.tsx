@@ -26,21 +26,5 @@ export function Logo({ title = "RAWASY — رواسي", ...props }: LogoProps) {
   );
 }
 
-/** The two-part geometric mark on its own. */
-export function LogoMark({ title, ...props }: LogoProps) {
-  return (
-    <svg
-      viewBox="70.8 201.37 264.82 189.35"
-      role={title ? "img" : undefined}
-      aria-label={title}
-      aria-hidden={title ? undefined : true}
-      {...props}
-    >
-      <path className="piece-top" fill={LOGO_ORANGE} d={MARK_TOP} />
-      <path className="piece-bottom" fill="currentColor" d={MARK_BOTTOM} />
-    </svg>
-  );
-}
-
 /** Raw path data for motion pieces (e.g. the hero maker's mark). */
 export const logoPaths = { markTop: MARK_TOP, markBottom: MARK_BOTTOM, wordmarkEn: WORDMARK_EN };

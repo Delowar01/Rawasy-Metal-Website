@@ -1,5 +1,5 @@
 import type { RouteKey } from "@/i18n/routes";
-import type { Localized, ServiceSlug } from "./types";
+import type { Localized } from "./types";
 
 export interface NavItem {
   route: RouteKey;
@@ -30,15 +30,6 @@ export const footerNav: { title: Localized; items: NavItem[] }[] = [
       { route: "certificates", label: { en: "Certificates", ar: "الشهادات" } },
     ],
   },
-];
-
-export const footerServices: ServiceSlug[] = [
-  "laser-cutting",
-  "cnc-bending",
-  "steel-structures",
-  "fabrication",
-  "laser-engraving",
-  "scaffolding",
 ];
 
 export const legalNav: NavItem[] = [

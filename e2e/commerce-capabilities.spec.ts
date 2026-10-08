@@ -12,6 +12,12 @@ import { pageStatus } from "../src/lib/page-meta";
 import { coldLanding, FONT_DELAYS, placed, placement, VIEWPORTS } from "./anchor-helpers";
 import { HTML_LANG, horizontalOverflow, jsonLd, LOCALES, trackErrors, type TestLocale } from "./helpers";
 
+/** The retired in-development page's label and note (the dictionary's `placeholder` strings until Stage 1J). */
+const RETIRED_PLACEHOLDER = {
+  en: { badge: "In development", body: "Its full design follows the homepage approval, as part of build stage" },
+  ar: { badge: "قيد التطوير", body: "يكتمل تصميمها بعد اعتماد الصفحة الرئيسية، ضمن مرحلة البناء" },
+} as const;
+
 /**
  * Stage 1E: Capabilities & Machinery in the Modern Commerce design. The six machines of the company profile (p.7) with
  * their records' fields only: names, types, capabilities, the services they support and the rated power of the four
@@ -97,7 +103,6 @@ test.describe("the page", () => {
   for (const locale of LOCALES) {
     test(`/${locale}/capabilities: built (not the planned page), its title and description, review and noindex, marked in the header and footer`, async ({ page, request }) => {
       const errors = trackErrors(page);
-      const dict = getDictionary(locale);
       const response = await page.goto(`/${locale}/capabilities`, { waitUntil: "networkidle" });
       expect(response?.status()).toBe(200);
       await expect(page.locator("body.mc")).toHaveCount(1);
@@ -107,10 +112,11 @@ test.describe("the page", () => {
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("h1")).toHaveText(seo.capabilities.title[locale]);
       await expect(page.locator(".ip-hero .t-lead")).toHaveText(seo.capabilities.description[locale]);
-      // No longer the planned page: no in-development label, stage or placeholder note.
+      // No longer the planned page: no in-development label, stage or placeholder note (its strings, retired with it in
+      // Stage 1J, are written here).
       const main = await page.locator("main").innerText();
-      expect(main).not.toContain(dict.placeholder.badge);
-      expect(main).not.toContain(dict.placeholder.body);
+      expect(main).not.toContain(RETIRED_PLACEHOLDER[locale].badge);
+      expect(main).not.toContain(RETIRED_PLACEHOLDER[locale].body);
       expect(main).not.toMatch(/·\s*1E\b/);
       await expect(page.locator(".ip-note")).toHaveCount(0);
       // The sections, in order.

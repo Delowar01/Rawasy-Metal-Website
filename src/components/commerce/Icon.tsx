@@ -261,5 +261,3 @@ export function Icon({ name, size = 22, className, ...props }: { name: IconName;
     </svg>
   );
 }
-
-export const iconNames = Object.keys(paths) as IconName[];

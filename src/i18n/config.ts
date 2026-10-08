@@ -19,10 +19,6 @@ export function isLocale(value: string | undefined | null): value is Locale {
   return !!value && (locales as readonly string[]).includes(value);
 }
 
-export function getDirection(locale: Locale) {
-  return localeConfig[locale].dir;
-}
-
 export function otherLocale(locale: Locale): Locale {
   return locale === "en" ? "ar" : "en";
 }

@@ -13,13 +13,6 @@ export const serviceIcon: Record<ServiceSlug, IconName> = {
   scaffolding: "scaffolding",
 };
 
-export const metricIcon: Record<string, IconName> = {
-  "peak-laser-power": "power",
-  "bevel-cutting": "bevel",
-  "laser-systems": "layers",
-  "service-lines": "grid",
-};
-
 /** Capability statements (metrics.ts) in order: technology, custom, multi-service, Saudi-based. */
 export const statementIcon: IconName[] = ["laser-cutting", "fabrication", "layers", "pin"];
 

@@ -23,23 +23,6 @@ export const routes = {
 
 export type RouteKey = keyof typeof routes;
 
-/** Build stage each page belongs to (see the Phase 1 plan). */
-export const routeStage: Record<RouteKey, string> = {
-  home: "1B",
-  about: "1C",
-  services: "1C",
-  service: "1D",
-  capabilities: "1E",
-  projects: "1F",
-  project: "1F",
-  industries: "1C",
-  clients: "1C",
-  certificates: "1C",
-  contact: "1C",
-  privacy: "1C",
-  terms: "1C",
-};
-
 /** Locale-less path for a route, e.g. path("service", { slug: "laser-cutting" }). */
 export function path(key: RouteKey, params?: { slug?: string }): string {
   const template: string = routes[key];

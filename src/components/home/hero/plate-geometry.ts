@@ -5,16 +5,6 @@
 export const VIEW = { w: 640, h: 760 };
 export const PLATE = { x0: 60, y0: 60, x1: 580, y1: 700, chamfer: 40 };
 
-export const platePolygon = [
-  [PLATE.x0, PLATE.y0],
-  [PLATE.x1 - PLATE.chamfer, PLATE.y0],
-  [PLATE.x1, PLATE.y0 + PLATE.chamfer],
-  [PLATE.x1, PLATE.y1],
-  [PLATE.x0, PLATE.y1],
-]
-  .map(([x, y]) => `${x},${y}`)
-  .join(" ");
-
 /** Circle as a path so the laser can follow it with getPointAtLength. */
 export function circlePath(cx: number, cy: number, r: number) {
   return `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0Z`;
@@ -48,19 +38,6 @@ export const HOLES = [
 export const HOLE_R = 11;
 export const SLOT = { x: 200, y: 488, w: 240, h: 28 };
 export const PERF = { x0: 104, x1: 536, y0: 552, rows: 4, step: 16, r: 3.4 };
-
-export interface Cut {
-  id: string;
-  d: string;
-  duration: number;
-  kind: "hole" | "star" | "slot";
-}
-
-export const CUTS: Cut[] = [
-  ...HOLES.map((h, i) => ({ id: `hole-${i}`, d: circlePath(h.cx, h.cy, HOLE_R), duration: 0.34, kind: "hole" as const })),
-  { id: "star", d: starPath(STAR.cx, STAR.cy, STAR.R), duration: 2.3, kind: "star" },
-  { id: "slot", d: slotPath(SLOT.x, SLOT.y, SLOT.w, SLOT.h), duration: 0.85, kind: "slot" },
-];
 
 export function perforations() {
   const dots: { cx: number; cy: number }[] = [];
