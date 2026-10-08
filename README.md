@@ -76,7 +76,7 @@ src/
 e2e/                       Playwright browser tests (pages, site-wide checks)
 scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
-  generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
+  generate-og.mjs            Renders the EN/AR Open Graph images from the built homepage (and the Apple touch icon)
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
 docs/reports/                Stage reports (latest: 2026-10-08, Stage 1I correction 3)
 ```
@@ -192,8 +192,13 @@ low-resolution export, so photos are shown close to their native size. Replace t
 photography (same file names) before launch. See **[docs/ASSET_INVENTORY.md](docs/ASSET_INVENTORY.md)**
 for provenance, certificate redactions and the list of facts and images RAWASY needs to confirm.
 
-`npm run assets:og` regenerates the share images. It needs Playwright/Chromium; behind an HTTPS
-proxy, prefix it with `NODE_USE_ENV_PROXY=1`.
+`npm run assets:og` regenerates the share images (`public/og/og-en.png`, `og-ar.png`, 1200 × 630) in the Modern Commerce
+design. It draws each card inside the website's own homepage, so it needs the production build being served (`npm run
+build && npm start`, or pass another address: `node scripts/generate-og.mjs http://localhost:3400`), Playwright's
+Chromium and Node.js 22.18 or later (it reads the content modules with Node's TypeScript support). The cards use the
+site's stylesheet, self-hosted faces, logo and hero plate, and the hero's own words; the script checks the faces, the
+safe area, the direction and that no request leaves the site before it writes a file. `--out=<folder>` writes the cards
+elsewhere for review; `--icon` also renders `src/app/apple-icon.png` from `src/app/icon.svg`.
 
 ## Testing
 
