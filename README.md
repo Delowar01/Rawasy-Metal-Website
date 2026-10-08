@@ -36,8 +36,10 @@ page except the homepage is `review` (noindex); publishing waits for the Stage 1
 
 ## Getting started
 
+Tested with **Node.js 22.22.2** and **npm 10.9.7** (`.nvmrc`); other versions were not tested.
+
 ```bash
-npm install
+npm ci               # the exact dependency tree of package-lock.json (npm install also works)
 npm run dev          # http://localhost:3000 → redirects to /en or /ar
 npm run build && npm start
 npm run lint
@@ -45,7 +47,31 @@ npm run typecheck
 npm run build && npm run test:e2e   # browser tests (Playwright, Chromium) against the production build
 ```
 
-Optional environment variable: `NEXT_PUBLIC_SITE_URL` (canonical origin, default `https://www.rawasymetal.com`).
+Optional environment variable: `NEXT_PUBLIC_SITE_URL`, the public origin used in canonical URLs, alternates, share tags,
+structured data, the sitemap and robots.txt (default `https://www.rawasymetal.com`; read at build time). See
+`.env.example`; no other variable, key or secret is needed.
+
+### On Windows
+
+In PowerShell, call npm through its `.cmd` shim (the default execution policy can block `npm.ps1`); Command Prompt
+works the same way. (The project's own checks run on Linux; these are the standard npm commands, not run on Windows
+in this project's QA.)
+
+```powershell
+npm.cmd ci
+npm.cmd run dev          # http://localhost:3000
+npm.cmd run build
+npm.cmd start            # serves the build on http://localhost:3000
+```
+
+If `next dev` or a build fails after switching branches, after an interrupted build or with an error about a missing
+module or route type under `.next` (a stale build folder), stop every running `next` process, delete `.next` and build
+again:
+
+```powershell
+Remove-Item -Recurse -Force .next      # PowerShell (Command Prompt: rmdir /s /q .next)
+npm.cmd run build
+```
 
 ## Architecture
 
