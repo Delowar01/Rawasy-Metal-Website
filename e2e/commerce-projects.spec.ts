@@ -770,6 +770,28 @@ async function ringContrast(page: Page) {
   );
 }
 
+/** Waits until the page's scroll position has stayed the same for six frames in a row. */
+const restingScroll = (page: Page) =>
+  page.waitForFunction(
+    () =>
+      new Promise<boolean>((done) => {
+        let y = scrollY;
+        let same = 0;
+        const tick = () => {
+          if (scrollY === y) {
+            if (++same >= 6) return done(true);
+          } else {
+            same = 0;
+            y = scrollY;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    null,
+    { timeout: 10_000 },
+  );
+
 test.describe("category toggles in forced colours", () => {
   for (const palette of ["light", "dark"] as const)
     test.describe(`${palette} palette`, () => {
@@ -812,8 +834,11 @@ test.describe("category toggles in forced colours", () => {
               await page.keyboard.press("Space");
               await expect(chips.nth(1)).toHaveAttribute("aria-pressed", "true");
               await expect.poll(() => page.locator("html").getAttribute("data-vt")).toBeNull();
-              // A hero toggle's choice jumps the page to the gallery: bring the toggle back into view.
+              // A hero toggle's choice takes the page to the gallery: let that scroll land (a glide carries on past an
+              // instant scroll started under it), bring the toggle back into view and let the page rest again.
+              await restingScroll(page);
               await chips.nth(1).evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+              await restingScroll(page);
               await expect(chips.nth(1)).toBeFocused();
               expect(await ringContrast(page), `${where}: pressed`).toBeGreaterThanOrEqual(3);
               // Focus moves on; the pressed toggle keeps its state without the ring.
