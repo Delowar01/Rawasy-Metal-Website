@@ -120,6 +120,27 @@ test("addresses without a language are sent to one (then answered there); the pr
   }
 });
 
+test("the theme lab is gone (Stage 1J): its former addresses get the localized 404 like any unknown address, and nothing names it", async ({ page, request }) => {
+  for (const [from, to] of [
+    ["/theme-lab", "/en/theme-lab"],
+    ["/theme-lab/en/modern-commerce-a-v2", "/en/theme-lab/en/modern-commerce-a-v2"],
+    ["/theme-lab/ar/modern-commerce-b/system", "/en/theme-lab/ar/modern-commerce-b/system"],
+  ] as const) {
+    const first = await request.get(from, { maxRedirects: 0 });
+    expect(first.status(), from).toBe(307);
+    expect(new URL(first.headers()["location"], "http://localhost").pathname, from).toBe(to);
+    const answer = await request.get(to, { maxRedirects: 0 });
+    expect(answer.status(), to).toBe(404);
+    const html = await answer.text();
+    expect(html, to).toContain("<title>Page not found | RAWASY</title>");
+    expect(html, to).toContain('<meta name="robots" content="noindex"/>');
+    expect(answer.headers()["x-robots-tag"], to).toBeUndefined();
+  }
+  for (const file of ["/sitemap.xml", "/robots.txt"]) expect(await (await request.get(file)).text(), file).not.toContain("theme-lab");
+  await page.goto("/en", { waitUntil: "networkidle" });
+  await expect(page.locator('a[href*="theme-lab"], link[href*="theme-lab"], .lab-bar')).toHaveCount(0);
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // The fallback 404 (global-not-found.tsx)
 // ---------------------------------------------------------------------------------------------------------------------
@@ -315,7 +336,7 @@ test.describe("the fallback 404", () => {
     expect(css).toContain("@media (forced-colors:active){.g404-logo{color:canvastext}}");
     const faces = [...css.matchAll(/url\(\.\.\/media\/([^)]+\.woff2)\)/g)].map((m) => m[1]);
     expect(faces.length).toBeGreaterThan(0);
-    for (const url of ["/en", "/ar", "/ar/about", "/en/projects", "/en/services/laser-cutting", "/theme-lab/en/modern-commerce-a-v2"]) {
+    for (const url of ["/en", "/ar", "/ar/about", "/en/projects", "/en/services/laser-cutting", "/ar/contact"]) {
       const page = await (await request.get(url)).text();
       expect(page, url).not.toContain(sheet);
       expect(page, url).not.toContain("g404");

@@ -16,10 +16,10 @@ import {
 
 /**
  * Stage TM-1: the homepage in the Modern Commerce design (the approved A V2 direction) on the website's own routes,
- * /en and /ar. The components it shares with the theme lab (hero plate, signatures, ambient, pointer) are covered in
- * depth by theme-lab-a-v2.spec.ts; this spec checks them where visitors meet them, with the real navigation, the
- * quote actions, the shared theme and language, the footer, search metadata and the way to the other pages (one design
- * since Stage TM-2.6).
+ * /en and /ar. Its components (hero plate, signatures, ambient, pointer) are covered in depth by
+ * commerce-home-depth.spec.ts (ported from the retired theme lab's spec in Stage 1J); this spec checks them where
+ * visitors meet them, with the real navigation, the quote actions, the shared theme and language, the footer, search
+ * metadata and the way to the other pages (one design since Stage TM-2.6).
  */
 
 const SERVICES = ["laser-cutting", "cnc-bending", "steel-structures", "fabrication", "laser-engraving", "scaffolding"];
@@ -62,7 +62,7 @@ test.describe("the homepage", () => {
       expect(await page.locator("#clients").innerText()).not.toMatch(/\b\d{2}\b/);
       const sources = await page.locator("img").evaluateAll((els) => els.map((i) => (i as HTMLImageElement).currentSrc || i.getAttribute("src") || ""));
       for (const id of FLAGGED) expect(sources.filter((s) => s.includes(id)), id).toEqual([]);
-      // Preview chrome and lab links stay in the lab.
+      // No preview chrome or link to the theme lab (retired in Stage 1J).
       await expect(page.locator('.lab-bar, a[href*="theme-lab"]')).toHaveCount(0);
       expect(errors).toEqual([]);
     }
@@ -587,7 +587,7 @@ test.describe("without JavaScript", () => {
 });
 
 test.describe("search", () => {
-  test("the homepage stays published and indexable, with its canonical, languages and organisation data; the lab stays out", async ({ page, request }) => {
+  test("the homepage stays published and indexable, with its canonical, languages and organisation data; the retired lab stays out", async ({ page, request }) => {
     for (const locale of LOCALES) {
       await page.goto(`/${locale}`, { waitUntil: "domcontentloaded" });
       expect(await page.locator('meta[name="robots"]').count()).toBe(0);
@@ -606,6 +606,7 @@ test.describe("search", () => {
     expect(xml).toMatch(/\/en<\/loc>/);
     expect(xml).toMatch(/\/ar<\/loc>/);
     expect(xml).not.toContain("theme-lab");
-    expect((await request.get("/theme-lab/en/modern-commerce-a-v2")).headers()["x-robots-tag"]).toContain("noindex");
+    // The theme lab was retired in Stage 1J: its address now gets the localized 404 (site.spec.ts checks the whole way).
+    expect((await request.get("/theme-lab/en/modern-commerce-a-v2")).status()).toBe(404);
   });
 });

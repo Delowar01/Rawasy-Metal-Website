@@ -1,9 +1,9 @@
 import type { SVGProps } from "react";
 
 /*
- * The Modern Commerce icon family (also used by the theme lab's options): 24px grid, round caps and joins, a stroke
- * set by the theme (--icon-stroke) and an optional second tone (.duo shapes, shown through --duo-opacity /
- * --duo-color). Decorative: every icon sits beside a visible label and is hidden from assistive technology.
+ * The Modern Commerce icon family: 24px grid, round caps and joins, a stroke set by the theme (--icon-stroke) and an
+ * optional second tone (.duo shapes, shown through --duo-opacity / --duo-color). Decorative: every icon sits beside a
+ * visible label and is hidden from assistive technology.
  */
 
 const paths = {
@@ -254,8 +254,7 @@ export function Icon({ name, size = 22, className, ...props }: { name: IconName;
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      // `lab-icon`: the theme lab's reference copy styles the same icons until the lab is removed.
-      className={["mc-icon lab-icon", directional.has(name) ? "rtl:-scale-x-100" : "", className].filter(Boolean).join(" ")}
+      className={["mc-icon", directional.has(name) ? "rtl:-scale-x-100" : "", className].filter(Boolean).join(" ")}
       {...props}
     >
       {paths[name]}

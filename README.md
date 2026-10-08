@@ -5,7 +5,7 @@ Bilingual (English / Saudi Arabic) corporate website for **RAWASY UNITED INTERNA
 fabrication, laser engraving and scaffolding in Riyadh.
 
 **Status:** the website runs one design, **Modern Commerce** (the approved A V2 direction from the
-[theme lab](#theme-lab)): the website's laser-cut plate as the hero, cutting on a 10 s loop, signature
+[theme lab](#design-origin), retired in Stage 1J): the website's laser-cut plate as the hero, cutting on a 10 s loop, signature
 laser-cutting and laser-engraving animations built on the service pages' own nesting sheet and engraved plate,
 light and dark themes, a precision pointer and a site-wide ambient background. It was migrated page by page
 (Stage TM-1: the homepage; TM-2.1–TM-2.5: the legal pages and the localized 404, contact, about, industries,
@@ -32,7 +32,7 @@ page except the homepage is `review` (noindex); publishing waits for the Stage 1
 | Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css`, page stylesheets beside their components (`services.css`, `projects.css`, `capabilities.css`, `project-detail.css`) |
 | Motion | CSS transitions and the Web Animations API (hero plate, signatures), IntersectionObserver for reveals; no animation library |
 | Fonts | Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text), the system monospace stack for technical figures. All self-hosted via `next/font` |
-| Rendering | Static pages for every route in both languages (109 site pages + 16 theme-lab previews at build time) |
+| Rendering | Static pages for every route in both languages (109 generated at build time) |
 
 ## Getting started
 
@@ -51,14 +51,13 @@ Optional environment variable: `NEXT_PUBLIC_SITE_URL` (canonical origin, default
 
 ```
 src/
-  proxy.ts                 Locale negotiation: cookie → Accept-Language → /en; theme-lab redirects
+  proxy.ts                 Locale negotiation: cookie → Accept-Language → /en
   app/
     (commerce)/[locale]/   The website's root layout (stylesheet, fonts, theme boot, ambient, pointer, motion
                            controller) and every page: home, about, services, services/[slug], capabilities,
                            projects, projects/[slug], industries, clients, certificates, contact, privacy,
                            terms; (missing)/ holds the localized 404 and its catch-all
     global-not-found.tsx   Bilingual fallback 404 for anything outside the locale tree (own stylesheet and faces)
-    theme-lab/[locale]/    The theme lab's own root layout and previews (noindex)
     sitemap.ts robots.ts manifest.ts icon.svg apple-icon.png
   content/                 CMS-ready content (see below)
   i18n/                    Locale config, route map, UI dictionaries
@@ -68,15 +67,13 @@ src/
                            sections, inner-page kit (`inner/`), the pages' components (about, services,
                            capabilities, projects, project-detail, industries, clients, certificates, contact,
                            legal), hero
-                           plate, signature illustrations, ambient, pointer, theme switch, motion (shared
-                           with the theme lab's A V2, which re-exports them)
+                           plate, signature illustrations, ambient, pointer, theme switch, motion
     home/hero/             The hero plate's geometry
     service/visuals/       The nesting sheet's and engraved plate's geometry (shared by the signatures)
     projects/types.ts      Project card types (src/lib/project-cards.ts)
-    theme-lab/             The theme lab's options A, A V2, B and C
   lib/                     SEO helpers, inner-page metadata, page states, project cards, logo wall, maps,
                            scroll spy, the boot script
-e2e/                       Playwright browser tests (pages, site-wide checks, theme lab)
+e2e/                       Playwright browser tests (pages, site-wide checks)
 scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
@@ -170,39 +167,22 @@ slugs. If the 404 comes from a page during a dynamic render, Next.js 16 builds t
 fallback 404 (`global-not-found.tsx`) is built as `/_not-found`; the proxy's excluded paths (`/api/…`,
 `/media/…`, `/_next/…`) still get Next.js's own minimal 404.
 
-## Theme lab
+## Design origin
 
-Isolated Modern Commerce explorations of the homepage, each with a design-system sheet, in English
-and Arabic (light theme; A V2 also dark, from the header switch or `?theme=dark`). A V2 refines A; A
-stays for side-by-side comparison:
-
-| Option | Homepage | Design system |
-| --- | --- | --- |
-| A · Clean Premium Commerce | `/theme-lab/en/modern-commerce-a` | `/theme-lab/en/modern-commerce-a/system` |
-| **A V2 · Clean Premium Commerce, refined** | `/theme-lab/en/modern-commerce-a-v2` | `/theme-lab/en/modern-commerce-a-v2/system` |
-| B · Bold Industrial Commerce | `/theme-lab/en/modern-commerce-b` | `/theme-lab/en/modern-commerce-b/system` |
-| C · Minimal Luxury Commerce | `/theme-lab/en/modern-commerce-c` | `/theme-lab/en/modern-commerce-c/system` |
-
-Replace `en` with `ar` for Arabic; `/theme-lab` redirects to A V2. The lab has its own root layout
-and stylesheet (`src/app/theme-lab/`, `src/components/theme-lab/`), reuses the content layer, is
-`noindex` (meta and `X-Robots-Tag`), and never appears in the sitemap or the site navigation. The
-dark bar at the top of each preview switches option, view and language; links in the previews open
-the current site. A V2 was approved and its components moved to `src/components/commerce/` in Stage TM-1
-(the lab's files re-export them, so the lab and the homepage run the same code). The signature
-illustrations live in `src/components/commerce/signature/` (SVG and
-the Web Animations API, reusable on later pages); they animate the Laser Cutting and Laser Engraving
-pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts`
-and `engraved-plate.ts`. A V2's hero plate (`src/components/commerce/hero/HeroPlate.tsx`) redraws the
-website hero's plate from `src/components/home/hero/plate-geometry.ts`; its cut repeats every 10 s while it is on
-screen (about 5 s of cutting, the finished plate held, then a quick reset). Its site-wide background
-(`src/components/commerce/Ambient.tsx`) is fixed behind every section: one opaque surface (page colour,
-micro-dots and colour) and a band of light on the dot grid, moved on the compositor in whole-pixel steps, kept out
-from under text by reading zones and near-opaque sheets, resting while the page scrolls and still with reduced
-motion. See `docs/reports/2026-09-25-modern-commerce-theme-lab.md`,
-`docs/reports/2026-09-25-modern-commerce-a-v2.md`, `docs/reports/2026-09-25-a-v2-signature-correction.md`,
-`docs/reports/2026-09-26-a-v2-refinement-pass-2.md`, `docs/reports/2026-09-27-a-v2-background-motion.md` and
-`docs/reports/2026-09-28-a-v2-background-optimization.md`, `docs/reports/2026-09-28-a-v2-hero-loop.md` and
-`docs/reports/2026-09-28-tm1-homepage-migration.md`.
+The Modern Commerce design was chosen in a theme lab: three isolated explorations of the homepage (A, B and C), then
+A V2, the approved refinement of A (reports `docs/reports/2026-09-25-modern-commerce-theme-lab.md`,
+`2026-09-25-modern-commerce-a-v2.md`, `2026-09-25-a-v2-signature-correction.md`, `2026-09-26-a-v2-refinement-pass-2.md`,
+`2026-09-27-a-v2-background-motion.md`, `2026-09-28-a-v2-background-optimization.md`, `2026-09-28-a-v2-hero-loop.md` and
+`2026-09-28-tm1-homepage-migration.md`). A V2's components moved to `src/components/commerce/` in Stage TM-1 and the lab
+was retired in Stage 1J: `/theme-lab/…` addresses now get the localized 404. The signature illustrations
+(`src/components/commerce/signature/`, SVG and the Web Animations API) animate the Laser Cutting and Laser Engraving
+pages' drawings, whose geometry is shared through `src/components/service/visuals/nesting-sheet.ts` and
+`engraved-plate.ts`. The hero plate (`src/components/commerce/hero/HeroPlate.tsx`) draws the website's plate from
+`src/components/home/hero/plate-geometry.ts`; its cut repeats every 10 s while it is on screen (about 5 s of cutting, the
+finished plate held, then a quick reset). The site-wide background (`src/components/commerce/Ambient.tsx`) is fixed
+behind every section: one opaque surface (page colour, micro-dots and colour) and a band of light on the dot grid, moved
+on the compositor in whole-pixel steps, kept out from under text by reading zones and near-opaque sheets, resting while
+the page scrolls and still with reduced motion.
 
 ## Assets
 
@@ -245,7 +225,9 @@ anchor with late fonts), `site.spec.ts` (internal links,
 nothing of the previous design on any page, which addresses reach which 404, the fallback 404 and its logo in forced
 colours),
 `stage-1c.spec.ts` (generic inner-page checks: routes, SEO and the noindex gate, breadcrumbs, overflow, keyboard,
-reduced motion, no-JS) and `theme-lab.spec.ts` / `theme-lab-a-v2.spec.ts` (the theme lab). In a cloud session
+reduced motion, no-JS) and `commerce-home-depth.spec.ts` (the homepage in depth: the signatures, the hero plate's loop,
+the pointer, the themes' contrast and the background motion; it took over the retired lab's A V2 checks). In a cloud
+session
 Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
 ## Next stages

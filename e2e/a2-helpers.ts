@@ -2,8 +2,8 @@ import { expect, type Page } from "@playwright/test";
 
 /**
  * Probes for the Modern Commerce (A V2) components — the signature illustrations, the hero plate's 10 s loop and the
- * site-wide ambient — shared by the theme lab's spec (theme-lab-a-v2.spec.ts) and the migrated homepage's spec
- * (commerce-home.spec.ts), which run the same components.
+ * site-wide ambient — shared by the homepage's specs (commerce-home.spec.ts, commerce-home-depth.spec.ts, the latter
+ * ported from the retired theme lab's spec in Stage 1J) and the other pages' specs that meet the same components.
  */
 
 /** Animations currently attached to a signature illustration and its parts. */

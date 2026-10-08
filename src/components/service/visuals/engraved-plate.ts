@@ -1,6 +1,6 @@
 /*
  * The Laser Engraving plate (viewBox 0 0 400 280): one source for the service
- * hero (EngravedPlateVisual) and the theme lab's animated signature. A brushed
+ * hero (EngravedPlateVisual) and its animated signature (LaserEngrave). A brushed
  * brass plate engraved with a double border, corner marks, a block of engraved
  * lines (a layout, not real text) and a guilloche rosette.
  */

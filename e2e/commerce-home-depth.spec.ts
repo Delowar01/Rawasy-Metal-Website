@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CORNER_MARKS, ENGRAVED_LINES, linePath, ROSETTE } from "../src/components/service/visuals/engraved-plate";
 import { CUTTING_HEAD, DIMENSIONS, LEAD_IN, NESTED_PART, OUTLINE, PIERCES } from "../src/components/service/visuals/nesting-sheet";
-import { horizontalOverflow, LOCALES, trackErrors } from "./helpers";
+import { HTML_LANG, horizontalOverflow, LOCALES, trackErrors } from "./helpers";
 import {
   AMBIENT,
   ambientAnimations,
@@ -19,33 +19,33 @@ import {
 } from "./a2-helpers";
 
 /**
- * Theme lab — Option A V2 (Modern Commerce, refined): navigation, the phone
- * menu, both languages, the hero plate, the signature laser illustrations, the
- * pointer, the light and dark themes, readability, the motion system, reduced
- * motion, touch, keyboard use and the no-JavaScript fallback. Isolation,
- * noindex, flagged photos and sideways scroll are covered for every option in
- * theme-lab.spec.ts.
+ * The homepage in depth: the hero plate's 10 s loop, the two laser signatures, the pointer, the site-wide ambient, the
+ * machinery selector, the client wall's switch, the phone menu, keyboard use, reduced motion and the no-JavaScript
+ * fallback. Ported in Stage 1J from theme-lab-a-v2.spec.ts, which checked these production modules on the theme lab's
+ * A V2 page until the lab was retired (the assertion map is in the Stage 1J report); commerce-home.spec.ts checks the
+ * page's content, navigation and search, commerce-motion.spec.ts the motion system across the site.
  */
 
-const home = (locale: string) => `/theme-lab/${locale}/modern-commerce-a-v2`;
-const system = (locale: string) => `${home(locale)}/system`;
-const NAV = ["home", "about", "services", "machinery", "projects", "industries", "clients", "contact"];
+const home = (locale: string) => `/${locale}`;
 
-test.describe("A V2 · navigation and layout", () => {
-  test("the header lists every main section, and the Services menu opens, lists the six services and closes", async ({ page }) => {
+/** Opens the homepage in a language, with the website's stored theme when one is given (the lab used ?theme=). */
+async function openHome(page: Page, locale: string, theme?: "light" | "dark") {
+  if (theme) await page.addInitScript((t) => localStorage.setItem("rawasy-theme", t), theme);
+  await page.goto(home(locale), { waitUntil: "networkidle" });
+}
+
+test.describe("homepage · navigation and layout", () => {
+  test("the Services menu opens, lists the six services and closes with Escape (focus back on it) or a click outside", async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto(home("en"), { waitUntil: "networkidle" });
     const nav = page.locator(".a2-nav");
-    // Home, About, Services (menu), Capabilities, Projects, Industries, Clients, Contact — each targets a section here.
-    const targets = await nav.locator("[data-spy-link]").evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.spyLink));
-    expect(targets).toEqual(NAV);
-    for (const id of NAV) await expect(page.locator(`section#${id}`)).toHaveCount(1);
+    // (The lab's header linked the page's own sections; the website's links its pages: commerce-home.spec.ts.)
     await expect(page.locator(".a2-head-quote")).toBeVisible();
 
     const menu = nav.locator("details[data-dropdown]");
     await menu.locator("summary").click();
     await expect(menu.locator(".a2-dd-panel")).toBeVisible();
-    await expect(menu.locator(".a2-dd-item")).toHaveCount(6);
+    await expect(menu.locator('.a2-dd-item[href^="/en/services/"]')).toHaveCount(6);
     await page.keyboard.press("Escape");
     await expect(menu).not.toHaveAttribute("open");
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("SUMMARY");
@@ -53,16 +53,6 @@ test.describe("A V2 · navigation and layout", () => {
     await page.mouse.click(700, 760);
     await expect(menu).not.toHaveAttribute("open");
     expect(errors).toEqual([]);
-  });
-
-  test("the active section is marked in the header as the page scrolls, and the header gains its shadow past the hero", async ({ page }) => {
-    await page.goto(home("en"), { waitUntil: "networkidle" });
-    await expect(page.locator('.a2-nav [data-spy-link="home"]')).toHaveAttribute("data-active", "");
-    await page.locator("#projects").scrollIntoViewIfNeeded();
-    await page.evaluate(() => document.getElementById("projects")!.scrollIntoView({ block: "start" }));
-    await expect(page.locator('.a2-nav [data-spy-link="projects"]')).toHaveAttribute("data-active", "");
-    await expect(page.locator("html")).toHaveAttribute("data-past-hero", "");
-    await expect(page.locator("html")).toHaveAttribute("data-scrolled", "");
   });
 
   test("the phone menu fills the screen, locks the page, keeps Get a Quote in reach and closes after a choice", async ({ page }) => {
@@ -88,8 +78,9 @@ test.describe("A V2 · navigation and layout", () => {
     // Services open in place; a link closes the menu.
     await sheet.locator(".a2-sheet-sub > summary").click();
     await expect(sheet.locator(".a2-sheet-sub a.a2-dd-item")).toHaveCount(6);
-    await sheet.locator('a[href="#projects"]').click();
-    await expect(menu).not.toHaveAttribute("open");
+    // (The lab's rows were the page's own sections; the website's open its pages, so a choice loads the page.)
+    await Promise.all([page.waitForURL("**/en/projects"), sheet.locator('a.a2-sheet-row[href="/en/projects"]').click()]);
+    await expect(page.locator("details[data-sheet]")).not.toHaveAttribute("open");
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe("hidden");
   });
 
@@ -99,8 +90,8 @@ test.describe("A V2 · navigation and layout", () => {
       await expect(page.locator("html")).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
       const other = locale === "en" ? "ar" : "en";
       const bar = page.locator(".a2-header .a2-lang").first();
-      await expect(bar.locator(`a[hreflang="${other}"]`)).toHaveAttribute("href", home(other));
-      await expect(bar.locator(`a[hreflang="${locale}"]`)).toHaveAttribute("aria-current", "true");
+      await expect(bar.locator(`a[hreflang="${HTML_LANG[other]}"]`)).toHaveAttribute("href", home(other));
+      await expect(bar.locator(`a[hreflang="${HTML_LANG[locale]}"]`)).toHaveAttribute("aria-current", "true");
       // Logical layout: the hero text starts on the reading side.
       const h1 = await page.locator("h1").boundingBox();
       const media = await page.locator(".a2-hero .a2-plate-stage").boundingBox();
@@ -110,8 +101,9 @@ test.describe("A V2 · navigation and layout", () => {
         const spaced = await page.evaluate(() => [...document.querySelectorAll("h1, h2, h3, p, a, button")].filter((el) => parseFloat(getComputedStyle(el).letterSpacing) > 0).length);
         expect(spaced).toBe(0);
       }
-      await page.goto(system(locale), { waitUntil: "networkidle" });
-      await expect(page.locator(".a2-header .a2-lang").first().locator(`a[hreflang="${other}"]`)).toHaveAttribute("href", system(other));
+      // On another page the switch keeps that page (the lab checked its design-system sheet).
+      await page.goto(`/${locale}/about`, { waitUntil: "networkidle" });
+      await expect(page.locator(".a2-header .a2-lang").first().locator(`a[hreflang="${HTML_LANG[other]}"]`)).toHaveAttribute("href", `/${other}/about`);
     }
   });
 
@@ -153,19 +145,9 @@ test.describe("A V2 · navigation and layout", () => {
     await expect(page.locator("#client-wall")).toHaveAttribute("data-colour", "");
     await expect.poll(() => page.locator("#client-wall img").first().evaluate((img) => getComputedStyle(img).filter)).toBe("none");
   });
-
-  test("no sideways scroll on the design-system sheet, from phone to desktop", async ({ page }) => {
-    for (const width of [360, 390, 834, 1024, 1440]) {
-      await page.setViewportSize({ width, height: 800 });
-      for (const locale of LOCALES) {
-        await page.goto(system(locale), { waitUntil: "networkidle" });
-        expect(await horizontalOverflow(page), `${locale} at ${width}px`).toBe(0);
-      }
-    }
-  });
 });
 
-test.describe("A V2 · signature illustrations and motion", () => {
+test.describe("homepage · signature illustrations and motion", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
   test("one laser-cutting and one laser-engraving signature, on the service pages' own artwork", async ({ page }) => {
@@ -353,7 +335,8 @@ test.describe("A V2 · signature illustrations and motion", () => {
   });
 
   test("no photos, text, brands or serial numbers in the engraving; the flagged nameplates photo stays off", async ({ page }) => {
-    for (const path of [home("en"), home("ar"), system("en")]) {
+    // The homepage and the Laser Engraving page, which shows the same signature (the lab checked its design-system sheet).
+    for (const path of [home("en"), home("ar"), "/en/services/laser-engraving"]) {
       await page.goto(path, { waitUntil: "networkidle" });
       const plates = page.locator(".sig-engrave");
       expect(await plates.count()).toBeGreaterThan(0);
@@ -385,51 +368,9 @@ test.describe("A V2 · signature illustrations and motion", () => {
     expect(pulse).toEqual(["paused"]);
     expect(await page.locator(".a2-glow").evaluate((el) => el.getAnimations().length)).toBe(0);
   });
-
-  test("the design-system sheet shows each signature first, with a replay and still frames of its initial, active and finished states", async ({ page }) => {
-    await page.goto(system("en"), { waitUntil: "networkidle" });
-    // The three signature blocks lead the sheet: the hero plate, then the two laser illustrations.
-    const firstBlocks = await page.locator("main > section").evaluateAll((els) => els.slice(0, 3).map((el) => el.querySelector("[id^=demo-]")?.id));
-    expect(firstBlocks).toEqual(["demo-plate", "demo-cut", "demo-engrave"]);
-    // The plate: the hero's loop with a replay from the start, and still frames with no, some and every opening cut.
-    await inView(page, "#demo-plate");
-    await expect.poll(async () => (await signatureAnimations(page, "#demo-plate .a2-plate")).length).toBeGreaterThan(60);
-    await expect(page.locator("#demo-plate .a2-plate-read [dir=ltr]")).toHaveText("07/07", { timeout: 12000 });
-    await page.locator("section", { has: page.locator("#demo-plate") }).locator("button.sig-replay").click();
-    // Back to the first cycle: the plate rises again and the count starts from zero.
-    await expect(page.locator("#demo-plate .a2-plate-read [dir=ltr]")).toHaveText("00/07");
-    await expect(page.locator("#demo-plate .a2-plate")).toHaveAttribute("data-cycle", "1");
-    expect((await plateClock(page, "#demo-plate .a2-plate")).time).toBeLessThan(1150);
-    await expect.poll(async () => (await plateLoop(page, "#demo-plate .a2-plate")).every((a) => a.state === "running")).toBe(true);
-    const cuts = await page
-      .locator("section", { has: page.locator("#demo-plate") })
-      .locator(".a2-plate[data-frozen]")
-      .evaluateAll((els) => els.map((el) => [...el.querySelectorAll("[data-slug]")].filter((g) => parseFloat(getComputedStyle(g).opacity) < 0.5 || getComputedStyle(g).clipPath.includes("100%")).length));
-    expect(cuts).toEqual([0, 4, 10]);
-    for (const [id, part] of [
-      ["demo-cut", ".sig-kerf .sig-path"],
-      ["demo-engrave", ".sig-engr-cut [pathLength]"],
-    ] as const) {
-      await inView(page, `#${id}`);
-      const sig = `#${id} .sig`;
-      await expect.poll(async () => (await signatureAnimations(page, sig)).length).toBeGreaterThan(20);
-      await expect.poll(async () => (await signatureAnimations(page, sig)).every((a) => a.state === "finished"), { timeout: 12000 }).toBe(true);
-      await page.locator("section", { has: page.locator(`#${id}`) }).locator("button.sig-replay").click();
-      await expect.poll(async () => (await signatureAnimations(page, sig)).some((a) => a.state === "running")).toBe(true);
-      // Still frames: nothing drawn at first, part of it while active, everything when finished.
-      const stills = await page
-        .locator("section", { has: page.locator(`#${id}`) })
-        .locator("[data-frozen]")
-        .evaluateAll((els, sel) => els.map((el) => [...el.querySelectorAll(sel)].filter((p) => parseFloat(getComputedStyle(p).strokeDashoffset) < 0.001).length), part);
-      expect(stills).toHaveLength(3);
-      expect(stills[0]).toBe(0);
-      expect(stills[1]).toBeGreaterThan(0);
-      expect(stills[2]).toBeGreaterThan(stills[1]);
-    }
-  });
 });
 
-test.describe("A V2 · signatures on a phone", () => {
+test.describe("homepage · signatures on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
 
   test("each signature plays once as it enters the viewport; touch and scrolling back do not replay it", async ({ page }) => {
@@ -450,7 +391,7 @@ test.describe("A V2 · signatures on a phone", () => {
   });
 });
 
-test.describe("A V2 · reduced motion", () => {
+test.describe("homepage · reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
   test("the finished illustrations show at once and nothing animates", async ({ page }) => {
@@ -475,20 +416,15 @@ test.describe("A V2 · reduced motion", () => {
       await expect(page.locator("html")).not.toHaveAttribute("data-cursor-on");
       expect(await page.locator("h1").evaluate((el) => getComputedStyle(el).cursor)).not.toBe("none");
     }
-    // The sheet's still frames are still frames; the replay buttons have nothing to play.
-    await page.goto(system("en"), { waitUntil: "networkidle" });
-    await expect(page.locator("button.sig-replay").first()).toBeHidden();
-    await expect(page.locator("[data-frozen]")).toHaveCount(9);
-    expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length)).toBe(0);
   });
 });
 
-test.describe("A V2 · keyboard", () => {
+test.describe("homepage · keyboard", () => {
   test("skip link, header, Services menu, cards, machine selector and colour toggle all work from the keyboard", async ({ page }) => {
     await page.goto(home("en"), { waitUntil: "networkidle" });
     await page.keyboard.press("Tab");
     await expect(page.locator(".skip-link")).toBeFocused();
-    // Past the lab bar to the logo, then along the header.
+    // On to the logo, then along the header.
     let guard = 0;
     while (!(await page.evaluate(() => !!document.activeElement?.closest(".a2-header"))) && guard++ < 20) await page.keyboard.press("Tab");
     await expect(page.locator(".a2-header a[aria-label]").first()).toBeFocused();
@@ -517,7 +453,7 @@ test.describe("A V2 · keyboard", () => {
   });
 });
 
-test.describe("A V2 · without JavaScript", () => {
+test.describe("homepage · without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
   test("everything is shown, the illustrations are finished and the machine stage shows one complete panel", async ({ page }) => {
@@ -538,7 +474,7 @@ test.describe("A V2 · without JavaScript", () => {
   });
 });
 
-test.describe("A V2 · hero plate", () => {
+test.describe("homepage · hero plate", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
   const plate = ".a2-hero .a2-plate";
 
@@ -699,7 +635,7 @@ test.describe("A V2 · hero plate", () => {
   });
 });
 
-test.describe("A V2 · hero plate on a phone", () => {
+test.describe("homepage · hero plate on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
 
   test("the same 10 s loop once the plate is in view; a tap never reads X / Y; the readout never overflows and nothing shifts", async ({ page }) => {
@@ -726,7 +662,7 @@ test.describe("A V2 · hero plate on a phone", () => {
   });
 });
 
-test.describe("A V2 · pointer", () => {
+test.describe("homepage · pointer", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
   test("a laser point and a precision ring: active over links and cards, a crosshair on the plate, tighter when pressed", async ({ page }) => {
@@ -744,7 +680,8 @@ test.describe("A V2 · pointer", () => {
     expect(Math.round(dot.x + dot.width / 2)).toBe(420);
     expect(Math.round(dot.y + dot.height / 2)).toBe(440);
 
-    const button = page.locator(".a2-hero .btn-primary");
+    // The hero's second action stays on the page (#machinery); its first opens the quotation form.
+    const button = page.locator(".a2-hero .btn-secondary");
     await button.hover();
     await expect(cursor).toHaveAttribute("data-state", "active");
     expect(await button.evaluate((el) => getComputedStyle(el).cursor)).toBe("none");
@@ -753,7 +690,7 @@ test.describe("A V2 · pointer", () => {
     await page.mouse.up();
     await expect(cursor).not.toHaveAttribute("data-press");
 
-    // Over the plate while it holds the finished cut. The click above followed the button's link down to #contact,
+    // Over the plate while it holds the finished cut. The click above followed the button's link down to #machinery,
     // where the plate's loop rests: back to the hero, where it carries on.
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
     await expect(page.locator(".a2-hero .a2-plate-read [dir=ltr]")).toHaveText("07/07", { timeout: 12000 });
@@ -762,18 +699,14 @@ test.describe("A V2 · pointer", () => {
     await page.locator("#services article:has(.sig-cut)").hover();
     await expect(cursor).toHaveAttribute("data-state", "active");
 
-    // The lab bar is preview chrome: the system cursor there.
-    const labLink = page.locator(".lab-bar a").first();
-    await labLink.hover();
-    await expect(cursor).not.toHaveAttribute("data-shown");
-    expect(await labLink.evaluate((el) => getComputedStyle(el).cursor)).not.toBe("none");
   });
 
   test("text fields keep the I-beam, and keyboard focus never meets the pointer", async ({ page }) => {
-    await page.goto(system("en"), { waitUntil: "networkidle" });
+    // The quotation form's fields (the lab used its design-system sheet's sample field).
+    await page.goto("/en/contact", { waitUntil: "networkidle" });
     await page.mouse.move(300, 300);
     await page.mouse.move(320, 320);
-    const field = page.locator("input.field[name=name]");
+    const field = page.locator("input.field[name=fullName]");
     await field.scrollIntoViewIfNeeded();
     await field.hover();
     await expect(page.locator(".a2-cursor:not(.a2-cursor-spec)")).not.toHaveAttribute("data-shown");
@@ -785,39 +718,8 @@ test.describe("A V2 · pointer", () => {
   });
 });
 
-test.describe("A V2 · touch", () => {
-  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
 
-  test("no custom pointer on touch screens: the system cursor rules and taps work as usual", async ({ page }) => {
-    await page.goto(home("en"), { waitUntil: "networkidle" });
-    await page.locator(".a2-hero .btn-secondary").tap();
-    await expect(page.locator("html")).not.toHaveAttribute("data-cursor-on");
-    await expect(page.locator(".a2-cursor")).toBeHidden();
-    expect(await page.locator("h1").evaluate((el) => getComputedStyle(el).cursor)).not.toBe("none");
-  });
-});
-
-test.describe("A V2 · light and dark", () => {
-  test("?theme= chooses and remembers a theme, the switch changes it in place, and the website's own theme is untouched", async ({ page }) => {
-    await page.goto(`${home("en")}?theme=dark`, { waitUntil: "networkidle" });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(19, 24, 32)");
-    await page.goto(home("en"), { waitUntil: "networkidle" });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    const light = page.locator(".a2-header [role=group] button").first();
-    await light.click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect(light).toHaveAttribute("aria-pressed", "true");
-    expect(await page.evaluate(() => localStorage.getItem("rawasy-lab-a2-theme"))).toBe("light");
-    await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(244, 244, 241)");
-    // The lab keeps its own key: the website's theme choice is never written (checked on a page of the website, which
-    // then follows the system setting: light here).
-    await page.goto(`${home("en")}?theme=dark`, { waitUntil: "networkidle" });
-    await page.goto("/en/capabilities", { waitUntil: "networkidle" });
-    await expect(page.locator("body.mc")).toHaveCount(1);
-    expect(await page.evaluate(() => localStorage.getItem("rawasy-theme"))).toBeNull();
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
-  });
+test.describe("homepage · light and dark", () => {
 
   test("text stays readable (WCAG AA) in both themes and both languages", async ({ page }) => {
     const selectors = [
@@ -839,24 +741,12 @@ test.describe("A V2 · light and dark", () => {
     ];
     for (const theme of ["light", "dark"]) {
       for (const locale of LOCALES) {
-        await page.goto(`${home(locale)}?theme=${theme}`, { waitUntil: "networkidle" });
+        await openHome(page, locale, theme as "light" | "dark");
         const low: string[] = [];
         for (const sel of selectors) {
           for (const r of await textContrast(page, sel)) if (r.ratio < r.need) low.push(`${sel} “${r.text}” ${r.ratio}:1`);
         }
         expect(low, `${locale} ${theme}`).toEqual([]);
-      }
-    }
-  });
-
-  test("no sideways scroll from 360 to 1920 px, in both languages and both themes", async ({ page }) => {
-    for (const width of [360, 390, 768, 1024, 1280, 1440, 1920]) {
-      await page.setViewportSize({ width, height: 900 });
-      for (const locale of LOCALES) {
-        for (const theme of ["light", "dark"]) {
-          await page.goto(`${home(locale)}?theme=${theme}`, { waitUntil: "load" });
-          expect(await horizontalOverflow(page), `${locale} ${theme} at ${width}px`).toBe(0);
-        }
       }
     }
   });
@@ -956,12 +846,13 @@ async function worstPixelContrast(page: Page, selector: string) {
   return { ratio: result, need: large ? 3 : 4.5 };
 }
 
-test.describe("A V2 · background motion", () => {
+test.describe("homepage · background motion", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
   test("one fixed ambient sits behind every section, hidden from assistive technology and out of the pointer's way", async ({ page }) => {
     for (const locale of LOCALES) {
-      for (const path of [home(locale), system(locale)]) {
+      // The homepage and an inner page (the lab checked its design-system sheet): one ambient on every page.
+      for (const path of [home(locale), `/${locale}/about`]) {
         await page.goto(path, { waitUntil: "networkidle" });
         const layer = await page.evaluate((sel) => {
           const live = [...document.querySelectorAll<HTMLElement>(sel)];
@@ -1169,7 +1060,7 @@ test.describe("A V2 · background motion", () => {
 
   test("section sheets let only a little of it through; cards stay opaque", async ({ page }) => {
     for (const theme of ["light", "dark"]) {
-      await page.goto(`${home("en")}?theme=${theme}`, { waitUntil: "networkidle" });
+      await openHome(page, "en", theme as "light" | "dark");
       const alphas = await page.evaluate(() => {
         const alpha = (colour: string) => {
           const m = colour.match(/\/\s*([\d.]+)\s*\)$/) ?? colour.match(/^rgba\([^)]*,\s*([\d.]+)\)$/);
@@ -1197,15 +1088,12 @@ test.describe("A V2 · background motion", () => {
     for (const width of [1280, 360]) {
       await page.setViewportSize({ width, height: 800 });
       for (const locale of LOCALES) {
-        for (const [path, expected] of [
-          [home(locale), 4],
-          [system(locale), 1],
-        ] as const) {
+        for (const [path, expected] of [[home(locale), 4]] as const) {
           await page.goto(path, { waitUntil: "networkidle" });
           const zones = await page.evaluate(() => {
             // The feathered edge is 1.5 rem wide, or the page gutter where that is narrower (1 rem at the top and bottom).
             const feather = Math.min(24, parseFloat(getComputedStyle(document.querySelector(".shell")!).paddingLeft));
-            return [...document.querySelectorAll<HTMLElement>(".lab-a2 :is(.a2-read, main.shell)")].map((el) => {
+            return [...document.querySelectorAll<HTMLElement>(".mc :is(.a2-read, main.shell)")].map((el) => {
               const cs = getComputedStyle(el);
               const before = getComputedStyle(el, "::before");
               const box = el.getBoundingClientRect();
@@ -1257,7 +1145,7 @@ test.describe("A V2 · background motion", () => {
     ];
     for (const theme of ["light", "dark"]) {
       for (const locale of LOCALES) {
-        await page.goto(`${home(locale)}?theme=${theme}`, { waitUntil: "networkidle" });
+        await openHome(page, locale, theme as "light" | "dark");
         await page.addStyleTag({ content: ".a2-header{position:relative!important}" });
         await page.evaluate(() => document.querySelectorAll("[data-reveal]").forEach((el) => el.setAttribute("data-shown", "")));
         await page.waitForTimeout(1200);
@@ -1270,44 +1158,9 @@ test.describe("A V2 · background motion", () => {
       }
     }
   });
-
-  test("the design-system sheet shows it as frames: still, 8, 11 and 14 s in both themes, the light on the dot grid and entering from the reading side", async ({ page }) => {
-    for (const locale of LOCALES) {
-      await page.goto(system(locale), { waitUntil: "networkidle" });
-      await page.locator(".a2-amb-frame").first().scrollIntoViewIfNeeded();
-      const frames = await page.locator(".a2-amb-frame").evaluateAll((els) =>
-        els.map((el) => {
-          const amb = el.querySelector(".a2-ambient-frame")!;
-          const band = amb.querySelector(".a2-ambient-sweep")!;
-          const sweep = band.getBoundingClientRect();
-          const box = el.getBoundingClientRect();
-          return {
-            theme: el.classList.contains("a2-theme-dark") ? "dark" : "light",
-            hidden: el.getAttribute("aria-hidden"),
-            running: amb.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length,
-            grid: new DOMMatrix(getComputedStyle(band).transform).e % 24 === 0,
-            centre: Math.round((((sweep.left + sweep.right) / 2 - box.left) / box.width) * 100) / 100,
-          };
-        }),
-      );
-      expect(frames.map((f) => f.theme)).toEqual(["light", "light", "light", "light", "dark", "dark", "dark", "dark"]);
-      expect(frames.every((f) => f.hidden === "true" && f.running === 0 && f.grid)).toBe(true);
-      // Where the band's centre sits across the frame (0 = left edge, 1 = right edge); Arabic mirrors it.
-      for (const row of [frames.slice(0, 4), frames.slice(4)]) {
-        const along = row.map((f) => (locale === "ar" ? 1 - f.centre : f.centre));
-        expect(along[0] < 0 || along[0] > 1, "still: off screen").toBe(true);
-        expect(along[1], "8 s: entering").toBeGreaterThan(-0.2);
-        expect(along[1], "8 s: entering").toBeLessThan(0.25);
-        expect(along[2], "11 s: mid-screen").toBeGreaterThan(0.25);
-        expect(along[2], "11 s: mid-screen").toBeLessThan(0.6);
-        expect(along[3], "14 s: leaving").toBeGreaterThan(0.6);
-        expect(along[3], "14 s: leaving").toBeLessThan(0.95);
-      }
-    }
-  });
 });
 
-test.describe("A V2 · background motion on a phone", () => {
+test.describe("homepage · background motion on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, contextOptions: { reducedMotion: "no-preference" } });
 
   test("phones get a lighter version: still dots, colour at 70 % without teal, half the drift, a narrower light", async ({ page }) => {
@@ -1339,12 +1192,12 @@ test.describe("A V2 · background motion on a phone", () => {
   });
 });
 
-test.describe("A V2 · background motion, reduced", () => {
+test.describe("homepage · background motion, reduced", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
   test("with reduced motion the background holds still and stays visible", async ({ page }) => {
     for (const theme of ["light", "dark"]) {
-      await page.goto(`${home("en")}?theme=${theme}`, { waitUntil: "networkidle" });
+      await openHome(page, "en", theme as "light" | "dark");
       await page.waitForTimeout(500);
       const still = await page.evaluate((sel) => {
         const el = document.querySelector(sel)!;

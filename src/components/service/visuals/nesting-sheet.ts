@@ -1,6 +1,6 @@
 /*
  * The Laser Cutting nesting sheet (viewBox 0 0 260 160): one source for the
- * service hero (CutPathVisual) and the theme lab's animated signature. A part
+ * service hero (CutPathVisual) and its animated signature (LaserCut). A part
  * is cut from the sheet among nested steel parts: its outline, two holes, a
  * slot and a larger hole, each entered from a pierce point.
  */

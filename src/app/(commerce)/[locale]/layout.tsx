@@ -16,9 +16,8 @@ import "@/components/commerce/system.css";
 
 /*
  * Root layout of the website's pages, all in the Modern Commerce design since Stage TM-2.6 (TM-1: the homepage; TM-2.1
- * to TM-2.5: the inner pages; TM-2.6: Capabilities and the project pages, both planned). The theme lab keeps its own
- * root layout (src/app/theme-lab) and an address outside any language gets the fallback 404
- * (src/app/global-not-found.tsx); neither shares a document with these pages.
+ * to TM-2.5: the inner pages; TM-2.6: Capabilities and the project pages, both planned). An address outside any
+ * language gets the fallback 404 (src/app/global-not-found.tsx), which does not share a document with these pages.
  */
 
 export function generateStaticParams() {

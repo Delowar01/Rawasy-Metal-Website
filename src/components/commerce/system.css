@@ -6,8 +6,8 @@
  * dark under html[data-theme="dark"].
  *
  * Scope: `.mc`, set on <body> by the website's root layout (src/app/(commerce)/[locale]/layout.tsx); since Stage
- * TM-2.6 every page uses it. Component classes keep the approved design's `a2-` prefix (they are shared with the
- * theme lab's reference copy until the lab is removed).
+ * TM-2.6 every page uses it. Component classes keep the approved design's `a2-` prefix (from the theme lab, retired in
+ * Stage 1J).
  */
 @layer theme, base, components, utilities;
 

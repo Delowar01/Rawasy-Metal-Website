@@ -1,6 +1,6 @@
 /*
  * Modern Commerce — entry stylesheet of the website (every page since Stage TM-2.6), loaded by its root layout. The
- * theme lab and the fallback 404 have their own. Utilities are generated from the Modern Commerce sources alone; the
+ * fallback 404 has its own. Utilities are generated from the Modern Commerce sources alone; the
  * tokens and components are in src/components/commerce/system.css.
  */
 @import "tailwindcss" source(none);

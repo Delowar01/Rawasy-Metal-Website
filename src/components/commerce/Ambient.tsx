@@ -11,8 +11,9 @@ import type { CSSProperties } from "react";
  * light up. Nothing moves with reduced motion. Decoration: hidden from assistive
  * technology and never in the way of the pointer.
  *
- * `frame` (the theme lab's design-system sheet): the same layers inside a panel, held still at
- * a moment of the animation (seconds); "still" shows them as reduced motion does.
+ * `frame` (written for the theme lab's design-system sheet; no page passes it since the lab was retired in Stage 1J):
+ * the same layers inside a panel, held still at a moment of the animation (seconds); "still" shows them as reduced
+ * motion does.
  */
 export function Ambient({ frame }: { frame?: number | "still" }) {
   const className = frame === undefined ? "a2-ambient" : `a2-ambient a2-ambient-frame${frame === "still" ? " a2-ambient-still" : ""}`;
