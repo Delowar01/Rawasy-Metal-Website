@@ -1,11 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
+import { projectCategories } from "../src/content/projects";
 
 /**
- * Text keeps AA contrast through the motion, not only at rest (Stage 1I corrections 1 and 2).
+ * Text keeps AA contrast through the motion, not only at rest (Stage 1I corrections 1, 2 and 3).
  *
- * The Capabilities machine change and the certificate dialog (correction 1), and the homepage machine change, the scroll
+ * The Capabilities machine change and the certificate dialog (correction 1), the homepage machine change, the scroll
  * reveals, the homepage entrance, the Services dropdown, the phone menu sheet and the homepage project cards' label
- * (correction 2) are held part-way through — every animation the change
+ * (correction 2), and a Projects filter toggle pressed and released and the certificate preview's open indicator, an
+ * aria-hidden plus icon held to 3:1 against its circle (correction 3, at the end of this file), are held part-way
+ * through — every animation the change
  * starts is paused at exactly T ms (a CSS transition's delay counts in that time), everything else where it stands —
  * and each held frame is checked as it is drawn: axe-core finds nothing; every text node shown is at full strength
  * (its opacity through every ancestor is 1, so it never passes through a half-faded, lower-contrast frame); each one's
@@ -693,4 +696,556 @@ test.describe("without JavaScript, the homepage machinery is a list of anchors",
       expect(await shown()).toEqual([`${ids[4]} 1`]);
     }
   });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Stage 1I correction 3: the two colour transitions that swapped a label or an icon with its own fill — a Projects filter
+// toggle pressed and released (its label against its fill: AA), and the certificate preview's open indicator on hover and
+// keyboard focus, there and back (an aria-hidden plus icon, not text: its plus against its own circle, 3:1 as for any
+// graphical object) — held at 0, 25, 50, 75 and 100 % of their 180 ms, at the worst frames the correction 2 build showed
+// (the toggle at 53 ms; the indicator at 70 ms on its way to the hover state and at 39 ms on its way back) and settled, in
+// EN/AR × light/dark at 1440 × 900 and 390 × 844 (hover on the desktop only). Every frame is checked; the issues of all of
+// them are reported together, and each frame's worst ratio is kept as an annotation.
+// ---------------------------------------------------------------------------------------------------------------------
+
+const COMBOS3 = COMBOS2.filter((c) => c.view !== "small");
+const CHIP_TIMES = [0, 45, 53, 90, 135, 180, null];
+const PLUS_TIMES = [0, 39, 45, 70, 90, 135, 180, null];
+const when = (T: number | null) => (T === null ? "settled" : `${T} ms`);
+const note = (description: string) => test.info().annotations.push({ type: "frame", description });
+
+/** One held frame's issues — axe, a text half-faded, a text below AA against what is drawn under it — and its worst ratio. */
+async function frameIssues(page: Page, scope: string, at: string) {
+  const issues = (await axe(page)).map((v) => `${at}: axe ${v}`);
+  const shown = await textsShown(page, scope);
+  issues.push(...shown.filter((t) => t.opacity < 1).map((t) => `${at}: "${t.text}" at opacity ${t.opacity.toFixed(3)}`));
+  const ratios = await contrastOf(page, scope, shown);
+  issues.push(...ratios.filter((r) => r.ratio < r.need).map((r) => `${at}: "${r.text}" ${r.ratio.toFixed(3)} < ${r.need}`));
+  return { shown, issues, worst: Math.min(...ratios.map((r) => r.ratio)) };
+}
+
+/**
+ * A filter toggle pressed from the keyboard (focused, then clicked, as Enter does) and held at T ms (null: finished). The
+ * choice re-flows the gallery through the browser's animated update, which commits the new state a frame later: the hold
+ * waits for the update and for its animations (`ready`), so the toggles' transitions and the re-flow are held at one T.
+ */
+async function holdChip(page: Page, index: number, T: number | null) {
+  return page.evaluate(
+    async ({ index, T }) => {
+      const before = new Set(document.getAnimations());
+      const w = window as unknown as { __held: Animation[]; __resume: Animation[] };
+      w.__resume = [...before].filter((a) => a.playState === "running");
+      const chip = document.querySelectorAll<HTMLButtonElement>(".pj-bar .pj-chip")[index];
+      // The page's own animated update, kept to wait for (the browser's method is restored at once).
+      const start = document.startViewTransition.bind(document);
+      let update: ViewTransition | undefined;
+      document.startViewTransition = ((cb: () => void) => (update = start(cb))) as typeof document.startViewTransition;
+      chip.focus({ preventScroll: true });
+      chip.click();
+      delete (document as { startViewTransition?: unknown }).startViewTransition;
+      await update?.ready.catch(() => {});
+      for (let i = 0; i < 60 && chip.getAttribute("aria-pressed") !== "true"; i++) await new Promise((r) => requestAnimationFrame(r));
+      document.body.getBoundingClientRect();
+      for (const el of document.querySelectorAll(".pj-chip, .pj-chip *")) getComputedStyle(el).getPropertyValue("color");
+      const fresh = document.getAnimations().filter((a) => !before.has(a));
+      w.__held = fresh;
+      if (T === null) {
+        for (const a of fresh)
+          try {
+            a.finish();
+          } catch {}
+      } else {
+        document.getAnimations().forEach((a) => a.pause());
+        for (const a of fresh) {
+          a.pause();
+          a.currentTime = T;
+        }
+      }
+      return {
+        committed: chip.getAttribute("aria-pressed") === "true",
+        held: fresh.length,
+        own: fresh.filter((a) => (a.effect as KeyframeEffect).target === chip).length,
+        reflow: fresh.filter((a) => /view-transition/.test((a as CSSAnimation).animationName ?? "")).length,
+      };
+    },
+    { index, T },
+  );
+}
+
+/**
+ * The filter in a held frame: the toggles pressed in the bar and in the hero, the focused one, the projects shown and hidden,
+ * the line read out, the bar's toggles' boxes (relative to the bar) and every toggle's label colour against its fill, as
+ * computed (the hero's toggles, out of view here, included). Read before the frame's pixels: the capture replaces a running
+ * colour transition with its end value.
+ */
+function chipState(page: Page) {
+  return page.evaluate(() => {
+    const cv = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+    const rgba = (c: string) => {
+      cv.clearRect(0, 0, 1, 1);
+      cv.fillStyle = "#000";
+      cv.fillStyle = c;
+      cv.fillRect(0, 0, 1, 1);
+      const d = cv.getImageData(0, 0, 1, 1).data;
+      return [d[0], d[1], d[2], d[3] / 255];
+    };
+    const pressed = (sel: string) => [...document.querySelectorAll(sel)].filter((c) => c.getAttribute("aria-pressed") === "true").map((c) => c.textContent!.trim());
+    const a = document.activeElement as HTMLElement;
+    const bar = document.querySelector(".pj-bar")!.getBoundingClientRect();
+    return {
+      bar: pressed(".pj-bar .pj-chip"),
+      quick: pressed(".pj-quick .pj-chip"),
+      focused: a.matches(".pj-bar .pj-chip") ? a.textContent!.trim() : null,
+      items: [...document.querySelectorAll<HTMLElement>("[data-project]")].map((el) => ({ id: el.id, hidden: el.hidden, cats: (el.dataset.categories ?? "").split(" ") })),
+      live: document.querySelector(".pj-list")!.closest(".shell")!.querySelector("[aria-live]")!.textContent,
+      boxes: [document.querySelector(".pj-bar")!, ...document.querySelectorAll(".pj-bar .pj-chip, .pj-bar .pj-chip-mark")].map((el) => {
+        const b = el.getBoundingClientRect();
+        return [b.x - bar.x, b.y - bar.y, b.width, b.height].map((v) => Math.round(v * 100) / 100);
+      }),
+      pairs: [...document.querySelectorAll<HTMLElement>(".pj-chip")].map((c) => ({ text: c.textContent!.trim(), fg: rgba(getComputedStyle(c).color), bg: rgba(getComputedStyle(c).backgroundColor) })),
+    };
+  });
+}
+
+/**
+ * The first certificate preview, marked `data-held-plate`, changed and held at T ms (null: finished): by keyboard focus
+ * ("focus" / "blur", inside one page task) or by the mouse ("enter" / "leave": the hold is armed first and taken in the
+ * task of the pointer event that changes the hover state, long before a 180 ms transition could end).
+ */
+async function holdPlate(page: Page, how: "focus" | "blur" | "enter" | "leave", T: number | null, to?: { x: number; y: number }) {
+  await page.evaluate(
+    ({ how, T }) => {
+      type Held = { engaged: boolean; held: number; lift: number };
+      const w = window as unknown as { __held: Animation[]; __resume: Animation[]; __plateHeld: Promise<Held> };
+      const plate = document.querySelector<HTMLAnchorElement>("[data-held-plate]")!;
+      const mouse = how === "enter" || how === "leave";
+      const engaged = () => plate.matches(mouse ? ":hover" : ":focus-visible");
+      const before = new Set(document.getAnimations());
+      w.__resume = [...before].filter((a) => a.playState === "running");
+      const take = (): Held => {
+        document.body.getBoundingClientRect();
+        for (const el of [plate, ...plate.querySelectorAll("*")]) getComputedStyle(el).getPropertyValue("color");
+        const fresh = document.getAnimations().filter((a) => !before.has(a));
+        w.__held = fresh;
+        if (T === null) {
+          for (const a of fresh)
+            try {
+              a.finish();
+            } catch {}
+        } else {
+          document.getAnimations().forEach((a) => a.pause());
+          for (const a of fresh) {
+            a.pause();
+            a.currentTime = T;
+          }
+        }
+        const img = plate.querySelector(".ct-plate-img");
+        return { engaged: engaged(), held: fresh.length, lift: fresh.filter((a) => (a.effect as KeyframeEffect).target === img && (a as CSSTransition).transitionProperty === "translate").length };
+      };
+      if (!mouse) {
+        if (how === "focus") plate.focus({ preventScroll: true });
+        else plate.blur();
+        w.__plateHeld = Promise.resolve(take());
+        return;
+      }
+      const want = how === "enter";
+      w.__plateHeld = new Promise<Held>((resolve) => {
+        const type = want ? "pointerover" : "pointerout";
+        const check = (tries: number) => {
+          if (engaged() === want) resolve(take());
+          else if (tries > 0) setTimeout(() => check(tries - 1), 0);
+          else resolve({ engaged: engaged(), held: -1, lift: 0 });
+        };
+        const on = () => {
+          document.removeEventListener(type, on, true);
+          check(20);
+        };
+        document.addEventListener(type, on, true);
+      });
+    },
+    { how, T },
+  );
+  if (to) await page.mouse.move(to.x, to.y);
+  return page.evaluate(() => (window as unknown as { __plateHeld: Promise<{ engaged: boolean; held: number; lift: number }> }).__plateHeld);
+}
+
+/**
+ * The held preview's open indicator: an aria-hidden plus icon with no text, drawn in full inside its preview, and its plus
+ * at 3:1 against its own circle — by the computed colours, and per pixel: the plus hidden, the held frame captured, the
+ * plus's colour (through its opacity) set against every pixel under it. Unrounded.
+ */
+async function plusIssues(page: Page, at: string) {
+  const s = await page.evaluate(() => {
+    const cv = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+    const rgba = (c: string) => {
+      cv.clearRect(0, 0, 1, 1);
+      cv.fillStyle = "#000";
+      cv.fillStyle = c;
+      cv.fillRect(0, 0, 1, 1);
+      const d = cv.getImageData(0, 0, 1, 1).data;
+      return [d[0], d[1], d[2], d[3] / 255];
+    };
+    const plate = document.querySelector("[data-held-plate]")!;
+    const open = plate.querySelector<HTMLElement>(".ct-plate-open")!;
+    const path = open.querySelector("svg path")!;
+    let opacity = 1;
+    for (let e: Element | null = path; e; e = e.parentElement) opacity *= Number(getComputedStyle(e).opacity);
+    const [o, p, i] = [open, plate, open.querySelector("svg")!].map((e) => e.getBoundingClientRect());
+    const st = getComputedStyle(open);
+    return {
+      hidden: open.getAttribute("aria-hidden"),
+      text: open.textContent!.trim(),
+      drawn:
+        st.display !== "none" && st.visibility === "visible" && getComputedStyle(path).visibility === "visible" && o.width >= 32 && o.height >= 32 &&
+        o.left >= p.left && o.right <= p.right && o.top >= p.top && o.bottom <= p.bottom && o.top >= 0 && o.bottom <= innerHeight,
+      opacity,
+      plus: rgba(getComputedStyle(path).stroke),
+      circle: rgba(st.backgroundColor),
+      box: [i.left, i.top, i.width, i.height],
+    };
+  });
+  const issues: string[] = [];
+  if (s.hidden !== "true") issues.push(`${at}: the indicator is not aria-hidden (${s.hidden})`);
+  if (s.text) issues.push(`${at}: the indicator holds text ("${s.text}")`);
+  if (!s.drawn) issues.push(`${at}: the indicator is not drawn in full inside its preview`);
+  if (s.opacity < 1) issues.push(`${at}: the plus at opacity ${s.opacity.toFixed(3)}`);
+  const computed = ratio(s.plus, s.circle);
+  if (computed < 3) issues.push(`${at}: the plus ${computed.toFixed(3)} < 3 against its circle (computed)`);
+  await page.evaluate(() => {
+    const st = document.createElement("style");
+    st.id = "hide-plus";
+    st.textContent = "[data-held-plate] .ct-plate-open svg { visibility: hidden !important }";
+    document.head.append(st);
+    document.body.getBoundingClientRect();
+  });
+  const shot = await page.screenshot();
+  await page.evaluate(() => document.getElementById("hide-plus")?.remove());
+  const under = await page.evaluate(
+    async ({ b64, box }) => {
+      const img = new Image();
+      img.src = "data:image/png;base64," + b64;
+      await img.decode();
+      const cv = document.createElement("canvas");
+      cv.width = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext("2d", { willReadFrequently: true })!;
+      ctx.drawImage(img, 0, 0);
+      const k = img.width / innerWidth;
+      const [x, y, w, h] = box;
+      const d = ctx.getImageData(Math.round(x * k), Math.round(y * k), Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k))).data;
+      const px: number[][] = [];
+      for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2]]);
+      return px;
+    },
+    { b64: shot.toString("base64"), box: s.box },
+  );
+  const alpha = s.plus[3] * s.opacity;
+  let pixels = Infinity;
+  for (const p of under) pixels = Math.min(pixels, ratio(s.plus.slice(0, 3).map((v, k) => v * alpha + p[k] * (1 - alpha)), p));
+  if (!(pixels >= 3)) issues.push(`${at}: the plus ${pixels.toFixed(3)} < 3 against the pixels under it`);
+  return { issues, computed, pixels, plus: s.plus, circle: s.circle };
+}
+
+for (const c of COMBOS3) {
+  test.describe(`correction 3, held part-way, ${label2(c)}`, () => {
+    test.use({ viewport: VIEWPORTS[c.view], colorScheme: c.theme, ...(c.view !== "desktop" ? { isMobile: true, hasTouch: true } : {}) });
+
+    test("Projects filter: a toggle's label is at full strength and AA against its fill in every frame, pressed and released; the choice, the projects shown and the focus ring hold", async ({ page }) => {
+      test.setTimeout(240_000);
+      await open(page, c, "/projects");
+      await page.locator("#gallery").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+      await still(page, ".pj-bar");
+      await page.keyboard.press("Shift"); // keyboard modality, so the toggle's focus ring is :focus-visible
+      const labels = (await page.locator(".pj-bar .pj-chip").allTextContents()).map((t) => t.trim());
+      const slug = projectCategories.find((p) => p.label[c.locale] === labels[1])!.slug;
+      const before = (await chipState(page)).boxes;
+      const issues: string[] = [];
+      // Each time a category is pressed (All released), then All again (the category released): both ways in every frame.
+      for (const T of CHIP_TIMES)
+        for (const [index, other] of [
+          [1, 0],
+          [0, 1],
+        ]) {
+          const [want, gone] = [labels[index], labels[other]];
+          const at = `"${want}" pressed, "${gone}" released, ${when(T)}`;
+          const r = await holdChip(page, index, T);
+          expect(r.committed, `${at}: pressed`).toBe(true);
+          if (T !== null) {
+            expect(r.own, `${at}: the toggle's change is held`).toBeGreaterThan(0);
+            expect(r.reflow, `${at}: the gallery's re-flow is held`).toBeGreaterThan(0);
+          }
+          const s = await chipState(page);
+          expect(s.bar, `${at}: pressed in the bar`).toEqual([want]);
+          expect(s.quick, `${at}: pressed in the hero`).toEqual([want]);
+          expect(s.focused, `${at}: focused`).toBe(want);
+          expect(await focusShown(page), `${at}: focus ring`).toEqual({ ring: true, visible: true });
+          const wrong = s.items.filter((i) => i.hidden === (index === 0 || i.cats.includes(slug))).map((i) => i.id);
+          expect(wrong, `${at}: projects shown or hidden wrongly`).toEqual([]);
+          expect(s.items.filter((i) => !i.hidden).length, `${at}: projects shown`).toBeGreaterThan(0);
+          expect(s.live, `${at}: the line read out`).toContain(want);
+          expect(s.boxes, `${at}: the bar's toggles keep their boxes`).toEqual(before);
+          let computed = Infinity;
+          for (const p of s.pairs) {
+            const v = ratio(p.fg, p.bg);
+            computed = Math.min(computed, v);
+            if (v < 4.5) issues.push(`${at}: toggle "${p.text}" ${v.toFixed(3)} < 4.5 (computed)`);
+          }
+          const f = await frameIssues(page, ".pj-bar", at);
+          issues.push(...f.issues);
+          // Both toggles that changed are among the labels measured against their pixels.
+          expect(f.shown.map((t) => t.text), `${at}: both toggles measured`).toEqual(expect.arrayContaining([want, gone]));
+          note(`${at}: worst ${f.worst.toFixed(3)} per pixel, ${computed.toFixed(3)} computed`);
+          await release(page);
+          await expect.poll(() => page.locator("html").getAttribute("data-vt")).toBeNull();
+          await still(page, ".pj-bar");
+        }
+      expect(issues, "frames with an issue").toEqual([]);
+    });
+
+    test("Certificates: the preview's open indicator (an aria-hidden plus icon, not text) keeps its plus at 3:1 against its circle in every frame, to its hover and focus state and back; the preview stays one link that opens the dialog", async ({ page }) => {
+      test.setTimeout(240_000);
+      await open(page, c, "/certificates");
+      const plate = page.locator(".ct-plate").first();
+      await plate.evaluate((el) => {
+        el.setAttribute("data-held-plate", "");
+        el.scrollIntoView({ block: "center", behavior: "instant" });
+      });
+      await expect(plate).toBeVisible();
+      await still(page, "[data-held-plate]");
+      // One link: the preview itself, with nothing focusable inside it.
+      const link = await plate.evaluate((a) => ({
+        tag: a.tagName,
+        href: a.getAttribute("href"),
+        popup: a.getAttribute("aria-haspopup"),
+        name: a.getAttribute("aria-label"),
+        inner: a.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
+        links: a.closest("figure")!.querySelectorAll("a").length,
+      }));
+      expect(link).toMatchObject({ tag: "A", popup: "dialog", inner: 0, links: 1 });
+      expect(link.href).toMatch(/^\/media\/certificates\/.+\.webp$/);
+      expect(link.name).toBeTruthy();
+      const box = (await plate.boundingBox())!;
+      const dot = (await page.locator("[data-held-plate] .ct-plate-open").boundingBox())!;
+      // The mouse: on the preview at the corner farthest from the indicator (the site's pointer is drawn there), or away
+      // in the page's margin beside it.
+      const on = { x: dot.x > box.x + box.width / 2 ? box.x + 24 : box.x + box.width - 24, y: box.y + 24 };
+      const away = { x: 4, y: box.y + box.height / 2 };
+      const desktop = c.view === "desktop";
+      if (desktop) await page.mouse.move(away.x, away.y);
+      const issues: string[] = [];
+      const ways: ["focus" | "enter", "blur" | "leave"][] = desktop ? [["focus", "blur"], ["enter", "leave"]] : [["focus", "blur"]];
+      for (const [there, back] of ways)
+        for (const T of PLUS_TIMES)
+          for (const how of [there, back]) {
+            const at = `${how}, ${when(T)}`;
+            if (how === "focus") await page.keyboard.press("Shift");
+            const r = await holdPlate(page, how, T, how === "enter" ? on : how === "leave" ? away : undefined);
+            expect(r.held, `${at}: the change was caught`).toBeGreaterThanOrEqual(0);
+            expect(r.engaged, `${at}: the preview's state`).toBe(how === there);
+            if (T !== null) expect(r.lift, `${at}: the preview's lift is held`).toBe(1);
+            const f = await plusIssues(page, at);
+            issues.push(...f.issues);
+            issues.push(...(await axe(page)).map((v) => `${at}: axe ${v}`));
+            const focus = await page.evaluate(() => {
+              const p = document.querySelector("[data-held-plate]")!;
+              const s = getComputedStyle(p);
+              return { focused: document.activeElement === p, visible: p.matches(":focus-visible"), ring: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) >= 2 };
+            });
+            expect(focus, `${at}: focus`).toEqual(how === "focus" ? { focused: true, visible: true, ring: true } : { focused: false, visible: false, ring: false });
+            note(`${at}: the plus ${f.pixels.toFixed(3)} per pixel, ${f.computed.toFixed(3)} computed`);
+            await release(page);
+            await still(page, "[data-held-plate]");
+          }
+      expect(issues, "frames with an issue").toEqual([]);
+
+      // At rest a dark circle with a light plus; on hover and keyboard focus the brand circle with a dark plus, the same for
+      // both (and the preview lifted alike).
+      const ends = () =>
+        page.evaluate(() => {
+          const cv = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+          const rgba = (c: string) => {
+            cv.clearRect(0, 0, 1, 1);
+            cv.fillStyle = "#000";
+            cv.fillStyle = c;
+            cv.fillRect(0, 0, 1, 1);
+            const d = cv.getImageData(0, 0, 1, 1).data;
+            return [d[0], d[1], d[2], d[3] / 255];
+          };
+          const plate = document.querySelector("[data-held-plate]")!;
+          const open = plate.querySelector(".ct-plate-open")!;
+          const tok = (n: string) => rgba(getComputedStyle(open).getPropertyValue(n));
+          return {
+            circle: rgba(getComputedStyle(open).backgroundColor),
+            plus: rgba(getComputedStyle(open.querySelector("svg path")!).stroke),
+            lift: getComputedStyle(plate.querySelector(".ct-plate-img")!).translate,
+            ink: tok("--ink"),
+            surface: tok("--surface"),
+            brand: tok("--brand"),
+            onBrand: tok("--on-brand"),
+          };
+        });
+      const rest = await ends();
+      expect([rest.circle, rest.plus], "at rest").toEqual([rest.ink, rest.surface]);
+      await page.keyboard.press("Shift");
+      await plate.focus();
+      await still(page, "[data-held-plate]");
+      const focused = await ends();
+      expect([focused.circle, focused.plus], "with keyboard focus").toEqual([focused.brand, focused.onBrand]);
+      if (desktop) {
+        await plate.blur();
+        await page.mouse.move(on.x, on.y);
+        await still(page, "[data-held-plate]");
+        expect(await ends(), "hover shows what keyboard focus shows").toEqual(focused);
+        await page.mouse.move(away.x, away.y);
+        await still(page, "[data-held-plate]");
+      }
+
+      // The preview still opens its dialog from the keyboard, and focus comes back to it.
+      await page.keyboard.press("Shift");
+      await plate.focus();
+      await page.keyboard.press("Enter");
+      const dialog = page.locator("dialog.ct-dialog[open]");
+      await expect(dialog).toHaveCount(1);
+      expect(await dialog.evaluate((d) => d.matches(":modal"))).toBe(true);
+      await expect(dialog.locator(".ct-close")).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(plate).toBeFocused();
+    });
+  });
+}
+
+test.describe("correction 3, with reduced motion: a filter toggle and the certificate preview change at once", () => {
+  test.use({ viewport: { width: 1440, height: 900 }, contextOptions: { reducedMotion: "reduce" } });
+
+  test("pressed and released, focused and hovered: nothing moves, and the labels and the plus are at full contrast from the first frame", async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const [locale, theme] of [
+      ["en", "light"],
+      ["ar", "dark"],
+    ] as const) {
+      await open(page, { locale, theme }, "/projects");
+      await page.locator("#gallery").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+      await page.keyboard.press("Shift");
+      const labels = (await page.locator(".pj-bar .pj-chip").allTextContents()).map((t) => t.trim());
+      const slug = projectCategories.find((p) => p.label[locale] === labels[1])!.slug;
+      for (const [index, other] of [
+        [1, 0],
+        [0, 1],
+      ]) {
+        const at = `${locale} "${labels[index]}" pressed, "${labels[other]}" released, reduced motion`;
+        const r = await holdChip(page, index, 0);
+        expect(r.committed, `${at}: pressed`).toBe(true);
+        expect(r.held, `${at}: nothing moves`).toBe(0);
+        const s = await chipState(page);
+        expect([s.bar, s.quick, s.focused], `${at}: the choice`).toEqual([[labels[index]], [labels[index]], labels[index]]);
+        expect(s.items.filter((i) => i.hidden === (index === 0 || i.cats.includes(slug))).map((i) => i.id), `${at}: projects`).toEqual([]);
+        expect(s.pairs.filter((p) => ratio(p.fg, p.bg) < 4.5).map((p) => p.text), `${at}: toggles below AA (computed)`).toEqual([]);
+        expect((await frameIssues(page, ".pj-bar", at)).issues).toEqual([]);
+        await release(page);
+      }
+      await open(page, { locale, theme }, "/certificates");
+      const plate = page.locator(".ct-plate").first();
+      await plate.evaluate((el) => {
+        el.setAttribute("data-held-plate", "");
+        el.scrollIntoView({ block: "center", behavior: "instant" });
+      });
+      const box = (await plate.boundingBox())!;
+      await page.mouse.move(4, box.y + box.height / 2);
+      for (const how of ["focus", "blur", "enter", "leave"] as const) {
+        const at = `${locale} ${how}, reduced motion`;
+        if (how === "focus") await page.keyboard.press("Shift");
+        const to = how === "enter" ? { x: box.x + box.width / 2, y: box.y + 24 } : how === "leave" ? { x: 4, y: box.y + box.height / 2 } : undefined;
+        const r = await holdPlate(page, how, 0, to);
+        expect(r.held, `${at}: nothing moves`).toBe(0);
+        expect(r.engaged, `${at}: the preview's state`).toBe(how === "focus" || how === "enter");
+        expect((await plusIssues(page, at)).issues).toEqual([]);
+        await release(page);
+      }
+    }
+  });
+});
+
+test.describe("correction 3, in forced colours", () => {
+  for (const scheme of ["light", "dark"] as const)
+    test.describe(`${scheme} palette`, () => {
+      test.use({ viewport: { width: 1440, height: 900 }, colorScheme: scheme, contextOptions: { forcedColors: "active" } });
+
+      test("a toggle's state shows with a check and system colours in every frame, its focus ring drawn; the certificate preview stays reachable, named and opens its dialog", async ({ page }) => {
+        test.setTimeout(120_000);
+        await open(page, { locale: "en", theme: scheme }, "/projects");
+        await page.locator("#gallery").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+        await page.keyboard.press("Shift");
+        const sys = await page.evaluate(() => {
+          const probe = document.createElement("div");
+          probe.style.cssText = "forced-color-adjust: none; position: fixed; inset: 0 auto auto 0; width: 1px; height: 1px";
+          document.body.append(probe);
+          const read = (bg: string, fg: string) => {
+            probe.style.backgroundColor = bg;
+            probe.style.color = fg;
+            const s = getComputedStyle(probe);
+            return [s.backgroundColor, s.color];
+          };
+          const out = { pressed: read("Highlight", "HighlightText"), plain: read("ButtonFace", "ButtonText") };
+          probe.remove();
+          return out;
+        });
+        // At 0 and 53 ms (the correction 2 build's worst frame) and settled, pressed and released alike.
+        for (const T of [0, 53, null])
+          for (const [index, other] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            const at = `${scheme} palette, chip ${index} pressed, ${when(T)}`;
+            const r = await holdChip(page, index, T);
+            expect(r.committed, at).toBe(true);
+            const chips = await page.evaluate(() =>
+              [...document.querySelectorAll<HTMLElement>(".pj-bar .pj-chip")].slice(0, 2).map((c) => {
+                const s = getComputedStyle(c);
+                const mark = c.querySelector(".pj-chip-mark")!;
+                return {
+                  colours: [s.backgroundColor, s.color],
+                  check: getComputedStyle(mark.querySelector("svg")!).display !== "none",
+                  square: getComputedStyle(mark, "::before").display !== "none",
+                  ring: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) >= 2,
+                };
+              }),
+            );
+            expect(chips[index], `${at}: the pressed toggle`).toEqual({ colours: sys.pressed, check: true, square: false, ring: true });
+            expect(chips[other], `${at}: the released toggle`).toEqual({ colours: sys.plain, check: false, square: true, ring: false });
+            await release(page);
+            await expect.poll(() => page.locator("html").getAttribute("data-vt")).toBeNull();
+          }
+
+        await open(page, { locale: "en", theme: scheme }, "/certificates");
+        const plate = page.locator(".ct-plate").first();
+        await plate.evaluate((el) => {
+          el.setAttribute("data-held-plate", "");
+          el.scrollIntoView({ block: "center", behavior: "instant" });
+          // Tab reaches the preview from the control before it.
+          const all = [...document.querySelectorAll<HTMLElement>("a[href], button, [tabindex]:not([tabindex='-1'])")];
+          all[all.indexOf(el as HTMLElement) - 1].focus({ preventScroll: true });
+        });
+        await page.keyboard.press("Tab");
+        await expect(plate).toBeFocused();
+        const state = await plate.evaluate((p) => ({
+          name: p.getAttribute("aria-label"),
+          visible: p.matches(":focus-visible"),
+          ring: getComputedStyle(p).outlineStyle !== "none" && parseFloat(getComputedStyle(p).outlineWidth) >= 2,
+          hidden: p.querySelector(".ct-plate-open")!.getAttribute("aria-hidden"),
+        }));
+        expect(state).toMatchObject({ visible: true, ring: true, hidden: "true" });
+        expect(state.name).toBeTruthy();
+        // The plus stays drawn against its circle in the forced colours too (a decoration: the preview's name says what it does).
+        expect((await plusIssues(page, `${scheme} palette, focused`)).issues).toEqual([]);
+        await page.keyboard.press("Enter");
+        const dialog = page.locator("dialog.ct-dialog[open]");
+        await expect(dialog).toHaveCount(1);
+        expect(await dialog.evaluate((d) => d.matches(":modal"))).toBe(true);
+        await expect(dialog.locator(".ct-close")).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toHaveCount(0);
+        await expect(plate).toBeFocused();
+      });
+    });
 });

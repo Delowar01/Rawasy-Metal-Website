@@ -5082,11 +5082,11 @@
     background: var(--ink);
     box-shadow: var(--sh-card);
     color: var(--surface);
-    transition:
-      background-color var(--dur-1) ease,
-      color var(--dur-1) ease;
   }
 
+  /* The open indicator (a plus icon, aria-hidden) takes the brand fill on hover and keyboard focus. Its circle and its plus
+     swap colours at once, never through a blend of the two, where the plus fell to about 1:1 against its circle (Stage 1I
+     correction 3); the preview's lift keeps its motion. */
   .mc .ct-plate:is(:hover, :focus-visible) .ct-plate-open {
     background: var(--brand);
     color: var(--on-brand);

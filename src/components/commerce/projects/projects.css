@@ -53,10 +53,10 @@
     line-height: 1.2;
     white-space: nowrap;
     cursor: pointer;
-    transition:
-      background-color var(--dur-1) ease,
-      border-color var(--dur-1) ease,
-      color var(--dur-1) ease;
+    /* Only the border eases. The label's colour and the fill swap at once when a toggle is pressed or released: a
+       transition between the two passed through a blend of both, where the label fell to about 1:1 against its fill
+       (Stage 1I correction 3). */
+    transition: border-color var(--dur-1) ease;
   }
 
   .mc .pj-chip:is(:hover, :focus-visible) {
