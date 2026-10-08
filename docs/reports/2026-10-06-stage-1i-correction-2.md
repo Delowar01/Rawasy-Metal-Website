@@ -746,3 +746,10 @@ card with the keyboard (its label shows at once). DevTools → Animations can sl
 
 Stopped after Stage 1I correction 2. Not begun: Stage 1J, publication, indexing changes, sitemap expansion, OG
 regeneration, Theme Lab removal, deployment. Returned for independent review.
+
+---
+
+Erratum (added on 2026-10-08 with Stage 1I correction 3): what this report calls the certificate plate's "open" label
+(items 13 and 41, Known limitations, Next steps) is the certificate preview's **open indicator** — an `aria-hidden` plus
+icon with no text: graphical content, held to 3:1 against its own circle, not a text label. The 2.14:1 measured at 50 %
+stands as reported. Correction 3 (`2026-10-08-stage-1i-correction-3.md`) closed it. Nothing else in this report changed.

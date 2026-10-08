@@ -10,8 +10,9 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-06-stage-1i-correction-2.md`, with its census `2026-10-06-stage-1i-correction-2-census.md`
-  (earlier: `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
+- Latest report: `docs/reports/2026-10-08-stage-1i-correction-3.md`
+  (earlier: `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
+  `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
   `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
   `2026-10-02-tm3-correction-1.md`, `2026-10-02-tm3-shared-polish.md`, `2026-10-02-tm2-6-retirement.md`, `2026-10-02-tm2-5-projects.md`, `2026-10-02-tm2-4-services.md`,
@@ -58,10 +59,20 @@
   homepage project cards' label (census `2026-10-06-stage-1i-correction-2-census.md`, taken before those changes; report
   `2026-10-06-stage-1i-correction-2.md`; implementation commit `75d7f73`, CSS only, plus the extended spec; a separate
   lockfile-only commit `f492577` patched `sharp` 0.35.5 and `source-map-js` 1.2.2 for two production advisories published
-  after correction 1, proven to change nothing served) and awaits the user's independent review. Its one measured
-  worsening, left for the user: the Arabic homepage's CLS at 1440 rose 0.0390 → 0.0459 (the same late Arabic-font shift,
-  now counted on hero words that no longer fade in; the fix is the 1J Arabic font preload). Do not start 1J or later
-  until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
+  after correction 1, proven to change nothing served) and **is approved and locked** (the user's Stage 1I correction 3
+  brief). Its one measured worsening, left for the user: the Arabic homepage's CLS at 1440 rose 0.0390 → 0.0459 (the same
+  late Arabic-font shift, now counted on hero words that no longer fade in; the fix is the 1J Arabic font preload).
+  **Stage 1I correction 3** closes the last two colour transitions that swapped a label or an icon with its own fill: the
+  Projects filter toggle (`.pj-chip`, its label against its fill, AA; about 1:1 at 53 ms before) and the certificate
+  preview's open indicator (`.ct-plate-open`, an aria-hidden plus icon — graphical, not text, held to 3:1; 1.016:1 at 70 ms
+  before, light theme). Both swap colours at once; the toggle's border still eases and the preview still lifts (report
+  `2026-10-08-stage-1i-correction-3.md`; implementation commit `64f9e60`, CSS only, plus the extended spec). It awaits the
+  user's independent review. **Open, for the user:** `npm audit --omit=dev` fails since correction 2 — six Next.js
+  advisories (one high: SSRF in Image Optimization; cache poisoning of SSG/ISR pages, among others), all fixed in `next`
+  16.3.8. The pinned `"next": "16.3.6"` needs a patch bump to 16.3.8 (one `package.json` line, 10 lockfile entries —
+  `next`, `@next/env`, the eight `@next/swc-*` — nothing added, `sharp` 0.35.5 and `source-map-js` 1.2.2 kept). Correction 3
+  prepared it and reverted it unbuilt (a framework version change is the user's decision); do not apply it without the
+  user's word. Do not start 1J or later until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
@@ -392,8 +403,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     no words goes on that list, one that does needs nothing). The homepage entrance (`a2-rise`) and the menus (`a2-pop`,
     `a2-sheet`) animate `transform` only; the project cards' label (`.a2-proj-cta`) shows at once and rises 6 px. A text
     whose colour and fill swap (the machine selector's power badge) swaps at once: a colour transition between the two
-    blends them (1.33:1 at 80 ms). Two such colour transitions outside correction 2's brief were reported, not changed:
-    the Projects filter chip pressed and the certificate plate's open label on hover.
+    blends them (1.33:1 at 80 ms). Correction 3 closed the last two such blends: a Projects filter toggle's label and fill
+    swap at once (only its border eases, 180 ms), and the certificate preview's open indicator — an aria-hidden plus icon,
+    not text, held to 3:1 against its circle — swaps its circle and plus at once (the preview's lift keeps its 320 ms).
   - Phones: when a reveal inside a `.rail` that scrolls sideways is shown, all its cards are shown with it.
   - `HeroPlate`'s readout tick ignores a cancelled clock (`playState === "idle"`): a frame queued before the cancel event
     wrote "00/07" over the finished count under load.
@@ -659,7 +671,14 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   / 140 / 330 / 660 / 990 / 1320 ms and finished, the Services dropdown (desktop) and the phone menu sheet (phones) at 0 /
   80 / 160 / 240 / 320 ms and settled, the project cards' label on keyboard focus (desktop) at the same times; a
   reduced-motion test (none of these starts motion) and a no-script test of the machinery's `:target` list; glyph boxes are
-  cut to every ancestor that clips its overflow, so text scrolled out of the sheet is not measured);
+  cut to every ancestor that clips its overflow, so text scrolled out of the sheet is not measured; correction 3 added, in
+  EN/AR × light/dark at 1440 × 900 and 390 × 844, a Projects filter toggle pressed and released, held at 0 / 45 / 53 / 90 /
+  135 / 180 ms and settled with the gallery's re-flow held at the same time (axe, full opacity, per-pixel AA, every
+  toggle's computed contrast, the hero included, the choice, focus, the projects shown, the toggles' boxes), and the
+  certificate preview's open indicator by keyboard focus and, on the desktop, hover, there and back, at 0 / 39 / 45 / 70 /
+  90 / 135 / 180 ms and settled (aria-hidden, no text, drawn, the plus at 3:1 against its circle computed and per pixel,
+  axe, focus; then the end states, hover equal to focus, and the dialog from the keyboard); plus a reduced-motion test and
+  a forced-colours test: system colours and the check in every frame, the preview by Tab and its dialog);
   `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
@@ -1232,3 +1251,23 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   each build with itself and both after a full repaint: scroll to the far end of the page and back (`REPAINT=scroll` in
   the correction 2 `rest.js`); making the window 1 px wider and back also repaints but re-picks some images' srcset
   candidates (the machine thumbnails drew smaller on both builds).
+- A colour transition that swaps a text (or an icon) with its own fill passes through about 1:1 where its eased progress
+  is 50 %: with `ease` that is 29 % of the time (53 ms of 180), not a quarter point. Find the worst frame by stepping a held
+  change through every millisecond with computed styles (correction 3's `sweep.js`), and hold the tests there too.
+- axe's colour-contrast rule missed the filter toggle at 1.001:1 in the dark theme (its label and fill practically one
+  colour; it flagged the same frames at 1.026:1 in light) and never measures an aria-hidden icon. Measure text per pixel,
+  and measure graphical indicators (3:1) yourself.
+- To hold a change that runs through `document.startViewTransition` (the projects filter), wrap the method for that one
+  call (restore it with `delete document.startViewTransition`) and await the transition's `ready`: the new state commits a
+  frame later, and then the toggles' transitions and the re-flow can be held at one T.
+- To hold a hover change, arm a capture-phase `pointerover` / `pointerout` listener in the page and take the hold in that
+  event's task, then move the mouse: a hold taken in a later `evaluate` can miss a 180 ms transition under load (a finished
+  transition leaves `getAnimations()`).
+- In forced colours an element with `forced-color-adjust: none` keeps the author's `outline-color` too: the filter
+  toggles' focus ring stays `--focus`, 2.02:1 against the bar with a light forced palette and the site's dark theme
+  (pre-existing, reported in correction 3, not changed).
+- Playwright's `test.use()` takes no `forcedColors` option in this version: use `contextOptions: { forcedColors: "active" }`
+  or `page.emulateMedia({ forcedColors: "active" })`.
+- A framework or other dependency version change that the brief does not authorize is the user's decision even when an
+  audit requirement seems to call for it: in correction 3 the session's permission check refused to run the toolchain
+  after a trial `next` bump. Prepare the change, measure it (lockfile diff, audit), revert it, and report it for the user.

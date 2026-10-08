@@ -21,7 +21,9 @@ reduced-motion and forced-colours handling, nothing animating unseen, keyboard f
 correction 1 keeps every word at full strength while the Capabilities console changes machine and while the
 certificate dialog opens and closes (only photos, lines and the backdrop fade), and its correction 2 does the same for
 the homepage machinery, the scroll reveals, the homepage entrance, the Services dropdown, the phone menu and the
-homepage project cards' label (words show whole and move; only photos, logos and drawings fade). Every
+homepage project cards' label (words show whole and move; only photos, logos and drawings fade); correction 3 makes the
+Projects filter toggles and the certificate previews' open indicator (a plus icon) swap their colours at once instead of
+blending through low contrast. Every
 page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch approval.
 
 | | |
@@ -79,7 +81,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images and Apple touch icon
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-10-06, Stage 1I correction 2)
+docs/reports/                Stage reports (latest: 2026-10-08, Stage 1I correction 3)
 ```
 
 ### Languages and RTL
@@ -248,7 +250,7 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 ## Next stages
 
-1I motion and interaction polish built, its correction 1 approved and correction 2 in review (1F, the project pages, is
-approved; 1G and 1H needed no
+1I motion and interaction polish built, its corrections 1 and 2 approved and correction 3 in review (1F, the project
+pages, is approved; 1G and 1H needed no
 batch: their pages and the Arabic site were already built) · 1J SEO/performance QA and release. Phase 2 (admin
 panel) follows Phase 1 approval.
