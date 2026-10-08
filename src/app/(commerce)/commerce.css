@@ -84,16 +84,9 @@
   }
 }
 
-/* Cross-document fade between Modern Commerce pages (for now: English ⇄ Arabic). */
-@view-transition {
-  navigation: auto;
-}
-
+/* No cross-document fade between pages (Stage 1J): it showed both pages' words half-drawn for a moment, the English and
+   the Arabic one over each other on a language switch. A new page simply replaces the last one. */
 @media (prefers-reduced-motion: reduce) {
-  @view-transition {
-    navigation: none;
-  }
-
   html {
     scroll-behavior: auto;
   }

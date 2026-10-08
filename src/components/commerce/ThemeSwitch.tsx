@@ -54,14 +54,10 @@ export function ThemeSwitch({
     try {
       localStorage.setItem(storageKey, next);
     } catch {}
-    const apply = () => {
-      root().setAttribute("data-theme", next);
-      if (pageColors) document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute("content", pageColors[next]));
-    };
-    // A short cross-fade where the browser supports it; instant with reduced motion.
-    const doc = document as Document & { startViewTransition?: (update: () => void) => unknown };
-    if (doc.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) doc.startViewTransition(apply);
-    else apply();
+    // At once: a cross-fade between the two themes takes every word through its own background, about 1:1 halfway
+    // (Stage 1J; words never fade where they change).
+    root().setAttribute("data-theme", next);
+    if (pageColors) document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute("content", pageColors[next]));
   };
 
   return (

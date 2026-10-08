@@ -739,3 +739,14 @@
   animation-duration: 0.45s;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* An item the choice brings in shows at once, whole, and one it leaves out goes at once: only the items that stay move
+   (Stage 1J; faded in, a card's words stayed below AA for about 200 ms). */
+:root[data-vt="gallery-filter"]::view-transition-new(*):only-child {
+  animation: none;
+}
+
+:root[data-vt="gallery-filter"]::view-transition-old(*):only-child {
+  animation: none;
+  opacity: 0;
+}
