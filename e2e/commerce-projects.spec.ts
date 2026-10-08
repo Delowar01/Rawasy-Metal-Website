@@ -96,7 +96,7 @@ test.describe("the page", () => {
     });
   }
 
-  test("withheld photos and flagged projects stay out; the page stays out of search until launch", async ({ page, request }) => {
+  test("withheld photos and flagged projects stay out; the page is published (no robots rule)", async ({ page, request }) => {
     for (const locale of LOCALES) {
       const html = await (await request.get(`/${locale}/projects`)).text();
       for (const id of withheldMedia) expect(html, id).not.toContain(id.split("/")[1]);
