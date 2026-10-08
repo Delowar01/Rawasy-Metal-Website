@@ -131,8 +131,13 @@ async function holdAll(page: Page, T: number) {
       entering: hidden.map((el) => opacity(`::view-transition-new(${name(el)})`)),
       moving: stay.filter((el) => vt.some((a) => (a.effect as KeyframeEffect).pseudoElement === `::view-transition-group(${name(el)})` && (a as CSSAnimation).animationName !== "none")).length,
       stay: stay.length,
-      // what the browser animates on the cards' pictures: only the pairs of a card that stays
-      pictures: vt.filter((a) => /::view-transition-(old|new)/.test((a.effect as KeyframeEffect).pseudoElement ?? "")).map((a) => (a.effect as KeyframeEffect).pseudoElement),
+      // the cards whose pictures the browser animates (their cross-fade and blend): only the cards that stay, both pictures
+      pictures: [
+        ...new Set(
+          vt.flatMap((a) => /^::view-transition-(old|new)\((.+)\)$/.exec((a.effect as KeyframeEffect).pseudoElement ?? "")?.slice(1, 3).join(" ") ?? []),
+        ),
+      ],
+      stayNames: stay.map(name),
     };
     for (const a of vt) a.finish();
     await running.finished;
@@ -157,7 +162,9 @@ test.describe("a gallery choice moves the cards that stay; the cards it brings i
         expect(r!.entering.length, `${T} ms`).toBeGreaterThan(0);
         expect(r!.entering.every((o) => o === 1), `${T} ms: coming back at ${r!.entering.join(", ")}`).toBe(true);
         expect(r!.moving, `${T} ms: the cards that stay still move`).toBe(r!.stay);
-        expect(r!.pictures.length, `${T} ms`).toBe(r!.stay * 2);
+        expect(r!.pictures.sort(), `${T} ms: only the pictures of the cards that stay are animated`).toEqual(
+          r!.stayNames.flatMap((n) => [`new ${n}`, `old ${n}`]).sort(),
+        );
         await expect.poll(() => page.locator("html").getAttribute("data-vt")).toBeNull();
         await expect(page.locator("[data-project][hidden]")).toHaveCount(0);
       }
@@ -192,7 +199,7 @@ test.describe("with reduced motion", () => {
   test("the theme switch and a gallery choice run no animated update", async ({ page }) => {
     await page.goto("/en/projects", { waitUntil: "networkidle" });
     const calls = await countTransitions(page);
-    await page.locator('header .seg button[aria-pressed="false"]').click();
+    await page.locator('header .seg button[aria-pressed="false"]:visible').click();
     await page.locator("#gallery").evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
     await page.evaluate(() => window.scrollBy({ top: -240, behavior: "instant" }));
     await page.locator(".pj-bar .pj-chip").nth(1).click();
