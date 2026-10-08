@@ -115,6 +115,27 @@ export function Motion() {
         });
       });
 
+    // Keyboard focus inside a row that scrolls sideways (the machine selectors, the projects' category bar, the phone
+    // rails): the row moves at once, as the browser's own focus scroll does, until the focused item shows whole. The
+    // browser leaves the row where it is while 32 px of the item already show, which kept a focused item's name off
+    // screen (Stage 1J). Only the row moves, never the page.
+    listen("focusin", (event) => {
+      const item = event.target;
+      if (!(item instanceof HTMLElement) || !item.matches(":focus-visible")) return;
+      for (let row = item.parentElement; row && row !== document.body; row = row.parentElement) {
+        if (row.scrollWidth <= row.clientWidth || !/(auto|scroll)/.test(getComputedStyle(row).overflowX)) continue;
+        const card = item.getBoundingClientRect();
+        const box = row.getBoundingClientRect();
+        const rtl = getComputedStyle(row).direction === "rtl";
+        // An item wider than the row shows its start edge.
+        const tooWide = card.width > box.width - 16;
+        const by =
+          (tooWide ? !rtl : card.left < box.left) ? card.left - box.left - 8 : (tooWide ? rtl : card.right > box.right) ? card.right - box.right + 8 : 0;
+        if (by) row.scrollBy({ left: by, behavior: "instant" });
+        return;
+      }
+    });
+
     // Toggle buttons: pressed state on the button, `data-<name>` on the element it controls.
     document.querySelectorAll<HTMLButtonElement>("button[data-toggle]").forEach((button) => {
       const target = document.getElementById(button.getAttribute("aria-controls") ?? "");
