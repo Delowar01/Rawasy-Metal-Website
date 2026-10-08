@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
+import { preload } from "react-dom";
 import { company } from "@/content/company";
 import { siteName } from "@/content/seo";
 import { isLocale, localeConfig, locales } from "@/i18n/config";
@@ -9,7 +10,7 @@ import { Ambient } from "@/components/commerce/Ambient";
 import { Cursor } from "@/components/commerce/Cursor";
 import { PAGE_COLORS } from "@/components/commerce/data";
 import { Motion } from "@/components/commerce/Motion";
-import { fontVariables } from "../fonts";
+import { arabicFontPreloads, fontVariables } from "../fonts";
 import "../commerce.css";
 import "@/components/commerce/system.css";
 
@@ -48,6 +49,10 @@ export default async function CommerceLayout({ children, params }: LayoutProps<"
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const { dir, htmlLang } = localeConfig[locale];
+  // The Arabic faces' first-screen files, on the Arabic pages only (see fonts.ts): fetched with the page's stylesheet
+  // rather than after it, so the Arabic text is set in its own faces before it is first drawn. The same link next/font
+  // writes for the Latin faces.
+  if (locale === "ar") for (const href of arabicFontPreloads) preload(href, { as: "font", type: "font/woff2", crossOrigin: "" });
 
   return (
     <html lang={htmlLang} dir={dir} className={fontVariables} suppressHydrationWarning>
