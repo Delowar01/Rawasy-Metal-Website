@@ -74,10 +74,14 @@ test("no page loads anything of the previous design, and nothing is prefetched",
     // The Modern Commerce sheet, and none of the previous design's rules.
     expect(await stylesheetHas(page, ".mc .a2-header"), url).toBe(true);
     for (const rule of OLD_RULES) expect(await stylesheetHas(page, rule), `${url} ${rule}`).toBe(false);
-    // The Modern Commerce faces only, two of them preloaded.
+    // The Modern Commerce faces only: the two Latin faces preloaded on every page, and on an Arabic page also the eight
+    // Arabic files every Arabic page draws first (Stage 1J; commerce-fonts.spec.ts checks them file by file).
     const families = await page.evaluate(() => [...new Set([...document.fonts].map((f) => f.family.replace(/['"]/g, "")))].filter((f) => !f.endsWith(" Fallback")).sort());
     expect(families, url).toEqual(MC_FACES);
-    await expect(page.locator('link[rel="preload"][as="font"]'), url).toHaveCount(2);
+    const preloads = await page.locator('link[rel="preload"][as="font"]').evaluateAll((links) => links.map((l) => l.getAttribute("href") ?? ""));
+    const arabic = preloads.filter((href) => /\/(tajawal|ibm-plex-sans-arabic)-/.test(href));
+    expect(preloads.length - arabic.length, url).toBe(2);
+    expect(arabic.length, url).toBe(url.startsWith("/ar") ? 8 : 0);
     // No previous shell: loader, page wipe, custom cursor ring, grain, floating WhatsApp button.
     await expect(page.locator(".loader, .page-wipe, .cursor-ring, .grain"), url).toHaveCount(0);
     expect(await page.evaluate(() => [...document.querySelectorAll('a[href*="wa.me"]')].filter((a) => getComputedStyle(a).position === "fixed").length), url).toBe(0);
