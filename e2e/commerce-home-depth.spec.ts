@@ -55,6 +55,22 @@ test.describe("homepage · navigation and layout", () => {
     expect(errors).toEqual([]);
   });
 
+  test("the header turns solid once the page scrolls and gains its shadow past the hero; both clear back at the top", async ({ page }) => {
+    // (The lab's version also checked a section mark that followed the scroll; the website's header links pages instead.)
+    await page.goto(home("en"), { waitUntil: "networkidle" });
+    const html = page.locator("html");
+    const header = page.locator(".a2-header");
+    await expect(html).not.toHaveAttribute("data-past-hero", "");
+    const shadow = await header.evaluate((el) => getComputedStyle(el).boxShadow);
+    await page.evaluate(() => document.getElementById("projects")!.scrollIntoView({ block: "start", behavior: "instant" }));
+    await expect(html).toHaveAttribute("data-scrolled", "");
+    await expect(html).toHaveAttribute("data-past-hero", "");
+    await expect.poll(() => header.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe(shadow);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await expect(html).not.toHaveAttribute("data-scrolled", "");
+    await expect(html).not.toHaveAttribute("data-past-hero", "");
+  });
+
   test("the phone menu fills the screen, locks the page, keeps Get a Quote in reach and closes after a choice", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(home("en"), { waitUntil: "networkidle" });
