@@ -24,7 +24,7 @@ config, no lockfile changed).
 Proof, in short:
 
 - **Clean clone at `2043981`:** `npm ci` ✔, `npm audit --omit=dev` **0 vulnerabilities**, lint ✔, typecheck ✔,
-  build ✔ (109 pages), **full E2E against `server.js`: running when this draft was committed (result in the next commit)**.
+  build ✔ (109 pages), **full E2E against `server.js`: 612 / 612 passed** (0 failed, 0 skipped, 0 flaky).
 - **Same build as the approved RC:** 1,221 of 1,224 build files byte-identical to the clean `422c397` build once the
   build ID and folder are normalised; the other 3 hold Next.js's random per-build keys.
 - **`server.js` vs `next start` on the same build:** 184 / 184 HTTP answers identical in status, headers and bytes
@@ -32,7 +32,9 @@ Proof, in short:
   files); 1,484 / 1,484 optimized images byte-identical; 42 browser captures with identical status, address, title,
   language, robots, canonical, heading, machine landing and console (39 pixel-identical; the other 3 also vary between
   captures from one and the same server).
-- **Deployment rehearsal:** pending when this draft was committed (result in the next commit).
+- **Deployment rehearsal** (the README flow end to end: fresh clone, build, the README's `tar` command, extraction
+  over a starter `server.js` in another folder, production-only install, start): ready in 482 ms, smoke 36 / 36, and
+  the full E2E suite against that package: running when this commit was made (result in the next commit).
 
 ## 1. Starting SHA
 
@@ -204,9 +206,10 @@ Assumed for this adapter, **not verified on the account** (none of it can be see
 Passenger behaviour that matters here (brief §17; from the products' documented behaviour and this adapter's code — no
 Passenger ran in this environment, and no Passenger file or `.htaccess` rule was written):
 
-- **Start:** Passenger starts the app on the first request after a start or an idle period (cold start: Next.js reads
-  `next.config.ts` and its manifests; 1–4 s here), then keeps it running; it may run more than one process, which then
-  share `.next`'s caches (item 10 note).
+- **Start:** Passenger starts the app on the first request after a start or an idle period (Next.js loads
+  `next.config.ts` and its manifests: "Ready" in 482 ms in the rehearsal; the session's very first start spent 3.5 s
+  compiling `next.config.ts` on a cold disk), then keeps it running; it may run more than one process, which then share
+  `.next`'s caches (item 10 note).
 - **Port:** the socket is Passenger's; `server.js` still logs "Ready on http://0.0.0.0:3000" (harmless).
 - **Mode:** `NODE_ENV` comes from Application mode; with Production, the production server runs (item 6).
 - **Failure:** a start that fails (no build, missing dependency) prints the reason and exits 1, so Passenger reports the
@@ -322,8 +325,9 @@ Served by the real Next.js server (no `output: export`, no static conversion; `n
   `libvips-cpp.so.8.18.7` loaded (the same files as `next start`). If `sharp` cannot load on the host, image requests
   fail (Next.js 16 throws "Module `sharp` not found…" and suggests the WebAssembly build): the smoke checklist's image
   check catches that.
-- **Memory:** optimizing the 1,484 images in one pass peaked at about 513 MB resident on either server; a `server.js`
-  that had served the 102 pages and a few images (the first package trial) held about 263 MB. The image cache on disk
+- **Memory** (resident, `/proc/<pid>/status`): optimizing the 1,484 images in one pass peaked at about 501 MiB on
+  either server; a `server.js` that had served the 102 pages and a few images held about 263 MiB (the first package
+  trial) or 268 MiB (the rehearsal), and 132 MiB just after start. The image cache on disk
   (`.next/cache/images`) reached 28 MB.
 - **Withheld project media:** no page or page data refers to any of the 10 withheld or held-back photos (the three
   AI-watermarked files and the seven photos of the five projects awaiting authorship or product confirmation): checked
@@ -355,7 +359,7 @@ Node 22.22.2, npm 10.9.7):
 | `NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build` | ✔ 109 static pages, no warning (19 s) |
 | deployment archive, right after the build | 17,499,009 bytes, 1,557 files (item 23) |
 | `NODE_ENV=production PORT=3500 node server.js` | ✔ "Ready on http://0.0.0.0:3500" |
-| `E2E_PORT=3500 npm run test:e2e` | running when this draft was committed (result in the next commit) |
+| `E2E_PORT=3500 npm run test:e2e` | **612 passed** (21.2 min), 0 failed, 0 skipped, 0 flaky |
 
 ## 15. npm audit
 
@@ -387,9 +391,17 @@ pages, the catch-all route dynamic and the proxy (middleware), no warning. `.nex
 
 ## 20. Full E2E
 
-Running when this draft was committed: started 04:00 UTC with `E2E_PORT=3500 npm run test:e2e` in the clean clone, against
-`server.js` (the only server listening on 3500: `node server.js`; no `next start` process). The exact totals replace this
-paragraph in the next commit.
+**612 / 612 passed** — `E2E_PORT=3500 npm run test:e2e` in the clean clone (`2043981`), 04:00:00–04:21:11 UTC,
+"612 passed (21.2m)": 0 failed, 0 skipped, 0 flaky, no retry (the configuration allows none), 3 workers. The server under
+test was `NODE_ENV=production PORT=3500 node server.js` started in that clone (with `NEXT_PUBLIC_SITE_URL` set, as on
+the host); Playwright's `webServer` found it answering and reused it (`reuseExistingServer`), so no `next start` ran: the
+only listener on 3500 was `node server.js` (checked during the run) and no `next-server` process existed. `E2E_BASE_URL`
+stayed unset, so the build-output tests (the fallback 404 read from `.next`) ran too. No test, helper or configuration
+was changed; all 612 assertions are the approved suite's. The server answered the whole run without a restart (peak
+resident memory 415 MiB).
+
+**Second run, on the deployment package** (item 28's rehearsal): the same suite from the rehearsal's build clone against
+`server.js` running from the extracted archive with production dependencies only (another folder, port 3510): running when this commit was made (result in the next commit).
 
 ## 21. Application-root plan
 
@@ -438,7 +450,7 @@ tar -czf ../rawasy-app.tar.gz --exclude=.next/cache server.js package.json packa
   is not for upload: it holds the build's random preview and server-action keys, so treat any real archive as private
   (it is never served: the application root is outside the document root).
 - **Production install:** `NODE_ENV=production npm install` (what the panel's button is expected to run) added 30
-  packages in about 20 s: Next.js, React, `sharp` and their native packages, about 460 MB (11,720 files and folders).
+  packages in about 20 s (7 s in the rehearsal, npm's cache warm): Next.js, React, `sharp` and their native packages, about 460 MB (11,720 files and folders).
   npm 10 installs both the glibc and the musl variants of the native packages, and `@playwright/test` (a dev dependency
   that is also an optional peer of Next.js, so the lockfile marks it `devOptional`; no browser is downloaded). TypeScript,
   ESLint, Tailwind and axe-core are not installed. **Development dependencies are not needed on the server** with the
@@ -521,6 +533,20 @@ For later, only after the release approval, the legal decision and the DNS inven
     production server's answer for a prebuilt page); the panel's log shows no error.
 15. DNS and SSL: a separate, explicitly authorized step (items 24–25), then the same smoke checks over HTTPS on both
     names.
+
+**Rehearsed locally** (04:21–04:22 UTC; nothing uploaded): steps 1–4 on a fresh clone of `2043981` — `npm ci` 10 s;
+`npm run build` 18 s, 109 pages (it created `next-env.d.ts`, absent before the build); the `tar` command verbatim:
+17,496,992 bytes, 1,557 files, no forbidden entry — then steps 9–12 in a stand-in application root (another folder,
+holding a starter `server.js`): the archive replaced the starter; `NODE_ENV=production npm install` added 30 packages in
+7 s (no TypeScript, no ESLint; `sharp` present); `NODE_ENV=production PORT=3510 NEXT_PUBLIC_SITE_URL=… node server.js`
+from that root was ready in 482 ms, answered its first `/en` in 69 ms and held 132 MiB; the same `server.js` started
+from `/` by its absolute path also served `/en` (the `dir` safeguard). Step 14's checks as a script, **36 / 36**: the
+four `/` redirects (plain, Arabic browser, cookie, proxied), `/about` and `/fr/about` → `/en/…`, `/en/` → 308; the 15
+pages of the brief → 200, indexable with their canonical, the clock tower with its photos, the billboard without one;
+the four unknown addresses → 404 with `noindex`; the sitemap's 102 addresses on `https://www.rawasymetal.com/`; the
+robots line; a share image and the icon; an optimized photo as WebP and as JPEG; a remote image and a wrong width → 400;
+a missing file → 404; no page (all 102, plus two 404s) referring to a withheld or held-back photo. Then the full E2E
+suite against that server: running when this commit was made (result in the next commit).
 
 **C. Updates:** build a new archive (A); Stop App; keep the running release's archive (or compress `rawasy-app`
 without `node_modules`); delete `rawasy-app/.next` (so no stale build files stay) and extract the new archive; Run NPM
