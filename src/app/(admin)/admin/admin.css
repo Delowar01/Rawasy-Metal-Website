@@ -958,18 +958,24 @@ body.adm {
   border: 1px solid var(--adm-border);
 }
 
+/* Recovery codes: 20 characters in four groups (A2 Correction 1), each on one line; as many columns as fit (one on the
+   set-up card and on phones), the type a little smaller on the narrowest screens so a code never leaves its box. */
 .adm-codes {
   list-style: none;
   margin: 0;
   padding: 1rem;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24ch), 1fr));
   gap: 0.5rem 1.5rem;
   font-family: var(--adm-mono);
-  font-size: 1rem;
+  font-size: clamp(0.8125rem, 3.9vw, 1rem);
   border: 1px solid var(--adm-border);
   border-radius: 8px;
   background: var(--adm-surface-2);
+}
+
+.adm-codes li {
+  white-space: nowrap;
 }
 
 .adm-steps {

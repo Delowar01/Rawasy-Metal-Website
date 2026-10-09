@@ -59,10 +59,10 @@ export function VerifyForm({ next }: { next?: string }) {
             className="is-code"
             autoComplete="off"
             spellCheck={false}
-            maxLength={12}
+            maxLength={32}
             required
             autoFocus
-            hint="One of the recovery codes you saved when you set up two-factor authentication (xxxxx-xxxxx). Each works once."
+            hint="One of the recovery codes you saved when you set up two-factor authentication (xxxxx-xxxxx-xxxxx-xxxxx). Each works once."
           />
         )}
         <SubmitButton pending="Checking…" block>

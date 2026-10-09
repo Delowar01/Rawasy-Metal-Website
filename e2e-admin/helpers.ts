@@ -181,6 +181,8 @@ export async function finishSetUp(page: Page, confirm = "Turn on two-factor auth
   await page.getByRole("heading", { name: "Save your recovery codes" }).waitFor();
   const codes = await page.locator(".adm-codes li").allTextContents();
   expect(codes).toHaveLength(10);
+  // 20 Crockford base32 characters (100 bits) in four groups (A2 Correction 1).
+  for (const code of codes) expect(code).toMatch(/^[0-9a-hjkmnp-tv-z]{5}(-[0-9a-hjkmnp-tv-z]{5}){3}$/);
   return { secret, codes };
 }
 

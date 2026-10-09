@@ -210,7 +210,8 @@ test.describe("the first Owner", () => {
     await signIn(page, OWNER.email, PASSWORDS.owner);
     await page.waitForURL("**/admin/login/verify");
     await page.getByRole("button", { name: "Use a recovery code instead" }).click();
-    await page.getByLabel("Recovery code").fill(ownerCodes[0]);
+    // Typed in capitals with spaces for dashes: the same code (case, spaces and dashes are ignored).
+    await page.getByLabel("Recovery code").fill(ownerCodes[0].toUpperCase().replaceAll("-", " "));
     await page.getByRole("button", { name: "Verify" }).click();
     await expect(page).toHaveURL(/\/admin\?recovery=9$/);
     await expect(page.getByText("9 recovery codes left")).toBeVisible();
@@ -230,6 +231,30 @@ test.describe("the first Owner", () => {
     const wrong = await page.locator("main").getByRole("alert").textContent();
     expect(unknown).toBe(wrong);
     expect(unknown).toContain("Sign-in failed");
+  });
+});
+
+test.describe("recovery codes (A2 Correction 1: 100 bits)", () => {
+  test("the step-up accepts a recovery code instead of the app's code, once", async ({ page }) => {
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await ageAuthentication(OWNER.email);
+    await page.goto("/admin/users/invite");
+    await expect(page.getByRole("heading", { name: "Confirm it's you" })).toBeVisible();
+    await page.getByRole("button", { name: "Use a recovery code instead" }).click();
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORDS.owner);
+    await page.getByLabel("Recovery code").fill(ownerCodes[1]);
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByRole("button", { name: "Send invitation" })).toBeVisible();
+    // The same code a second time is refused.
+    await ageAuthentication(OWNER.email);
+    await page.goto("/admin/users/invite");
+    await page.getByRole("button", { name: "Use a recovery code instead" }).click();
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORDS.owner);
+    await page.getByLabel("Recovery code").fill(ownerCodes[1]);
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.locator("main").getByRole("alert")).toContainText("didn't match");
+    await expect(page.getByRole("button", { name: "Send invitation" })).toHaveCount(0);
   });
 });
 
@@ -758,6 +783,37 @@ test.describe("accessibility and layout", () => {
         await expect(page.locator(".adm-side")).toBeVisible();
         await expect(page.locator("summary", { hasText: "Menu" })).toBeHidden();
       }
+      await page.context().close();
+    });
+  }
+
+  for (const width of [320, 390]) {
+    test(`new recovery codes at ${width} px: every code on one line inside the list, no sideways scrolling`, async ({ browser }) => {
+      const page = await newPage(browser, { width, height: 800 });
+      await signIn(page, OWNER.email, PASSWORDS.owner);
+      await verify(page, ownerSecret);
+      await page.goto("/admin/account/security");
+      await page.getByRole("button", { name: "Create new recovery codes" }).click();
+      await page.getByRole("heading", { name: "Save your recovery codes" }).waitFor();
+      const codes = await page.locator(".adm-codes li").allTextContents();
+      expect(codes).toHaveLength(10);
+      ownerCodes = codes;
+      const fit = await page.evaluate(() => {
+        const list = document.querySelector(".adm-codes") as HTMLElement;
+        const box = list.getBoundingClientRect();
+        const style = getComputedStyle(list);
+        const inner = { left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) };
+        return [...list.querySelectorAll("li")].map((li) => {
+          const range = document.createRange();
+          range.selectNodeContents(li);
+          const lines = range.getClientRects().length;
+          const text = range.getBoundingClientRect();
+          return { lines, inside: text.left >= inner.left - 0.1 && text.right <= inner.right + 0.1 };
+        });
+      });
+      for (const code of fit) expect(code).toEqual({ lines: 1, inside: true });
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
       await page.context().close();
     });
   }

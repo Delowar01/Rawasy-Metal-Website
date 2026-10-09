@@ -4,9 +4,19 @@ import { describe, test } from "node:test";
 import { redactChanges } from "../../src/server/audit/audit.ts";
 import { adminBaseUrl, appEnv, ConfigError, mailConfig, readDbConfig, readKeyRing, trustedProxyHops } from "../../src/server/config/env.ts";
 import { resolveClientIp } from "../../src/server/security/client-ip.ts";
-import { isUlid, looksLikeToken, randomToken, ulid } from "../../src/server/security/ids.ts";
+import { isUlid, looksLikeToken, randomToken, sha256, ulid } from "../../src/server/security/ids.ts";
 import { checkPassword } from "../../src/server/security/password-policy.ts";
 import { createPasswordHasher, dummyHash } from "../../src/server/security/password.ts";
+import {
+  generateRecoveryCode,
+  generateRecoveryCodes,
+  normalizeRecoveryCode,
+  RECOVERY_CODE_ALPHABET,
+  RECOVERY_CODE_BITS,
+  RECOVERY_CODE_COUNT,
+  RECOVERY_CODE_LENGTH,
+  recoveryCodeHash,
+} from "../../src/server/security/recovery-codes.ts";
 import { base32Decode, base32Encode, hotp, normalizeTotpInput, otpauthUri, verifyTotp } from "../../src/server/security/totp.ts";
 
 describe("TOTP (RFC 4226 / RFC 6238)", () => {
@@ -113,6 +123,64 @@ describe("passwords", () => {
     assert.equal(argon.needsRehash(s), true);
     assert.equal(await scrypt.verify("$unknown$x", "anything"), false);
     assert.match(await dummyHash(argon), /^\$argon2id\$/);
+  });
+});
+
+describe("recovery codes (A2 Correction 1: 100 bits each)", () => {
+  test("the generator's own output carries at least 100 random bits a code: 32 symbols, 20 characters, four groups", () => {
+    // Measured on what the generator produces (not only its constants), so a refactor cannot shorten codes unnoticed.
+    const codes = Array.from({ length: 4000 }, generateRecoveryCode);
+    const symbols = new Set<string>();
+    const counts = new Map<string, number>();
+    for (const code of codes) {
+      assert.match(code, /^[0-9a-hjkmnp-tv-z]{5}(-[0-9a-hjkmnp-tv-z]{5}){3}$/);
+      const normalized = normalizeRecoveryCode(code);
+      assert.equal(normalized, code.replaceAll("-", ""));
+      assert.equal(normalized?.length, 20);
+      for (const symbol of normalized ?? "") {
+        symbols.add(symbol);
+        counts.set(symbol, (counts.get(symbol) ?? 0) + 1);
+      }
+    }
+    const lengths = new Set(codes.map((c) => normalizeRecoveryCode(c)?.length));
+    assert.deepEqual([...lengths], [20]);
+    assert.equal(symbols.size, 32, "every Crockford symbol is used");
+    const measuredBits = Math.log2(symbols.size) * [...lengths][0]!;
+    assert.ok(measuredBits >= 100, `measured ${measuredBits} bits`);
+    assert.equal(new Set(codes).size, codes.length, "no repeats in 4,000 codes");
+    // Each symbol about equally often: 80,000 symbols, 2,500 expected each (±20 % is about 10 standard deviations).
+    for (const [symbol, n] of counts) assert.ok(n > 2000 && n < 3000, `${symbol}: ${n}`);
+    // The declared parameters agree with what was measured.
+    assert.equal(new Set(RECOVERY_CODE_ALPHABET).size, RECOVERY_CODE_ALPHABET.length);
+    assert.equal(RECOVERY_CODE_ALPHABET.length, 32);
+    assert.equal(RECOVERY_CODE_LENGTH, 20);
+    assert.equal(RECOVERY_CODE_BITS, 100);
+    const batch = generateRecoveryCodes();
+    assert.equal(batch.length, RECOVERY_CODE_COUNT);
+    assert.equal(new Set(batch).size, 10);
+  });
+
+  test("typed codes ignore case, spaces and dashes and read i/l as 1, o as 0; anything else is not a code", () => {
+    const code = "0a1b2-c3d4e-f5g6h-j7k8m";
+    const normalized = "0a1b2c3d4ef5g6hj7k8m";
+    for (const typed of [code, code.toUpperCase(), normalized, " 0a1b2 c3d4e f5g6h j7k8m ", "0A1B2-C3D4E-F5G6HJ7K8M", "Oa1b2-c3d4e-f5g6h-j7k8m"]) {
+      assert.equal(normalizeRecoveryCode(typed), normalized, typed);
+    }
+    assert.equal(normalizeRecoveryCode("ia1b2-c3d4e-f5g6h-j7k8m"), "1a1b2c3d4ef5g6hj7k8m");
+    assert.equal(normalizeRecoveryCode("La1b2-c3d4e-f5g6h-j7k8m"), "1a1b2c3d4ef5g6hj7k8m");
+    for (const bad of ["", "0a1b2-c3d4e", "0a1b2-c3d4e-f5g6h-j7k8", "0a1b2-c3d4e-f5g6h-j7k8m9", "ua1b2-c3d4e-f5g6h-j7k8m", "0a1b2_c3d4e_f5g6h_j7k8m", "123456"]) {
+      assert.equal(normalizeRecoveryCode(bad), null, bad);
+    }
+  });
+
+  test("only a hash of the normalised code is stored: the same for every way of typing it, never the code itself", () => {
+    const code = generateRecoveryCode();
+    const normalized = normalizeRecoveryCode(code) as string;
+    const stored = recoveryCodeHash(normalized);
+    assert.equal(stored.length, 32);
+    assert.deepEqual(stored, sha256(`rawasy-recovery:${normalized}`));
+    assert.deepEqual(recoveryCodeHash(normalizeRecoveryCode(code.toUpperCase().replaceAll("-", " ")) as string), stored);
+    for (const encoding of ["hex", "base64", "latin1"] as const) assert.equal(stored.toString(encoding).includes(normalized), false);
   });
 });
 

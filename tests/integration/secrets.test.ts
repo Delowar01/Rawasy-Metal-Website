@@ -60,7 +60,11 @@ test("no password, token, TOTP secret, code or recovery code is stored in clear 
     const confirmed = await confirmEnrolment(env.deps, current, { code: enrolCode, pending: begun.pending }, meta());
     assert.equal(confirmed.kind, "ok");
     if (confirmed.kind !== "ok") return;
-    secrets.push(confirmed.token, ...confirmed.recoveryCodes, ...confirmed.recoveryCodes.map((c) => c.replace("-", "")));
+    // Each recovery code as shown (xxxxx-xxxxx-xxxxx-xxxxx), without its dashes (the form that is hashed) and in capitals.
+    secrets.push(
+      confirmed.token,
+      ...confirmed.recoveryCodes.flatMap((c) => [c, c.replaceAll("-", ""), c.toUpperCase(), c.replaceAll("-", "").toUpperCase()]),
+    );
 
     // Sign out; sign in with TOTP; then with a recovery code.
     await signOut(env.deps, { ...current, session: confirmed.session }, meta());

@@ -23,6 +23,7 @@ import { loginAttempts, LOGIN_FAILURE_REASONS, userMfa, userRecoveryCodes, users
 import { DecryptionError, decryptSecret, KeyUnavailableError } from "../security/encryption.ts";
 import { sha256 } from "../security/ids.ts";
 import { dummyHash } from "../security/password.ts";
+import { normalizeRecoveryCode, recoveryCodeHash } from "../security/recovery-codes.ts";
 import { verifyTotp } from "../security/totp.ts";
 import { findUserByEmail, isPlausibleEmail, mfaStateOf, normalizeEmail, rolesOf, type UserRow } from "./accounts.ts";
 import type { AuthDeps } from "./deps.ts";
@@ -283,16 +284,6 @@ export type SecondFactorResult =
   /** `locked`: the pending session has ended (the account is locked, or no longer active); sign in again. */
   | { kind: "failed"; locked: boolean }
   | { kind: "unavailable" };
-
-const RECOVERY_CODE = /^[0-9a-hjkmnp-tv-z]{10}$/;
-
-/** A recovery code as typed: case, spaces and dashes ignored; i/l read as 1 and o as 0 (Crockford). */
-export function normalizeRecoveryCode(input: string): string | null {
-  const value = input.toLowerCase().replace(/[\s-]/g, "").replace(/[il]/g, "1").replace(/o/g, "0");
-  return RECOVERY_CODE.test(value) ? value : null;
-}
-
-export const recoveryCodeHash = (normalized: string) => sha256(`rawasy-recovery:${normalized}`);
 
 /** Loads and decrypts a user's confirmed TOTP secret (`db`: the transaction that checks the code). */
 export async function loadTotpSecret(deps: Pick<AuthDeps, "keyRing">, db: Db, userId: string) {

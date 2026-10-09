@@ -19,6 +19,7 @@ import { resetUserMfa } from "../../src/server/auth/user-admin.ts";
 import { dbFor } from "../../src/server/db/client.ts";
 import { auditEvents, loginAttempts, sessions, userMfa, userRecoveryCodes, users } from "../../src/server/db/schema.ts";
 import { decryptSecret, DecryptionError, encryptSecret, KeyUnavailableError } from "../../src/server/security/encryption.ts";
+import { normalizeRecoveryCode, recoveryCodeHash } from "../../src/server/security/recovery-codes.ts";
 import { base32Decode, totpCode } from "../../src/server/security/totp.ts";
 import {
   actorFor,
@@ -92,7 +93,7 @@ describe("enrolment", () => {
     assert.equal(confirmed.replaced, false);
     assert.equal(confirmed.recoveryCodes.length, 10);
     assert.equal(new Set(confirmed.recoveryCodes).size, 10);
-    for (const code of confirmed.recoveryCodes) assert.match(code, /^[0-9a-hjkmnp-tv-z]{5}-[0-9a-hjkmnp-tv-z]{5}$/);
+    for (const code of confirmed.recoveryCodes) assert.match(code, /^[0-9a-hjkmnp-tv-z]{5}(-[0-9a-hjkmnp-tv-z]{5}){3}$/);
     assert.ok(confirmed.session.mfaVerifiedAt);
     const row = await mfaRow(user.id);
     assert.ok(row.confirmedAt);
@@ -350,6 +351,31 @@ describe("step-up, disabling and resets", () => {
       (await verifySecondFactor(env.deps, await pendingFor(user), { recoveryCode: second?.[0] }, meta())).kind,
       "signed_in",
     );
+  });
+
+  test("recovery codes: 20 characters (100 bits) each, stored only as the hash of the normalised code; a typed variant works once", async () => {
+    const user = await createUser(env, { roles: ["reviewer"], mfa: true });
+    const codes = await regenerateRecoveryCodes(env.deps, await actorFor(env, user), meta());
+    assert.ok(codes);
+    assert.equal(codes.length, 10);
+    for (const code of codes) assert.match(code, /^[0-9a-hjkmnp-tv-z]{5}(-[0-9a-hjkmnp-tv-z]{5}){3}$/);
+    const rows = await dbFor(env.pool).select().from(userRecoveryCodes).where(eq(userRecoveryCodes.userId, user.id));
+    assert.equal(rows.length, 10);
+    const expected = new Set(codes.map((code) => recoveryCodeHash(normalizeRecoveryCode(code) as string).toString("hex")));
+    for (const row of rows) {
+      assert.equal(row.codeHash.length, 32, "a SHA-256 hash");
+      assert.ok(expected.has(row.codeHash.toString("hex")));
+      const stored = [row.codeHash.toString("hex"), row.codeHash.toString("base64"), row.codeHash.toString("latin1"), row.id];
+      for (const code of codes) for (const value of stored) assert.equal(value.includes(code.replaceAll("-", "")), false);
+    }
+    // Typed in capitals with spaces for dashes: accepted once, then refused in any form.
+    const typed = codes[3].toUpperCase().replaceAll("-", " ");
+    assert.equal((await verifySecondFactor(env.deps, await pendingFor(user), { recoveryCode: typed }, meta())).kind, "signed_in");
+    env.clock.advance(1000);
+    assert.equal((await verifySecondFactor(env.deps, await pendingFor(user), { recoveryCode: codes[3] }, meta())).kind, "failed");
+    // A code of the old 10-character format is not a recovery code.
+    env.clock.advance(1000);
+    assert.equal((await verifySecondFactor(env.deps, await pendingFor(user), { recoveryCode: codes[4].slice(0, 11) }, meta())).kind, "failed");
   });
 
   test("an Owner can reset another user's 2FA (sessions revoked); an Admin cannot", async () => {

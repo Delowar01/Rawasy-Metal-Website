@@ -4,14 +4,14 @@
  *
  * The TOTP secret is encrypted with the active AUTH_ENCRYPTION_KEY (AES-256-GCM, bound to the user's row) and stamped
  * with the key's version; it is shown to the user once, at enrolment, as a QR code and a text key, and is never logged.
- * Recovery codes: 10 single-use codes of 10 characters (50 random bits each), shown once, stored as SHA-256.
+ * Recovery codes (`security/recovery-codes.ts`): 10 single-use codes of 20 characters (100 random bits each, since
+ * A2 Correction 1), shown once, stored as SHA-256.
  *
  * A set-up in progress is not stored: the new secret travels to the browser and back sealed (AES-256-GCM with the same
  * key, bound to the user, the session, its 10-minute expiry and whether it replaces an authenticator), and the
  * `user_mfa` row is written only when a first valid code confirms it. Until then the current authenticator (if any)
  * keeps working, so an abandoned replacement never leaves the account without its second factor.
  */
-import { randomInt } from "node:crypto";
 import { asc, eq, ne, sql } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
 import type { KeyRing } from "../config/env.ts";
@@ -20,28 +20,18 @@ import { userMfa, userRecoveryCodes, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { decryptSecret, encryptSecret } from "../security/encryption.ts";
 import { ulid } from "../security/ids.ts";
+import { generateRecoveryCodes, normalizeRecoveryCode, RECOVERY_CODE_COUNT, recoveryCodeHash } from "../security/recovery-codes.ts";
 import { generateTotpSecret, otpauthUri, base32Encode, verifyTotp } from "../security/totp.ts";
 import { mfaStateOf, type UserRow } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
-import { isAccountLocked, registerFailure, recoveryCodeHash } from "./sign-in.ts";
+import { isAccountLocked, registerFailure } from "./sign-in.ts";
 import { revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
 import { issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
 
-export const RECOVERY_CODE_COUNT = 10;
-const RECOVERY_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
-
 export const associatedData = (userId: string) => `user_mfa:${userId}`;
 
-/** 10 new recovery codes, formatted "xxxxx-xxxxx". */
-export function generateRecoveryCodes(): string[] {
-  return Array.from({ length: RECOVERY_CODE_COUNT }, () => {
-    let code = "";
-    for (let i = 0; i < 10; i++) code += RECOVERY_ALPHABET[randomInt(RECOVERY_ALPHABET.length)];
-    return `${code.slice(0, 5)}-${code.slice(5)}`;
-  });
-}
-
+/** Replaces a user's recovery codes with 10 new ones; only their hashes are stored, the codes go back to be shown once. */
 async function replaceRecoveryCodes(tx: Db, userId: string, now: Date): Promise<string[]> {
   const codes = generateRecoveryCodes();
   await tx.delete(userRecoveryCodes).where(eq(userRecoveryCodes.userId, userId));
@@ -49,7 +39,7 @@ async function replaceRecoveryCodes(tx: Db, userId: string, now: Date): Promise<
     codes.map((code) => ({
       id: ulid(now.getTime()),
       userId,
-      codeHash: recoveryCodeHash(code.replace("-", "")),
+      codeHash: recoveryCodeHash(normalizeRecoveryCode(code) as string),
       usedAt: null,
       createdAt: now,
     })),
