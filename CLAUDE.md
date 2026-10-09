@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-stage-1j-release-candidate.md`
-  (earlier: `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
+- Latest report: `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md`
+  (earlier: `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
   `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
@@ -87,6 +87,18 @@
   preloading fewer files is the offered option (report item 40), not done. Never self-approve; **do not
   deploy** (no hosting, DNS, tunnel or external publication) until the user says so. Do not start Phase 2 (admin panel)
   during Phase 1.
+- **The production host is Namecheap Stellar Plus** (cPanel → Setup Node.js App, Phusion Passenger, Node 22.x). The
+  user's "PRODUCTION RELEASE ACTIVATION" brief stopped at an unidentified host; their "NAMECHEAP STELLAR PLUS — HOSTING
+  ADAPTER" brief followed. **The hosting adapter is built and proven locally** (report
+  `2026-10-09-namecheap-stellar-plus-adapter.md`; implementation commit `2043981`; rollback checkpoint: GitHub branch
+  `preserve/pre-namecheap-adapter` at `422c397`, the approved RC) and awaits independent review: root `server.js` (see
+  "Where things live") and `"start": "node server.js"`; README section "Namecheap Stellar Plus deployment" (local Linux
+  build, the archive's `tar` command, cPanel settings, Run NPM Install, smoke checklist, logs, DNS warning, rollback).
+  Proof: a clean clone of `2043981` passed `npm ci`, audit `--omit=dev` 0, lint, typecheck and build (the full E2E run
+  against `server.js`: see the report); `server.js` and `next start` gave 184 / 184 identical HTTP answers and 1,484 /
+  1,484 identical optimized images; the build equals the RC's. **Still not allowed:** uploading to Namecheap, connecting the domain,
+  DNS or nameserver changes, installing SSL, fast-forwarding `main`, removing the legal pages' pending notes (they block
+  launch), external publication — each needs the user's explicit go-ahead.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab
@@ -287,6 +299,13 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   and `servicePage` in `src/content/pages.ts` (shared labels); captioned galleries and project links in
   `src/content/services.ts`.
 - Browser tests: `e2e/*.spec.ts` with `playwright.config.ts`; run `npm run test:e2e` after a build (see "Tests" below).
+- Production server: `server.js` (Namecheap adapter, CommonJS, no dependency): `next({ dev, dir: __dirname, hostname,
+  port })` + `getRequestHandler()`, the same `getRequestHandlers()` as `next start`; `PORT` (default 3000), `HOSTNAME`
+  (default `0.0.0.0`), `NODE_ENV` defaulting to production before `require("next")` (as `next start`); `prepare()`
+  failures exit 1 and a rejected handler answers 500 (as `next start`'s listener). Never add routes, proxy or locale
+  logic, a 404, image settings, a domain or a port to it. `npm start` runs it; `npm run test:e2e` still starts
+  `next start` on 3400 unless a server answers there, so to test `server.js` start it first
+  (`NODE_ENV=production PORT=3400 node server.js`) or pass `E2E_PORT`.
 
 ## Before pushing
 
@@ -845,6 +864,24 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   `"next start -p 3400"`): it matches your own shell and kills it (exit 144). Bracket one letter.
 - After a rebuild, stop any `next start` left running from before (check `pgrep -fa "[n]ext-server"`
   and `/proc/<pid>/cwd`). Otherwise the tests reuse the stale server and assets fail with 500s.
+- `npm start` runs `node server.js` since the Namecheap adapter: that process is named `node server.js`, not
+  `next-server`, so `pkill -f "[n]ext-server"` misses it. Find a server by its port and stop it by PID (`ss` is not
+  installed in cloud sessions; `lsof -iTCP:<port> -sTCP:LISTEN`, or read `/proc/net/tcp` and `/proc/<pid>/fd`).
+- Two servers started on one `.next` share its render cache: an unknown slug's 404 answers MISS on whichever asks first
+  and HIT on the other, later STALE, and after that background regeneration its payload's head also holds the robots
+  meta. To compare servers (`next start` vs `server.js`), give each its own copy of the build (extract the deployment
+  archive twice): then 184 / 184 answers were identical.
+- The catch-all 404's page data (`/en/not-a-page?_rsc`) carries a random React key per request (`next start` differs
+  from itself): compare it by status, type and length, not bytes.
+- Without the `.catch` on `app.prepare()`, a custom server with no build logged "Unhandled Rejection" and exited **0**:
+  Next installs its own `unhandledRejection` listener while preparing.
+- `.next/required-server-files.json` holds the build folder's absolute path, but `next start` and the custom server do
+  not use it: a `.next` built in one folder runs from another (the deployment rehearsal). Pack the deployment archive
+  right after `next build`: a running server writes render-cache files into `.next/server/app`.
+- A production install (`NODE_ENV=production npm install` or `--omit=dev`) still installs `@playwright/test`
+  (`devOptional`: an optional peer of `next`) and, with npm 10, both the glibc and the musl native packages of Next's SWC
+  and `sharp` (about 460 MB). `next.config.ts` is compiled at start by that SWC binary, so TypeScript is not needed at
+  run time. `sharp` 0.35.5's prebuilt Linux binaries need glibc 2.28 or later.
 - Styles inside `@layer components` lose to Tailwind utilities (`.grid`, `.flex`) whatever their
   specificity. Rules that must win, like `html:not(.js) .mc [data-js-only]`, go outside the layers.
 - Playwright's `javaScriptEnabled: false` still parses `<noscript>` as text. Check noscript content in

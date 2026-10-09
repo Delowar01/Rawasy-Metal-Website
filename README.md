@@ -302,9 +302,10 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
   holds it; set it here too). No other variable, key or secret.
 - **Install and start:** stop the application, upload the archive with File Manager and extract it into `rawasy-app`
   (replacing any starter `server.js` the panel created), press **Run NPM Install** (with the prebuilt `.next` only the
-  production dependencies are needed: Next.js, React and `sharp`), then **Start App** (**Restart** after an update). The
-  panel adds Passenger lines to the `.htaccess` in the domain's document root: leave them. Files of an older site left in
-  the document root can answer instead of the app: back them up before moving them out.
+  production dependencies are needed: Next.js, React and `sharp`), then **Start App** (**Restart** after an update). For
+  an update, stop the app and delete the old `rawasy-app/.next` before extracting the new archive, so no stale build files
+  stay. The panel adds Passenger lines to the `.htaccess` in the domain's document root: leave them. Files of an older
+  site left in the document root can answer instead of the app: back them up before moving them out.
 - **Smoke checklist** after every start: `/` answers 307 to `/en` (`/ar` for an Arabic browser); `/en`, `/ar`, a service,
   `/en/capabilities`, a project page, `/en/contact` and `/en/privacy` answer 200 with their page; `/en/not-a-page` shows
   the 404 page with status 404; `/sitemap.xml` lists 102 `https://www.rawasymetal.com/` addresses and `/robots.txt` names
@@ -318,8 +319,9 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
   records and the mail service in use are written down: switching to Namecheap's hosting nameservers can drop the mail
   records.
 - **Rollback:** keep the previous archive and application folder until the new release is verified; to roll back, stop
-  the app, put the previous folder back (or extract the previous archive), Run NPM Install, Restart. The code rollback
-  point is the approved release candidate `422c397`. Never delete an existing site's files without a backup.
+  the app, put the previous folder back (or delete `.next` and extract the previous archive), Run NPM Install, Restart.
+  The code rollback point is the approved release candidate `422c397`. Never delete an existing site's files without a
+  backup.
 
 To run the browser tests against `server.js` locally: `npm run build`, then `NODE_ENV=production PORT=3400 node server.js`
 in one terminal and `npm run test:e2e` in another (Playwright reuses a server already answering on its port).
