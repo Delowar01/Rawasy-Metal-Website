@@ -317,8 +317,12 @@
   `src/components/admin/` (client components may import only `@/server/admin/actions/*` — lint rule). Links inside the
   admin use `next/link`; links to the public site stay plain `<a>`.
 - Proxy: `src/proxy.ts` runs the admin branch first (`isAdminPath`): a 16-byte nonce, the nonce CSP on the request
-  (`x-nonce`) and the response, `ADMIN_PAGE_HEADERS` (`src/lib/admin-headers.ts`); no session check there. `/api/**` gets
-  static headers from `next.config.ts`. Public files may not import `src/server/**` (lint rule).
+  (`x-nonce`) and the response, `ADMIN_PAGE_HEADERS` (`src/lib/admin-headers.ts`); no session check there. The API
+  namespaces where every A1-planned endpoint lives, `/api/admin/**` and `/api/internal/**`, get static headers from
+  `next.config.ts` (no-store, noindex, nosniff, no-referrer, CSP `default-src 'none'; frame-ancestors 'none'; sandbox`);
+  any other `/api/…` address keeps Next's own 404 unchanged — A1 §4 said `/api/**`, but its sandbox CSP stopped Next's
+  client-built 404 there, which `commerce-inner.spec.ts` pins (a deviation reported in the A2 report). Public files may
+  not import `src/server/**` (lint rule).
 - Tests: `npm run test:unit` (`tests/unit`), `npm run test:integration` (`tests/integration`, a fresh `rawasy_t_*`
   database per file; `TEST_DB_HOST/PORT/USER/PASSWORD`), `npm run test:admin` (`playwright.admin.config.ts`,
   `e2e-admin/`; `e2e-admin/server.mjs` makes a `rawasy_e2e_*` database, migrates it and starts `server.js` on 3401 with a

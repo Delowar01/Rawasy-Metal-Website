@@ -105,7 +105,7 @@ test.describe("anonymous visitors", () => {
     expect(html).not.toMatch(STYLE_ATTRIBUTE);
   });
 
-  test("the public site's locale proxy and pages are unchanged; /api stays outside the proxy", async ({ request }) => {
+  test("the public site's locale proxy and pages are unchanged; /api stays outside the proxy, its admin namespaces locked down", async ({ request }) => {
     const root = await request.get("/", { maxRedirects: 0 });
     expect(root.status()).toBe(307);
     expect(root.headers().location).toMatch(/\/en$/);
@@ -122,11 +122,23 @@ test.describe("anonymous visitors", () => {
       expect(response.headers()["x-robots-tag"]).toBeUndefined();
     }
     expect((await request.get("/en/admin")).status()).toBe(404);
-    const api = await request.get("/api/anything");
-    expect(api.status()).toBe(404);
-    expect(api.headers()["cache-control"]).toBe("no-store");
-    expect(api.headers()["x-robots-tag"]).toBe("noindex, nofollow");
-    expect(api.headers()["content-security-policy"]).toBe("default-src 'none'; frame-ancestors 'none'; sandbox");
+    // The namespaces of every planned API endpoint (A1: uploads, private files, preview, cron) get the static API headers.
+    for (const path of ["/api/admin", "/api/admin/media/uploads/x", "/api/internal/scheduler"]) {
+      const api = await request.get(path);
+      expect(api.status(), path).toBe(404);
+      expect(api.headers()["cache-control"], path).toBe("no-store");
+      expect(api.headers()["x-robots-tag"], path).toBe("noindex, nofollow");
+      expect(api.headers()["x-content-type-options"], path).toBe("nosniff");
+      expect(api.headers()["referrer-policy"], path).toBe("no-referrer");
+      expect(api.headers()["content-security-policy"], path).toBe("default-src 'none'; frame-ancestors 'none'; sandbox");
+    }
+    // Any other /api address has no route: Next.js's own 404, as before A2 (no admin or API header).
+    for (const path of ["/api/anything", "/api/administrator", "/api/internals"]) {
+      const other = await request.get(path);
+      expect(other.status(), path).toBe(404);
+      expect(other.headers()["content-security-policy"], path).toBeUndefined();
+      expect(other.headers()["x-robots-tag"], path).toBeUndefined();
+    }
     const robots = await (await request.get("/robots.txt")).text();
     const sitemap = await (await request.get("/sitemap.xml")).text();
     expect(robots).not.toContain("/admin");
