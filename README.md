@@ -293,10 +293,11 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
 
   `scripts/package-namecheap.mjs` (deployment only; Node 22.18 or later and `tar`) writes `../rawasy-app.tar.gz` with
   `server.js package.json package-lock.json next.config.ts tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src
-  public .next`, less `.next/cache` and the photos RAWASY has held back, prints the `tar` command it ran, and writes the
-  archive's listing beside it (`../rawasy-app.tar.gz.txt`). The held-back photos come from `src/content/projects.ts`
-  (`withheldMedia`, and every photo of a project whose flags keep its photos off the website), each mapped to its file
-  through the media registry; today these ten files in `public/media/projects/`: `billboard-structure-1.webp`,
+  public .next`, less `.next/cache`, the route cache a server writes into `.next/server/route-cache` and the photos
+  RAWASY has held back, prints the `tar` command it ran, and writes the archive's listing beside it
+  (`../rawasy-app.tar.gz.txt`). The held-back photos come from `src/content/projects.ts` (`withheldMedia`, and every
+  photo of a project whose flags keep its photos off the website), each mapped to its file through the media registry;
+  today these ten files in `public/media/projects/`: `billboard-structure-1.webp`,
   `canopy-tree-1.webp`, `laser-cut-bench-1.webp`, `lattice-cubes-1.webp`, `litter-bins-1.webp`, `litter-bins-2.webp`,
   `litter-bins-3.webp`, `seed-sculpture-1.webp`, `stainless-landmark-1.webp`, `wheat-monument-1.webp`. They stay in Git;
   only the archive leaves them out, so the host answers 404 for them. The script then checks the archive and, if any

@@ -12,16 +12,16 @@
  * deployment"), less the photos RAWASY has held back: `withheldMedia` and every photo of a project whose flags keep its
  * photos off the website (`projectDetailMedia` shows none of them), from src/content/projects.ts, each mapped to its
  * file through the media registry (src/content/media.generated.ts). The pages never show them; without the files the
- * host cannot serve them either. Pack right after the build: a server started on this folder writes cache files into
- * `.next`.
+ * host cannot serve them either. Pack right after the build; a server that has run on this folder wrote its route cache
+ * into `.next/server/route-cache`, which the archive leaves out like `.next/cache` (nothing else in `.next` changes).
  *
  * The archive's listing is written beside it (<archive>.txt). The check fails (and a packing run deletes the archive)
  * unless:
  *  - none of the held-back files is in it, and no page of the build refers to one;
  *  - every file of public/ that the build's pages, page data, styles and scripts refer to is in it;
  *  - every sitemap page's prerendered HTML and page data are in it, with every public file each one refers to;
- *  - it holds exactly the INCLUDE files below, less the build cache and the held-back files: nothing else left out,
- *    nothing added (no .next/cache, node_modules, .git, .env file, tests or docs).
+ *  - it holds exactly the INCLUDE files below, less SKIP and the held-back files: nothing else left out, nothing added
+ *    (no .next/cache, route cache, node_modules, .git, .env file, tests or docs).
  * Needs Node 22.18 or later (the content modules are TypeScript, read with Node's type stripping) and tar.
  */
 import { createHash } from "node:crypto";
@@ -42,10 +42,11 @@ const { mediaRegistry } = await import("../src/content/media.generated.ts");
 /** What the host needs: the server, the files Run NPM Install reads, the build and what Next.js reads when it starts. */
 const INCLUDE = ["server.js", "package.json", "package-lock.json", "next.config.ts", "tsconfig.json", "next-env.d.ts",
   "postcss.config.mjs", ".nvmrc", "src", "public", ".next"];
-/** The build cache stays behind: the host fills its own. */
-const SKIP = [".next/cache"];
+/** Left behind: the build cache (the host fills its own) and the route cache a server writes into `.next` as it runs. */
+const SKIP = [".next/cache", ".next/server/route-cache"];
 /** Never in an archive for the host. */
-const FORBIDDEN = /^(?:node_modules|\.git|\.next\/cache|e2e|docs|scripts|test-results|playwright-report)(?:\/|$)|(?:^|\/)\.env(?:\.|$)/;
+const FORBIDDEN =
+  /^(?:node_modules|\.git|\.next\/cache|\.next\/server\/route-cache|e2e|docs|scripts|test-results|playwright-report)(?:\/|$)|(?:^|\/)\.env(?:\.|$)/;
 
 const args = process.argv.slice(2);
 const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -129,7 +130,7 @@ console.log(`  listing: ${out}.txt\n`);
 
 check(archiveBuild === buildId, `the archive's build (${archiveBuild || "none"}) is this folder's build (${buildId})`);
 
-// What the archive must hold: every file under INCLUDE, less the build cache and the held-back files.
+// What the archive must hold: every file under INCLUDE, less SKIP and the held-back files.
 const heldSet = new Set(held);
 const expected = INCLUDE.filter((p) => existsSync(join(root, p))).flatMap(walk).filter((f) => !skipped(f) && !heldSet.has(f));
 const expectedSet = new Set(expected);
@@ -141,7 +142,7 @@ check(expected.every((f) => files.has(f)), `nothing else left out: ${expected.fi
   expected.filter((f) => !files.has(f)));
 check([...files].every((f) => expectedSet.has(f)), `nothing added: ${[...files].filter((f) => !expectedSet.has(f)).length} unexpected files`,
   [...files].filter((f) => !expectedSet.has(f)));
-check(names.every((n) => !FORBIDDEN.test(n)), "no node_modules, .next/cache, .git, .env file, tests or docs",
+check(names.every((n) => !FORBIDDEN.test(n)), "no node_modules, .next/cache, route cache, .git, .env file, tests or docs",
   names.filter((n) => FORBIDDEN.test(n)));
 
 // Every public file the build refers to: in the prerendered pages, their page data and the files the server answers
