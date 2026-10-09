@@ -13,12 +13,21 @@
     "typecheck": "next typegen && tsc --noEmit",
     "assets:extract": "python3 scripts/extract-profile-assets.py",
     "assets:og": "node scripts/generate-og.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check && node scripts/db-migrate.mjs check && node scripts/generate-access-seed.mjs --check",
+    "db:migrate": "node scripts/db-migrate.mjs up",
+    "db:status": "node scripts/db-migrate.mjs status"
   },
   "dependencies": {
+    "@node-rs/argon2": "2.2.1",
+    "drizzle-orm": "0.45.3",
+    "mysql2": "3.24.4",
     "next": "16.3.8",
+    "qrcode-generator": "2.0.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
@@ -27,6 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "axe-core": "4.13.0",
+    "drizzle-kit": "0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
