@@ -77,7 +77,9 @@
   `0eefcd8` the strings and exports nothing read removed; `1158a5e` the share images regenerated in the MC design;
   `caf01fb` every route `review` → `published`; `65e6eed` Node 22.22.2 (`.nvmrc`, `engines`), the README's Windows
   commands and `.env.example`; `bfda6b0` keyboard focus inside sideways rows (see "Motion system"); `ace4bed` the project
-  pages' wrapped related-service links 24 px apart (WCAG 2.5.8; `.pd-inline` row gap 0.35rem). **Open for the user:** the
+  pages' wrapped related-service links 24 px apart (WCAG 2.5.8; `.pd-inline` row gap 0.35rem). Final QA: a fresh clone of
+  `e1f85f0` (the last tree with code, docs only after it) passed `npm ci`, lint, typecheck, build, 612 / 612 E2E and
+  `npm start`, and builds the same output as the QA build. **Open for the user:** the
   frozen homepage's cards enlarge some profile photos (`object-fit: cover` in fixed frames: up to 1.40× on desktop, 1.84×
   on a phone card) — the TM-1-approved design, left unchanged; every other page stays ≤ 1.0×. Also for the user: on a
   throttled phone link (1.6 Mbit/s, 4× CPU) the 8 Arabic preloads share the link with the stylesheet, so Arabic pages

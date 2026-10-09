@@ -31,8 +31,9 @@ Stage 1J closes Phase 1's public website as a release candidate, in separate com
 
 QA on the release candidate, in short:
 
-- A fresh clone ran `npm ci`, lint, typecheck, build, the full E2E suite and `npm start`: ⟨CLONE SUMMARY⟩ (items 43,
-  47–50).
+- A fresh clone ran `npm ci`, lint, typecheck, build, the full E2E suite and `npm start`, and all passed (items 43,
+  47–50): lint and typecheck clean, 109 pages built with no warning, **612 / 612** E2E tests (0 failed, 0 skipped,
+  0 flaky) and 20 / 20 `npm start` checks.
 - axe: **0 violations** on all 102 pages and both 404s (194 runs) and in 40 interactive states, with JavaScript.
 - HTTP matrix: 154 requests, 0 server errors, 0 redirect loops.
 - Layout: the responsive matrix (720 loads) and the reflow sweep (416 loads) found 0 issues.
@@ -46,8 +47,8 @@ Each check ran on the build that was current when it was taken:
 | --- | --- |
 | `caf01fb` (publication) | metadata (item 17), structured data (18), the HTTP matrix (32) |
 | `bfda6b0` (keyboard fix) | performance (16, 40), image ratios (41), EN/AR parity (39), the Tab walk and journeys (§15, 37), full E2E 611 / 611 |
-| `ace4bed` (final code) | axe (33), the responsive matrix (38), the reflow sweep (§17), the text-only performance rows (16), the evidence (53) |
-| `e1f85f0` (fresh clone) | lint, typecheck, build, full E2E and `npm start` (43, 47–50) |
+| `ace4bed` (final code) | axe (33), the responsive matrix (38), the text-only performance rows (16), the evidence (53) |
+| `e1f85f0` (fresh clone) | lint, typecheck, build, full E2E and `npm start` (43, 47–50); the reflow sweep re-run (§17) |
 
 The fresh clone builds the same output as `ace4bed` (item 43). Between these builds, `bfda6b0` changed one JS chunk and
 `ace4bed` changed one CSS rule on the project pages. Every prerendered page and payload is otherwise identical (the
@@ -134,9 +135,9 @@ zoom), 208 loads each check:
 
 Below the boundary (documented separately, unchanged, not a target): under 320 CSS px — a phone at 200 % page zoom, or
 doubled text on a phone — the header's controls overflow (pre-existing since TM-3; outside the WCAG 1.4.10 reflow
-target of 320 CSS px). These checks ran on the publication build (`caf01fb`); the release candidate differs from it
-only in the motion controller's JS (item 37; every stylesheet and prerendered page identical), so the layout results
-stand.
+target of 320 CSS px). The sweeps first ran on the publication build (`caf01fb`). They were repeated on the final
+build, served by the fresh clone's `npm start` (item 43), with the same result: 208 + 208 loads, 0 issues, 4,368 sheet
+rows and 1,136 actions checked.
 
 ## Report items
 
@@ -195,14 +196,14 @@ The release candidate is the head of `claude/new-session-5eijs6` after this stag
 commits on top of **`e1f85f0`**. A commit cannot name its own hash, so the hand-off message gives it (`git log -1`).
 
 - `e1f85f0` is the tree the fresh clone tested (item 43).
-- The commits after it change documentation only. They write the fresh-clone results into this report, rename the
-  report from `2026-10-08-…` to its completion date, `2026-10-09-…` (as the brief asks), and update the two references
-  to its name in `README.md` and `CLAUDE.md`.
+- The commits after it change documentation only. They write the fresh-clone results into this report (and one
+  status sentence into `CLAUDE.md`), rename the report from `2026-10-08-…` to its completion date, `2026-10-09-…` (as
+  the brief asks), and update the two references to its name in `README.md` and `CLAUDE.md`.
 - The last code change is **`ace4bed`**; `e1f85f0` and everything after it change documentation only.
 
 ### 10. Files changed
 
-`f69e2fa` → the final commit: **107 files** (⟨STAT⟩):
+`f69e2fa` → the final commit: **107 files** (24 added, 40 modified, 42 deleted, 1 renamed; 2,801 lines inserted, 12,582 deleted):
 
 | Area | Added | Modified | Deleted / renamed |
 | --- | --- | --- | --- |
@@ -755,12 +756,13 @@ width over the source width.
 
 - **Server:** the final build's `next start` (port 3400) served every check run on `ace4bed`: the axe matrices, the
   720-load responsive matrix, the text-only performance run and the evidence captures. Its log holds only its 5 start-up
-  lines (no warning, no error). The same is true of the `bfda6b0` server's log (the performance, image, parity and
-  keyboard runs). The fresh clone's server: item 43.
-- **Browser console:** console errors, page errors and failed requests were recorded on all 720 responsive loads (final
-  build) and the 208 reflow loads (§17). The only entries are each localized 404 page reporting its own intended
-  "Failed to load resource: … 404" for its document. There are no hydration warnings, React errors or failed
-  asset requests. The suite asserts the same (`trackErrors`: no page error and no console error except a 404 status) in
+  lines: no warning, no error, no image-optimizer failure. The same is true of the `bfda6b0` server's log (the
+  performance, image, parity and keyboard runs) and of the fresh clone's `npm start` after its smoke checks and the
+  §17 re-run (item 43).
+- **Browser console:** console errors, page errors and failed requests (any response of 400 or more) were recorded on
+  all 720 responsive loads and all 208 reflow loads, both on the final build. The only entries are each localized 404
+  page reporting its own intended "Failed to load resource: … 404" for its document. There are no uncaught errors,
+  hydration warnings, React errors or 404 asset requests. The suite asserts the same (`trackErrors`: no page error and no console error except a 404 status) in
   16 of its 19 spec files, on every page they load (item 50).
 - **Build:** item 49.
 
@@ -782,8 +784,18 @@ candidate; the commits after it only write these results into this report and re
    - prerendered pages and page data: 889 of 890 files identical once the build id is normalised; the one left,
      `en/about.html`, differs only in the position of Next's `next-size-adjust` meta (known build-to-build noise).
 6. `npm run test:e2e` with `E2E_PORT=3500`, so Playwright started the clone's own `next start` and reused no server.
-   Nothing else ran alongside. Result: ⟨E2E LINE⟩ (item 50).
-7. `npm start` (`next start -p 3600` on the clone's build): ⟨SMOKE LINE⟩
+   Nothing else ran alongside. Result: **612 passed**, 0 failed, 0 skipped, 0 flaky, in 21.7 min (item 50).
+   Playwright relayed no output from the server, so no warning or error.
+7. `npm start` (`next start -p 3600` on the clone's build): ready in 150 ms, and **20 / 20 checks passed**:
+   - `/` answers 307 → `/en`, and eight pages answer 200 (both homepages, About, Capabilities, Laser Cutting, a
+     media-rich and a text-only project, Contact);
+   - an unknown page and an unknown project answer 404 with `noindex`, and `/theme-lab` 307 (then the 404);
+   - `sitemap.xml` (102 `<loc>`), `robots.txt` (its sitemap line, no `Disallow`) and both share images answer 200;
+   - the image optimizer answers 200 WebP for a browser's `Accept` and 200 JPEG for `*/*` (format negotiation), and
+     400 for a remote URL; a missing `/media` file answers 404.
+
+   The same server then took the §17 re-run (416 browser loads). Its log holds only its start-up lines: no warning, no
+   error, no image-optimizer failure.
 
 ### 44. Node / npm versions
 
@@ -813,7 +825,8 @@ application settings.)
 ### 47. Lint
 
 `npm run lint` (ESLint 9.39.5 with `eslint-config-next` 16.3.6) in the fresh clone: **exit 0, no warnings, no errors**
-(11 s). The same on every 1J commit before it was pushed.
+(11 s). It also ran clean (no output) on the working checkout for the commits that changed scripts or TypeScript:
+`f299bb9`, `ffd8c93`, `7abd622`, `e5b89b0`, `bfda6b0` and `ace4bed`.
 
 ### 48. Typecheck
 
@@ -824,15 +837,18 @@ generated, no error (9 s).
 
 `npm run build` (Next.js 16.3.8, Turbopack) in the fresh clone: **exit 0**, compiled in 6.0 s, **109 static pages** (the 102
 published pages, `/_not-found`, Next's `/_global-error`, `robots.txt`, `sitemap.xml`, `manifest.webmanifest`, `icon.svg`,
-`apple-icon.png`), the catch-all as a dynamic route, the proxy; **no warning** in the log (20 s in all; `next/font` fetched the two Latin faces at
-build time — nothing is requested from Google at runtime). The output is the one every QA run measured: item 43.
+`apple-icon.png`), the catch-all as a dynamic route, and the proxy. **No warning** in the log (20 s in all). `next/font`
+downloads its Google faces at build time (the layout's two Latin faces and the fallback 404's four) and the build serves
+them itself; nothing is requested from Google at runtime. The output is the one every QA run measured (item 43).
 
 ### 50. Full E2E
 
 `npm run test:e2e` in the fresh clone at `e1f85f0` (item 43): Playwright 1.56.1, Chromium, 3 workers, no retries
 configured, against the clone's own production server, with nothing else running.
 
-⟨E2E TABLE⟩
+| Total | Passed | Failed | Skipped | Flaky | Retries | Time |
+| --- | --- | --- | --- | --- | --- | --- |
+| **612** | **612** | **0** | **0** | **0** | 0 (none configured) | 21.7 min (00:17:28 → 00:39:12 UTC) |
 
 The suite has 19 spec files. Stage 1J added `commerce-fonts.spec.ts` (7), `commerce-transitions.spec.ts` (12) and
 `commerce-keyboard.spec.ts` (25), plus one test in `commerce-project-detail.spec.ts` (the target spacing). It retired
@@ -959,7 +975,7 @@ On the release candidate, every gate of the brief that the code controls is met:
 - **SEO and publication:** 102 pages published, with complete metadata and structured data built from approved facts
   only; the sitemap lists 102 URLs; robots.txt is open; real 404s carry `noindex`.
 - **Performance:** CLS ≤ 0.0012; LCP ≤ 2.32 s on a throttled phone; scrolling ≥ 58.4 fps.
-- **Build quality:** lint, typecheck and build are clean, and the fresh clone ran ⟨E2E SHORT⟩.
+- **Build quality:** lint, typecheck and build are clean, and the fresh clone ran 612 / 612 E2E tests.
 
 Open for the user's decision before going live. None of these is a code defect that blocks the candidate:
 
