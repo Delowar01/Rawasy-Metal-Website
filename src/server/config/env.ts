@@ -186,10 +186,3 @@ export function passwordHasherKind(env: Env = process.env): PasswordHasherKind {
   if (raw !== "argon2id" && raw !== "scrypt") throw new ConfigError("AUTH_PASSWORD_HASHER must be argon2id or scrypt.");
   return raw;
 }
-
-/** The public site's content source. A2 supports only `static` (T1 = Option B: the switch is A9's). */
-export function contentSource(env: Env = process.env): "static" {
-  const raw = env.CONTENT_SOURCE?.trim() || "static";
-  if (raw !== "static") throw new ConfigError("CONTENT_SOURCE must be static until the A9 cutover.");
-  return raw;
-}
