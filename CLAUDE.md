@@ -10,9 +10,9 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at
-  the end)
-  (earlier: `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
+- Latest report: `docs/reports/2026-10-09-admin-a1-architecture.md` (Admin / CMS program, Phase A1 — design only)
+  (earlier: `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
+  `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
   `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
@@ -122,6 +122,16 @@
   **Still not allowed:** uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing
   SSL, fast-forwarding `main`, removing the legal pages' pending notes (they block launch), external publication — each
   needs the user's explicit go-ahead.
+- **Admin / CMS program (A1 → A9, roadmap locked by the user): Phase A1 is built — design only** (the user's "ADMIN /
+  CMS PROGRAM — PHASE A1 — ARCHITECTURE, DATABASE & CONTENT-MODEL SPECIFICATION" brief; report
+  `2026-10-09-admin-a1-architecture.md`; specification commit `48684af`; rollback checkpoint: GitHub branch
+  `preserve/pre-admin-a1` at `74220ea`) and awaits independent review. Seven documents in `docs/admin/` (see "Admin /
+  CMS program" below). Locked phases: A1 Architecture & Database Foundation · A2 Authentication, RBAC & Admin Shell · A3
+  Core CMS · A4 Media Library · A5 Page Builder / Visual Editor · A6 Global Site Controls · A7 Forms & Enquiries · A8
+  Publishing, Versions, Audit & Backup Safety · A9 Full Content Migration & Complete QA — never merge, reorder, skip or
+  silently expand them; report any scope change for the user's approval first. **Do not start A2** (no authentication,
+  database tables, Drizzle/mysql2 install, `/admin`, content migration or deployment) until the user approves A1 and says
+  so. Admin work must not redesign the public site (A1–A4 change no appearance).
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab
@@ -223,6 +233,24 @@
   JS by module set (`jsalpha`-style token comparison) and screenshots in EN/AR, light/dark.
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
+
+## Admin / CMS program (Phase A1 specification — nothing implemented)
+
+- Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (83 tables; catalogue and Mermaid
+  ERDs generated from one scratch spec — regenerate rather than hand-edit if the schema changes), `A1-CONTENT-MODEL.md`,
+  `A1-MIGRATION-PLAN.md`, `A1-SECURITY-RBAC.md`, `A1-MEDIA-STORAGE.md`, `A1-PUBLISHING-VERSIONS.md`.
+- Key decisions (all awaiting review; Owner decisions listed in the report, item 30): MariaDB as hosted (11.4 listed by
+  Namecheap) + Drizzle **core query builder only** + mysql2 (pool per process, limit 4); `utf8mb4_unicode_520_ci`
+  everywhere, ASCII `ascii_bin` keys, ULID ids, `DATETIME(3)` UTC; translation tables with per-locale status; the public
+  site reads only `published_documents` (public projections), `public_media` and `redirects`; working copy + immutable
+  revision snapshots; approved sections become bespoke, structure-locked block types fed the same data (no redesign);
+  pages render at runtime (root `generateStaticParams` → `[]`) and are cached, with a custom `cacheHandler` reading a
+  shared `cache_invalidations` table; uploads in `RAWASY_DATA_DIR` outside the release, served by `/media/u/…`; private
+  certificate originals in a separate private root, never publishable; DB sessions in a `__Host-` cookie; Server Actions
+  for admin mutations, Route Handlers for uploads/files/preview/cron; cron every 5 min calls `/api/internal/*`.
+- Option A (recommended, Owner decision T1): the public site switches to the database domain by domain as phases land,
+  through `CONTENT_SOURCE_<DOMAIN>` in `src/content/repository.ts`, each switch proven with the freeze-proof method.
+- The 13 held-back media become restricted media items (flags), and the packaging script keeps excluding them.
 
 ## Rules from the brief
 
@@ -1436,3 +1464,31 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   not the box width alone.
 - Inline links that wrap onto several lines need 24 px between their centres (WCAG 2.5.8) unless they sit in a
   sentence: 17 px links in a flex list with a 0.1rem row gap failed axe's `target-size` (`.pd-inline`, Stage 1J).
+
+- **Next.js 16.3.8 cache invalidation is per process** (A1 research, installed source): `revalidateTag` / `revalidatePath`
+  only update a module-level map in the process that receives them (`file-system-cache.js`, `tags-manifest.external.js`);
+  no file is written, other processes keep serving their copies, and a restarted process forgets. `revalidateTag` takes
+  a second argument in Next 16 (`{ expire: 0 }` = expire now, `'max'` = stale-while-revalidate); `updateTag` works only in
+  Server Actions; neither works outside a request (a cron script cannot call them).
+- Next 16.3.8 reads `public/` once at start-up in production: files added later are not served until a restart (never
+  store uploads there).
+- When `src/proxy.ts` matches a non-GET request it buffers the body up to `proxyClientMaxBodySize` (10 MB default) and
+  silently truncates the rest; Server Actions accept 1 MB by default and `request.formData()` buffers the whole body
+  (+120 MB of buffers for a 40 MB upload, measured). Upload routes stay outside the proxy matcher and stream.
+- `.next` carries secrets: the Server Actions closure key (`server-reference-manifest.json`, reused 14 days via
+  `.next/cache/.rscinfo`) and the draft-mode `previewModeId` (`prerender-manifest.json`, reused 14 days via
+  `.next/cache/.previewinfo`; it also authorizes on-demand revalidation). Treat the deployment archive as secret.
+- Inside the app, `request.url`'s host is the server's own `0.0.0.0:PORT`: build absolute URLs from
+  `NEXT_PUBLIC_SITE_URL`. Behind Passenger or LiteSpeed the socket address is always `127.0.0.1`; the client IP is the
+  right-most trusted `X-Forwarded-For` entry.
+- A child route's `generateStaticParams` returning `[]` inherits its parent's params: the root layout lists both locales,
+  so every page is prerendered at build unless the root layout returns `[]` too.
+- Drizzle on MariaDB (A1, published 0.45.4 source): the relational API (`db.query` with `with:`) emits
+  `LEFT JOIN LATERAL`, which MariaDB lacks (use the core builder); `drizzle-kit push` / `pull` crash on MariaDB's CHECK
+  constraints; the runtime migrator skips out-of-order files, is not atomic (DDL commits implicitly) and takes no lock;
+  Drizzle 0.45 cannot declare charsets/collations. mysql2's `charset` option is a one-byte collation id (MariaDB's
+  `uca1400` collations cannot be requested) and it lacks MariaDB's ed25519/PARSEC auth plugins; MariaDB's `JSON` is
+  `LONGTEXT` + `JSON_VALID` and is parsed only with MariaDB ≥ 10.5 and mysql2 ≥ 3.23. MariaDB 11.4's server default
+  charset is still `latin1`.
+- Namecheap's website and documentation are blocked by the cloud session's egress proxy (403): host facts there come only
+  from search extracts and must be verified on the account.
