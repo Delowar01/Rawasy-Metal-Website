@@ -270,9 +270,64 @@ the pointer, the themes' contrast and the background motion; it took over the re
 session
 Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright install chromium` once.
 
+## Namecheap Stellar Plus deployment
+
+The production host is Namecheap Stellar Plus shared hosting: cPanel → **Setup Node.js App**, which runs the app under
+Phusion Passenger. Prepared and tested locally only (report `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md`);
+nothing goes online until RAWASY approves the release, and the legal pages' "before launch" notes are resolved first.
+
+- **`server.js`** is the startup file: a minimal custom server that hands every request to Next.js's own request
+  handler (the one `next start` uses), so the proxy, routes, 404s and the image optimizer behave as tested. `npm start`
+  runs it. It reads `PORT` (default 3000), `HOSTNAME` (default `0.0.0.0`) and `NODE_ENV` (production unless set
+  otherwise); under Passenger the port and address do not matter, as Passenger hands the app its own socket.
+- **Node.js 22.x** (tested on 22.22.2; if the panel's 22.x differs, npm only warns about `engines`). Do not move the
+  project to Node 20 for hosting.
+- **Build on a clean Linux machine, not on the host**, from a fresh clone of the approved commit, and pack the archive
+  right after the build (a server started there writes cache files into `.next`):
+
+  ```bash
+  npm ci
+  NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build
+  tar -czf ../rawasy-app.tar.gz --exclude=.next/cache server.js package.json package-lock.json next.config.ts \
+    tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src public .next
+  ```
+
+  The archive leaves out `.git`, `node_modules` (the host installs its own: never upload one, least of all a Windows
+  one), `.next/cache`, `e2e`, `docs`, `scripts`, test results, Playwright reports, screenshots, evidence and any `.env`
+  file.
+- **cPanel → Setup Node.js App → Create application:** Node.js version **22.x** · Application mode **Production** ·
+  Application root **`rawasy-app`** (a folder in the account's home, never `public_html`) · Application URL
+  **www.rawasymetal.com** with an empty path (the domain entry the panel lists for it) · Application startup file
+  **`server.js`** · one environment variable, **`NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com`** (the build already
+  holds it; set it here too). No other variable, key or secret.
+- **Install and start:** stop the application, upload the archive with File Manager and extract it into `rawasy-app`
+  (replacing any starter `server.js` the panel created), press **Run NPM Install** (with the prebuilt `.next` only the
+  production dependencies are needed: Next.js, React and `sharp`), then **Start App** (**Restart** after an update). The
+  panel adds Passenger lines to the `.htaccess` in the domain's document root: leave them. Files of an older site left in
+  the document root can answer instead of the app: back them up before moving them out.
+- **Smoke checklist** after every start: `/` answers 307 to `/en` (`/ar` for an Arabic browser); `/en`, `/ar`, a service,
+  `/en/capabilities`, a project page, `/en/contact` and `/en/privacy` answer 200 with their page; `/en/not-a-page` shows
+  the 404 page with status 404; `/sitemap.xml` lists 102 `https://www.rawasymetal.com/` addresses and `/robots.txt` names
+  it; `/_next/image?url=%2Fmedia%2Fprojects%2Fclock-tower-1.webp&w=640&q=75` opened in a browser comes back as WebP
+  (`sharp` needs glibc 2.28 or later: `ldd --version` in cPanel's Terminal); HTTPS works on rawasymetal.com and
+  www.rawasymetal.com. The first request after a start or an idle spell is slower: Passenger starts the app on demand.
+- **Logs:** the application's entry in Setup Node.js App (with its log file where the panel offers one); CloudLinux
+  usually writes the app's own output to `stderr.log` in the application root; cPanel → Metrics → Errors shows the web
+  server's errors.
+- **DNS:** change nothing (nameservers or records) until the current nameservers, MX, SPF, DKIM, DMARC, A and CNAME
+  records and the mail service in use are written down: switching to Namecheap's hosting nameservers can drop the mail
+  records.
+- **Rollback:** keep the previous archive and application folder until the new release is verified; to roll back, stop
+  the app, put the previous folder back (or extract the previous archive), Run NPM Install, Restart. The code rollback
+  point is the approved release candidate `422c397`. Never delete an existing site's files without a backup.
+
+To run the browser tests against `server.js` locally: `npm run build`, then `NODE_ENV=production PORT=3400 node server.js`
+in one terminal and `npm run test:e2e` in another (Playwright reuses a server already answering on its port).
+
 ## Next stages
 
 Stages 1A–1I are approved (1G and 1H needed no batch: their pages and the Arabic site were already built). Stage 1J,
 the release candidate (security, accessibility, SEO, performance and publication QA), is built and awaits independent
 approval (report `docs/reports/2026-10-09-stage-1j-release-candidate.md`); deployment happens only on the user's
-go-ahead. Phase 2 (admin panel) follows Phase 1 approval.
+go-ahead. The Namecheap Stellar Plus hosting adapter (`server.js`, above) is prepared and tested locally and awaits
+independent review. Phase 2 (admin panel) follows Phase 1 approval.
