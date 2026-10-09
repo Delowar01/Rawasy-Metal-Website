@@ -10,8 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-08-stage-1i-correction-3.md`
-  (earlier: `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
+- Latest report: `docs/reports/2026-10-08-stage-1j-release-candidate.md`
+  (earlier: `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
   `2026-10-03-stage-1e-capabilities-machinery.md`, `2026-10-02-tm3-correction-2.md`,
@@ -66,18 +66,30 @@
   Projects filter toggle (`.pj-chip`, its label against its fill, AA; about 1:1 at 53 ms before) and the certificate
   preview's open indicator (`.ct-plate-open`, an aria-hidden plus icon — graphical, not text, held to 3:1; 1.016:1 at 70 ms
   before, light theme). Both swap colours at once; the toggle's border still eases and the preview still lifts (report
-  `2026-10-08-stage-1i-correction-3.md`; implementation commit `64f9e60`, CSS only, plus the extended spec). It awaits the
-  user's independent review. **Open, for the user:** `npm audit --omit=dev` fails since correction 2 — six Next.js
-  advisories (one high: SSRF in Image Optimization; cache poisoning of SSG/ISR pages, among others), all fixed in `next`
-  16.3.8. The pinned `"next": "16.3.6"` needs a patch bump to 16.3.8 (one `package.json` line, 10 lockfile entries —
-  `next`, `@next/env`, the eight `@next/swc-*` — nothing added, `sharp` 0.35.5 and `source-map-js` 1.2.2 kept). Correction 3
-  prepared it and reverted it unbuilt (a framework version change is the user's decision); do not apply it without the
-  user's word. Do not start 1J or later until the user says so. Do not start Phase 2 (admin panel) during Phase 1.
+  `2026-10-08-stage-1i-correction-3.md`; implementation commit `64f9e60`, CSS only, plus the extended spec). **Stage 1I is
+  fully approved** (the user's "STAGE 1I FULLY APPROVED — BEGIN STAGE 1J").
+- **Stage 1J (the release candidate: security, accessibility, SEO, performance and publication QA) is built** (report
+  `2026-10-08-stage-1j-release-candidate.md`; rollback checkpoint: GitHub branch `preserve/pre-stage-1j` at `f69e2fa`, the
+  last commit before 1J) and awaits the user's independent approval. Its commits, each on its own: `f299bb9` Next.js
+  16.3.6 → 16.3.8 (the user's brief authorized exactly this patch; `npm audit --omit=dev` 0); `ffd8c93` the Arabic faces
+  preloaded on Arabic pages only; `86bb8ac` the Projects toggles' forced-colours focus ring (`Highlight`); `7abd622` the
+  theme switch, page changes and the gallery's joining/leaving cards without a fade; `e5b89b0` the theme lab retired and
+  `0eefcd8` the strings and exports nothing read removed; `1158a5e` the share images regenerated in the MC design;
+  `caf01fb` every route `review` → `published`; `65e6eed` Node 22.22.2 (`.nvmrc`, `engines`), the README's Windows
+  commands and `.env.example`; `bfda6b0` keyboard focus inside sideways rows (see "Motion system"); `ace4bed` the project
+  pages' wrapped related-service links 24 px apart (WCAG 2.5.8; `.pd-inline` row gap 0.35rem). **Open for the user:** the
+  frozen homepage's cards enlarge some profile photos (`object-fit: cover` in fixed frames: up to 1.40× on desktop, 1.84×
+  on a phone card) — the TM-1-approved design, left unchanged; every other page stays ≤ 1.0×. Also for the user: on a
+  throttled phone link (1.6 Mbit/s, 4× CPU) the 8 Arabic preloads share the link with the stylesheet, so Arabic pages
+  without a large first-screen picture paint later (+60 to +288 ms; others earlier, worst LCP 2,668 → 2,320 ms, CLS 0);
+  preloading fewer files is the offered option (report item 40), not done. Never self-approve; **do not
+  deploy** (no hosting, DNS, tunnel or external publication) until the user says so. Do not start Phase 2 (admin panel)
+  during Phase 1.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
-  company selling capabilities, not ecommerce). Source of truth: `/theme-lab/{en,ar}/modern-commerce-a-v2`. Never
-  create another theme or reinterpret the direction; A, B and C stay in the lab for comparison only (no work on B
-  or C). Everything the A V2 briefs settled is accepted and binding for the migrated pages:
+  company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab
+  was retired in Stage 1J; git history and `preserve/pre-stage-1j` keep it). Never create another theme or reinterpret
+  the direction (A, B and C were comparison options only). Everything the A V2 briefs settled is accepted and binding for the migrated pages:
   - hero plate (`commerce/hero/HeroPlate.tsx`, the website's plate geometry): the whole sequence (dimensions, holes,
     star, slot, perforation, head, readout, finished plate) repeats every 10 s start to start — cut 0–5.26 s, hold
     to 9.40 s, reset to 9.85 s — only while on screen and the page is visible, resting where it is otherwise, never
@@ -129,7 +141,7 @@
   finding (English Industries names past their card at 360–421 px) is fixed in **TM-3 correction 2** (report
   `2026-10-02-tm3-correction-2.md`; correction commit `0f53145` on `9e194e9`): the one-column rule moved to 27 rem. **TM-3
   and corrections 1–2 are approved and locked** (the user's "TM-3 FULLY APPROVED — BEGIN STAGE 1E"). Never self-approve.
-  **Do not begin Stage 1J, theme-lab removal, OG regeneration, publication or any deployment until the user says so.** TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
+  **No deployment until the user says so** (Stage 1J did the theme-lab removal, OG regeneration and publication). TM-3 fixed four of the five deferred items, CSS only (served HTML, page data and JS identical to TM-2.6): the
   colour switch's forced-colours drawing on every switch; the inner pages' hero shown with the first paint; the brand
   logo and the header's marks in forced colours; the phone menu sheet's pages scrolling above its foot (see "Modern
   Commerce design in production"). Still open, for the user to decide: (5) without JavaScript a font that swaps in after
@@ -137,12 +149,10 @@
   tried and rejected: root scroll snapping pulls a reader back to the section, and an `overflow-anchor` exclusion built
   on `:has(~ :target)` added 2.6–4.1 ms (+8–11 %) to each full style recalculation of the homepage, for every visitor);
   on desktop the About and services overview pages' largest paint is in the section under
-  the hero, which keeps its reveal, so their LCP stays about 1.1–1.3 s; Arabic desktop pages show a CLS of 0.003–0.009
-  (the Arabic fonts, not preloaded, swap in while the hero is visible; preloading them needs a root layout per language,
-  1J); below 320 CSS px (a phone at 200 % page zoom) and with doubled text on phones the header overflows (pre-existing,
-  outside the 320 px boundary). Also open: the OG share images (`scripts/generate-og.mjs`) are still rendered with the previous design's faces (a Stage
-  1J / SEO-release task; do not regenerate them before), and the dictionary keys only the retired shell read stay until a
-  usage audit.
+  the hero, which keeps its reveal, so their LCP stays about 1.1–1.3 s; Arabic pages' CLS (the Arabic fonts swapping in while the hero
+  was visible) was fixed in Stage 1J by preloading the Arabic faces on Arabic pages (CLS 0); below 320 CSS px (a phone at 200 % page zoom) and with doubled text on phones the header overflows (pre-existing,
+  outside the 320 px boundary). Stage 1J regenerated the OG share images in the MC design and removed, after a usage
+  audit, the dictionary keys and exports only retired code read.
   Decisions in short:
   - project cards on About and the service pages open their project's place in the migrated gallery,
     `/projects#<slug>` (since TM-2.5, still "View in the gallery"); the landing clears the header and the sticky filter
@@ -156,8 +166,8 @@
   - the Google Maps embed and URLs stay byte-identical, and only the frame is restyled.
   - the project placeholders moved to MC in TM-2.6; Capabilities left `PlannedPage` in Stage 1E and the project pages in
     Stage 1F, which retired `PlannedPage` and `planned.css` (no route used them any more).
-  - the theme lab stays until the user authorizes its removal.
-  - every migrated page stays `review`/noindex until 1J.
+  - the theme lab was retired in Stage 1J (the user's brief).
+  - every page is `published` since Stage 1J (`caf01fb`).
 
   Required:
   - validate the MC 404 and catch-all: real status codes, localization, SEO, unknown service/project slugs.
@@ -166,10 +176,9 @@
   - the homepage stays visually unchanged.
   - every existing test assertion is kept or replaced by equivalent coverage.
   - no deployment.
-- Publishing waits for the Stage 1J launch approval (the user's instruction in the 1C-V brief). Built
-  pages stay `review` in `src/lib/page-meta.ts` (`noindex, follow`, left out of the sitemap) even after their
-  design is approved: the 1C pages, the projects overview, the service pages, Capabilities (since Stage 1E) and the
-  project pages (since Stage 1F). Nothing is `planned` any more. Only the homepage is `published`.
+- Every route is `published` in `src/lib/page-meta.ts` since Stage 1J (`caf01fb`: indexable, in the sitemap — 102
+  addresses — with `en` / `ar` / `x-default` alternates); the 404s stay `noindex`. Publishing in code is not deployment:
+  nothing goes online until the user approves the release and says so. A new route starts as `planned` or `review`.
 - Approved pages are frozen: after any shared change, compare them with the batch's checkpoint build (a `git worktree`
   of the checkpoint with `cp -al node_modules`): visible server HTML (scripts removed, `/_next/static` paths and the
   `next-size-adjust` meta position normalised), the CSS bytes and each page's stylesheet list, the RSC payloads resolved
@@ -242,8 +251,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 
 - The website's faces (Modern Commerce): **Plus Jakarta Sans** (English display, preloaded), **Inter** (English text,
   preloaded), **Tajawal** 500/700/800 (Arabic display and semibold Arabic UI), **IBM Plex Sans Arabic** 400/500 only
-  (Arabic text; never for headings or at 600/700), the system monospace stack for technical figures. Fonts come only
-  from `next/font` (`src/app/(commerce)/fonts.ts`) and are never requested from Google at runtime.
+  (Arabic text; never for headings or at 600/700), the system monospace stack for technical figures. The Latin faces come
+  from `next/font` (`src/app/(commerce)/fonts.ts`); the Arabic faces from `src/fonts/arabic.css` (the files `next/font`
+  downloaded, byte for byte, and its rules; Stage 1J). No font is ever requested from Google at runtime.
 - Fonts are tokens (`--ff-display` / `--ff-body` from `--font-mc-*`), switched for Arabic by `:lang(ar)` /
   `[lang|="ar"]` in `system.css`. Mark inline text in the other language with `lang` (and `dir`).
 - Arabic is never letter-spaced (`:lang(ar)` rule in `commerce.css`); Arabic paragraphs use line-height 1.85.
@@ -287,22 +297,28 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 ## Modern Commerce design in production (Stages TM-1 and TM-2)
 
 - One production design since TM-2.6. `src/app/(commerce)/[locale]/layout.tsx` is the website's root layout (its
-  stylesheet, fonts, boot script, ambient, pointer and motion controller) for every page; the theme lab keeps its own
-  root layout, and the fallback 404 (`src/app/global-not-found.tsx`) its own document. Links are plain `<a>` (no
+  stylesheet, fonts, boot script, ambient, pointer and motion controller) for every page (the theme lab, retired in
+  Stage 1J, had its own), and the fallback 404 (`src/app/global-not-found.tsx`) its own document. Links are plain `<a>` (no
   `next/link`, no prefetch): do not convert the site to `<Link>` without a brief. New components outside
   `components/commerce` or the route group need an `@source` line in `commerce.css`.
 - Styles: `src/app/(commerce)/commerce.css` (Tailwind `source(none)` with `@source` on `components/commerce` and the
-  route group; base layer, reveals, view transitions, `.shell`, `.mc-icon`, skip link) and
+  route group; base layer, reveals, `.shell`, `.mc-icon`, skip link; no cross-document view transition since Stage 1J)
+  and
   `src/components/commerce/system.css` (A V2's `a2.css` converted: every token and component scoped to `.mc` on
   `<body>`, dark tokens under `html[data-theme="dark"] .mc`, lab-only parts — sheet frames, forced-theme samples,
   replay buttons — left out, nav active state keyed on `aria-current="page"`). Class names keep the `a2-` prefix
-  shared with the lab. `Icon` renders `mc-icon lab-icon` (each design styles its own class; drop `lab-icon` when the
-  lab is deleted). Page stylesheets beside their components: `services/services.css`, `projects/projects.css`,
+  from the lab. `Icon` renders `mc-icon` (`lab-icon` went with the lab in Stage 1J). Page stylesheets beside their components: `services/services.css`, `projects/projects.css`,
   `capabilities/capabilities.css`, `project-detail/project-detail.css` (never in `system.css`, see the chunk-size
   gotcha).
-- Fonts (`src/app/(commerce)/fonts.ts`): Plus Jakarta Sans (English display) and Inter (English text) preloaded;
-  Tajawal 500/700/800 (Arabic display) and IBM Plex Sans Arabic 400/500 (Arabic text) not preloaded (one root layout
-  serves both languages); technical figures use the system monospace stack. Variables `--font-mc-*`. Arabic is never
+- Fonts (`src/app/(commerce)/fonts.ts`): Plus Jakarta Sans (English display) and Inter (English text) from `next/font`,
+  preloaded on every page (2 files, nothing more on English pages). Tajawal 500/700/800 (Arabic display) and IBM Plex
+  Sans Arabic 400/500 (Arabic text) are declared in `src/fonts/arabic.css` (Stage 1J, `ffd8c93`: the 14 files `next/font`
+  downloaded, byte for byte, with its rules — unicode ranges, `swap`, size-adjusted fallbacks; licences
+  `src/fonts/OFL-*.txt`), because `next/font` preloads by route file and both languages share every route file; the
+  root layout preloads `arabicFontPreloads` (Tajawal 700/800 and Plex 400/500, Arabic and Latin ranges: the 8 files every
+  Arabic page draws first, counted on 21 page types at 5 widths) with React's `preload()` on Arabic pages only; Tajawal
+  500 loads on demand. Arabic CLS 0.0458 / 0.0325 / 0.262 → 0 (`e2e/commerce-fonts.spec.ts`). Technical figures use the
+  system monospace stack. Variables `--font-mc-*`. Arabic is never
   letter-spaced (`:lang(ar)` rule in `commerce.css`). `global-not-found.tsx` uses its own copies of the same four
   faces with `preload: false` (`src/app/global-not-found-fonts.ts`): with `experimental.globalNotFound` a preload
   declared there reaches every page, the lab included (TM-2.6 measured none). next/font names a preloaded file
@@ -311,7 +327,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - Theme: `src/lib/commerce-boot.ts` (inline in `<head>`) sets `js` and applies the stored theme under the website's key
   `rawasy-theme` or the system setting (the session intro flag `rawasy-intro` was retired with the loader in TM-2.6).
   Page colours `PAGE_COLORS` in `components/commerce/data.ts` (light `#f4f4f1`, dark `#131820`) feed the viewport
-  `themeColor`, and `ThemeSwitch` updates `meta[name="theme-color"]`. Without JavaScript the page is light.
+  `themeColor`, and `ThemeSwitch` updates `meta[name="theme-color"]`; the new theme applies at once (Stage 1J: the
+  browser's cross-fade passed every word through its own background, about 1:1 halfway). Without JavaScript the page is
+  light.
 - First jump to an address's anchor (the TM-2.5 shared fix, every MC page): `commerce.css` sets `scroll-behavior: smooth`
   only on `html[data-smooth-scroll]`, which `commerceBoot` adds after the load event, `document.fonts.ready` and two
   frames (`BootFallback` runs it on a page that has already loaded). Until then jumps are instant, and Chromium keeps an
@@ -407,6 +425,16 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
     swap at once (only its border eases, 180 ms), and the certificate preview's open indicator — an aria-hidden plus icon,
     not text, held to 3:1 against its circle — swaps its circle and plus at once (the preview's lift keeps its 320 ms).
   - Phones: when a reveal inside a `.rail` that scrolls sideways is shown, all its cards are shown with it.
+  - Keyboard focus inside a row that scrolls sideways (Stage 1J, a `focusin` listener in `Motion.tsx`, `:focus-visible`
+    only): the row moves at once until the focused item shows whole (8 px clear; an item wider than the row shows its
+    start edge); only the row moves, never the page. Chromium itself leaves a row where it is while 32 px of the item
+    show, which kept a focused machine pick (56 of 240 px on a 320 px phone) or category toggle half off screen. Four rows
+    hold focusable items: the homepage's machine picks and project cards (320–834 px), the Capabilities selector
+    (320–640) and the Projects category bar (320–1024). `e2e/commerce-keyboard.spec.ts`.
+  - No view transitions on text (Stage 1J): the theme switch applies at once, a new page simply replaces the last one
+    (no `@view-transition`), and a gallery choice moves only the cards that stay — cards it brings in show whole at once
+    and cards it leaves out go at once (`::view-transition-new/old(*):only-child` in `projects.css`).
+    `e2e/commerce-transitions.spec.ts`.
   - `HeroPlate`'s readout tick ignores a cancelled clock (`playState === "idle"`): a frame queued before the cancel event
     wrote "00/07" over the finished count under load.
 - Inner pages (TM-2.1): the kit is `components/commerce/inner/` — `PageHero` (compact / split / stacked; text on an
@@ -679,18 +707,24 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   90 / 135 / 180 ms and settled (aria-hidden, no text, drawn, the plus at 3:1 against its circle computed and per pixel,
   axe, focus; then the end states, hover equal to focus, and the dialog from the keyboard); plus a reduced-motion test and
   a forced-colours test: system colours and the check in every frame, the preview by Tab and its dialog);
+  `e2e/commerce-fonts.spec.ts` (Stage 1J: the Arabic preloads per language, the 14 Arabic files' hashes, served and used,
+  no layout shift); `e2e/commerce-transitions.spec.ts` (Stage 1J: the theme switch, page changes and the gallery's
+  cards without a fade, EN/AR, phones, reduced motion); `e2e/commerce-keyboard.spec.ts` (Stage 1J: Tab through the four
+  sideways rows at 320, 390 and 640 × 360 in EN/AR, every item whole in its row and on screen, the page never sideways;
+  a tap moves no row); `e2e/commerce-home-depth.spec.ts` (the retired lab spec's homepage checks: signatures, hero loop,
+  pointer, themes' contrast, background motion, the header's scrolled / past-hero states);
   `stage-1c.spec.ts`'s generic
   inner-page checks (routes and SEO, breadcrumbs, overflow, reduced motion, no JS) still cover every inner page through
   `INNER_PAGES`. `redesign-v2.spec.ts` and `visual-system.spec.ts` retired with the previous design (TM-2.6 report:
   assertion map).
 
-## Theme lab (Modern Commerce exploration)
+## Theme lab (retired in Stage 1J; history of the A V2 modules)
 
-- Since TM-1 the A V2 modules the homepage uses live in `src/components/commerce/` (paths below such as
-  `a2/HeroPlate.tsx`, `a2/Ambient.tsx`, `a2/Cursor.tsx`, `a2/ThemeSwitch.tsx`, `a2/MachineShowcase.tsx`, `Icon.tsx`,
-  `ui.tsx` and `signature/` are now the lab's re-exports: edit the commerce files). `lab.css` lists them with
-  `@source` so the lab's utilities stay complete. The site carries the design everywhere since TM-2.6; the lab stays,
-  working and unchanged, until the user authorizes its removal.
+- **Retired in Stage 1J** (`e5b89b0`): `src/app/theme-lab/**`, `src/components/theme-lab/**`, `e2e/theme-lab.spec.ts`
+  and the proxy's lab branch are gone; `/theme-lab/…` gets a language and the localized 404; `theme-lab-a-v2.spec.ts`
+  became `e2e/commerce-home-depth.spec.ts`. The notes below describe how the A V2 modules were built and measured; the
+  modules themselves live in `src/components/commerce/` (HeroPlate, Ambient, Cursor, ThemeSwitch, MachineShowcase,
+  Icon, ui, `signature/`) and the website uses them. Where a note names a lab path, read the commerce file.
 
 - Routes: `/theme-lab/{en|ar}/modern-commerce-{a|a-v2|b|c}` and `…/system`, under their own root layout
   (`src/app/theme-lab/[locale]/layout.tsx`, `lab.css`), so no site header, footer or site CSS.
@@ -815,8 +849,10 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   the server HTML instead.
 - Reveal fades also run with reduced motion (opacity only), so content in the bottom band of the
   viewport stays hidden until scrolled into view. Visibility checks must leave that band out.
-- Both locales share one root layout, so every preloaded font is preloaded on every page (hence only the two Latin
-  faces are preloaded). Splitting preloads per language needs a root layout per language (1J).
+- Both locales share one root layout and every route file, and `next/font` keys its preloads by route file (its font
+  manifest is per page entry), so a `next/font` face is preloaded in both languages or in neither. Stage 1J declared the
+  Arabic faces in CSS (`src/fonts/arabic.css`, the same files) and preloads them with React's `preload()` in the root
+  layout when the locale is Arabic.
 - `html` has `scroll-padding-top` (header + 1rem), so anchor jumps already clear the header. Do not add
   `scroll-mt-*` to sections as well: the two add up (the gallery landed 168px down).
 - `.js [data-reveal]` rules are unlayered, so on an element that also lifts on hover (`.card-link`) they
@@ -1271,3 +1307,37 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - A framework or other dependency version change that the brief does not authorize is the user's decision even when an
   audit requirement seems to call for it: in correction 3 the session's permission check refused to run the toolchain
   after a trial `next` bump. Prepare the change, measure it (lockfile diff, audit), revert it, and report it for the user.
+- Chromium's keyboard focus scroll leaves a sideways scroller where it is while at least 32 px of the focused item are
+  visible in it (`kMinIntersectForReveal`), so Tab could stop on a card mostly off screen with its name hidden (Stage 1J;
+  fixed for every row by the `focusin` listener in `Motion.tsx`). Focus events fire before the browser's own focus
+  scroll, and `:focus-visible` already matches in `focusin` for keyboard focus (not for a tap or click).
+- A focus-visibility probe must ask what is drawn on top (`elementFromPoint` over a grid inside the ring's box), not
+  intersect boxes: the skip link sits inside the header's box but is drawn above it. A whole-card link (`.stretch`,
+  static, with an `::after` over its card) is measured as its card, but a positioned `.btn` with a decorative `::after`
+  is measured as itself; and "settled" needs the page still for 8 frames and 200 ms (3 frames caught a glide paused
+  under load). Cards taller than the window (200 % zoom: 287 px below the header) always leave part of their ring off
+  screen; WCAG 2.4.11 fails only when a focused item is entirely hidden.
+- Text checks (overflow, words past their box) must skip visually hidden text: a 1 px box with `clip-path: inset(50%)`
+  (`.cp-row-verb` on narrow Contact rows, `.sr-only`) still reports line boxes far outside it.
+- A 404 page logs "Failed to load resource: the server responded with a status of 404" in the console for its own
+  document: that is the intended status, not a failing asset.
+- `npm audit` (with dev dependencies) lists 5 high entries of one lint-only chain (`braces` ← `micromatch` ←
+  `fast-glob` ← `@next/eslint-plugin-next` ← `eslint-config-next`); the only offered fix is `--force` to
+  `eslint-config-next@14.2.35`, a breaking downgrade. Never run it; `npm audit --omit=dev` is the served app (0).
+- `engines` in `package.json` needs no lockfile change for `npm ci`; `npm install --package-lock-only` would write the
+  root `engines` entry and also unrelated `inBundle` entries of the optional wasm Tailwind package (drift that predates
+  1J), so leave the lockfile to the next real dependency change.
+- The cross-document `@view-transition { navigation: auto }` (removed in Stage 1J) drew both pages' words half-strength
+  over each other for ~250 ms on every navigation (EN ⇄ AR included); the theme switch's default root cross-fade took
+  every word to about 1:1 halfway. No partial fade of a page keeps its text at AA: change themes and pages at once.
+- The no-JavaScript 404 document is Next's error shell, hard-coded as `<html id="__next_error__">` without `lang`
+  (`app-render.js`): axe reports `html-has-lang` (serious) and an empty body there only. It is part of the documented
+  no-JS 404 limitation; with JavaScript the localized 404 renders fully and passes.
+- axe cannot run in a page with JavaScript disabled (it needs timers: `page.evaluate` with a timer dies with "execution
+  context was destroyed"). Audit the no-JS state by serving the page's own server HTML with its `<script>` tags removed
+  (`page.route` at its real address) in a normal tab: the same DOM, no `js` class.
+- Image scale checks must use what the browser draws: with `object-fit: cover` the photo is scaled by the larger of
+  width / source width and height / source height (a landscape photo in a portrait card is enlarged by its height),
+  not the box width alone.
+- Inline links that wrap onto several lines need 24 px between their centres (WCAG 2.5.8) unless they sit in a
+  sentence: 17 px links in a flex list with a 0.1rem row gap failed axe's `target-size` (`.pd-inline`, Stage 1J).

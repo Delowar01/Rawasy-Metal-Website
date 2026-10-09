@@ -23,15 +23,17 @@ certificate dialog opens and closes (only photos, lines and the backdrop fade), 
 the homepage machinery, the scroll reveals, the homepage entrance, the Services dropdown, the phone menu and the
 homepage project cards' label (words show whole and move; only photos, logos and drawings fade); correction 3 makes the
 Projects filter toggles and the certificate previews' open indicator (a plus icon) swap their colours at once instead of
-blending through low contrast. Every
-page except the homepage is `review` (noindex); publishing waits for the Stage 1J launch approval.
+blending through low contrast. Stage 1J prepared the release candidate: Next.js 16.3.8 (security patch), the Arabic
+faces preloaded on Arabic pages only, the theme and page changes made without a fade, keyboard focus kept whole inside
+sideways rows, the share images regenerated, the theme lab retired and **every page `published`** (indexable, in the
+sitemap). It awaits the release approval; nothing is deployed.
 
 | | |
 | --- | --- |
 | Framework | Next.js 16.3 (App Router, Turbopack), React 19.2, TypeScript |
 | Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css`, page stylesheets beside their components (`services.css`, `projects.css`, `capabilities.css`, `project-detail.css`) |
 | Motion | CSS transitions and the Web Animations API (hero plate, signatures), IntersectionObserver for reveals; no animation library |
-| Fonts | Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text), the system monospace stack for technical figures. All self-hosted via `next/font` |
+| Fonts | Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text), the system monospace stack for technical figures. All self-hosted: the Latin faces through `next/font`, the Arabic faces from `src/fonts` (the same files, preloaded on Arabic pages only) |
 | Rendering | Static pages for every route in both languages (109 generated at build time) |
 
 ## Getting started
@@ -104,7 +106,7 @@ scripts/
   extract-profile-assets.py  Pulls photos/logos/certificates out of the company profile PDF
   generate-og.mjs            Renders the EN/AR Open Graph images from the built homepage (and the Apple touch icon)
 docs/ASSET_INVENTORY.md      Asset sources, redactions and items awaiting confirmation
-docs/reports/                Stage reports (latest: 2026-10-08, Stage 1I correction 3)
+docs/reports/                Stage reports (latest: 2026-10-08, Stage 1J release candidate)
 ```
 
 ### Languages and RTL
@@ -128,10 +130,9 @@ without changing any components. Unknown facts (client, year, location, material
 fields and are simply not shown. Nothing has been made up to fill them.
 
 `src/lib/page-meta.ts` is the approval gate. Each route is `planned` (routed, not built yet), `review` (built,
-awaiting approval) or `published`. Only published routes are indexed and listed in the sitemap (currently the
-homepage); `planned` and `review` routes are served with `noindex, follow`. When a stage is approved, set its routes to
-`published`. The inner pages, the projects overview, the service pages, Capabilities and the project pages are
-`review` (no route is `planned` any more); publishing waits for the Stage 1J launch approval.
+awaiting approval) or `published`. Only published routes are indexed and listed in the sitemap; `planned` and
+`review` routes are served with `noindex, follow`. Since Stage 1J every route is `published` (the release candidate:
+102 addresses in the sitemap); a new route starts as `planned` or `review` until its stage is approved.
 
 ### Theme engine
 
@@ -161,7 +162,9 @@ always `aria-hidden`.
   (micro-dots and one periodic light sweep, resting while the page scrolls or is hidden), and a precision pointer
   for a desktop mouse.
 - Nothing runs unseen: the hero loop, the signatures, the console's scans and the hot points rest off screen and
-  while the page is hidden. Keyboard focus shows what hover shows. Interface transitions take their durations from
+  while the page is hidden. Keyboard focus shows what hover shows, and inside a row that scrolls sideways (the machine
+  selectors, the projects' category bar, the phone rails) the row moves until the focused item shows whole. The theme
+  switch and page changes apply at once (no cross-fade: a fade took words below AA mid-way). Interface transitions take their durations from
   four tokens (180 / 320 / 600 / 900 ms); the projects filter moves only the cards (a view transition without a
   full-page capture).
 - **Reduced motion:** the finished plate and signatures at once, no loop, a still background and the system
@@ -173,7 +176,10 @@ Each page has a localized title and description, a canonical URL, `hreflang` alt
 x-default), Open Graph and Twitter tags with EN/AR share images, and JSON-LD: Organization +
 LocalBusiness + WebSite on the homepage, about and contact pages; a WebPage node (AboutPage,
 CollectionPage or ContactPage where it fits) and a BreadcrumbList on every inner page; Service on
-service routes. `sitemap.xml` includes language alternates.
+service routes. `sitemap.xml` lists every published page (102 addresses: the homepage, ten inner pages, six services
+and 34 projects, in both languages) with `en` / `ar` / `x-default` alternates; `robots.txt` allows everything and names
+the sitemap. The share images (`public/og/og-{en,ar}.png`) are drawn from the built homepage by
+`scripts/generate-og.mjs`.
 
 ### Quote form
 
@@ -255,7 +261,10 @@ frame), `commerce-anchors.spec.ts` (first jumps to an address's
 anchor with late fonts), `site.spec.ts` (internal links,
 nothing of the previous design on any page, which addresses reach which 404, the fallback 404 and its logo in forced
 colours),
-`stage-1c.spec.ts` (generic inner-page checks: routes, SEO and the noindex gate, breadcrumbs, overflow, keyboard,
+`commerce-fonts.spec.ts` (the Arabic faces preloaded on Arabic pages only, their files and no layout shift),
+`commerce-transitions.spec.ts` (the theme and page changes without a fade, the gallery's cards),
+`commerce-keyboard.spec.ts` (keyboard focus inside the sideways rows at 320 px, 390 px and 200 % zoom),
+`stage-1c.spec.ts` (generic inner-page checks: routes, SEO and the publication gate, breadcrumbs, overflow, keyboard,
 reduced motion, no-JS) and `commerce-home-depth.spec.ts` (the homepage in depth: the signatures, the hero plate's loop,
 the pointer, the themes' contrast and the background motion; it took over the retired lab's A V2 checks). In a cloud
 session
@@ -263,7 +272,7 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 ## Next stages
 
-1I motion and interaction polish built, its corrections 1 and 2 approved and correction 3 in review (1F, the project
-pages, is approved; 1G and 1H needed no
-batch: their pages and the Arabic site were already built) · 1J SEO/performance QA and release. Phase 2 (admin
-panel) follows Phase 1 approval.
+Stages 1A–1I are approved (1G and 1H needed no batch: their pages and the Arabic site were already built). Stage 1J,
+the release candidate (security, accessibility, SEO, performance and publication QA), is built and awaits independent
+approval (report `docs/reports/2026-10-08-stage-1j-release-candidate.md`); deployment happens only on the user's
+go-ahead. Phase 2 (admin panel) follows Phase 1 approval.

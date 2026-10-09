@@ -135,9 +135,9 @@ Redaction is a solid hatched block (nothing of the original survives). Thumbnail
     only engraving photo, `services/engraving-nameplates`, shows third-party (HITACHI) branding with
     legible part and serial numbers, and `engraving-wood` / `engraving-rotary` are renders; the page uses
     a drawn, engraved brass plate and material swatches instead. Please supply photos of RAWASY's own
-    engraved work (no third-party brands or data) or confirm permission for the nameplates photo. The
-    services overview (approved in V2) still uses the nameplates photo as the engraving cover and the
-    wood render as its second image.
+    engraved work (no third-party brands or data) or confirm permission for the nameplates photo. Since
+    Stage TM-2.4 the services overview shows the drawn engraving too (decision D6): no page shows the
+    nameplates photo or the two renders (checked on every built page in Stage 1J).
 13. **Service page imagery (Stage 1D).** The service pages add `site/welder-sparks` (fabrication hero),
     which looks like stock, to the photos listed in section 3 — please confirm its licence. Gallery
     captions describe only what is visible in each photo.
