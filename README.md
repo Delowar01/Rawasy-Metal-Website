@@ -293,20 +293,24 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
 
   `scripts/package-namecheap.mjs` (deployment only; Node 22.18 or later and `tar`) writes `../rawasy-app.tar.gz` with
   `server.js package.json package-lock.json next.config.ts tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src
-  public .next`, less `.next/cache`, the route cache a server writes into `.next/server/route-cache` and the photos
+  public .next`, less `.next/cache`, the route cache a server writes into `.next/server/route-cache` and the media
   RAWASY has held back, prints the `tar` command it ran, and writes the archive's listing beside it
-  (`../rawasy-app.tar.gz.txt`). The held-back photos come from `src/content/projects.ts` (`withheldMedia`, and every
-  photo of a project whose flags keep its photos off the website), each mapped to its file through the media registry;
-  today these ten files in `public/media/projects/`: `billboard-structure-1.webp`,
-  `canopy-tree-1.webp`, `laser-cut-bench-1.webp`, `lattice-cubes-1.webp`, `litter-bins-1.webp`, `litter-bins-2.webp`,
-  `litter-bins-3.webp`, `seed-sculpture-1.webp`, `stainless-landmark-1.webp`, `wheat-monument-1.webp`. They stay in Git;
-  only the archive leaves them out, so the host answers 404 for them. The script then checks the archive and, if any
-  check fails, deletes it and exits with an error: none of the held-back files is in it and no page refers to one; every
-  public file the pages, page data, styles and scripts refer to is in it; every sitemap page's HTML and page data are in
-  it with the public files they refer to; and it holds nothing else and lacks nothing else (no `.git`, `node_modules` —
-  the host installs its own: never upload one, least of all a Windows one —, `.next/cache`, `e2e`, `docs`, `scripts`,
-  test results, Playwright reports, screenshots, evidence or `.env` file). `node scripts/package-namecheap.mjs
-  --check=<archive>` re-checks an archive made from the same build before it is uploaded.
+  (`../rawasy-app.tar.gz.txt`). The held-back media are the photos `src/content/projects.ts` keeps off the website
+  (`withheldMedia`, and every photo of a project whose flags keep its photos off the website) and the three Laser
+  Engraving images the asset inventory keeps off every page (`docs/ASSET_INVENTORY.md`, item 12: the nameplates photo
+  with third-party branding and part and serial numbers, awaiting permission, and two renders), listed by media ID in
+  the script's `HELD_BACK_MEDIA`. Each is mapped to its file through the media registry; today these thirteen files:
+  in `public/media/projects/`, `billboard-structure-1.webp`, `canopy-tree-1.webp`, `laser-cut-bench-1.webp`,
+  `lattice-cubes-1.webp`, `litter-bins-1.webp`, `litter-bins-2.webp`, `litter-bins-3.webp`, `seed-sculpture-1.webp`,
+  `stainless-landmark-1.webp`, `wheat-monument-1.webp`; in `public/media/services/`, `engraving-nameplates.webp`,
+  `engraving-rotary.webp`, `engraving-wood.webp`. They stay in Git; only the archive leaves them out, so the host
+  answers 404 for them. The script then checks the archive and, if any check fails, deletes it and exits with an error:
+  none of the held-back files is in it and no page refers to one; every public file the pages, page data, styles and
+  scripts refer to is in it; every sitemap page's HTML and page data are in it with the public files they refer to; and
+  it holds nothing else and lacks nothing else (no `.git`, `node_modules` — the host installs its own: never upload one,
+  least of all a Windows one —, `.next/cache`, `e2e`, `docs`, `scripts`, test results, Playwright reports, screenshots,
+  evidence or `.env` file). `node scripts/package-namecheap.mjs --check=<archive>` re-checks an archive made from the
+  same build before it is uploaded.
 - **cPanel → Setup Node.js App → Create application:** Node.js version **22.x** · Application mode **Production** ·
   Application root **`rawasy-app`** (a folder in the account's home, never `public_html`) · Application URL
   **www.rawasymetal.com** with an empty path (the domain entry the panel lists for it) · Application startup file
@@ -322,8 +326,8 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
 - **Smoke checklist** after every start: `/` answers 307 to `/en` (`/ar` for an Arabic browser); `/en`, `/ar`, a service,
   `/en/capabilities`, a project page, `/en/contact` and `/en/privacy` answer 200 with their page; `/en/not-a-page` shows
   the 404 page with status 404; `/sitemap.xml` lists 102 `https://www.rawasymetal.com/` addresses and `/robots.txt` names
-  it; `/media/projects/clock-tower-1.webp` answers 200 and a held-back photo such as
-  `/media/projects/wheat-monument-1.webp` answers 404;
+  it; `/media/projects/clock-tower-1.webp` answers 200 and held-back media such as
+  `/media/projects/wheat-monument-1.webp` and `/media/services/engraving-nameplates.webp` answer 404;
   `/_next/image?url=%2Fmedia%2Fprojects%2Fclock-tower-1.webp&w=640&q=75` opened in a browser comes back as WebP (`sharp`
   needs glibc 2.28 or later: `ldd --version` in cPanel's Terminal); HTTPS works on rawasymetal.com and www.rawasymetal.com.
   The first request after a start or an idle spell is slower: Passenger starts the app on demand.
@@ -350,7 +354,9 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
   `warm-images-report.json`. Locally the 1,484 sizes took about 100 s; a second run, all cached, 3 s. If anything failed
   or timed out, read the report first: a size that timed out is the defect above, so **Restart** the app in cPanel, then
   ask again for exactly those sizes with `node scripts/warm-images.mjs https://www.rawasymetal.com
-  --retry=warm-images-report.json`. Never loop it, schedule it or run several at once, and never load-test the host.
+  --retry=warm-images-report.json`. Launch order: Start App, the smoke checklist, the warm-up until it reports 0 failed
+  and 0 timed out, and only then normal traffic. Never loop it, schedule it or run several at once, and never load-test
+  the host.
   Shared hosting has resource limits: watch cPanel → Metrics → **Resource Usage** (CPU, physical memory, entry
   processes, number of processes, I/O) during and after the warm-up.
 - **DNS:** change nothing (nameservers or records) until the current nameservers, MX, SPF, DKIM, DMARC, A and CNAME

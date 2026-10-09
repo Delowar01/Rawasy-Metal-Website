@@ -9,11 +9,12 @@
  *   node scripts/package-namecheap.mjs --check=<archive>   only checks an archive made from this folder's build
  *
  * The archive holds what the host needs to run the build with `node server.js` (the README's "Namecheap Stellar Plus
- * deployment"), less the photos RAWASY has held back: `withheldMedia` and every photo of a project whose flags keep its
- * photos off the website (`projectDetailMedia` shows none of them), from src/content/projects.ts, each mapped to its
- * file through the media registry (src/content/media.generated.ts). The pages never show them; without the files the
- * host cannot serve them either. Pack right after the build; a server that has run on this folder wrote its route cache
- * into `.next/server/route-cache`, which the archive leaves out like `.next/cache` (nothing else in `.next` changes).
+ * deployment"), less the media RAWASY has held back: from src/content/projects.ts, `withheldMedia` and every photo of a
+ * project whose flags keep its photos off the website (`projectDetailMedia` shows none of them); and the Laser Engraving
+ * images listed in HELD_BACK_MEDIA below (the asset inventory's policy). Each is mapped to its file through the media
+ * registry (src/content/media.generated.ts). The pages never show them; without the files the host cannot serve them
+ * either. Pack right after the build; a server that has run on this folder wrote its route cache into
+ * `.next/server/route-cache`, which the archive leaves out like `.next/cache` (nothing else in `.next` changes).
  *
  * The archive's listing is written beside it (<archive>.txt). The check fails (and a packing run deletes the archive)
  * unless:
@@ -44,6 +45,15 @@ const INCLUDE = ["server.js", "package.json", "package-lock.json", "next.config.
   "postcss.config.mjs", ".nvmrc", "src", "public", ".next"];
 /** Left behind: the build cache (the host fills its own) and the route cache a server writes into `.next` as it runs. */
 const SKIP = [".next/cache", ".next/server/route-cache"];
+/**
+ * Media the asset inventory keeps off every page that no content rule derives (docs/ASSET_INVENTORY.md, open question
+ * 12; decision D6): the Laser Engraving images. `services/engraving-nameplates` shows third-party (HITACHI) branding with
+ * legible part and serial numbers and awaits RAWASY's permission; `services/engraving-wood` and
+ * `services/engraving-rotary` are renders. The Laser Engraving page and the services overview draw an engraved plate
+ * instead. Media IDs, mapped to files through the registry like the project photos; take an ID out only once RAWASY
+ * approves showing that image.
+ */
+const HELD_BACK_MEDIA = ["services/engraving-nameplates", "services/engraving-wood", "services/engraving-rotary"];
 /** Never in an archive for the host. */
 const FORBIDDEN =
   /^(?:node_modules|\.git|\.next\/cache|\.next\/server\/route-cache|e2e|docs|scripts|test-results|playwright-report)(?:\/|$)|(?:^|\/)\.env(?:\.|$)/;
@@ -70,23 +80,27 @@ const walk = (rel) =>
   lstatSync(join(root, rel)).isDirectory() ? readdirSync(join(root, rel)).sort().flatMap((name) => walk(`${rel}/${name}`)) : [rel];
 const skipped = (rel) => SKIP.some((p) => rel === p || rel.startsWith(`${p}/`));
 
-// The held-back photos and their files: the registry's own paths, never a guessed name.
-const heldIds = new Set(withheldMedia);
+// The held-back media and their files: the registry's own paths, never a guessed name. An ID the registry does not
+// know, or whose file is missing, stops the run before anything is packed.
+const heldFrom = new Map(withheldMedia.map((id) => [id, "projects.ts"]));
 for (const project of projects) {
   const shown = new Set(projectDetailMedia(project));
-  for (const id of project.media) if (!shown.has(id)) heldIds.add(id);
+  for (const id of project.media) if (!shown.has(id)) heldFrom.set(id, "projects.ts");
 }
-const held = [...heldIds].sort().map((id) => {
+for (const id of HELD_BACK_MEDIA) heldFrom.set(id, "asset inventory, item 12");
+const heldIds = [...heldFrom.keys()].sort();
+const held = heldIds.map((id) => {
   const src = mediaRegistry[id]?.src;
   if (!src || !existsSync(join(root, "public", src))) {
-    console.error(`${id}: ${src ? `public${src} does not exist` : "not in the media registry"}`);
+    console.error(`${id}: ${src ? `public${src} does not exist` : "not in the media registry"}. FAIL: nothing was packed.`);
     process.exit(1);
   }
   return `public${src}`;
 });
 
-console.log(`Held back (${held.length} files: projects.ts through the media registry):`);
-for (const file of held) console.log(`  ${file}`);
+console.log(`Held back (${held.length} files, through the media registry):`);
+const width = Math.max(...held.map((f) => f.length));
+held.forEach((file, i) => console.log(`  ${file.padEnd(width)}  ${heldFrom.get(heldIds[i])}`));
 
 if (!checkOnly) {
   if (INCLUDE.some((p) => out.startsWith(join(root, p) + sep))) {
