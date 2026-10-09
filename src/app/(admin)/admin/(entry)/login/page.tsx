@@ -12,6 +12,7 @@ const NOTICES: Record<string, { tone: "info" | "success" | "warning"; text: stri
   reset: { tone: "success", text: "Your password was changed. Sign in with the new password." },
   welcome: { tone: "success", text: "Your account is ready. Sign in with your new password." },
   ended: { tone: "warning", text: "Your sign-in could not be completed. Start again." },
+  session_ended: { tone: "warning", text: "Your session has ended. Sign in again." },
 };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;

@@ -11,7 +11,7 @@ import { completePasswordReset, requestPasswordReset } from "@/server/auth/passw
 import { reauthenticate, rotateIfDue, signIn, signOut, verifySecondFactor } from "@/server/auth/sign-in";
 import { PASSWORD_MESSAGES } from "@/server/security/password-policy";
 import { clearSessionCookie, getAdminState, guarded, writeSessionCookie } from "../context";
-import { actionContext, failure, publicActionContext, type ActionState } from "../guards";
+import { actionContext, failure, LOCKED_MESSAGE, publicActionContext, type ActionState } from "../guards";
 import { safeNext } from "../paths";
 
 const SIGN_IN_FAILED =
@@ -144,6 +144,7 @@ export async function reauthenticateAction(_prev: ActionState, form: FormData): 
   const input = z.object({ password: text(1024), code: text(64) }).safeParse({ password: form.get("password") ?? "", code: form.get("code") ?? "" });
   if (!input.success) return failure("Enter your password.");
   const result = await guarded(() => reauthenticate(deps, actor, input.data, meta));
+  if (result.kind === "locked") return failure(LOCKED_MESSAGE);
   if (result.kind === "unavailable") return failure("Two-factor verification is unavailable right now. Use a recovery code.");
   if (result.kind === "failed") {
     if (result.locked) {

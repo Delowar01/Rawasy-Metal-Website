@@ -123,7 +123,22 @@ export interface RotateOptions extends ClientInfo {
   fullLifetime?: boolean;
 }
 
-/** Replaces a session by a new one (new token). Run inside a transaction. */
+/**
+ * The session a request started with was revoked meanwhile (sign-out, "sign out everywhere", a password or role change
+ * in another request), so it cannot be rotated: the request must end as signed out.
+ */
+export class SessionEndedError extends Error {
+  constructor() {
+    super("The session ended while this request was running.");
+    this.name = "SessionEndedError";
+  }
+}
+
+/**
+ * Replaces a session by a new one (new token). Run inside a transaction: the old row is claimed first (only while it is
+ * still live), so a revocation committed by another request is never undone by a successor; otherwise
+ * `SessionEndedError` rolls the transaction back.
+ */
 export async function rotateSession(db: Db, old: SessionRow, options: RotateOptions): Promise<{ token: string; session: SessionRow }> {
   const { now } = options;
   const token = randomToken();
@@ -146,11 +161,12 @@ export async function rotateSession(db: Db, old: SessionRow, options: RotateOpti
     revokedReason: null,
     replacedById: null,
   };
-  await db.insert(sessions).values(session);
-  await db
+  const [claimed] = await db
     .update(sessions)
     .set({ revokedAt: now, revokedReason: "rotated", replacedById: session.id })
     .where(and(eq(sessions.id, old.id), isNull(sessions.revokedAt)));
+  if (claimed.affectedRows !== 1) throw new SessionEndedError();
+  await db.insert(sessions).values(session);
   return { token, session };
 }
 

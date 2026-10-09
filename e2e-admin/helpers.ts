@@ -164,20 +164,30 @@ export async function verify(page: Page, secret: string) {
   await page.waitForURL((url) => !url.pathname.startsWith("/admin/login"));
 }
 
-/** Sets up 2FA on the enrolment form (required set-up or the Security page) and returns the secret and codes. */
-export async function enrol(page: Page, password: string): Promise<{ secret: string; codes: string[] }> {
+/** Starts a 2FA set-up (required set-up or the Security page): the password, then the QR code. */
+export async function beginSetUp(page: Page, password: string) {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("img", { name: /QR code/ }).waitFor();
+}
+
+/** Confirms a started set-up with a first code from its key; returns the secret and the recovery codes. */
+export async function finishSetUp(page: Page, confirm = "Turn on two-factor authentication"): Promise<{ secret: string; codes: string[] }> {
   await page.getByRole("button", { name: /Show the key/ }).click();
   const secret = ((await page.getByLabel("Setup key").textContent()) ?? "").replace(/\s/g, "");
   expect(secret).toMatch(/^[A-Z2-7]{32}$/);
   await page.getByLabel("6-digit code").fill(await freshCode(secret));
-  await page.getByRole("button", { name: "Turn on two-factor authentication" }).click();
+  await page.getByRole("button", { name: confirm }).click();
   await page.getByRole("heading", { name: "Save your recovery codes" }).waitFor();
   const codes = await page.locator(".adm-codes li").allTextContents();
   expect(codes).toHaveLength(10);
   return { secret, codes };
+}
+
+/** Sets up 2FA on the enrolment form (required set-up or the Security page) and returns the secret and codes. */
+export async function enrol(page: Page, password: string): Promise<{ secret: string; codes: string[] }> {
+  await beginSetUp(page, password);
+  return finishSetUp(page);
 }
 
 /** Confirms identity on a step-up gate when it is shown. */

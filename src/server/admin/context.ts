@@ -5,11 +5,11 @@
  */
 import "server-only";
 import { cookies, headers } from "next/headers";
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 import { mfaStateOf, principalOf, type MfaState, type UserRow } from "@/server/auth/accounts";
 import { createAuthDeps, type AuthDeps } from "@/server/auth/deps";
-import { findSessionByToken, SESSION_COOKIE, touchSession, type SessionRow } from "@/server/auth/sessions";
+import { findSessionByToken, SESSION_COOKIE, SessionEndedError, touchSession, type SessionRow } from "@/server/auth/sessions";
 import type { Actor, RequestMeta } from "@/server/auth/types";
 import { adminBaseUrl, trustedProxyHops } from "@/server/config/env";
 import { describeDbError, getPool } from "@/server/db/pool";
@@ -32,12 +32,17 @@ export class AdminUnavailableError extends Error {
   }
 }
 
-/** Runs database work, turning a driver error into a code-only error (redirects and not-found pass through). */
+/**
+ * Runs database work, turning a driver error into a code-only error (redirects and not-found pass through). A session
+ * revoked while the request ran (a rotation found it ended: signed out elsewhere, password or role changed) ends the
+ * request as signed out.
+ */
 export async function guarded<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
     unstable_rethrow(error);
+    if (error instanceof SessionEndedError) redirect("/admin/login?session_ended=1");
     throw new AdminUnavailableError(error);
   }
 }

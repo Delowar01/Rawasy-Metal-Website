@@ -64,6 +64,16 @@ describe("client IP (X-Forwarded-For)", () => {
     assert.equal(resolveClientIp(null, 1), null);
     assert.equal(resolveClientIp("", 0), null);
   });
+
+  test("the address is picked by its raw position, then validated: a malformed entry never shifts a client's into place", () => {
+    // The proxy that should have written the client's address wrote something else: no address, never the left one.
+    assert.equal(resolveClientIp("203.0.113.9, unknown, 10.0.0.2", 2), null);
+    assert.equal(resolveClientIp("203.0.113.9,, 10.0.0.2", 2), null);
+    assert.equal(resolveClientIp("6.6.6.6, 203.0.113.9, unknown", 1), null);
+    assert.equal(resolveClientIp("6.6.6.6, not-an-ip", 0), null);
+    // Malformed entries to the left (client-written) do not matter.
+    assert.equal(resolveClientIp("garbage,, 6.6.6.6, 203.0.113.9, 10.0.0.2", 2), "203.0.113.9");
+  });
 });
 
 describe("passwords", () => {

@@ -11,17 +11,18 @@
  */
 import { isIP } from "node:net";
 
-/** One header value (several headers are joined with commas by Node). Returns null when no usable address exists. */
+/**
+ * One header value (several headers are joined with commas by Node). The entry is picked by its raw position first and
+ * only then validated: dropping malformed entries before counting would let a client-written entry slide into the
+ * trusted position when a proxy writes something that is not an address (e.g. "unknown"). Returns null when the entry
+ * at that position is not a usable address, or when there are fewer entries than trusted proxies.
+ */
 export function resolveClientIp(forwardedFor: string | null | undefined, hops: number): string | null {
   if (!forwardedFor) return null;
-  const entries = forwardedFor
-    .split(",")
-    .map((part) => normalizeIp(part))
-    .filter((part): part is string => part !== null);
-  if (entries.length === 0) return null;
+  const entries = forwardedFor.split(",");
   const index = hops === 0 ? entries.length - 1 : entries.length - hops;
   if (index < 0) return null; // fewer entries than trusted proxies: the request did not come through them
-  return entries[index] ?? null;
+  return normalizeIp(entries[index] ?? "");
 }
 
 /** Trims, removes a port or brackets, unwraps IPv4-mapped IPv6 (::ffff:1.2.3.4), and validates. */

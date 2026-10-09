@@ -7,7 +7,7 @@ import { dbFor } from "../../src/server/db/client.ts";
 import { auditEvents, loginAttempts, sessions, users } from "../../src/server/db/schema.ts";
 import { createPasswordHasher } from "../../src/server/security/password.ts";
 import { sha256 } from "../../src/server/security/ids.ts";
-import { createUser, meta, setupTestEnv, type TestEnv } from "./helpers.ts";
+import { createUser, meta, setupTestEnv, strongPassword, type TestEnv } from "./helpers.ts";
 
 const MIN = 60_000;
 let env: TestEnv;
@@ -168,5 +168,33 @@ describe("password hashes", () => {
     const [afterRow] = await dbFor(env.pool).select().from(users).where(eq(users.id, user.id));
     assert.match(afterRow.passwordHash ?? "", /^\$argon2id\$v=19\$m=19456,t=2,p=1\$/);
     assert.equal((await signIn(env.deps, { email: user.email, password: user.password }, meta())).kind, "signed_in");
+    const audited = await dbFor(env.pool)
+      .select()
+      .from(auditEvents)
+      .where(and(eq(auditEvents.action, "auth.password_rehashed"), eq(auditEvents.entityId, user.id)));
+    assert.equal(audited.length, 1);
+  });
+
+  test("the rehash never overwrites a password changed while it was being computed", async () => {
+    const user = await createUser(env, { roles: ["reviewer"], hasher: createPasswordHasher("scrypt") });
+    const changed = await env.deps.hasher.hash(strongPassword());
+    // A hasher whose rehash lets a password change (or reset) commit before the new hash is written.
+    const base = env.deps.hasher;
+    const hasher = {
+      ...base,
+      async hash(password: string) {
+        const rehashed = await base.hash(password);
+        await dbFor(env.pool).update(users).set({ passwordHash: changed }).where(eq(users.id, user.id));
+        return rehashed;
+      },
+    };
+    assert.equal((await signIn({ ...env.deps, hasher }, { email: user.email, password: user.password }, meta())).kind, "signed_in");
+    const [row] = await dbFor(env.pool).select().from(users).where(eq(users.id, user.id));
+    assert.equal(row.passwordHash, changed);
+    const audited = await dbFor(env.pool)
+      .select()
+      .from(auditEvents)
+      .where(and(eq(auditEvents.action, "auth.password_rehashed"), eq(auditEvents.entityId, user.id)));
+    assert.equal(audited.length, 0);
   });
 });

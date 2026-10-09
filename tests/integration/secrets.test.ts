@@ -55,9 +55,9 @@ test("no password, token, TOTP secret, code or recovery code is stored in clear 
     assert.equal(begun.kind, "ok");
     if (begun.kind !== "ok") return;
     const secret = base32Decode(begun.secret);
-    secrets.push(begun.secret, secret.toString("hex"), secret.toString("base64"), secret.toString("latin1"));
+    secrets.push(begun.secret, secret.toString("hex"), secret.toString("base64"), secret.toString("latin1"), begun.pending);
     const enrolCode = totpCode(secret, env.deps.clock().getTime());
-    const confirmed = await confirmEnrolment(env.deps, current, { code: enrolCode }, meta());
+    const confirmed = await confirmEnrolment(env.deps, current, { code: enrolCode, pending: begun.pending }, meta());
     assert.equal(confirmed.kind, "ok");
     if (confirmed.kind !== "ok") return;
     secrets.push(confirmed.token, ...confirmed.recoveryCodes, ...confirmed.recoveryCodes.map((c) => c.replace("-", "")));

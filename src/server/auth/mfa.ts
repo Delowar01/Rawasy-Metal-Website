@@ -5,10 +5,16 @@
  * The TOTP secret is encrypted with the active AUTH_ENCRYPTION_KEY (AES-256-GCM, bound to the user's row) and stamped
  * with the key's version; it is shown to the user once, at enrolment, as a QR code and a text key, and is never logged.
  * Recovery codes: 10 single-use codes of 10 characters (50 random bits each), shown once, stored as SHA-256.
+ *
+ * A set-up in progress is not stored: the new secret travels to the browser and back sealed (AES-256-GCM with the same
+ * key, bound to the user, the session, its 10-minute expiry and whether it replaces an authenticator), and the
+ * `user_mfa` row is written only when a first valid code confirms it. Until then the current authenticator (if any)
+ * keeps working, so an abandoned replacement never leaves the account without its second factor.
  */
 import { randomInt } from "node:crypto";
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { asc, eq, ne, sql } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
+import type { KeyRing } from "../config/env.ts";
 import { inTransaction, type Db } from "../db/client.ts";
 import { userMfa, userRecoveryCodes, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
@@ -17,7 +23,7 @@ import { ulid } from "../security/ids.ts";
 import { generateTotpSecret, otpauthUri, base32Encode, verifyTotp } from "../security/totp.ts";
 import { mfaStateOf, type UserRow } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
-import { registerFailure, recoveryCodeHash } from "./sign-in.ts";
+import { isAccountLocked, registerFailure, recoveryCodeHash } from "./sign-in.ts";
 import { revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
 import { issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
@@ -57,15 +63,62 @@ interface Current {
   roles: string[];
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// The sealed set-up in progress
+
+/** How long a started set-up can be confirmed. */
+export const PENDING_ENROLMENT_MS = 10 * 60 * 1000;
+
+const SEALED = /^(\d{1,3})\.(\d{13})\.([01])\.([A-Za-z0-9_-]{64})$/;
+
+interface PendingBinding {
+  userId: string;
+  sessionId: string;
+}
+
+const pendingData = (bind: PendingBinding, expiresAt: number, replace: boolean) =>
+  `mfa_pending:${bind.userId}:${bind.sessionId}:${expiresAt}:${replace ? 1 : 0}`;
+
+/** Seals a new secret for the browser: "<key version>.<expiry ms>.<replace 0|1>.<base64url of iv | tag | ciphertext>". */
+export function sealPendingEnrolment(ring: KeyRing, secret: Buffer, bind: PendingBinding, now: Date, replace: boolean): string {
+  const expiresAt = now.getTime() + PENDING_ENROLMENT_MS;
+  const { blob, version } = encryptSecret(ring, secret, pendingData(bind, expiresAt, replace));
+  return `${version}.${expiresAt}.${replace ? 1 : 0}.${blob.toString("base64url")}`;
+}
+
+/**
+ * Opens a sealed set-up: null when it is malformed, expired, tampered with, sealed for another user or session, or its
+ * key version is no longer configured.
+ */
+export function openPendingEnrolment(ring: KeyRing, sealed: string, bind: PendingBinding, now: Date): { secret: Buffer; replace: boolean } | null {
+  const match = SEALED.exec(sealed);
+  if (!match) return null;
+  const expiresAt = Number(match[2]);
+  if (expiresAt <= now.getTime() || expiresAt > now.getTime() + PENDING_ENROLMENT_MS) return null;
+  const replace = match[3] === "1";
+  try {
+    const secret = decryptSecret(ring, Buffer.from(match[4], "base64url"), Number(match[1]), pendingData(bind, expiresAt, replace));
+    if (secret.length === 20) return { secret, replace };
+    secret.fill(0);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 export type BeginEnrolmentResult =
-  | { kind: "ok"; secret: string; uri: string }
+  | { kind: "ok"; secret: string; uri: string; pending: string }
   | { kind: "failed"; locked: boolean }
+  /** The account is locked: the password is not checked until the lock ends. */
+  | { kind: "locked" }
   | { kind: "already_enrolled" };
 
 /**
- * Starts enrolment after the password is confirmed: a new secret, stored encrypted and unconfirmed, replacing any
- * earlier unconfirmed one. With `replace` (and a recent re-authentication checked by the caller), a confirmed
- * authenticator is replaced too — it stops working at once, and the new one must be confirmed.
+ * Starts enrolment after the password is confirmed (never checked while the account is locked): a new secret, shown
+ * to the user and returned sealed, nothing stored. With `replace` (and a recent re-authentication checked by the
+ * caller), it will replace a confirmed authenticator — which keeps working until the new one is confirmed.
  */
 export async function beginEnrolment(
   deps: AuthDeps,
@@ -75,6 +128,7 @@ export async function beginEnrolment(
 ): Promise<BeginEnrolmentResult> {
   const now = deps.clock();
   const { user } = current;
+  if (await isAccountLocked(deps.db, user.id, now)) return { kind: "locked" };
   if (!user.passwordHash || !(await deps.hasher.verify(user.passwordHash, String(input.password ?? "")))) {
     const { locked } = await registerFailure(deps, user, "bad_credentials", meta, {
       action: "auth.reauth_failed",
@@ -85,51 +139,64 @@ export async function beginEnrolment(
   }
   const state = await mfaStateOf(deps.db, user.id, current.roles);
   if (state.enrolled && !input.replace) return { kind: "already_enrolled" };
-  const ring = deps.keyRing();
+  const replace = state.enrolled;
   const secret = generateTotpSecret();
-  const { blob, version } = encryptSecret(ring, secret, associatedData(user.id));
-  await inTransaction(deps.pool, async (tx) => {
-    await tx.delete(userMfa).where(eq(userMfa.userId, user.id));
-    await tx.insert(userMfa).values({ userId: user.id, totpSecretEnc: blob, keyVersion: version, confirmedAt: null, lastUsedStep: null, createdAt: now });
-    await recordAudit(tx, {
-      at: now,
-      requestId: meta.requestId,
-      actor: auditActorOf(current),
-      ip: meta.ip,
-      action: state.enrolled ? "auth.mfa_replacement_started" : "auth.mfa_enrolment_started",
-      entity: { type: "user", id: user.id, label: userLabel(user) },
-      outcome: "success",
-      summary: state.enrolled
-        ? "Started replacing the authenticator app (the previous one no longer works)."
-        : "Started setting up two-factor authentication.",
-    });
+  const pending = sealPendingEnrolment(deps.keyRing(), secret, { userId: user.id, sessionId: current.session.id }, now, replace);
+  await recordAudit(deps.db, {
+    at: now,
+    requestId: meta.requestId,
+    actor: auditActorOf(current),
+    ip: meta.ip,
+    action: replace ? "auth.mfa_replacement_started" : "auth.mfa_enrolment_started",
+    entity: { type: "user", id: user.id, label: userLabel(user) },
+    outcome: "success",
+    summary: replace
+      ? "Started replacing the authenticator app (the current one keeps working until the new one is confirmed)."
+      : "Started setting up two-factor authentication.",
   });
-  const result = { kind: "ok" as const, secret: base32Encode(secret), uri: otpauthUri(secret, user.email) };
+  const result = { kind: "ok" as const, secret: base32Encode(secret), uri: otpauthUri(secret, user.email), pending };
   secret.fill(0);
   return result;
 }
 
 export type ConfirmEnrolmentResult =
-  | { kind: "ok"; recoveryCodes: string[]; token: string; session: SessionRow }
+  | { kind: "ok"; recoveryCodes: string[]; token: string; session: SessionRow; replaced: boolean }
   | { kind: "invalid" }
+  /** Nothing to confirm: the set-up expired, belongs to another session, or 2FA was set up elsewhere meanwhile. */
   | { kind: "none" };
 
-/** Confirms enrolment with a first valid code: activates 2FA, issues recovery codes, signs out other sessions. */
-export async function confirmEnrolment(deps: AuthDeps, current: Current, input: { code: string }, meta: RequestMeta): Promise<ConfirmEnrolmentResult> {
+/**
+ * Confirms a sealed set-up with a first valid code. One transaction holding the user's row stores the new secret
+ * (replacing the previous authenticator, if this set-up was started as a replacement), issues new recovery codes, signs
+ * out the user's other sessions and rotates this one.
+ */
+export async function confirmEnrolment(
+  deps: AuthDeps,
+  current: Current,
+  input: { code: string; pending: string },
+  meta: RequestMeta,
+): Promise<ConfirmEnrolmentResult> {
   const now = deps.clock();
   const { user } = current;
-  const [row] = await deps.db.select().from(userMfa).where(eq(userMfa.userId, user.id)).limit(1);
-  if (!row || row.confirmedAt) return { kind: "none" };
-  const secret = decryptSecret(deps.keyRing(), row.totpSecretEnc, row.keyVersion, associatedData(user.id));
-  const step = verifyTotp(secret, String(input.code ?? ""), now.getTime(), null);
-  secret.fill(0);
-  if (step === null) return { kind: "invalid" };
+  const ring = deps.keyRing();
+  const opened = openPendingEnrolment(ring, String(input.pending ?? ""), { userId: user.id, sessionId: current.session.id }, now);
+  if (!opened) return { kind: "none" };
+  const step = verifyTotp(opened.secret, String(input.code ?? ""), now.getTime(), null);
+  if (step === null) {
+    opened.secret.fill(0);
+    return { kind: "invalid" };
+  }
+  const { blob, version } = encryptSecret(ring, opened.secret, associatedData(user.id));
+  opened.secret.fill(0);
   const outcome = await inTransaction(deps.pool, async (tx) => {
-    const [updated] = await tx
-      .update(userMfa)
-      .set({ confirmedAt: now, lastUsedStep: step })
-      .where(and(eq(userMfa.userId, user.id), sql`${userMfa.confirmedAt} IS NULL`));
-    if (updated.affectedRows !== 1) return null;
+    const [locked] = await tx.select({ id: users.id }).from(users).where(eq(users.id, user.id)).for("update");
+    if (!locked) return null;
+    const [existing] = await tx.select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, user.id));
+    const replaced = Boolean(existing?.confirmedAt);
+    // A first set-up never replaces an authenticator confirmed meanwhile (in another window): it must be started again.
+    if (replaced && !opened.replace) return null;
+    await tx.delete(userMfa).where(eq(userMfa.userId, user.id));
+    await tx.insert(userMfa).values({ userId: user.id, totpSecretEnc: blob, keyVersion: version, confirmedAt: now, lastUsedStep: step, createdAt: now });
     const recoveryCodes = await replaceRecoveryCodes(tx, user.id, now);
     const others = await revokeUserSessions(tx, user.id, "revoked", now, current.session.id);
     const rotated = await rotateSession(tx, current.session, { now, ...meta, mfaVerified: true, reauthenticated: true });
@@ -138,15 +205,24 @@ export async function confirmEnrolment(deps: AuthDeps, current: Current, input: 
       requestId: meta.requestId,
       actor: auditActorOf({ ...current, session: rotated.session }),
       ip: meta.ip,
-      action: "auth.mfa_enabled",
+      action: replaced ? "auth.mfa_replaced" : "auth.mfa_enabled",
       entity: { type: "user", id: user.id, label: userLabel(user) },
       outcome: "success",
-      summary: `Two-factor authentication turned on; ${RECOVERY_CODE_COUNT} recovery codes issued; ${others} other session(s) signed out.`,
+      summary: `${replaced ? "Authenticator app replaced" : "Two-factor authentication turned on"}; ${RECOVERY_CODE_COUNT} recovery codes issued; ${others} other session(s) signed out.`,
     });
-    return { recoveryCodes, ...rotated };
+    return { recoveryCodes, replaced, ...rotated };
   });
   if (!outcome) return { kind: "none" };
-  await sendQuietly(deps.mailer, mailTemplates.securityNotice(user.email, user.displayName, "Two-factor authentication was turned on for your account."));
+  await sendQuietly(
+    deps.mailer,
+    mailTemplates.securityNotice(
+      user.email,
+      user.displayName,
+      outcome.replaced
+        ? "The authenticator app of your account was replaced; the previous one no longer works."
+        : "Two-factor authentication was turned on for your account.",
+    ),
+  );
   return { kind: "ok", ...outcome };
 }
 

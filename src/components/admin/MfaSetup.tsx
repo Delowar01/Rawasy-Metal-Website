@@ -1,22 +1,26 @@
 "use client";
 /**
  * Setting up two-factor authentication: (1) confirm the password, (2) scan the QR code or type the key, enter a first
- * code. The recovery codes that result are handed to the parent panel, which shows them once.
+ * code within 10 minutes. The recovery codes that result are handed to the parent panel, which shows them once.
  */
 import { useActionState, useState } from "react";
 import { beginEnrolmentAction, confirmEnrolmentAction, type EnrolmentState } from "@/server/admin/actions/account";
 import { idle } from "@/server/admin/actions/state";
 import { Field, FormAlert, SubmitButton } from "./forms";
 
-export function MfaSetup({
-  replace = false,
-  onEnabled,
-  onStepUp,
-}: {
+interface Props {
   replace?: boolean;
   onEnabled: (codes: string[]) => void;
   onStepUp?: () => void;
-}) {
+}
+
+/** A set-up that can no longer be confirmed starts again from the password, in a fresh copy of the flow. */
+export function MfaSetup(props: Props) {
+  const [attempt, setAttempt] = useState(0);
+  return <SetupFlow key={attempt} {...props} onRestart={() => setAttempt((n) => n + 1)} />;
+}
+
+function SetupFlow({ replace = false, onEnabled, onStepUp, onRestart }: Props & { onRestart: () => void }) {
   // The parent learns the outcome from the action itself (no effect that copies state around).
   const [begun, begin] = useActionState(async (previous: EnrolmentState, form: FormData) => {
     const result = await beginEnrolmentAction(previous, form);
@@ -30,13 +34,13 @@ export function MfaSetup({
   }, idle as EnrolmentState);
   const [showKey, setShowKey] = useState(false);
 
-  if (begun.status !== "ok" || !begun.qr || !begun.secret) {
+  if (begun.status !== "ok" || !begun.qr || !begun.secret || !begun.pending) {
     return (
       <form action={begin} className="adm-form" noValidate>
         <FormAlert state={begun} />
         <p>
           {replace
-            ? "Replacing the authenticator app stops the current one at once. Confirm your password to start."
+            ? "Your current authenticator app keeps working until the new one is confirmed. Confirm your password to start."
             : "Confirm your password to start. You will need an authenticator app (for example Google Authenticator, Microsoft Authenticator, 1Password or Bitwarden)."}
         </p>
         {replace ? <input type="hidden" name="replace" value="1" /> : null}
@@ -48,12 +52,25 @@ export function MfaSetup({
     );
   }
 
+  if (confirmed.expired) {
+    return (
+      <div className="adm-form">
+        <FormAlert state={confirmed} />
+        <div className="adm-actions">
+          <button type="button" className="adm-btn is-primary" onClick={onRestart}>
+            Start again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const { qr } = begun;
   return (
     <div className="adm-form">
       <ol className="adm-steps">
         <li>Open your authenticator app and add an account by scanning this QR code.</li>
-        <li>Enter the 6-digit code the app shows.</li>
+        <li>Enter the 6-digit code the app shows (within 10 minutes).</li>
       </ol>
       <svg
         className="adm-qr"
@@ -76,6 +93,7 @@ export function MfaSetup({
       </div>
       <form action={confirm} className="adm-form" noValidate>
         <FormAlert state={confirmed} />
+        <input type="hidden" name="pending" value={begun.pending} />
         <Field
           label="6-digit code"
           name="code"
@@ -88,7 +106,7 @@ export function MfaSetup({
           autoFocus
         />
         <div className="adm-actions">
-          <SubmitButton pending="Checking…">Turn on two-factor authentication</SubmitButton>
+          <SubmitButton pending="Checking…">{replace ? "Use the new authenticator app" : "Turn on two-factor authentication"}</SubmitButton>
         </div>
       </form>
     </div>

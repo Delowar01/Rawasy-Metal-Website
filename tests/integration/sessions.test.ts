@@ -6,12 +6,14 @@ import { changePassword } from "../../src/server/auth/passwords.ts";
 import {
   createSession,
   findSessionByToken,
+  isRecentlyAuthenticated,
   listLiveSessions,
   revokeSession,
   rotateSession,
+  SessionEndedError,
   touchSession,
 } from "../../src/server/auth/sessions.ts";
-import { rotateIfDue, signIn, signOut } from "../../src/server/auth/sign-in.ts";
+import { reauthenticate, rotateIfDue, signIn, signOut } from "../../src/server/auth/sign-in.ts";
 import { setUserRoles, setUserStatus } from "../../src/server/auth/user-admin.ts";
 import { dbFor, inTransaction } from "../../src/server/db/client.ts";
 import { sessions, users } from "../../src/server/db/schema.ts";
@@ -118,6 +120,37 @@ describe("rotation", () => {
     assert.equal(rotated.session.absoluteExpiresAt.getTime(), session.absoluteExpiresAt.getTime());
   });
 
+  test("a session revoked meanwhile is never rotated: no successor, the revocation stands, nothing else is written", async () => {
+    const user = await createUser(env, { roles: ["editor"] });
+    const actor = await actorFor(env, user);
+    // Signed out elsewhere after this request read its session, before it rotated it.
+    await revokeSession(dbFor(env.pool), actor.session.id, "logout", env.deps.clock());
+    const rotation = inTransaction(env.pool, (tx) => rotateSession(tx, actor.session, { now: env.deps.clock(), ip: null, userAgent: null }));
+    await assert.rejects(rotation, SessionEndedError);
+    await assert.rejects(reauthenticate(env.deps, actor, { password: user.password }, meta()), SessionEndedError);
+    const next = strongPassword();
+    await assert.rejects(changePassword(env.deps, actor, { currentPassword: user.password, newPassword: next }, meta()), SessionEndedError);
+    const rows = await dbFor(env.pool).select().from(sessions).where(eq(sessions.userId, user.id));
+    assert.equal(rows.length, 1, "no successor row");
+    assert.equal(rows[0].revokedReason, "logout");
+    assert.equal(rows[0].replacedById, null);
+    const [u] = await dbFor(env.pool).select().from(users).where(eq(users.id, user.id));
+    assert.ok(await env.deps.hasher.verify(u.passwordHash ?? "", user.password), "the password change was rolled back");
+    // The shell's periodic rotation simply has nothing to do.
+    env.clock.advance(30 * MIN);
+    assert.equal(await rotateIfDue(env.deps, actor.session, meta()), null);
+  });
+
+  test("two rotations of one session at once: one succeeds, the other finds it rotated (one successor)", async () => {
+    const user = await createUser(env, { roles: ["editor"] });
+    const { session } = await newSession(user.id);
+    env.clock.advance(30 * MIN);
+    const results = await Promise.all([rotateIfDue(env.deps, session, meta()), rotateIfDue(env.deps, session, meta())]);
+    assert.equal(results.filter(Boolean).length, 1);
+    const live = await listLiveSessions(dbFor(env.pool), user.id, env.deps.clock());
+    assert.equal(live.length, 1);
+  });
+
   test("signing in always issues a new session (no session fixation)", async () => {
     const user = await createUser(env, { roles: ["reviewer"] });
     const a = await signIn(env.deps, { email: user.email, password: user.password }, meta());
@@ -160,6 +193,24 @@ describe("revocation", () => {
     if (result.kind === "ok") {
       assert.equal(result.othersSignedOut, 1);
       assert.ok(await findSessionByToken(dbFor(env.pool), result.token, env.deps.clock()));
+    }
+  });
+
+  test("a password change opens the 10-minute step-up window only for an account without two-factor authentication", async () => {
+    const plain = await createUser(env, { roles: ["editor"] });
+    const plainActor = await actorFor(env, plain);
+    env.clock.advance(11 * MIN);
+    const a = await changePassword(env.deps, plainActor, { currentPassword: plain.password, newPassword: strongPassword() }, meta());
+    assert.equal(a.kind, "ok");
+    if (a.kind === "ok") assert.equal(isRecentlyAuthenticated(a.session, env.deps.clock()), true);
+    const withCode = await createUser(env, { roles: ["editor"], mfa: true });
+    const codeActor = await actorFor(env, withCode);
+    env.clock.advance(11 * MIN);
+    const b = await changePassword(env.deps, codeActor, { currentPassword: withCode.password, newPassword: strongPassword() }, meta());
+    assert.equal(b.kind, "ok");
+    if (b.kind === "ok") {
+      assert.equal(b.session.reauthenticatedAt.getTime(), codeActor.session.reauthenticatedAt.getTime());
+      assert.equal(isRecentlyAuthenticated(b.session, env.deps.clock()), false, "a sensitive action still needs the password and a code");
     }
   });
 

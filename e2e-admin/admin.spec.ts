@@ -7,9 +7,12 @@
 import { expect, request as apiRequest, test, type Browser, type Page } from "@playwright/test";
 import {
   ageAuthentication,
+  beginSetUp,
   bootstrapLink,
   enrol,
+  finishSetUp,
   freshCode,
+  hotp,
   linkIn,
   mailTo,
   PASSWORDS,
@@ -426,19 +429,90 @@ async function replay(action: CapturedAction, changes: Record<string, string>) {
   const client = await apiRequest.newContext();
   try {
     const response = await client.post(action.url, { headers: { ...action.headers, ...changes }, data: action.body, maxRedirects: 0 });
-    return { status: response.status(), headers: response.headers() };
+    return { status: response.status(), headers: response.headers(), body: await response.text() };
   } finally {
     await client.dispose();
   }
 }
 
-/** Refusals of a mutation that did not come from the admin's own pages, as recorded in the audit log. */
-async function deniedOriginAudits(): Promise<number> {
+const REFUSED_ORIGIN = "Refused: the request did not come from the admin's own pages.";
+const REFUSED_STEP_UP = "Refused: a recent re-authentication is required.";
+
+/** Refusals recorded in the audit log, of every action or of one. */
+async function deniedAudits(summary: string, action?: string): Promise<number> {
   const [row] = await queryTestDb<{ n: number }>(
-    "SELECT COUNT(*) AS n FROM audit_events WHERE outcome = 'denied' AND summary = 'Refused: the request did not come from the admin''s own pages.'",
+    `SELECT COUNT(*) AS n FROM audit_events WHERE outcome = 'denied' AND summary = ?${action ? " AND action = ?" : ""}`,
+    action ? [summary, action] : [summary],
   );
   return Number(row?.n ?? 0);
 }
+
+/** Refusals of a mutation that did not come from the admin's own pages, as recorded in the audit log. */
+const deniedOriginAudits = () => deniedAudits(REFUSED_ORIGIN);
+
+test.describe("two-factor set-up", () => {
+  test("the set-up answers only the admin's own pages, a replacement only after a recent confirmation; refusals are audited", async ({ page }) => {
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/account/security");
+    await page.getByRole("button", { name: "Replace authenticator app" }).click();
+    await expect(page.getByText("Your current authenticator app keeps working until the new one is confirmed.")).toBeVisible();
+    // Capture the replacement's start ("Continue") without letting it reach the server.
+    const captured = await captureAction(page, "/admin/account/security", async () => {
+      await page.getByLabel("Password", { exact: true }).fill(PASSWORDS.owner);
+      await page.getByRole("button", { name: "Continue" }).click();
+    });
+    const cookie = (await page.context().cookies()).find((c) => c.name === "__Host-rawasy_admin");
+    expect(cookie).toBeDefined();
+    const withSession = { cookie: `__Host-rawasy_admin=${cookie?.value}` };
+    const START = "auth.mfa_replacement_started";
+    const crossSiteBefore = await deniedAudits(REFUSED_ORIGIN, START);
+    const crossSite = await replay(captured, { ...withSession, "sec-fetch-site": "cross-site" });
+    expect(crossSite.body).not.toContain("otpauth://");
+    expect(await deniedAudits(REFUSED_ORIGIN, START)).toBe(crossSiteBefore + 1);
+    const foreign = await replay(captured, { ...withSession, origin: "https://attacker.example" });
+    expect(foreign.body).not.toContain("otpauth://");
+    // The same request from the admin's own page does start it (the replay works; nothing is stored until confirmed) ...
+    const genuine = await replay(captured, withSession);
+    expect(genuine.body).toContain("otpauth://");
+    // ... but not once the last confirmation of identity is more than 10 minutes old.
+    await ageAuthentication(OWNER.email);
+    const stepUpBefore = await deniedAudits(REFUSED_STEP_UP, START);
+    const stale = await replay(captured, withSession);
+    expect(stale.body).not.toContain("otpauth://");
+    expect(await deniedAudits(REFUSED_STEP_UP, START)).toBe(stepUpBefore + 1);
+  });
+
+  test("an abandoned replacement leaves the current app working; a confirmed one replaces the app and its recovery codes", async ({ browser, page }) => {
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/account/security");
+    await page.getByRole("button", { name: "Replace authenticator app" }).click();
+    await beginSetUp(page, PASSWORDS.owner);
+    // Started, not confirmed: another browser still completes a sign-in with the current app.
+    const other = await newPage(browser);
+    await signIn(other, OWNER.email, PASSWORDS.owner);
+    await verify(other, ownerSecret);
+    await expect(other).toHaveURL(/\/admin$/);
+    // Confirmed: the new app works; the previous one does not; the other sessions were signed out.
+    const replaced = await finishSetUp(page, "Use the new authenticator app");
+    expect(replaced.secret).not.toBe(ownerSecret);
+    const previous = ownerSecret;
+    ownerSecret = replaced.secret;
+    ownerCodes = replaced.codes;
+    await other.goto("/admin");
+    await expect(other).toHaveURL(/\/admin\/login$/);
+    await signIn(other, OWNER.email, PASSWORDS.owner);
+    await other.waitForURL("**/admin/login/verify");
+    await other.getByLabel("Authentication code").fill(hotp(previous, Math.floor(Date.now() / 30_000)));
+    await other.getByRole("button", { name: "Verify" }).click();
+    await expect(other.locator("main").getByRole("alert")).toContainText("didn't work");
+    await other.getByLabel("Authentication code").fill(await freshCode(ownerSecret));
+    await other.getByRole("button", { name: "Verify" }).click();
+    await expect(other).toHaveURL(/\/admin$/);
+    await other.context().close();
+  });
+});
 
 test.describe("accessibility and layout", () => {
   test("keyboard: skip link, menus and forms work without a mouse; focus is visible", async ({ page }) => {

@@ -326,6 +326,27 @@
   idle 2 h, absolute 12 h, no remember-me; no `AUTH_PEPPER`; `DB_POOL_LIMIT` production default 2; no CAPTCHA; no
   shareable preview links; no long-lived recovery key created locally. A full sign-in counts as the step-up
   confirmation for 10 minutes.
+- Security invariants from the A2 code review (keep them; each has a test that failed on the code before the fix):
+  - 2FA set-up stores nothing until confirmed: `beginEnrolment` returns the new secret sealed (`sealPendingEnrolment`:
+    AES-256-GCM with the active key, bound to user, session, 10-minute expiry and the replace flag); the browser sends
+    it back with the first code (hidden `pending` field); `confirmEnrolment` writes the confirmed row in one transaction
+    holding the user row. A replacement leaves the current authenticator working until then; a first set-up never
+    overwrites one confirmed meanwhile. `user_mfa.confirmed_at` is therefore always set on rows A2 writes.
+  - Second-factor codes (sign-in and step-up) are checked inside one transaction holding the user row
+    (`SELECT … FOR UPDATE`): lock read, code, `registerFailureLocked` or the completed rotation — 12 concurrent wrong
+    codes check exactly 5. In a session a password is never checked while the account is locked (`isAccountLocked`,
+    result `{ kind: "locked" }`, "temporarily locked"); a failure that locks the account or comes during a lock ends the
+    session it came from.
+  - `rotateSession` claims the old row first (`UPDATE … WHERE revoked_at IS NULL`) and throws `SessionEndedError` if it
+    was revoked meanwhile; `guarded()` turns that into `/admin/login?session_ended=1`; `rotateIfDue` treats it as
+    nothing to do.
+  - A password change opens the step-up window only for accounts without 2FA. The sign-in rehash is written only over
+    the hash that was verified. `X-Forwarded-For` is indexed by raw position, then validated (an invalid entry at the
+    trusted position gives no address, never a client-written one).
+  - Enrolment refusals (other origin, replacement without a recent step-up) are audited through `auditDenied`
+    (`guards.ts`), like every `actionContext` refusal.
+  - Known limit: concurrent wrong passwords at the sign-in page can each be checked before the lock is written (the
+    password is hashed outside the row lock); the per-address limit (30 / 15 min) bounds it.
 
 ## Rules from the brief
 

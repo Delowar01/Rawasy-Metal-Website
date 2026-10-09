@@ -13,10 +13,10 @@ import { users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { sha256 } from "../security/ids.ts";
 import { checkPassword, type PasswordProblem } from "../security/password-policy.ts";
-import { findUserByEmail, isPlausibleEmail, normalizeEmail, type UserRow } from "./accounts.ts";
+import { findUserByEmail, isPlausibleEmail, mfaStateOf, normalizeEmail, type UserRow } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { hitRateLimit, LIMITS } from "./rate-limit.ts";
-import { registerFailure } from "./sign-in.ts";
+import { isAccountLocked, registerFailure } from "./sign-in.ts";
 import { revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
 import { consumeToken, findUsableToken, issueToken, retireTokens, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
@@ -24,10 +24,16 @@ import { auditActorOf, type RequestMeta } from "./types.ts";
 export type ChangePasswordResult =
   | { kind: "ok"; token: string; session: SessionRow; othersSignedOut: number }
   | { kind: "wrong_password"; locked: boolean }
+  /** The account is locked: the current password is not checked until the lock ends. */
+  | { kind: "locked" }
   | { kind: "weak"; problem: PasswordProblem }
   | { kind: "same" };
 
-/** Changes one's own password: the current one is required; other sessions end; this one rotates. */
+/**
+ * Changes one's own password: the current one is required (never checked while the account is locked); other sessions
+ * end; this one rotates. The new password counts as a re-authentication only for an account without two-factor
+ * authentication: with an authenticator, the 10-minute window for sensitive actions still needs a code (A1 §3.7).
+ */
 export async function changePassword(
   deps: AuthDeps,
   current: { session: SessionRow; user: UserRow; roles: string[] },
@@ -36,6 +42,7 @@ export async function changePassword(
 ): Promise<ChangePasswordResult> {
   const now = deps.clock();
   const { user } = current;
+  if (await isAccountLocked(deps.db, user.id, now)) return { kind: "locked" };
   if (!user.passwordHash || !(await deps.hasher.verify(user.passwordHash, String(input.currentPassword ?? "")))) {
     const { locked } = await registerFailure(deps, user, "bad_credentials", meta, {
       action: "auth.reauth_failed",
@@ -49,11 +56,12 @@ export async function changePassword(
   if (problem) return { kind: "weak", problem };
   if (await deps.hasher.verify(user.passwordHash, next)) return { kind: "same" };
   const hash = await deps.hasher.hash(next);
+  const mfa = await mfaStateOf(deps.db, user.id, current.roles);
   const result = await inTransaction(deps.pool, async (tx) => {
     await tx.update(users).set({ passwordHash: hash, passwordChangedAt: now, updatedAt: now, updatedBy: user.id }).where(eq(users.id, user.id));
     await retireTokens(tx, user.id, ["password_reset"], now);
     const othersSignedOut = await revokeUserSessions(tx, user.id, "password_changed", now, current.session.id);
-    const rotated = await rotateSession(tx, current.session, { now, ...meta, reauthenticated: true });
+    const rotated = await rotateSession(tx, current.session, { now, ...meta, reauthenticated: !mfa.enrolled });
     await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,
