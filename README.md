@@ -288,13 +288,24 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
   ```bash
   npm ci
   NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build
-  tar -czf ../rawasy-app.tar.gz --exclude=.next/cache server.js package.json package-lock.json next.config.ts \
-    tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src public .next
+  node scripts/package-namecheap.mjs
   ```
 
-  The archive leaves out `.git`, `node_modules` (the host installs its own: never upload one, least of all a Windows
-  one), `.next/cache`, `e2e`, `docs`, `scripts`, test results, Playwright reports, screenshots, evidence and any `.env`
-  file.
+  `scripts/package-namecheap.mjs` (deployment only; Node 22.18 or later and `tar`) writes `../rawasy-app.tar.gz` with
+  `server.js package.json package-lock.json next.config.ts tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src
+  public .next`, less `.next/cache` and the photos RAWASY has held back, prints the `tar` command it ran, and writes the
+  archive's listing beside it (`../rawasy-app.tar.gz.txt`). The held-back photos come from `src/content/projects.ts`
+  (`withheldMedia`, and every photo of a project whose flags keep its photos off the website), each mapped to its file
+  through the media registry; today these ten files in `public/media/projects/`: `billboard-structure-1.webp`,
+  `canopy-tree-1.webp`, `laser-cut-bench-1.webp`, `lattice-cubes-1.webp`, `litter-bins-1.webp`, `litter-bins-2.webp`,
+  `litter-bins-3.webp`, `seed-sculpture-1.webp`, `stainless-landmark-1.webp`, `wheat-monument-1.webp`. They stay in Git;
+  only the archive leaves them out, so the host answers 404 for them. The script then checks the archive and, if any
+  check fails, deletes it and exits with an error: none of the held-back files is in it and no page refers to one; every
+  public file the pages, page data, styles and scripts refer to is in it; every sitemap page's HTML and page data are in
+  it with the public files they refer to; and it holds nothing else and lacks nothing else (no `.git`, `node_modules` —
+  the host installs its own: never upload one, least of all a Windows one —, `.next/cache`, `e2e`, `docs`, `scripts`,
+  test results, Playwright reports, screenshots, evidence or `.env` file). `node scripts/package-namecheap.mjs
+  --check=<archive>` re-checks an archive made from the same build before it is uploaded.
 - **cPanel → Setup Node.js App → Create application:** Node.js version **22.x** · Application mode **Production** ·
   Application root **`rawasy-app`** (a folder in the account's home, never `public_html`) · Application URL
   **www.rawasymetal.com** with an empty path (the domain entry the panel lists for it) · Application startup file
@@ -303,28 +314,51 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
 - **Install and start:** stop the application, upload the archive with File Manager and extract it into `rawasy-app`
   (replacing any starter `server.js` the panel created), press **Run NPM Install** (with the prebuilt `.next` only the
   production dependencies are needed: Next.js, React and `sharp`), then **Start App** (**Restart** after an update). For
-  an update, stop the app and delete the old `rawasy-app/.next` before extracting the new archive, so no stale build files
-  stay. The panel adds Passenger lines to the `.htaccess` in the domain's document root: leave them. Files of an older
-  site left in the document root can answer instead of the app: back them up before moving them out.
+  an update, stop the app and delete the old `rawasy-app/.next`, `rawasy-app/public` and `rawasy-app/src` before
+  extracting the new archive, so no stale build, photo or source file stays. The panel adds Passenger lines to the
+  `.htaccess` in the domain's document root: leave them. Files of an older site left in the document root can answer
+  instead of the app: back them up before moving them out.
 - **Smoke checklist** after every start: `/` answers 307 to `/en` (`/ar` for an Arabic browser); `/en`, `/ar`, a service,
   `/en/capabilities`, a project page, `/en/contact` and `/en/privacy` answer 200 with their page; `/en/not-a-page` shows
   the 404 page with status 404; `/sitemap.xml` lists 102 `https://www.rawasymetal.com/` addresses and `/robots.txt` names
-  it; `/_next/image?url=%2Fmedia%2Fprojects%2Fclock-tower-1.webp&w=640&q=75` opened in a browser comes back as WebP
-  (`sharp` needs glibc 2.28 or later: `ldd --version` in cPanel's Terminal); HTTPS works on rawasymetal.com and
-  www.rawasymetal.com. The first request after a start or an idle spell is slower: Passenger starts the app on demand.
+  it; `/media/projects/clock-tower-1.webp` answers 200 and a held-back photo such as
+  `/media/projects/wheat-monument-1.webp` answers 404;
+  `/_next/image?url=%2Fmedia%2Fprojects%2Fclock-tower-1.webp&w=640&q=75` opened in a browser comes back as WebP (`sharp`
+  needs glibc 2.28 or later: `ldd --version` in cPanel's Terminal); HTTPS works on rawasymetal.com and www.rawasymetal.com.
+  The first request after a start or an idle spell is slower: Passenger starts the app on demand.
 - **Logs:** the application's entry in Setup Node.js App (with its log file where the panel offers one); CloudLinux
   usually writes the app's own output to `stderr.log` in the application root; cPanel → Metrics → Errors shows the web
   server's errors.
 - **Known issue** (Next.js 16.3.8, the same with `next start`): if a visitor cancels the very first request for an
-  image size, that size can stay blank until the app restarts. Restart clears it; requesting every image the pages use
-  once after each start (a cache warm-up) avoids it. See the adapter report, item 12.
+  image size, that size can stay blank until the app restarts. Restart clears it; a size already in the image cache
+  (`.next/cache/images`, kept across restarts) is not affected. See the adapter report, item 12, and its correction 1.
+- **Image cache warm-up, after the first start of every new build** (the smoke checklist done; again after an update,
+  which deletes `.next`): from your own computer, never on the host or inside the app, in the project folder, against
+  the address where the new app answers (the domain only once it points to the app):
+
+  ```bash
+  node scripts/warm-images.mjs https://www.rawasymetal.com
+  ```
+
+  It reads the sitemap, collects every optimized image size the pages offer (1,484 in this build) and asks for each once,
+  as a browser would: at most 2 requests at a time (`--concurrency`, 1 to 4, never more), each answer read to its end,
+  100 ms between one worker's requests (`--pause`), never cancelled early (a request still unanswered after 60 s,
+  `--timeout`, counts as timed out). It stops starting requests, and lets the running ones finish, when the host answers
+  429, 503 or 508 (busy or at its resource limit), after 5 problems in a row or 10 in all, or on Ctrl+C. It prints the
+  totals (discovered, warmed, new or already cached, failed, timed out, not attempted) and writes
+  `warm-images-report.json`. Locally the 1,484 sizes took about 100 s; a second run, all cached, 3 s. If anything failed
+  or timed out, read the report first: a size that timed out is the defect above, so **Restart** the app in cPanel, then
+  ask again for exactly those sizes with `node scripts/warm-images.mjs https://www.rawasymetal.com
+  --retry=warm-images-report.json`. Never loop it, schedule it or run several at once, and never load-test the host.
+  Shared hosting has resource limits: watch cPanel → Metrics → **Resource Usage** (CPU, physical memory, entry
+  processes, number of processes, I/O) during and after the warm-up.
 - **DNS:** change nothing (nameservers or records) until the current nameservers, MX, SPF, DKIM, DMARC, A and CNAME
   records and the mail service in use are written down: switching to Namecheap's hosting nameservers can drop the mail
   records.
 - **Rollback:** keep the previous archive and application folder until the new release is verified; to roll back, stop
-  the app, put the previous folder back (or delete `.next` and extract the previous archive), Run NPM Install, Restart.
-  The code rollback point is the approved release candidate `422c397`. Never delete an existing site's files without a
-  backup.
+  the app, put the previous folder back (or delete `.next`, `public` and `src` and extract the previous archive), Run NPM
+  Install, Restart, and warm the image cache again. The code rollback point is the approved release candidate `422c397`.
+  Never delete an existing site's files without a backup.
 
 To run the browser tests against `server.js` locally: `npm run build`, then `NODE_ENV=production PORT=3400 node server.js`
 in one terminal and `npm run test:e2e` in another (Playwright reuses a server already answering on its port).
