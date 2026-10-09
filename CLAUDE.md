@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md`
+- Latest report: `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 section is at the end)
   (earlier: `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
@@ -99,8 +99,18 @@
   another folder) started in 482 ms, passed the smoke checks (36 / 36) and the full suite (610 / 612 on a cold image
   cache — the Next.js image-optimizer defect in "Gotchas learned" — then 612 / 612 after a restart and a warm-up);
   `server.js` and `next start` gave 184 / 184 identical HTTP answers and 1,484 / 1,484 identical optimized images; the
-  build equals the RC's. The image defect's mitigation (warm-up, a Next.js fix or accept) is RAWASY's decision (report
-  item 12). **Still not allowed:** uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing
+  build equals the RC's. **Correction 1 (archive safety + image warm-up) is built** (the user's "NAMECHEAP ADAPTER —
+  CORRECTION 1" brief; section "Correction 1" at the end of the same report; commits `e0d62b0` and `79cdff5` (the route
+  cache left out), scripts and README only) and awaits independent review: `scripts/package-namecheap.mjs` packs the
+  archive without the ten held-back photos and checks it, `scripts/warm-images.mjs` warms the image cache after a start
+  (see "Where things live"); the README's packaging, update, smoke and warm-up steps follow them. Proof: clean clones
+  of both commits passed `npm ci`, audit `--omit=dev` 0, lint, typecheck, build (equal to `2043981`'s) and the
+  packaging check; the first clone's first E2E run (cold image cache) hit the image defect again (610 / 612), then
+  612 / 612 after a restart and the warm-up; each package (extracted, production install, `server.js`): the ten
+  held-back addresses 404, 138 / 138 public files and 102 / 102 pages, 1,484 / 1,484 WebP sizes, 612 / 612 after its
+  warm-up; warm-up at most 2 requests open (counting proxy), peak 471 MiB (436 at 1 at a time). The image defect's fix
+  (a Next.js upgrade) needs the user's authorization.
+  **Still not allowed:** uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing
   SSL, fast-forwarding `main`, removing the legal pages' pending notes (they block launch), external publication — each
   needs the user's explicit go-ahead.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
@@ -310,6 +320,16 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   logic, a 404, image settings, a domain or a port to it. `npm start` runs it; `npm run test:e2e` still starts
   `next start` on 3400 unless a server answers there, so to test `server.js` start it first
   (`NODE_ENV=production PORT=3400 node server.js`) or pass `E2E_PORT`.
+- Deployment scripts (Namecheap Correction 1; deployment only: never imported by the site, not in `package.json`, not
+  in the archive, never run at app start): `scripts/package-namecheap.mjs` packs the build into `../rawasy-app.tar.gz`
+  without `.next/cache`, the route cache (`.next/server/route-cache`) and the held-back photos (`withheldMedia` and
+  every photo `projectDetailMedia` leaves out, mapped to files through `mediaRegistry`; ten today) and checks the
+  archive (none held back, every public file the build refers to, every sitemap page's HTML / page data / public
+  files, nothing else missing or added; a failed check deletes it; `--check=<archive>` re-checks one).
+  `scripts/warm-images.mjs <address>` warms the image cache: every `/_next/image` size the sitemap's pages offer,
+  `--concurrency` 2 by default (1–4, never more), each answer read to its end, never cancelled early, stops on 429 /
+  503 / 508, 5 problems in a row or 10 in all, writes `warm-images-report.json`, `--retry=<report>` for exactly what
+  did not warm (after a restart for a timeout).
 
 ## Before pushing
 
@@ -888,7 +908,20 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   same on `next start` (27 / 300) and `server.js` (26 / 300); cached variants are immune (300 / 300); a restart clears
   it. It made two photo-heavy sweeps time out on `/en/about` (Namecheap adapter report, item 12). When a test times
   out waiting for images, probe the page's image URLs with a time limit before suspecting the change under test, and
-  restart the server. Next 16 also rejects `w=16` (400): its default `imageSizes` start at 32.
+  restart the server. Next 16 also rejects `w=16` (400): its default `imageSizes` start at 32. A fresh server's first
+  full E2E run can hit it (Correction 1: 610 / 612, `laser-welding.webp&w=64` stuck on `/en/about`): restart, run
+  `node scripts/warm-images.mjs http://localhost:3400`, then rerun (612 / 612).
+- React 19 writes `srcSet` and `imageSrcSet` in the server HTML: match image attributes without regard to case (the
+  warm-up first found 108 of the 1,484 sizes). Arabic pages' `<html lang>` is `ar-SA`: accept a region subtag.
+- A project's photos are its `media` list, not `/media/projects/*`: two projects use
+  `media/services/fabrication-workshop.webp`.
+- A running server (Next 16.3.8) writes route-cache files into `.next/server/route-cache/` (`APP_PAGE`, `APP_ROUTE`: 724
+  after a full E2E run); nothing else in `.next` changes (`.next/cache` aside). The working checkout's `.next` held 712
+  from earlier runs. `package-namecheap.mjs` leaves the route cache out since `79cdff5` (before, a used folder gave
+  2,271 files instead of 1,547 and its check passed); still package a fresh clone's build.
+- A Node script can import `src/content/*.ts` through Node's type stripping (22.18+), but Node then warns
+  `MODULE_TYPELESS_PACKAGE_JSON` (no `"type"` in `package.json`; never add one): `package-namecheap.mjs` filters only
+  that warning. GNU tar applies an `--exclude` only to the names after it: exclusions go before the file list.
 - A subshell like `(cd dir && node server.js > log 2>&1 &)` leaves a `bash` parent holding the tool's output pipe, so
   the Bash call never returns while the server runs: write `(cd dir && exec node server.js > log 2>&1 &)`.
 - A production install (`NODE_ENV=production npm install` or `--omit=dev`) still installs `@playwright/test`

@@ -6,6 +6,10 @@ no certificate was installed, `main` was not changed and the legal pages' pendin
 not online. One pre-existing Next.js 16.3.8 image-optimizer defect was found on the way (item 12): not caused by the
 adapter, not changed, mitigation for RAWASY to decide.
 
+**Correction 1** (production archive safety and image warm-up, the user's "NAMECHEAP ADAPTER — CORRECTION 1" brief) is
+appended at the end. It supersedes item 23's archive command, the withheld-media note in item 12 and the matching known
+limitation: the archive now leaves the ten held-back photos out, and the image cache is warmed after each start.
+
 ## Summary
 
 The approved release candidate (`422c397`) had no startup file and `"start": "next start"`. cPanel's Setup Node.js App
@@ -666,3 +670,359 @@ npm run test:e2e                                  # another terminal: Playwright
 
 Independent review of this adapter → RAWASY's legal decision on the pending notes → cPanel inspection (items 9, 30) →
 an explicitly authorized upload and smoke test → DNS and SSL as separate authorized steps. No Phase 2 work.
+
+---
+
+# Correction 1 — production archive safety and image warm-up
+
+Date: 2026-10-09 · Branch: `claude/new-session-5eijs6` · Status: **correction prepared and proven locally; awaiting
+independent review.** The brief: "NAMECHEAP ADAPTER — CORRECTION 1 / PRODUCTION ARCHIVE SAFETY + IMAGE WARM-UP
+PROCEDURE". Only the deployment package and procedure changed (two commits, `e0d62b0` and `79cdff5`): no page,
+content, style, test, `server.js`, `package.json`, lockfile, Node version, dependency or `legal.ts` change. Nothing
+was uploaded to Namecheap, no application was created, DNS, nameservers and SSL were not touched, `main` was not
+changed. The site is not online.
+
+## Summary
+
+- **Withheld media leave the package.** `scripts/package-namecheap.mjs` (new, deployment only) makes the archive the
+  README describes, less the ten photos RAWASY has held back, and checks it. The ten files come from the website's own
+  rules (`withheldMedia` and every photo of a project whose flags keep its photos off the website, in
+  `src/content/projects.ts`), each mapped to its file through the media registry (`src/content/media.generated.ts`);
+  they are exactly the ten IDs of the brief, all `.webp`. They stay in Git and in the source folder; only the archive
+  leaves them out. The script fails, and deletes the archive, if a held-back file is in it, if any page refers to one,
+  if a public file the build refers to is missing, if a sitemap page's HTML, page data or public files are missing, or
+  if anything else is missing or added. A second commit leaves out the route cache a server writes into `.next`, which
+  the first version packed (and passed) when the build folder had already been served.
+- **Proven on the package:** extracted into a clean application root, production install, `node server.js`: the ten
+  direct addresses answer **404** (the source folder still answers 200), every other public file **200** with the
+  source bytes, all **102** sitemap pages 200, every project page shows exactly its allowed photos, all **1,484**
+  optimized image sizes 200 WebP.
+- **Gentle warm-up for the known Next.js 16.3.8 defect.** `scripts/warm-images.mjs` (new, deployment only, run by
+  hand from another computer) asks once for every image size the pages offer, **at most 2 at a time** (never above 4),
+  reading each answer to its end, never cancelling early; it stops on a busy host (429 / 503 / 508), after 5 problems in
+  a row or 10 in all, or on Ctrl+C, and reports discovered / warmed / failed / timed out / not attempted, with
+  `--retry=<report>` for exactly the sizes that did not warm. Measured with a counting proxy in front of the server:
+  never more than 2 requests open.
+- **The defect showed up again and the procedure fixed it:** the clean clone's first E2E run (cold image cache) ended
+  610 / 612 — the same two `/en/about` photo tests as in item 12, one image size stuck after a cancelled first request.
+  After a restart and the warm-up: **612 / 612**. The package after its warm-up: **612 / 612** (`e0d62b0`) and
+  **612 / 612** (`79cdff5`).
+- Clean clones at both commits: `npm ci` ✔, `npm audit --omit=dev` **0**, lint ✔, typecheck ✔, build ✔ (109 pages);
+  each build equals the approved adapter's (1,221 of 1,224 files identical, the 3 others hold Next's per-build random
+  keys).
+
+## C1-1. Starting SHA
+
+`5c0b2b6ddbce83f82c2d6aca0169e6a422d066dd` (as the brief expected; clean tree, equal to `origin`). Approved adapter
+implementation `2043981a066274e0a9cac68c5b7b4eff608561f0`; checkpoint `preserve/pre-namecheap-adapter` →
+`422c397c56ec500afc270cf69a7e5a298c25f29f` (unchanged).
+
+## C1-2. Correction SHA
+
+**`79cdff5bbd205e81499d14edd42d5f5260a36772`**, the correction's last code commit; the correction is two commits:
+
+1. `e0d62b0211d885486c42f77c61c68969f4de5d98` — "Namecheap package: leave out the held-back photos; gentle image
+   warm-up": `scripts/package-namecheap.mjs` (new), `scripts/warm-images.mjs` (new), `README.md` (the Namecheap
+   section);
+2. `79cdff5bbd205e81499d14edd42d5f5260a36772` — "Namecheap package: leave a server's route cache out of the archive":
+   `scripts/package-namecheap.mjs` and one README sentence (C1-6, "Route cache").
+
+`git diff 5c0b2b6 79cdff5` touches only those three files; `server.js`, `package.json`, `package-lock.json`, `src/`,
+`public/`, `e2e/` and `next.config.ts` are identical to `2043981`.
+
+## C1-3. Branch HEAD
+
+The commit that adds this section (and the CLAUDE.md note), directly on top of `79cdff5`; its hash is given in the
+hand-off message (a commit cannot contain its own hash).
+
+## C1-4. The ten physical files excluded
+
+Derived, not typed in: for every project record, the photos `projectDetailMedia(project)` does not show, plus
+`withheldMedia`, each looked up in `mediaRegistry[id].src` (the script fails if an ID is not in the registry or its
+file does not exist). Result — exactly the brief's ten IDs, 133,982 bytes in all:
+
+| Media ID | Physical file (from the registry) | Bytes | Project | Why held back |
+| --- | --- | ---: | --- | --- |
+| `projects/billboard-structure-1` | `public/media/projects/billboard-structure-1.webp` | 18,812 | `billboard-support-structure` | withheldMedia |
+| `projects/canopy-tree-1` | `public/media/projects/canopy-tree-1.webp` | 33,890 | `canopy-tree-sculpture` | project flag confirm-authorship |
+| `projects/laser-cut-bench-1` | `public/media/projects/laser-cut-bench-1.webp` | 9,380 | `laser-cut-bench` | project flag render |
+| `projects/lattice-cubes-1` | `public/media/projects/lattice-cubes-1.webp` | 23,294 | `illuminated-lattice-cubes` | project flag confirm-authorship |
+| `projects/litter-bins-1` | `public/media/projects/litter-bins-1.webp` | 1,478 | `street-litter-bins` | project flag render |
+| `projects/litter-bins-2` | `public/media/projects/litter-bins-2.webp` | 1,932 | `street-litter-bins` | project flag render |
+| `projects/litter-bins-3` | `public/media/projects/litter-bins-3.webp` | 1,662 | `street-litter-bins` | project flag render |
+| `projects/seed-sculpture-1` | `public/media/projects/seed-sculpture-1.webp` | 19,726 | `perforated-seed-sculpture` | project flag confirm-authorship |
+| `projects/stainless-landmark-1` | `public/media/projects/stainless-landmark-1.webp` | 11,366 | `stainless-landmark-sculpture` | withheldMedia |
+| `projects/wheat-monument-1` | `public/media/projects/wheat-monument-1.webp` | 12,442 | `wheat-stalks-monument` | withheldMedia |
+
+`wheat-monument-2` and `-3` (the genuine workshop photos of the same monument) stay, as the website shows them.
+
+## C1-5. Production archive command
+
+```bash
+npm ci
+NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build
+node scripts/package-namecheap.mjs          # → ../rawasy-app.tar.gz and ../rawasy-app.tar.gz.txt (its listing)
+```
+
+The `tar` command the script ran (printed by it; GNU tar 1.35):
+
+```bash
+tar -czf ../rawasy-app.tar.gz --exclude=.next/cache --exclude=.next/server/route-cache \
+  --exclude=public/media/projects/billboard-structure-1.webp --exclude=public/media/projects/canopy-tree-1.webp \
+  --exclude=public/media/projects/laser-cut-bench-1.webp --exclude=public/media/projects/lattice-cubes-1.webp \
+  --exclude=public/media/projects/litter-bins-1.webp --exclude=public/media/projects/litter-bins-2.webp \
+  --exclude=public/media/projects/litter-bins-3.webp --exclude=public/media/projects/seed-sculpture-1.webp \
+  --exclude=public/media/projects/stainless-landmark-1.webp --exclude=public/media/projects/wheat-monument-1.webp \
+  server.js package.json package-lock.json next.config.ts tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src \
+  public .next
+```
+
+The included names are the approved archive's, unchanged (item 23); only the ten photo exclusions and the route cache
+(C1-6) are new. `node
+scripts/package-namecheap.mjs --check=<archive>` re-checks any archive against the folder's build (it never deletes
+that archive). The script is deployment only: not in `package.json`, not imported by the site, not in the archive.
+
+## C1-6. Archive verification
+
+On the clean clone of `79cdff5` (C1-13), right after `npm run build`:
+
+```
+✓ the archive's build (_7siFLgs0uYOfa8M1utBY) is this folder's build (_7siFLgs0uYOfa8M1utBY)
+✓ held-back files in the archive: 0 of 10
+✓ every packed name is there: server.js package.json package-lock.json next.config.ts tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src public .next
+✓ nothing else left out: 1547 of 1547 files
+✓ nothing added: 0 unexpected files
+✓ no node_modules, .next/cache, route cache, .git, .env file, tests or docs
+✓ pages, page data, styles or scripts referring to a held-back file: 0
+✓ public files the build refers to, in the archive: 111 of 111 (media 108, og 2, brand 1; 637 files read)
+✓ sitemap pages: 102, each with its HTML and page data and the 644 public file references they make (111 files) in the archive
+PASS
+```
+
+- **The archive:** 17,362,492 bytes (16.6 MB), sha256 `1eae102010e3ccdc0383cedeb466bac71bf3a9f811a7fbfb48b9ccd3b2b6b233`,
+  1,547 files (`.next` 1,229, `public` 138, `src` 172, 8 at the top); listing 2,156 entries (files and folders),
+  written beside it. `public/media/projects/` holds 47 photos (57 in the source, less the 10). The `e0d62b0` clone's
+  archive (17,363,394 bytes, sha256 `26992465…`) lists the same entries once the build ID is normalised.
+- **"Production-used" files** are found in what the server sends: every prerendered page, page data and metadata body
+  in `.next/server/app` (`.html`, `.rsc`, `.body`, the segment files) and the browser's styles and scripts in
+  `.next/static` — 637 files; a public path counts as written (`/media/…`) or encoded in an optimized image's address
+  (`url=%2Fmedia%2F…`). Server-only code is not read (it holds the whole media registry, held-back entries included,
+  and is never sent).
+- **Each sitemap page** (from the build's own `sitemap.xml`): its `.html` and `.rsc` are in the archive, and so is every
+  public file they and the page's segment files refer to.
+- **Negative tests (the check must fail):** an archive made with the previous README command from the same build →
+  **FAIL** (held-back files 10 of 10; 10 unexpected files), exit 1. On the trial build: an archive missing one used photo
+  (`clock-tower-1.webp`) → FAIL (nothing else left out, the used-file check, and 12 sitemap pages named); an archive
+  with an `.env.production` and a `.next/cache` file → FAIL (both named); an archive of another build → FAIL (build
+  ID); a missing archive, an unknown option or an output inside `src`, `public` or `.next` → refused (exit 2). In
+  packing mode a failed check deletes the archive and its listing.
+- **Route cache (commit `79cdff5`):** a server that runs on a build writes its route cache into
+  `.next/server/route-cache` (`APP_PAGE` / `APP_ROUTE`: 724 files after the clone's two E2E runs, 796 on the package);
+  outside it and `.next/cache`, a used `.next` stayed byte-identical to the fresh build (sha1 of every file, on the
+  clone and on the package). The first version of the script, run on the used clone, packed 2,271 files (26.5 MB) and
+  passed its own check, since it compared the archive with the same folder. Now: on the same used folder it packs 1,547
+  files whose extracted contents equal the fresh archive's (`diff -r`: identical); `--check` of the fresh archive there
+  passes (the first version failed it: 1,547 of 2,271); `--check` of the 2,271-file archive fails (724 unexpected files,
+  route cache named).
+- **Kept, as the brief says ("the remainder of `public/`"):** 27 public files no page refers to — 23 monochrome client
+  logos (`*-mono.webp`), 2 brand SVGs, 1 certificate thumbnail, and the three laser-engraving photos the asset
+  inventory flags (`services/engraving-nameplates.webp` — third-party brand, part and serial numbers —
+  `engraving-rotary.webp`, `engraving-wood.webp`). They answer at their direct addresses, as the ten did before this
+  correction; see C1-21.
+
+## C1-7. Direct held-back URL result
+
+Package server (`node server.js` from the extracted archive, C1-9): each of the ten addresses
+`/media/projects/<file>.webp` answers **404** (`text/html`, Next.js's not-found page, the same answer as any address
+under `/media/` with no file); its optimized forms `/_next/image?url=…&w=640&q=75` and `&w=3840&q=75` answer **400**
+("The requested resource isn't a valid image."), at once (under 40 ms for each address), and serve no image. For
+comparison, a server started in the source folder (the clone) still answers **200 `image/webp`** for all ten: the
+source keeps them, the package does not.
+
+## C1-8. Legitimate image result
+
+Package server: **138 / 138** — every file in the package's `public/` answered 200 with bytes identical (sha256) to
+the source file, among them the **47** project photos; every public file the pages refer to (111) answered 200 with
+the source bytes. Optimized: after the warm-up, **1,484 / 1,484** — every `/_next/image` size the 102 pages offer
+answered `200 image/webp` with a WebP body (`x-nextjs-cache: HIT`), from 108 source files; none of them is a held-back
+file.
+
+## C1-9. Sitemap / page smoke
+
+Done twice, on the archive of each commit, with the same results; the numbers below are the final archive's
+(`79cdff5`). The archive extracted into a new, empty application root; `NODE_ENV=production npm install` (added 30
+packages in 9 s, 462 MB, "found 0 vulnerabilities"; no TypeScript or ESLint installed); `NODE_ENV=production PORT=3410
+node server.js` ready in under a second (the first page answered 805 ms after the launch).
+
+- **The adapter's 36-check smoke** (redirects, language, pages, 404s, sitemap, robots, images, refusals, held-back
+  references): **36 / 36**.
+- **All 102 sitemap pages:** 200 `text/html`, each with its own `lang`, its canonical address and one `h1`
+  (102 / 102); the four 404 addresses (`/en/not-a-page`, `/ar/not-a-page`, an unknown service, an unknown project)
+  404.
+- **Project media safety:** no sitemap or 404 page refers to a held-back file (0 references on 106 pages); each of the
+  68 project pages refers to exactly the photos `projectDetailMedia` allows (68 / 68); the projects with held-back
+  photos show none of them.
+- **The full E2E suite against the package** after its warm-up: **612 / 612** (`e0d62b0`), **612 / 612**
+  (`79cdff5`) (C1-18).
+
+## C1-10. Image optimizer mitigation
+
+Unchanged code, as the brief requires: Next.js internals not patched, image optimization on, `next/image` usage and
+every dependency unchanged. The mitigation is operational (README, "Image cache warm-up"): after the first start of
+every new build, warm the image cache from another computer; a size that still fails is retried only after a restart.
+A size in the cache (`.next/cache/images`, kept across restarts) is answered from there and is immune (item 12:
+300 / 300 cut-off requests answered `200 HIT`). This session showed both halves again:
+
+- **Cold:** the clean clone's server, cold cache, full E2E: **610 / 612** — `commerce-company.spec.ts:479` (images to
+  decode on `/en/about`) and `stage-1c.spec.ts:129` (`/en/about`'s `load`) timed out at 60 s, the same two tests as
+  item 12. A probe during the run found exactly one stuck size,
+  `/_next/image?url=%2Fmedia%2Fmachines%2Flaser-welding.webp&w=64&q=75` (no answer in 8 s, on `/en/about` and
+  `/ar/about`; every other size of the five company pages answered). Not caused by this correction: no website code
+  changed and the build equals the adapter's.
+- **The procedure:** restart (the size then answered in 0.25 s), warm-up (1,484 warmed: 679 new, 805 already cached by
+  the first run; 0 failed, 0 timed out), the full suite again: **612 / 612**.
+
+Recommendation unchanged: (a) the warm-up for launch, (b) a Next.js release that fixes the defect when one is available
+(a dependency change, for RAWASY to authorize).
+
+## C1-11. Warm-up method
+
+`scripts/warm-images.mjs` (Node 18 or later, no dependency, not in `package.json`, never started by the app):
+
+1. reads `/sitemap.xml` at the given address (the sitemap names `https://www.rawasymetal.com`; its paths are asked for
+   at the given address, so it also works before the domain points to the app);
+2. opens each page (`Accept: text/html`) and collects every `/_next/image` address in its `src`, `srcset` and
+   `imagesrcset` attributes (React writes `srcSet` / `imageSrcSet`; matched without regard to case) — every size a
+   browser may choose: **1,484** for this build, from 108 photos;
+3. asks for each size once with a browser's `Accept` (`image/avif,image/webp,…`, so the WebP variant browsers get) and
+   a `User-Agent` naming the script, reads the whole answer, and counts it warmed when it is `2xx`, `image/*` and not
+   empty (new for `x-nextjs-cache: MISS`, already cached otherwise);
+4. never cancels a request early; one that has not finished after `--timeout` (60 s) counts as timed out — it is never
+   retried in the same run;
+5. stops starting requests, letting the running ones finish, when the host answers 429, 503 or 508 (CloudLinux's
+   "Resource Limit Is Reached"), after 5 problems in a row or 10 in all, or on Ctrl+C (a second Ctrl+C quits);
+6. prints and writes the totals — **discovered, warmed (new / already cached), failed, timed out, not attempted** —
+   with every failed, timed-out and not-attempted address in `warm-images-report.json`; exit 0 only when everything
+   warmed;
+7. `--retry=<report>` asks again for exactly the addresses that report lists (after looking at them; a timed-out size
+   needs an app restart first).
+
+Tested locally (first on a trial archive of the working checkout's build, then on the clean clone and the package):
+
+| Case | Result |
+| --- | --- |
+| Cold cache, defaults | 1,484 discovered, 1,484 warmed (all new), 0 failed, 0 timed out; 101.7 s; median 21 ms, max 455 ms |
+| The packages (C1-9), cold, defaults | 1,484 discovered, 1,484 warmed (1,483 new), 0 failed, 0 timed out; 103 s each |
+| Run again (all cached), `--concurrency=4 --pause=0` | 1,484 already cached, 2.9 s |
+| Two sizes made stuck first (a first request cut off after 0–1 ms), `--timeout=10` | 1,482 warmed, **2 timed out** (both named), exit 1; the run went on |
+| `--retry` before a restart | the same 2 time out again (the defect holds until restart), exit 1 |
+| `--retry` after a restart | 2 warmed, exit 0; a full run then: 1,484 already cached (the cache survived the restart) |
+| Host at its limit (every image 508) | stopped after the 2 requests running, 19 not attempted, exit 1 |
+| App stopped during discovery / during warming | stopped after 5 problems in a row (`ECONNREFUSED`), 1,415 / 1,375 not attempted; `--retry` after a restart resumed and warmed 1,380 |
+| Every other image 500 | stopped at 10 problems in all (9 warmed, 10 failed, 21 not attempted) |
+| Ctrl+C | stopped, waited, report written: 54 warmed, 1,430 not attempted, exit 1 |
+| `--concurrency=5` or `0`, `--timeout=0`, unknown option, no or non-HTTP address | refused, exit 2 |
+
+## C1-12. Warm-up concurrency
+
+Default **2**, accepted **1 to 4**, anything else refused. Measured on the server's side with a counting proxy between
+the script and the app: **at most 2 requests open at once** in every default run (trial: 1,484 images + 102 pages;
+clean clone and both packages: 1,587 requests each — `maxOpen 2` every time), 4 with `--concurrency=4`. 100 ms pause
+between one worker's requests. Server memory (resident peak, `VmHWM`), a fresh package server warming an empty cache:
+**471 MiB at 2 at a time (103 s)**, **436 MiB at 1 at a time (208 s)**, from 130 MiB at start; the package server that
+had first answered the page checks peaked at 562 MiB during its warm-up and stayed there through the full E2E suite.
+`--concurrency=1` is the lighter choice if the account's memory limit is tight (C1-21).
+
+On the host: watch cPanel → Metrics → **Resource Usage** (CPU, physical memory, entry processes, number of processes,
+I/O) during and after the warm-up; the script stops on its own at a 508. Never loop it, schedule it, run several at
+once or load-test the host.
+
+## C1-13. Clean install
+
+Fresh clones of `e0d62b0` and `79cdff5` (clean trees, no untracked file), Node 22.22.2, npm 10.9.7: `npm ci` added
+374 packages (14 s and 11 s). Package roots: `NODE_ENV=production npm install` added 30 packages (8 s and 9 s), 462 MB,
+"found 0 vulnerabilities"; no TypeScript or ESLint installed.
+
+## C1-14. Production audit
+
+`npm audit --omit=dev` (both clones): **found 0 vulnerabilities**. (With development dependencies: the known 5 high
+entries of the lint-only `eslint-config-next` chain, unchanged; never fixed with `--force`.)
+
+## C1-15. Lint
+
+`npm run lint` (both clones): exit 0, no warning (13 s, 12 s); the two new scripts are linted with the rest.
+
+## C1-16. Typecheck
+
+`npm run typecheck` (both clones): exit 0 (9 s, 12 s).
+
+## C1-17. Build
+
+`NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build` (both clones): exit 0 (22 s each), 109 / 109 pages.
+Each compared with the approved adapter's clean build (`2043981`, build ID and folder normalised), and with each other:
+1,221 of 1,224 files identical; the other 3
+(`prerender-manifest.json`, `server/server-reference-manifest.{js,json}`) differ only in Next.js's random per-build
+keys (`previewModeId`, `previewModeSigningKey`, `previewModeEncryptionKey`, `encryptionKey`); no file only on one side.
+
+## C1-18. E2E
+
+| Run | Server | Result |
+| --- | --- | --- |
+| 1 | clean clone, `node server.js`, cold image cache | 610 / 612 (23.4 min) — the 2 `/en/about` photo timeouts (C1-10) |
+| 2 | the same, after a restart and the warm-up | **612 / 612** (22.7 min) |
+| 3 | the `e0d62b0` package, extracted, production install, `node server.js` on port 3410, after the warm-up | **612 / 612** (23.7 min) |
+| 4 | the `79cdff5` package, the same way | **612 / 612** (23.7 min) |
+
+No test changed or skipped.
+
+## C1-19. Legal blocker unchanged
+
+`src/content/legal.ts` is byte-identical to `422c397` (sha256 `2b6e5494…`); the seven visible pending notes are still on
+the Privacy and Terms pages. **No public deployment until RAWASY resolves them.**
+
+## C1-20. Nothing published
+
+No upload to Namecheap, no cPanel application, no DNS or nameserver change, no SSL, no domain connected, `main` not
+changed (`474f61f`), nothing published. Every server in this correction ran on this machine and was stopped.
+
+## C1-21. Items needing RAWASY's confirmation
+
+1. **Independent review** of this correction; the builder does not self-approve.
+2. **The three flagged laser-engraving photos** (`public/media/services/engraving-nameplates.webp`,
+   `engraving-rotary.webp`, `engraving-wood.webp`) and the 24 other unreferenced public files are still in the archive,
+   as the brief says; no page shows them, but they answer at their direct addresses. Leaving the three flagged ones out
+   too would be one more rule in the packaging script — your decision.
+3. **The image-optimizer decision** (item 12): the warm-up is now the documented launch step; a Next.js upgrade that
+   fixes the defect needs your authorization.
+4. **The account's memory limit** (cPanel → Resource Usage, item 30): a cold warm-up peaked at 471 MiB at 2 requests
+   at a time and 436 MiB at 1 (C1-12); if the limit is close to that, warm with `--concurrency=1`.
+5. Everything item 30 lists (the legal notes, the cPanel facts, the domain state, SSL) still holds.
+
+## C1-22. Known limitations
+
+- The warm-up covers the sizes the pages offer to browsers that accept WebP (all current browsers); a client without
+  WebP gets the source format, a separate cache entry, not warmed.
+- A visitor can still meet a stuck size between a start and the end of the warm-up (about 1.5–2 minutes locally; longer
+  on the host), and after a cache entry is lost (an update that deletes `.next`); the defect is Next.js's.
+- The packaging script needs Node 22.18 or later (TypeScript content read by type stripping) and `tar`; the README's
+  build machine is Linux.
+- `--check` compares an archive with the build in the folder it runs in; it cannot check an archive of another build.
+
+## C1-23. How to run
+
+```bash
+npm ci
+NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build
+node scripts/package-namecheap.mjs                       # archive + checks
+# after the app starts on the host (not now), from your own computer:
+node scripts/warm-images.mjs https://www.rawasymetal.com
+node scripts/warm-images.mjs https://www.rawasymetal.com --retry=warm-images-report.json   # only if needed, after a restart
+```
+
+Locally: `NODE_ENV=production PORT=3400 node server.js`, then `node scripts/warm-images.mjs http://localhost:3400` and
+`npm run test:e2e`.
+
+## C1-24. Next steps
+
+Independent review of this correction → RAWASY's decisions (C1-21, item 30) → an explicitly authorized upload, smoke
+test and warm-up → DNS and SSL as separate authorized steps. No Phase 2 work.
