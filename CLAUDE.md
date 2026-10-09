@@ -138,8 +138,12 @@
   `e82ba0e` unit, MariaDB integration and admin browser tests; `1677a48` the reset page without the database; `0275c7c`
   the unused CONTENT_SOURCE reader dropped; `45ec91e` README, `.env.example`, project memory; `ce6a63b` the eight
   findings of an independent code review fixed, each with a test that fails on the code before (see "Phase A2
-  implementation" below). The public site is frozen and proven unchanged against `preserve/pre-admin-a2` (report, item
-  "public freeze proof"). **Do not start A3** (no CMS editing,
+  implementation" below); `7f97207` docs; `20bef7a` the API headers scoped to `/api/admin/**` and `/api/internal/**` (the
+  full public suite's one A2 failure). Final QA on a fresh clone of `20bef7a`: `npm ci`, audit `--omit=dev` 0, lint,
+  typecheck, build with no database settings, public 612 / 612 (one earlier run 611 / 612 on a pre-existing race of the
+  frozen homepage showcase, the same rate on the baseline: see the gotcha), unit 15 / 15, integration 83 / 83, admin
+  24 / 24. The public site is frozen and proven unchanged against `preserve/pre-admin-a2` (report, item "public freeze
+  proof"): files, stylesheets, modules, 102 pages over HTTP and 238 screens. **Do not start A3** (no CMS editing,
   media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
   content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
@@ -1627,4 +1631,15 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   are server-wide: include the database name.
 - Next sets `NEXT_PHASE=phase-production-build` before it prerenders: `assertNotBuildPhase()` makes any database use
   during `next build` fail loudly.
+- A CSP with `default-src 'none'` / `sandbox` on every `/api/**` address (A1 §4's literal wording) also stops Next.js's
+  client-built 404 at unknown `/api/…` addresses: scripts, styles and fonts are refused and the tab keeps the server's
+  "Page not found" instead of "404: This page could not be found.", which `commerce-inner.spec.ts` pins. Static API
+  headers stay on `/api/admin/**` and `/api/internal/**` (`next.config.ts`).
+- The frozen homepage showcase (`MachineShowcase.tsx`) can lose a pick clicked while the page is still hydrating (the
+  pick takes focus, the stage stays on the first machine). Its 12 "homepage showcase's link" tests in
+  `commerce-capabilities.spec.ts` passed 120 / 120 at 3 workers and failed 1 / 120 at 8 workers on the A2 build and on
+  the baseline alike, and one full A2 run ended 611 / 612 on it. Compare a failure there with the baseline before
+  reading it as a regression; a fix (a test-only hydration wait, or the component) is the Owner's decision.
+- On phones the homepage grows after its images load (11,980 → 12,063 px in English, 11,928 → 12,030 px in Arabic, on
+  every build): a page-height comparison must walk the page and wait for every image, or it compares loading moments.
 - The Bash safety check refuses `rm -rf "$VAR/…"`: use literal absolute paths (or `${VAR:?}`).
