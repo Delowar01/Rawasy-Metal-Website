@@ -136,8 +136,10 @@
   dependencies and migration CLI; `240607e` authentication, sessions, invitations, password reset; `58adaf8` two-factor,
   user management, server CLIs; `d50d5da` proxy admin branch, nonce CSP, admin/API headers; `36dcda6` admin shell and UI;
   `e82ba0e` unit, MariaDB integration and admin browser tests; `1677a48` the reset page without the database; `0275c7c`
-  the unused CONTENT_SOURCE reader dropped (see "Admin / CMS program" below). The public site is frozen and proven
-  unchanged against `preserve/pre-admin-a2` (report, item "public freeze proof"). **Do not start A3** (no CMS editing,
+  the unused CONTENT_SOURCE reader dropped; `45ec91e` README, `.env.example`, project memory; `ce6a63b` the eight
+  findings of an independent code review fixed, each with a test that fails on the code before (see "Phase A2
+  implementation" below). The public site is frozen and proven unchanged against `preserve/pre-admin-a2` (report, item
+  "public freeze proof"). **Do not start A3** (no CMS editing,
   media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
   content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
