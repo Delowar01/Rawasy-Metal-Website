@@ -84,14 +84,16 @@ describe("lockout", () => {
     assert.equal(locked.lockedUntil?.getTime(), env.clock.now.getTime() + 15 * MIN);
     assert.equal(locked.failedLoginCount, 5);
     assert.deepEqual(await signIn(env.deps, { email: user.email, password: user.password }, meta(ip)), { kind: "failed" });
+    // The 6th attempt (the right password, during the lock) is refused before any password check: the email's 5
+    // credential checks of the last 15 minutes are used (A2 Correction 1), so it is recorded before the account lookup.
     const attempts = await dbFor(env.pool)
       .select({ reason: loginAttempts.failureReason, ok: loginAttempts.succeeded })
       .from(loginAttempts)
-      .where(eq(loginAttempts.userId, user.id))
+      .where(eq(loginAttempts.emailHash, sha256(user.email.toLowerCase())))
       .orderBy(asc(loginAttempts.id));
     assert.deepEqual(
       attempts.map((a) => a.reason),
-      ["bad_credentials", "bad_credentials", "bad_credentials", "bad_credentials", "bad_credentials", "locked"],
+      ["bad_credentials", "bad_credentials", "bad_credentials", "bad_credentials", "bad_credentials", "rate_limited"],
     );
     env.clock.advance(15 * MIN + 1);
     assert.equal((await signIn(env.deps, { email: user.email, password: user.password }, meta(ip))).kind, "signed_in");

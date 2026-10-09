@@ -15,6 +15,7 @@ import { ROLE_KEYS } from "../policy/registry.ts";
 import { activeOwnerIds, findUserById, rolesOf, rolesOfMany, type UserRow } from "./accounts.ts";
 import type { AuthDeps } from "./deps.ts";
 import { removeMfa } from "./mfa.ts";
+import { clearCredentialChecks } from "./rate-limit.ts";
 import { listLiveSessions, revokeSession, revokeUserSessions, type SessionRow } from "./sessions.ts";
 import { retireTokens } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
@@ -274,7 +275,7 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
   return { kind: "ok", summary };
 }
 
-/** Clears a sign-in lock. */
+/** Clears a sign-in lock and the email's credential-check slots (A2 Correction 1). */
 export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta): Promise<ManageResult> {
   const action = "user.unlock";
   const checked = await authorize(deps, actor, meta, action, "users.edit", targetId);
@@ -282,6 +283,7 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
   const { target } = checked;
   const now = deps.clock();
   await deps.db.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
+  await clearCredentialChecks(deps.db, target.emailNormalized);
   const summary = `Unlocked ${userLabel(target)}.`;
   await recordAudit(deps.db, {
     at: now,

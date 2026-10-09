@@ -24,6 +24,7 @@ import { generateRecoveryCodes, normalizeRecoveryCode, RECOVERY_CODE_COUNT, reco
 import { generateTotpSecret, otpauthUri, base32Encode, verifyTotp } from "../security/totp.ts";
 import { mfaStateOf, type UserRow } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
+import { clearCredentialChecks, reserveCredentialCheck } from "./rate-limit.ts";
 import { isAccountLocked, registerFailure } from "./sign-in.ts";
 import { revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
 import { issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
@@ -119,6 +120,7 @@ export async function beginEnrolment(
   const now = deps.clock();
   const { user } = current;
   if (await isAccountLocked(deps.db, user.id, now)) return { kind: "locked" };
+  if (!(await reserveCredentialCheck(deps.db, user.emailNormalized, now))) return { kind: "locked" };
   if (!user.passwordHash || !(await deps.hasher.verify(user.passwordHash, String(input.password ?? "")))) {
     const { locked } = await registerFailure(deps, user, "bad_credentials", meta, {
       action: "auth.reauth_failed",
@@ -127,6 +129,7 @@ export async function beginEnrolment(
     });
     return { kind: "failed", locked };
   }
+  await clearCredentialChecks(deps.db, user.emailNormalized);
   const state = await mfaStateOf(deps.db, user.id, current.roles);
   if (state.enrolled && !input.replace) return { kind: "already_enrolled" };
   const replace = state.enrolled;

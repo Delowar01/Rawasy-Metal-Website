@@ -9,6 +9,11 @@
  * Lockout: 5 failed passwords or codes for an account within 15 minutes (counted since its last successful sign-in or
  * the end of its last lock) lock it for 15 minutes, doubling with each further lock before a successful sign-in, a
  * password reset or an unlock (at most 24 hours).
+ * Before any password hash (A2 Correction 1): each password check takes one of 5 credential-check slots of the
+ * normalised email — known or not — reserved atomically before the account is looked up; with all 5 taken (in the last
+ * 15 minutes) nothing is hashed and the answer is the usual `failed`. Concurrent wrong passwords therefore cannot all be
+ * hashed before the account's lock is written: at most 5 checks start in any 15 minutes, in any number of processes. A
+ * successful password check, a password reset and an unlock free the slots again.
  * Per address: 30 attempts per 15 minutes. Failures are counted in `login_attempts` (evidence) inside a transaction
  * that holds the user row, so concurrent failures are counted once each. A second factor is checked inside that same
  * transaction, after the lock is read under the row lock, so concurrent codes are checked one at a time and none gets
@@ -28,7 +33,7 @@ import { verifyTotp } from "../security/totp.ts";
 import { findUserByEmail, isPlausibleEmail, mfaStateOf, normalizeEmail, rolesOf, type UserRow } from "./accounts.ts";
 import type { AuthDeps } from "./deps.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
-import { HOUR, hitRateLimit, LIMITS, MINUTE } from "./rate-limit.ts";
+import { clearCredentialChecks, HOUR, hitRateLimit, LIMITS, MINUTE, reserveCredentialCheck } from "./rate-limit.ts";
 import { createSession, isRotationDue, revokeSession, rotateSession, SessionEndedError, type SessionRow } from "./sessions.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
 
@@ -204,6 +209,21 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
     return { kind: "throttled" };
   }
 
+  // Before the account is looked up or any hash computed: one of the email's 5 credential-check slots (A2 Correction 1).
+  if (!(await reserveCredentialCheck(deps.db, email, now))) {
+    await recordAttempt(deps.db, now, emailHash, null, meta, false, "rate_limited");
+    await recordAudit(deps.db, {
+      at: now,
+      requestId: meta.requestId,
+      actor: { type: "user", label: "Unknown account" },
+      ip: meta.ip,
+      action: "auth.login_throttled",
+      outcome: "denied",
+      summary: "Sign-in refused before any password check: 5 checks for this email in the last 15 minutes.",
+    });
+    return { kind: "failed" };
+  }
+
   const user = isPlausibleEmail(email) ? await findUserByEmail(deps.db, email) : null;
   const locked = Boolean(user && isLocked(user, now));
   if (!user || user.status !== "active" || !user.passwordHash || locked) {
@@ -233,6 +253,7 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
     await registerFailure(deps, user, "bad_credentials", meta, { action: "auth.login_failed", summary: "Sign-in failed: wrong password." });
     return { kind: "failed" };
   }
+  await clearCredentialChecks(deps.db, email);
 
   if (deps.hasher.needsRehash(user.passwordHash)) {
     const rehashed = await deps.hasher.hash(password);
@@ -415,8 +436,9 @@ export type ReauthResult =
 
 /**
  * Step-up re-authentication for sensitive actions (A1 §3.7): the password, and a TOTP code when an authenticator is
- * set up. Refused while the account is locked; failures count towards the lockout, and a lock ends this session. The
- * code is checked like the sign-in's second factor, in one transaction holding the user's row.
+ * set up. Refused while the account is locked or its 5 credential checks are taken (A2 Correction 1: nothing is hashed
+ * then); failures count towards the lockout, and a lock ends this session. The code is checked like the sign-in's
+ * second factor, in one transaction holding the user's row.
  */
 export async function reauthenticate(
   deps: AuthDeps,
@@ -427,6 +449,7 @@ export async function reauthenticate(
   const now = deps.clock();
   const { user } = current;
   if (await isAccountLocked(deps.db, user.id, now)) return { kind: "locked" };
+  if (!(await reserveCredentialCheck(deps.db, user.emailNormalized, now))) return { kind: "locked" };
   if (!user.passwordHash || !(await deps.hasher.verify(user.passwordHash, String(input.password ?? "")))) {
     const { locked } = await registerFailure(deps, user, "bad_credentials", meta, {
       action: "auth.reauth_failed",
@@ -435,6 +458,7 @@ export async function reauthenticate(
     });
     return { kind: "failed", locked };
   }
+  await clearCredentialChecks(deps.db, user.emailNormalized);
   const mfa = await mfaStateOf(deps.db, user.id, current.roles);
   return inTransaction(deps.pool, async (tx): Promise<ReauthResult> => {
     const row = await lockUser(tx, user.id);

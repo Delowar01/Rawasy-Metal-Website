@@ -15,6 +15,7 @@ import { ulid } from "../security/ids.ts";
 import { activeOwnerIds, findUserByEmail, isPlausibleEmail, normalizeEmail } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { removeMfa } from "./mfa.ts";
+import { clearCredentialChecks } from "./rate-limit.ts";
 import { revokeUserSessions } from "./sessions.ts";
 import { issueToken, retireTokens, TOKEN_LIFETIME_MS } from "./tokens.ts";
 
@@ -106,6 +107,7 @@ export async function recoveryReset(
   const requestId = ulid(now.getTime());
   return inTransaction(deps.pool, async (tx) => {
     await tx.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now }).where(eq(users.id, user.id));
+    await clearCredentialChecks(tx, user.emailNormalized);
     const sessionsRevoked = input.removeMfa ? await removeMfa(tx, user.id, now) : await revokeUserSessions(tx, user.id, "revoked", now);
     await retireTokens(tx, user.id, ["password_reset", "email_change"], now);
     const { token, row } = await issueToken(tx, { userId: user.id, purpose: "password_reset", now });

@@ -17,6 +17,7 @@ import { ulid } from "../security/ids.ts";
 import { checkPassword, type PasswordProblem } from "../security/password-policy.ts";
 import { isPlausibleEmail, normalizeEmail, rolesOf } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
+import { clearCredentialChecks } from "./rate-limit.ts";
 import { consumeToken, findUsableToken, issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
@@ -177,5 +178,8 @@ export async function acceptInvitation(deps: AuthDeps, input: { token: string; p
     });
     return true;
   });
-  return ok ? { kind: "ok", email: user.email } : { kind: "invalid" };
+  if (!ok) return { kind: "invalid" };
+  // A new password set through the emailed link: earlier attempts on this email no longer hold its checks back.
+  await clearCredentialChecks(deps.db, user.emailNormalized);
+  return { kind: "ok", email: user.email };
 }
