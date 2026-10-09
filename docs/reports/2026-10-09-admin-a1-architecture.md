@@ -3,6 +3,16 @@
 Date: 2026-10-09 · Branch: `claude/new-session-5eijs6` · Brief: "ADMIN / CMS PROGRAM — PHASE A1 — ARCHITECTURE, DATABASE &
 CONTENT-MODEL SPECIFICATION — LOCKED ROADMAP — DESIGN ONLY".
 
+> **Corrected by A1 Correction 1** (the section "A1 CORRECTION 1" at the end of this report). Where the items below
+> disagree with it, the correction applies:
+> - the admin passes through the proxy only for a CSP nonce and headers (item 27);
+> - the cache fails closed (finding 1 of the summary, items 25 and 29);
+> - the pool budget is a formula with a production default of 2 (items 10 and 29);
+> - the TOTP key has escrow, rotation and an emergency reset (item 27);
+> - T1 is locked to Option B (items 24, 29 and 30);
+> - hosting facts are split into official platform facts and account checks (items 28, 30 and 31);
+> - the schema has 84 tables.
+
 ## Summary and status
 
 Phase A1 is complete as a **design-only** deliverable. Seven specification documents are in `docs/admin/`. Together they
@@ -708,3 +718,405 @@ Four read-only research passes fed the documents:
    migrate content or deploy until then.
 
 **A1 STATUS: READY FOR INDEPENDENT REVIEW**
+
+---
+
+## A1 CORRECTION 1
+
+Date: 2026-10-09 · Branch: `claude/new-session-5eijs6` · Brief: "ADMIN / CMS PROGRAM — PHASE A1 — CORRECTION 1 —
+ARCHITECTURE CONSISTENCY / SECURITY / HOSTING FACTS — DOCUMENTATION ONLY — DO NOT START A2".
+
+### Summary and status
+
+The review of A1 found five problems. This correction fixes them **in the documents only**:
+1. The admin was both excluded from `src/proxy.ts` and given a per-request nonce CSP, which a static `next.config.ts`
+   rule cannot generate. Admin page requests now pass through the proxy's admin branch, for the nonce and the headers
+   only.
+2. The custom cache handler fell back to Next's built-in cache when it could not read the shared invalidation state.
+   It now fails closed.
+3. The database budget assumed "up to 4 app processes", and its example did not follow its own formula. It is now a
+   formula over measured values, with a production default of `DB_POOL_LIMIT=2`.
+4. The TOTP encryption key had no recovery strategy. It is now versioned and escrowed offline, with a rotation
+   procedure, a disaster-restore procedure and an emergency 2FA reset. No pepper.
+5. A1 recommended Option A (a per-domain public cutover). T1 is now locked to **Option B**: the production site stays
+   static until one controlled A9 cutover, with a static rollback.
+
+Hosting facts are now split in two: platform facts confirmed by official Namecheap pages, and account facts still to
+verify. The checklist is split into A2 local requirements and pre-staging / pre-production host verification.
+
+Nothing was implemented, installed, migrated or deployed, and no product file changed.
+
+The superseded statements in items 1–33 above are listed under "Superseded statements" below. The original items stay
+as written, for the record.
+
+### C1-1. Starting SHA
+`806c66ee83e737108e4998fb78556696ac97a331`, the expected HEAD. It was verified before any edit: local HEAD =
+`origin/claude/new-session-5eijs6` = `806c66e`.
+
+### C1-2. Correction implementation SHA
+`fe89bec6b9bf19dc0dfd00f709c70fe04146278e`: the seven corrected `docs/admin` documents, pushed.
+
+### C1-3. Final branch HEAD
+One more commit sits on `fe89bec`: it adds this section, a note at the top of this report and the `CLAUDE.md` update.
+Its hash is given in the hand-over message. `main` was not touched (still `474f61f`).
+
+### C1-4. Files changed
+In `fe89bec` (documentation only; 7 files, +654 / −266 lines):
+
+| File | Change |
+|---|---|
+| `docs/admin/A1-SECURITY-RBAC.md` (+133 / −25) | §4 the admin proxy branch, the API endpoints outside the proxy, the headers; §3.2 no pepper; §3.4 client-IP check moved to pre-staging; §3.6 TOTP key versions and the lost-device path; §12 environment names, plus §12.1–§12.4 (secret classes, rotation, disaster restore, emergency 2FA reset); §15 |
+| `docs/admin/A1-PUBLISHING-VERSIONS.md` (+104 / −30) | §5 steps 8–9 (generations); §8 scope (database mode), §8.1 findings, §8.2 the fail-closed design, §8.3 invalidation mode, §8.4 warm-up; §7 cron facts; §11 where preview runs |
+| `docs/admin/A1-DATABASE-SCHEMA.md` (+149 / −87, regenerated) | §1 server facts; §3.2; §4.1 pool (`connectionLimit` 2); §4.2 the budget formula; §4.3 the breaker; the new table `cache_generation` and the reworked `cache_invalidations`; `user_mfa` key notes; §10 remote-access wording; §6 renumbered (84 tables) |
+| `docs/admin/A1-ARCHITECTURE.md` (+167 / −72) | §1 roadmap rows and the Option B lock; §2; §4 flowchart with the proxy; §5 flows; §6 the two content modes and the fail-closed cache; §7.1 official platform facts, §7.2 account facts, §7.3 the split checklists; §8, §9, §11 restore (epoch, escrow), §12 environments, §13, §15 |
+| `docs/admin/A1-MIGRATION-PLAN.md` (+78 / −39) | status; rules 5; §2; §3 rewritten (3.1 what runs where, 3.2 the A9 cutover, 3.3 staging content, B16); inventory rollback cells; §6.12; §7; §8 heading and item 6; §9; §10; §12 |
+| `docs/admin/A1-MEDIA-STORAGE.md` (+16 / −10) | §8 media lookups fail closed (503); §12 relocation moved to the A9 cutover |
+| `docs/admin/A1-CONTENT-MODEL.md` (+7 / −3) | §1 principle 1 (no change before A9); §4.3 the resolver only in database mode |
+
+In the final commit: `docs/reports/2026-10-09-admin-a1-architecture.md` (this section and the note at the top) and
+`CLAUDE.md` (project memory).
+
+### C1-5. CSP / Proxy correction
+**The contradiction:** A1 said `/admin` is excluded from the proxy, and also proposed a per-request nonce CSP for
+admin pages. A static `next.config.ts` `headers()` rule cannot generate a fresh nonce for each request.
+
+**Now documented** (A1-SECURITY-RBAC §4; A1-ARCHITECTURE §1 A2 row, §4 flowchart, §5 flows 2 and 6, §9, §15):
+- **Admin page requests.** `/admin/**` page requests pass through `src/proxy.ts`. Today's matcher already includes
+  them. They go to an **admin branch that is checked before any public logic**. The branch:
+  - generates a cryptographically random nonce (16 bytes, base64);
+  - sets the nonce CSP and `x-nonce` on the request, so Next.js applies the nonce to its own scripts (the pattern of
+    the installed 16.3.8 CSP guide), and sets the same CSP on the response;
+  - adds the admin headers: `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: same-origin`, `nosniff`,
+    `Permissions-Policy`.
+- **What the proxy never does.** It never performs the public locale redirect or any public routing. It never reads
+  the session, checks a permission or redirects to the login page. **The proxy is a network and header boundary
+  only.** Every admin page, Server Action and Route Handler validates the session and RBAC in the data-access layer.
+  An unauthenticated page request is redirected by the page's own server-side check.
+- **Endpoints outside the proxy.** `/api/**` stays outside the matcher, as today. That covers:
+  - the chunked uploads at `/api/admin/media/uploads/**`, which are never buffered or truncated;
+  - private files;
+  - the preview switches;
+  - `/api/internal/**`.
+
+  They render no HTML, so they get no nonce. Instead they get static `next.config` headers: `Cache-Control:
+  no-store`, `X-Robots-Tag`, `nosniff`, `Referrer-Policy: no-referrer` and `Content-Security-Policy: default-src
+  'none'; frame-ancestors 'none'; sandbox`.
+- **Admin HTML pages** stay dynamically rendered, `no-store` (A2 verifies every response) and `noindex` (metadata and
+  header).
+- **Not implemented:** `src/proxy.ts` is unchanged.
+
+### C1-6. Cache failure-mode correction
+**Removed:** "errors fall back to the built-in behaviour", together with the claim that a removal is never stale. The
+two can no longer appear together.
+
+**The locked rule:** if the handler cannot establish that a cached entry is fresh, it does not serve that entry as
+fresh. The design is in A1-PUBLISHING-VERSIONS §8.2 and summarized in A1-ARCHITECTURE §6.
+
+1. **Commit-ordered generations.** Each invalidation takes the next number from a one-row counter, `cache_generation`.
+   It is the publishing transaction's last write, so its row lock orders the numbers by commit. `cache_invalidations`
+   keeps one row per tag, holding its newest generation. This adds one table (84 in total). The `mode` column is
+   dropped, and `invalidated_at` is now informational.
+2. **A read of the shared state before every cached answer.** Before serving a cached entry, the request reads what
+   changed since its process last read (one indexed statement, one consistent read).
+   - The default `CACHE_SYNC_INTERVAL_MS` is **0**: the read happens for every request.
+   - Concurrent requests share a read only if it began after they arrived.
+   - A larger value means a documented propagation delay, and it needs the Owner's decision.
+3. **Stamps taken before the render reads content.** An entry is stamped with the epoch and generation of its
+   request's read, taken before the render reads any content. A publish committed during a render therefore makes that
+   entry stale. Next's own clock check misses this case: it dates entries when they are stored.
+4. **Fail closed.** A failed or timed-out read, a missing stamp or an older epoch all count as a **miss**. Next then
+   renders from the read model. If the database is down, the visitor gets a **500, never possibly withdrawn content**.
+   Nothing is stored while the state cannot be read.
+5. **No retry loop and no polling.** Each request makes at most one read and one render. A data-layer breaker opens
+   for 5 seconds, doubling up to 60, while failures continue. While it is open, renders fail at once, so no request
+   waits on a dead database and the host's entry processes do not fill up. The read has a 1 s limit.
+6. **Logging without leaks.** One log line per state change, with the error class or code only: never the host, user,
+   database name, SQL, parameters or driver message. Counters go to `system_job_runs.details` and the dashboard.
+7. **A new epoch after a database restore** (in the restore runbook). It invalidates every older entry, even when the
+   restored generations are lower than stamps already issued.
+8. **The 1 h `revalidate` is defence in depth only**, against a publish that names the wrong tags. It is never what
+   makes a removal take effect.
+9. **Availability trade-off, stated plainly.** In database mode (production from A9) a database outage is a site
+   outage. Visitors see Next's default error page unless the Owner approves a branded one (T20).
+10. **Tests required on every Next upgrade:**
+    - two processes see each other's invalidations;
+    - a publish committed during a render makes that render's entry stale;
+    - with the database stopped, no cached entry is served and nothing retries in a loop;
+    - a new epoch empties the cache.
+
+The media route `/media/u/…` follows the same rule (A1-MEDIA-STORAGE §8): it answers 503 when the database is down.
+In static mode, which is production until A9, no handler is configured.
+
+**Checked in the installed Next.js 16.3.8 source for this correction:**
+- The incremental cache, and with it the handler, is created per request (`getIncrementalCache` in `next-server.js`:
+  "incremental-cache is request specific").
+- The handler's `get` is awaited before rendering, and a `null` answer is a miss (`incremental-cache/index.js`).
+- The file-system cache dates an entry with `lastModified: Date.now()` in `set`.
+
+### C1-7. DB pool correction
+**Removed:**
+- "up to 4 app processes";
+- the 30-connection forum figure as a planning input;
+- `connectionLimit: 4`;
+- the inconsistent example. The old formula, `floor((30 − 3) / 4)` capped at 6, gives 6 per process, while its
+  example used 4 × 4 = 16.
+
+**Now documented** (A1-DATABASE-SCHEMA §4.2; A1-ARCHITECTURE §8 and §13; A1-SECURITY-RBAC §12):
+- **The rule:** `P × L + R ≤ U`, so `L = min(4, floor((U − R) / P))`, and L must be at least 1 or the plan is not
+  feasible.
+  - U = the account's `max_user_connections`, measured.
+  - P = the most app processes measured running at once. It is never assumed.
+  - L = `DB_POOL_LIMIT`.
+  - R = 5 reserved connections: migration CLI 1, scheduler / cron 1, backups 1, phpMyAdmin and operator access 2.
+- **Production default `DB_POOL_LIMIT=2`.** It is not raised until `max_user_connections`, the real process behaviour
+  and the connections that cron, migrations, backups and phpMyAdmin actually use have been checked. If
+  P × 2 + 5 > U, the value goes down to 1, or the process count is limited in the host's settings, before production.
+- **Worked example with hypothetical values:** U = 15 and P = 5 give L = 2, and 5 × 2 + 5 = 15 ≤ 15. The formula
+  and the example now agree.
+- **Pool settings:** `maxIdle` = L − 1; `idleTimeout` below the account's `wait_timeout`.
+- **A2** implements the pool as configuration, locally. The production value is verified before any production
+  database is activated.
+- In static mode (production until A9), public pages open no connection.
+
+### C1-8. Secret recovery correction
+Documented in A1-SECURITY-RBAC §3.2, §3.6, §12.1–§12.4 and §15, in A1-ARCHITECTURE §11, and in the `user_mfa`
+column notes.
+
+- **No `AUTH_PEPPER` in A2.** Argon2id is the password-hashing control. A pepper, if ever enabled, would be
+  recovery-critical: escrow and a rotation runbook would come before activation.
+- **`AUTH_ENCRYPTION_KEY`** encrypts the TOTP secrets.
+  - It is versioned (`AUTH_ENCRYPTION_KEY_VERSION`; each row's `user_mfa.key_version`).
+  - At least two offline copies are kept outside the hosting account. The medium is an Owner decision (T21).
+  - It is never in Git, the database, database or media backups, email or chat.
+  - No key value appears in any document.
+- **Rotation:**
+  1. Escrow the new key first.
+  2. Move the current key to the retired set.
+  3. Make the new key active, with version + 1.
+  4. Restart the app.
+  5. Re-encrypt row by row, in batches (decrypt with the old version, encrypt with the new).
+  6. Verify that no row still uses an old version.
+
+  A retired version stays in escrow until no row uses it **and** every retained backup that may need it has expired
+  or been superseded. It is then destroyed, and the date is recorded.
+- **Disaster restore:**
+  1. Decrypt the backups with the escrowed key, if they are encrypted.
+  2. Restore the database and the media.
+  3. Restore the active key and every retired version still needed from escrow.
+  4. Issue new replaceable secrets.
+  5. Rebuild with `.previewinfo` deleted.
+  6. Revoke all sessions.
+  7. Set a new cache epoch.
+  8. Verify.
+
+  A key version that cannot be found leads to the emergency reset.
+- **Emergency 2FA reset:** `admin-2fa-reset --all` or `--user <email>`, run over SSH or cPanel Terminal. It:
+  - deletes the unreadable `user_mfa` rows and the recovery codes;
+  - revokes those users' sessions;
+  - sends password-reset links;
+  - escrows a new key version;
+  - writes an audit event.
+
+  Users then enrol 2FA again. SSH or Terminal access is therefore a pre-staging requirement.
+- **Recovery-critical vs replaceable secrets:**
+  - Recovery-critical: the encryption key and every retired version still needed; the backup decryption key, if
+    backups are encrypted; a pepper, if one were ever enabled.
+  - Replaceable (rotate and redeploy): DB credentials, SMTP credentials, `CRON_SECRET`,
+    `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, the `.next` build secrets, the CAPTCHA secret and the one-time bootstrap
+    token.
+
+### C1-9. T1 Option B lock
+**T1 = Option B, locked by the Owner.** It is documented in A1-MIGRATION-PLAN §3 and A1-ARCHITECTURE §1, §2, §6 and
+§12, and reflected in A1-CONTENT-MODEL §1 and §4.3, A1-MEDIA-STORAGE §12, and A1-PUBLISHING-VERSIONS §8 and §11.
+
+- **A2–A8:** the admin, the CMS and the database are built and used locally and in authenticated staging. The
+  approved public site stays on its static source in production. There is no progressive per-domain switch.
+- **A3 still builds** the working copy, the published projections, preview, revisions, the cache architecture,
+  redirects and the media registry, and every importer comes with its round-trip and parity tests. Production public
+  rendering stays on the frozen source until A9.
+- **A9:**
+  1. the complete import;
+  2. the full freeze/parity proof, rehearsed in staging on a release built from the same commit;
+  3. **one controlled cutover**: a release built with `CONTENT_SOURCE=database`;
+  4. the static release kept as an immediate rollback until A9 is accepted.
+
+  On a retry, the importer leaves aggregates edited after the first cutover alone, unless the Owner chooses otherwise.
+- **One switch.** The per-domain `CONTENT_SOURCE_<DOMAIN>` is removed. There is one switch,
+  `CONTENT_SOURCE=static|database`, fixed into a release when it is built.
+- **Media relocation (T7)** moves from A4 to the A9 cutover. Before A9, a restriction acts in preview and staging
+  only; production keeps the packaging script's 13 held-back files.
+- **New Owner decision B16:** content entered in staging before A9. Proposed: test content only, with real changes
+  going through the static source until A9.
+- The phase order A1 → A9 is unchanged.
+
+**Checked:** in `docs/admin`, "Option A" appears only where it is said to be withdrawn, and "per-domain" only where
+it is said not to exist.
+
+### C1-10. Updated official Namecheap facts
+Recorded in A1-ARCHITECTURE §7.1 (with links) and A1-DATABASE-SCHEMA §1 as **platform facts** of Namecheap's shared
+hosting, as confirmed by the official pages the brief cites:
+
+| Platform fact | Official page |
+|---|---|
+| LiteSpeed 6.2.2 · MariaDB 11.4.9 · Node.js 22.22 in the available version pool | https://www.namecheap.com/support/knowledgebase/article.aspx/129/22/what-version-of-the-software-is-used-on-your-servers/ |
+| Stellar Plus 2 GB physical memory · maxEntryProc 30 · I/O 50 MB/s | https://www.namecheap.com/support/knowledgebase/article.aspx/1127/103/a-handy-guide-to-resource-limits-or-what-is-lve/ |
+| 300,000 inode limit | https://www.namecheap.com/support/knowledgebase/article.aspx/9331/29/how-to-check-the-number-of-inodes-in-your-hosting-account/ |
+| cron no more often than every 5 minutes · no more than 5 simultaneous cron jobs | https://www.namecheap.com/support/knowledgebase/article.aspx/9453/29/how-to-run-scripts-via-cron-jobs/ and KB 157 |
+| stand-alone daemons prohibited | https://www.namecheap.com/support/knowledgebase/article.aspx/157/22/do-you-have-any-server-resource-restrictions/ |
+
+**How these were sourced.** This environment's network proxy refuses Namecheap's site, so the pages were not opened
+here. The facts are recorded as the brief states them, and matched to pages by topic. Search extracts of KB 157 and
+KB 9453, read in this session, agree on the cron and daemon rules.
+
+**What they are not.** None of these is turned into an account fact. For example, maxEntryProc 30 is a limit, not the
+app's process count, and no platform page states the database connection limit.
+
+### C1-11. Account-specific facts still pending
+These must be verified on the RAWASY account (A1-ARCHITECTURE §7.2):
+- the actual Node app process count and lifecycle;
+- `max_user_connections`;
+- `wait_timeout`;
+- the database user's authentication plugin;
+- its grants;
+- SSH / Terminal availability on this account;
+- actual resource use;
+- the upload limits this application sees;
+- the mail and DNS configuration.
+
+The other Namecheap details seen only in search extracts are still marked [O] and get verified at the same time:
+remote access closed, the phpMyAdmin limits, the SSH port, the AutoBackup schedule and the email limits.
+
+**The checklist is split** (A1-ARCHITECTURE §7.3):
+- **A2 local implementation requirements**, which block nothing:
+  - Node 22.22.x;
+  - a local MariaDB compatible with 11.4;
+  - the pool and every other setting as configuration;
+  - no production credentials;
+  - no connection to the hosted database.
+- **Pre-staging / pre-production host verification**, nine steps done before the admin is connected to the Namecheap
+  MariaDB or to staging or production storage:
+  1. web server, `X-Forwarded-For` hops, process count and lifecycle;
+  2. database variables, plugin and grants;
+  3. connections actually used → `DB_POOL_LIMIT`;
+  4. SSH / Terminal and tools;
+  5. resource use;
+  6. upload limits;
+  7. cron;
+  8. an AutoBackup restore;
+  9. mail and DNS.
+
+No production database is used for local development.
+
+### C1-12. Preservation checkpoint unchanged
+`git ls-remote` before and after both pushes shows `refs/heads/preserve/pre-admin-a1` at
+`74220ea96abebd381a4bfdd2d764309ac084c383`. It was not moved. `main` is at `474f61f10f12981e41f9b7e7fd6065a0ec9da541`,
+untouched.
+
+### C1-13. Public/product files unchanged
+- `git diff --stat 806c66e fe89bec` lists only the seven `docs/admin` documents.
+- `git diff 806c66e -- src public server.js package.json package-lock.json next.config.ts tsconfig.json
+  playwright.config.ts .env.example scripts e2e README.md .nvmrc` is empty.
+- The `package-lock.json` SHA-256 (`d6d8f59e…c7b9`) is identical.
+- `npm run lint` and `npm run typecheck` exit 0, and `git status` is identical before and after running them (they
+  write only ignored files).
+
+### C1-14. No A2 implementation
+None of the following was done:
+- no change to `src/proxy.ts`;
+- no `/admin` route;
+- no authentication;
+- no Drizzle or mysql2, and no `npm install`;
+- no database (no MariaDB server or client exists on this machine);
+- no tables and no migration files;
+- no content migrated;
+- no legal text edited.
+
+The generator for the schema document and the Mermaid check ran in a scratch folder outside the repository.
+
+### C1-15. Nothing deployed
+Not done: no upload to Namecheap, no cPanel, DNS, nameserver or SSL change, and no external publication. `main` was not
+fast-forwarded. The work exists only on `claude/new-session-5eijs6`.
+
+### Owner decisions changed or added by Correction 1
+| # | Decision | Status / proposal |
+|---|---|---|
+| T1 | When the public site reads the database | **locked: Option B** (no longer open) |
+| T6 | A staging app on the same account | still yes, and now where the CMS is used before A9 (after the pre-staging verification) |
+| T7 | Serve today's media at the same addresses from persistent storage | yes, **at the A9 cutover** (was A4) |
+| T10 | `next.config.ts` additions | `serverExternalPackages: ['mysql2']`, `cacheHandler` (database mode only), static headers for `/api/admin/**` and `/api/internal/**`, `images.localPatterns`. The admin pages' CSP and headers now come from the proxy's admin branch (a `src/proxy.ts` change in A2, within the locked design) |
+| T20 (new) | The error page in database mode when the database is unreachable | Next's default (no public UI change) or a branded page (a public interface addition): an A9 decision |
+| T21 (new) | Escrow medium for the recovery-critical keys | proposed: a password-manager entry plus a sealed offline copy kept at another place; needed before the first staging or production key exists |
+| T22 (new, optional) | `CACHE_SYNC_INTERVAL_MS` above 0 (a documented propagation delay) | not proposed; the default is 0 |
+| B16 (new) | Content entered in staging before A9 | proposed: test content only; real changes keep going through the static source until A9 |
+
+The "Owner's checklist on the hosting account before A2" in item 30 is replaced by the two checklists in
+A1-ARCHITECTURE §7.3.
+
+### Superseded statements in items 1–33 (kept above for the record)
+- **Summary, finding 1, and item 25:** the shared table is now generation-based, and the handler fails closed (C1-6).
+  "Expire immediately" now holds because every process checks the shared state before serving.
+- **Item 10, and item 29's "Driver and pool" row:** pool limit 4, "≤ 4 per process × up to 4 processes" and the
+  reported 30 are replaced by C1-7.
+- **Item 24, and item 29's "When the site reads the database" row:** per-domain switch and rollback → Option B
+  (C1-9).
+- **Item 27:**
+  - "`/admin` is excluded from the proxy" → C1-5;
+  - "Optional TOTP with an encrypted secret" → plus escrow, rotation and the emergency reset (C1-8).
+- **Item 28:** the constraint labels → C1-10 and C1-11.
+- **Item 29's other rows:**
+  - "Cross-process cache" → C1-6;
+  - "Media storage", A4 option → the A9 cutover (C1-9).
+- **Item 30:** T1, T6, T7 and T10, and the checklist → the table above.
+- **Item 31, risks 1, 2 and 8:**
+  - LiteSpeed is the platform's web server; the account's process model is still measured (C1-11);
+  - before A9, restrictions act in preview and staging only, and relocation happens at the cutover.
+- **The "QA actually run" table:** 83 tables → 84 (`cache_generation` added).
+
+### QA actually run (Correction 1)
+| Check | Result |
+|---|---|
+| Start state: HEAD, origin, checkpoint | HEAD = `origin/claude/new-session-5eijs6` = `806c66e`; `preserve/pre-admin-a1` = `74220ea` |
+| Next.js 16.3.8 source re-read for the cache design | per-request incremental cache; `null` from `get` is a miss; entries dated at `set` |
+| Schema document provenance | the committed A1 schema document is byte-identical to the generator's output from the pre-correction specification (no hand edit lost); regenerated: 84 tables, 18 translation tables, 14 aggregate roots, A3 45 |
+| Mermaid 11.12.2 render check in headless Chromium | 11 / 11 render (9 ERDs, the state diagram, the new architecture flowchart, which was also inspected as an image) |
+| Contradiction checks across `docs/admin` | proxy exclusion of `/admin`, the cache fallback, "once a second", the 4-process / limit-4 / 30-connection figures, Option A or per-domain switching, `CONTENT_SOURCE_<DOMAIN>`, the "A4 option", an optional pepper, account checks scheduled "in A2": only corrective mentions remain. All 31 lines mentioning the proxy were read |
+| `npm run lint` / `npm run typecheck` | exit 0 / exit 0; `git status --porcelain` identical before and after |
+| Frozen paths vs `806c66e`; lockfile SHA-256 | identical |
+| Web search of namecheap.com (extracts only) | KB 157 and KB 9453 agree with the brief's cron and daemon facts; the pages themselves are unreachable from here |
+| Full E2E suite, production build | **not run**: documentation only (the brief says no E2E is needed) |
+
+### Known limitations
+- The Namecheap pages were not opened from this environment. The facts are recorded as the brief cites them, with
+  supporting search extracts.
+- In database mode (production from A9), the database becomes a hard dependency of the public site: an outage means
+  errors, by the Owner's rule. Static mode, before A9, has no such dependency.
+- Every cached public page answer costs one small indexed read (default interval 0).
+- The generation counter serializes invalidating transactions while they commit. Publishes are rare.
+- `DB_POOL_LIMIT=2` is a starting value, not a measurement. The account may need 1.
+- Key escrow is a procedure carried out by people; the documents cannot enforce it.
+- The handler still depends on a Next.js internal module: Next stays pinned and the tests rerun on every upgrade.
+- The schema generator lives in this session's scratch folder, not in the repository. Later edits to
+  A1-DATABASE-SCHEMA must keep §6, §7 and §8 consistent by hand.
+
+### How to verify
+- `git diff --stat 806c66e fe89bec` shows the seven documents only.
+- `git diff 806c66e HEAD -- src public server.js package.json package-lock.json next.config.ts tsconfig.json
+  playwright.config.ts .env.example scripts e2e` is empty.
+- To read the corrections:
+  - A1-SECURITY-RBAC §4 and §12;
+  - A1-PUBLISHING-VERSIONS §8.2;
+  - A1-DATABASE-SCHEMA §4.2, plus the `cache_generation` and `cache_invalidations` tables;
+  - A1-MIGRATION-PLAN §3;
+  - A1-ARCHITECTURE §6 and §7.
+
+### Next steps
+1. Independent review of this correction.
+2. Owner decisions:
+   - B16;
+   - T21, before any staging or production key exists;
+   - T20 and T22, when relevant.
+3. A2 only after the Owner approves A1 and says so. A2 can then proceed locally (A1-ARCHITECTURE §7.3, local
+   requirements). The pre-staging host verification comes before the admin touches the Namecheap database or storage.
+4. **Do not begin A2 now.**
+
+**A1 CORRECTION 1 STATUS: READY FOR INDEPENDENT REVIEW** (not self-approved).

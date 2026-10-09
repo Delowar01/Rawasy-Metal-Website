@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-admin-a1-architecture.md` (Admin / CMS program, Phase A1 — design only)
+- Latest report: `docs/reports/2026-10-09-admin-a1-architecture.md` (Admin / CMS program, Phase A1 — design only; its
+  "A1 CORRECTION 1" section is at the end)
   (earlier: `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
   `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
@@ -129,9 +130,15 @@
   CMS program" below). Locked phases: A1 Architecture & Database Foundation · A2 Authentication, RBAC & Admin Shell · A3
   Core CMS · A4 Media Library · A5 Page Builder / Visual Editor · A6 Global Site Controls · A7 Forms & Enquiries · A8
   Publishing, Versions, Audit & Backup Safety · A9 Full Content Migration & Complete QA — never merge, reorder, skip or
-  silently expand them; report any scope change for the user's approval first. **Do not start A2** (no authentication,
-  database tables, Drizzle/mysql2 install, `/admin`, content migration or deployment) until the user approves A1 and says
-  so. Admin work must not redesign the public site (A1–A4 change no appearance).
+  silently expand them; report any scope change for the user's approval first. **A1 Correction 1 (documentation only)
+  is built** (the user's "PHASE A1 — CORRECTION 1 — ARCHITECTURE CONSISTENCY / SECURITY / HOSTING FACTS" brief; section
+  "A1 CORRECTION 1" at the end of the same report; correction commit `fe89bec`, started from `806c66e`) and awaits
+  independent review: the proxy's admin branch for the CSP nonce, the fail-closed cache, the pool budget formula
+  (production default 2), the TOTP key escrow / rotation / emergency reset, **T1 locked to Option B**, the official
+  Namecheap platform facts and the split checklists (see "Admin / CMS program" below). **Do not start A2** (no
+  authentication, database tables, Drizzle/mysql2 install, `/admin`, proxy change, content migration or deployment) until
+  the user approves A1 and says so. Admin work must not redesign the public site (A1–A4 change no appearance, and nothing
+  from the admin reaches production before the A9 cutover).
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab
@@ -236,20 +243,43 @@
 
 ## Admin / CMS program (Phase A1 specification — nothing implemented)
 
-- Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (83 tables; catalogue and Mermaid
-  ERDs generated from one scratch spec — regenerate rather than hand-edit if the schema changes), `A1-CONTENT-MODEL.md`,
+- Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
+  catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
+  an edit by hand must keep §6's numbered list, §7's catalogue and §8's ERDs in step), `A1-CONTENT-MODEL.md`,
   `A1-MIGRATION-PLAN.md`, `A1-SECURITY-RBAC.md`, `A1-MEDIA-STORAGE.md`, `A1-PUBLISHING-VERSIONS.md`.
 - Key decisions (all awaiting review; Owner decisions listed in the report, item 30): MariaDB as hosted (11.4 listed by
-  Namecheap) + Drizzle **core query builder only** + mysql2 (pool per process, limit 4); `utf8mb4_unicode_520_ci`
+  Namecheap) + Drizzle **core query builder only** + mysql2 (pool per process, `DB_POOL_LIMIT` production default 2;
+  budget `P × L + R ≤ U` with R = 5 reserved and U, P measured — never assume a process count); `utf8mb4_unicode_520_ci`
   everywhere, ASCII `ascii_bin` keys, ULID ids, `DATETIME(3)` UTC; translation tables with per-locale status; the public
   site reads only `published_documents` (public projections), `public_media` and `redirects`; working copy + immutable
   revision snapshots; approved sections become bespoke, structure-locked block types fed the same data (no redesign);
-  pages render at runtime (root `generateStaticParams` → `[]`) and are cached, with a custom `cacheHandler` reading a
-  shared `cache_invalidations` table; uploads in `RAWASY_DATA_DIR` outside the release, served by `/media/u/…`; private
+  in database mode pages render at runtime (root `generateStaticParams` → `[]`) and are cached by a **fail-closed** custom
+  `cacheHandler` (invalidations numbered in commit order by `cache_generation`, one row per tag in `cache_invalidations`,
+  entries stamped before the render reads content; no cached entry is served without a successful read of the shared
+  state — default for every request, `CACHE_SYNC_INTERVAL_MS = 0`; database down → 500, never stale; breaker 5 → 60 s;
+  logs name error codes only; new epoch on restore; the 1 h `revalidate` is defence in depth only); uploads in
+  `RAWASY_DATA_DIR` outside the release, served by `/media/u/…`; private
   certificate originals in a separate private root, never publishable; DB sessions in a `__Host-` cookie; Server Actions
   for admin mutations, Route Handlers for uploads/files/preview/cron; cron every 5 min calls `/api/internal/*`.
-- Option A (recommended, Owner decision T1): the public site switches to the database domain by domain as phases land,
-  through `CONTENT_SOURCE_<DOMAIN>` in `src/content/repository.ts`, each switch proven with the freeze-proof method.
+- Proxy (Correction 1): `/admin/**` pages pass through `src/proxy.ts` only in an admin branch checked first (per-request
+  CSP nonce on request and response, admin headers) — never the locale redirect, public routing, session or permission
+  checks (the DAL checks session and RBAC in every page, action and handler); `/api/**` (uploads at
+  `/api/admin/media/uploads/**` included) stays outside the proxy with static `no-store` headers.
+- Secrets (Correction 1): no `AUTH_PEPPER`; `AUTH_ENCRYPTION_KEY` (TOTP) is versioned (`user_mfa.key_version`), escrowed
+  offline outside the hosting account (never Git, database or backups), rotated with retired versions kept until no row
+  and no retained backup needs them; emergency 2FA reset CLI; DB, SMTP, `CRON_SECRET` and
+  `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` are replaceable (A1-SECURITY-RBAC §12).
+- **T1 is locked to Option B** (Correction 1): A2–A8 are built and used locally and in authenticated staging; the
+  production public site stays on its static source with **no** per-domain switch; A9 runs the complete import, the full
+  parity proof and one controlled cutover (`CONTENT_SOURCE=static|database`, one switch fixed into a release at build),
+  with the static release as immediate rollback until A9 is accepted. Today's media move to persistent storage only at
+  that cutover (T7). Staging content is test content unless the Owner decides otherwise (B16).
+- Hosting (Correction 1): official Namecheap pages (KB 129, 1127, 9331, 9453, 157) confirm LiteSpeed 6.2.2, MariaDB
+  11.4.9, Node.js 22.22, Stellar Plus 2 GB memory / maxEntryProc 30 / I/O 50 MB/s, 300,000 inodes, cron no more often than
+  every 5 minutes and at most 5 at once, no daemons — platform facts, never account facts. Account checks (process count
+  and lifecycle, `max_user_connections`, `wait_timeout`, auth plugin, grants, SSH/Terminal, resource use, upload limits,
+  mail/DNS) come before staging (A1-ARCHITECTURE §7.3); A2 itself runs locally (Node 22.22.x, a local MariaDB compatible
+  with 11.4, no production credentials).
 - The 13 held-back media become restricted media items (flags), and the packaging script keeps excluding them.
 
 ## Rules from the brief
@@ -1490,5 +1520,10 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   `uca1400` collations cannot be requested) and it lacks MariaDB's ed25519/PARSEC auth plugins; MariaDB's `JSON` is
   `LONGTEXT` + `JSON_VALID` and is parsed only with MariaDB ≥ 10.5 and mysql2 ≥ 3.23. MariaDB 11.4's server default
   charset is still `latin1`.
-- Namecheap's website and documentation are blocked by the cloud session's egress proxy (403): host facts there come only
-  from search extracts and must be verified on the account.
+- Namecheap's website and documentation are blocked by the cloud session's egress proxy (403). Official platform facts are
+  those the user's A1 Correction 1 brief cites (A1-ARCHITECTURE §7.1); a web search's extracts can confirm a page's wording;
+  anything about the RAWASY account is verified on the account, never inferred from a platform page.
+- Next 16.3.8's file-system cache dates an entry when it is stored (`lastModified: Date.now()` in `set`), after the render
+  read its data, so a clock comparison misses an invalidation committed during the render; the incremental cache (and a
+  custom `cacheHandler`) is created per request (`getIncrementalCache` in `next-server.js`). A1 orders entries and
+  invalidations by commit generation instead (A1-PUBLISHING-VERSIONS §8.2).
