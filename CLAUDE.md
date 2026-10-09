@@ -880,6 +880,15 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - `.next/required-server-files.json` holds the build folder's absolute path, but `next start` and the custom server do
   not use it: a `.next` built in one folder runs from another (the deployment rehearsal). Pack the deployment archive
   right after `next build`: a running server writes render-cache files into `.next/server/app`.
+- **Next.js 16.3.8 image optimizer:** when the first request for an uncached `/_next/image` variant is cut off in its
+  first ~0–2 ms, that variant never answers again in that process (the optimizer fetches the local file through a
+  mocked request bound to the visitor's socket, and the response cache keeps the unfinished entry). Reproduced the
+  same on `next start` (27 / 300) and `server.js` (26 / 300); cached variants are immune (300 / 300); a restart clears
+  it. It made two photo-heavy sweeps time out on `/en/about` (Namecheap adapter report, item 12). When a test times
+  out waiting for images, probe the page's image URLs with a time limit before suspecting the change under test, and
+  restart the server. Next 16 also rejects `w=16` (400): its default `imageSizes` start at 32.
+- A subshell like `(cd dir && node server.js > log 2>&1 &)` leaves a `bash` parent holding the tool's output pipe, so
+  the Bash call never returns while the server runs: write `(cd dir && exec node server.js > log 2>&1 &)`.
 - A production install (`NODE_ENV=production npm install` or `--omit=dev`) still installs `@playwright/test`
   (`devOptional`: an optional peer of `next`) and, with npm 10, both the glibc and the musl native packages of Next's SWC
   and `sharp` (about 460 MB). `next.config.ts` is compiled at start by that SWC binary, so TypeScript is not needed at

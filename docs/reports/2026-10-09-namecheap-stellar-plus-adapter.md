@@ -34,7 +34,12 @@ Proof, in short:
   captures from one and the same server).
 - **Deployment rehearsal** (the README flow end to end: fresh clone, build, the README's `tar` command, extraction
   over a starter `server.js` in another folder, production-only install, start): ready in 482 ms, smoke 36 / 36, and
-  the full E2E suite against that package: running when this commit was made (result in the next commit).
+  the full E2E suite against that package: 610 / 612 on its cold image cache (two timeouts, the finding below), then
+  (third run: running when this commit was made; result in the next commit) after a restart and an image-cache warm-up.
+- **Finding (pre-existing, not the adapter):** in Next.js 16.3.8, an image size whose very first request is cancelled
+  by the visitor can stay unanswered in that server process until it restarts — reproduced identically with
+  `next start` (27 of 300 cut-off variants) and `server.js` (26 of 300); cached sizes are immune. Mitigation
+  options for RAWASY in item 12; nothing changed here.
 
 ## 1. Starting SHA
 
@@ -55,8 +60,9 @@ force; it did not exist before). `git ls-remote` after the work: still `422c397`
 
 ## 4. Branch HEAD
 
-The commit that adds this report and the project-memory update, directly on top of `2043981` (documentation only; its
-hash is given with the hand-off, since a commit cannot contain its own hash).
+The last of the documentation commits on top of `2043981` — `3287c08` (draft report), `ee3277f` (E2E and rehearsal
+results) and the final one with this text (documentation only: this report, `CLAUDE.md`, `README.md`). Its hash is
+given with the hand-off, since a commit cannot contain its own hash.
 
 ## 5. Files changed
 
@@ -65,9 +71,9 @@ hash is given with the hand-off, since a commit cannot contain its own hash).
 | `server.js` | new, 42 lines | `2043981` |
 | `package.json` | `scripts.start` only (1 line) | `2043981` |
 | `README.md` | new "Namecheap Stellar Plus deployment" section; one sentence in "Next stages" (+56 −1) | `2043981` |
-| `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md` | this report | report commit |
-| `CLAUDE.md` | project memory (adapter status, gotchas) | report commit |
-| `README.md` | the deployment section's update and rollback steps: delete the old `.next` before extracting another release | report commit |
+| `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md` | this report | report commits |
+| `CLAUDE.md` | project memory (adapter status, gotchas) | report commits |
+| `README.md` | the deployment section: delete the old `.next` before extracting another release (update and rollback steps); the image-optimizer known issue (item 12) | report commits |
 
 `git diff 422c397 2043981 -- src public e2e next.config.ts playwright.config.ts tsconfig.json package-lock.json
 .env.example .nvmrc` is empty: no page, content, image, test, configuration, dependency or lockfile change.
@@ -335,6 +341,37 @@ Served by the real Next.js server (no `output: export`, no static conversion; `n
   themselves are in `public/media/projects/` (as in the approved RC), so a direct request for their address answers 200
   — on `next start` exactly as on `server.js`. Not changed here (website freeze); a decision for RAWASY (item 30).
 
+**Finding — an image size whose first request is cancelled can stay unanswered (Next.js 16.3.8; pre-existing).**
+
+- **How it showed:** the E2E run against the deployment package (cold image cache) ended 610 / 612: two sweep tests
+  timed out at 60 s on `/en/about` waiting for its photos (`commerce-company.spec.ts:479` for the images to decode,
+  `stage-1c.spec.ts:129` for the page's `load`). On that server three variants never answered —
+  `/_next/image?url=/media/machines/{fiber-laser-6kw,fiber-laser-3kw,press-brake}.webp&w=64&q=75` (no answer in 15 s);
+  the other 359 of the page's 362 image URLs did.
+- **Cause, reproduced:** for a local image the optimizer fetches the file through a mocked request bound to the
+  visitor's own connection (`fetchInternalImage(href, req.originalRequest, …)`, `socket: _req.socket` in
+  `server/image-optimizer.js`). When that connection closes in the first moments of an uncached variant's
+  optimization, the optimization never finishes; the response cache keeps it as pending, and every later request for
+  that variant waits on it. Test: 300 uncached variants, each requested and cut off after 0–30 ms, then requested
+  normally (10 s limit): **27 hung on `next start`, 26 on `server.js`** — the same images, all cut off within 0–2 ms.
+  A hung variant was still unanswered minutes later on both; after a restart of the process it answered in 0.13 s.
+- **Not caused by the adapter:** identical on `next start` (the approved RC's way) and the same code path (both run
+  Next's `getRequestHandlers()`; the one option `next start` passes and a custom server does not, `httpServer`, only
+  wires WebSockets). Stage 1E saw a stuck variant on `next start` too (CLAUDE.md).
+- **Cached sizes are immune:** after a warm-up, the same 300 variants cut off after 0–30 ms all answered `200 HIT`
+  (300 / 300). A stale entry (after Next's default 4-hour `minimumCacheTTL`) is answered at once from the cache and
+  refreshed in the background, so a hung refresh only keeps the old image.
+- **Impact on the host:** a visitor whose browser cancels the very first request for an uncached photo size (fast
+  navigation, a lazy image scrolled away) can leave that size blank for everyone served by that process until it
+  restarts (the panel's Restart, or Passenger stopping an idle process).
+- **Options — RAWASY's or the reviewer's decision; nothing changed here** (the brief forbids changing image
+  optimization, and a dependency change needs authorization): **(a)** warm the image cache after every start or
+  upload — request each image URL the pages use once (1,484 URLs, 27 s here; a scripted crawl of the sitemap's pages)
+  — so no page photo goes through the vulnerable first optimization; the cache lives on disk in `.next/cache/images`
+  and survives restarts, but an update that deletes `.next` empties it; **(b)** a later Next.js release that fixes it
+  (not checked: no access to release notes from here); **(c)** accept it and restart when a photo stays blank.
+  Recommended: (a) for launch, (b) when available.
+
 ## 13. Environment variables
 
 The application needs one: **`NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com`**. It is read **at build time** (every
@@ -401,7 +438,11 @@ was changed; all 612 assertions are the approved suite's. The server answered th
 resident memory 415 MiB).
 
 **Second run, on the deployment package** (item 28's rehearsal): the same suite from the rehearsal's build clone against
-`server.js` running from the extracted archive with production dependencies only (another folder, port 3510): running when this commit was made (result in the next commit).
+`server.js` running from the extracted archive with production dependencies only (another folder, port 3510), cold
+image cache: **610 passed, 2 failed** (22.0 min; 0 skipped, 0 flaky). Both failures are 60 s timeouts on `/en/about`
+waiting for three image variants that never answered — the Next.js finding in item 12, not a difference of the
+package (the clean clone's run, also on a cold cache, passed 612 / 612). **Third run**, after restarting that server
+and warming its image cache (item 12, option a): (third run: running when this commit was made; result in the next commit).
 
 ## 21. Application-root plan
 
@@ -546,7 +587,7 @@ pages of the brief → 200, indexable with their canonical, the clock tower with
 the four unknown addresses → 404 with `noindex`; the sitemap's 102 addresses on `https://www.rawasymetal.com/`; the
 robots line; a share image and the icon; an optimized photo as WebP and as JPEG; a remote image and a wrong width → 400;
 a missing file → 404; no page (all 102, plus two 404s) referring to a withheld or held-back photo. Then the full E2E
-suite against that server: running when this commit was made (result in the next commit).
+suite against that server: 610 / 612 on a cold image cache, then (third run: running when this commit was made; result in the next commit) after a restart and a warm-up (item 20).
 
 **C. Updates:** build a new archive (A); Stop App; keep the running release's archive (or compress `rawasy-app`
 without `node_modules`); delete `rawasy-app/.next` (so no stale build files stay) and extract the new archive; Run NPM
@@ -588,9 +629,13 @@ first request after a start or an idle spell takes a few seconds (Passenger star
    stage.
 8. **Accept or revert the four `server.js` variations** (item 6); reverting to the literal preferred shape is a small
    change but brings back the dev-server start without `NODE_ENV` and exit code 0 on a failed start.
+9. **The image-optimizer finding** (item 12): warm-up after each start (a), wait for a Next.js fix (b) or accept (c);
+   a warm-up script for the live site would be a new file in the repository and needs your go-ahead.
 
 ## Known limitations
 
+- **Next.js 16.3.8's image optimizer** can leave an image size unanswered after a cancelled first request, on
+  `next start` and `server.js` alike, until the process restarts (item 12). Not fixed here; options for RAWASY.
 - Nothing about the actual account was verified (no access): items 9 and 30 list what must be confirmed in the panel.
 - The Passenger / CloudLinux behaviours in this report are the documented behaviour of those products, not observed.
 - `server.js` prints "Ready on http://0.0.0.0:3000" under Passenger too (it does not know Passenger replaced the

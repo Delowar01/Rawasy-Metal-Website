@@ -315,6 +315,9 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
 - **Logs:** the application's entry in Setup Node.js App (with its log file where the panel offers one); CloudLinux
   usually writes the app's own output to `stderr.log` in the application root; cPanel → Metrics → Errors shows the web
   server's errors.
+- **Known issue** (Next.js 16.3.8, the same with `next start`): if a visitor cancels the very first request for an
+  image size, that size can stay blank until the app restarts. Restart clears it; requesting every image the pages use
+  once after each start (a cache warm-up) avoids it. See the adapter report, item 12.
 - **DNS:** change nothing (nameservers or records) until the current nameservers, MX, SPF, DKIM, DMARC, A and CNAME
   records and the mail service in use are written down: switching to Namecheap's hosting nameservers can drop the mail
   records.
