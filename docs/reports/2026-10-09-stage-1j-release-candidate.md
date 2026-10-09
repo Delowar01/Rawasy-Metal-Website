@@ -1,8 +1,8 @@
 # Stage 1J — Release candidate: security, accessibility, SEO, performance and publication QA
 
-Date: 2026-10-09 (begun 2026-10-08) · Branch: `claude/new-session-5eijs6` · Status: **release candidate ready for independent approval**
-(not approved by the builder; **not deployed**: no hosting, DNS, tunnel or external publication; the pages are marked
-`published` in code only).
+Date: 2026-10-09 (begun 2026-10-08) · Branch: `claude/new-session-5eijs6` · Status: **release candidate ready for
+independent approval** (not approved by the builder; **not deployed**: no hosting, DNS, tunnel or external publication;
+the pages are marked `published` in code only).
 
 ## Summary
 
@@ -203,7 +203,7 @@ commits on top of **`e1f85f0`**. A commit cannot name its own hash, so the hand-
 
 ### 10. Files changed
 
-`f69e2fa` → the final commit: **107 files** (24 added, 40 modified, 42 deleted, 1 renamed; 2,801 lines inserted, 12,582 deleted):
+`f69e2fa` → the final commit: **107 files** (24 added, 40 modified, 42 deleted, 1 renamed; 2,802 lines inserted, 12,582 deleted):
 
 | Area | Added | Modified | Deleted / renamed |
 | --- | --- | --- | --- |
@@ -539,8 +539,9 @@ in the selector on phones (item 37).
 
 ### 32. 404 / status matrix
 
-154 requests on the publication build (`caf01fb`; the later commits change no route, header or markup), every redirect followed to its end (at most 10 hops; a repeated address counts as a
-loop): **0 server errors, 0 redirect loops**.
+154 requests on the publication build (`caf01fb`; the later commits change no route, header or markup), every
+redirect followed to its end (at most 10 hops; a repeated address counts as a loop): **0 server errors, 0 redirect
+loops**.
 
 | Address class | Answer |
 | --- | --- |
@@ -620,9 +621,9 @@ nothing. `e2e/commerce-keyboard.spec.ts`: 25 / 25 on the release build; on the b
 fail. Built output: one JS chunk changed (+504 B, and so its file name). The stylesheets are identical, and the 601
 prerendered pages and payloads are identical apart from that chunk's name.
 
-Tab walk on the `bfda6b0` build, with the fix (`obscured.cjs`): 14 pages (both languages, every page type) × 1440 × 900, 390 × 844,
-320 × 700 and 640 × 360 (200 % zoom), Tab from the top to the footer's last link — **3,002 focus stops**, every walk
-reaching the end (at most 116 stops; no trap). After each stop (and the browser's own scroll) a 7 × 5 grid over what
+Tab walk on the `bfda6b0` build, with the fix (`obscured.cjs`): 14 pages (both languages, every page type) ×
+1440 × 900, 390 × 844, 320 × 700 and 640 × 360 (200 % zoom), Tab from the top to the footer's last link — **3,002 focus
+stops**, every walk reaching the end (at most 116 stops; no trap). After each stop (and the browser's own scroll) a 7 × 5 grid over what
 the focus ring surrounds is checked against what is drawn on top:
 
 - 1440 and 390 px (1,584 stops): **0** covered by the sticky header or the projects' pinned bar, **0** hidden, **0**
@@ -762,14 +763,14 @@ width over the source width.
 - **Browser console:** console errors, page errors and failed requests (any response of 400 or more) were recorded on
   all 720 responsive loads and all 208 reflow loads, both on the final build. The only entries are each localized 404
   page reporting its own intended "Failed to load resource: … 404" for its document. There are no uncaught errors,
-  hydration warnings, React errors or 404 asset requests. The suite asserts the same (`trackErrors`: no page error and no console error except a 404 status) in
-  16 of its 19 spec files, on every page they load (item 50).
+  hydration warnings, React errors or 404 asset requests. The suite asserts the same (`trackErrors`: no page error
+  and no console error except a 404 status) in 16 of its 19 spec files, on every page they load (item 50).
 - **Build:** item 49.
 
 ### 43. Fresh clone
 
-Run at **`e1f85f0`**. That commit holds every source, test, configuration and documentation file of the release
-candidate; the commits after it only write these results into this report and rename it (item 9).
+Run at **`e1f85f0`**. That commit holds every source, test and configuration file of the release candidate; the
+commits after it change documentation only (item 9).
 
 1. `git clone --branch claude/new-session-5eijs6 https://github.com/Delowar01/Rawasy-Metal-Website` into a new, empty
    directory. HEAD was `e1f85f0`, the tree clean, and no `node_modules`, `.next`, image cache or test cache was copied
@@ -825,8 +826,8 @@ application settings.)
 ### 47. Lint
 
 `npm run lint` (ESLint 9.39.5 with `eslint-config-next` 16.3.6) in the fresh clone: **exit 0, no warnings, no errors**
-(11 s). It also ran clean (no output) on the working checkout for the commits that changed scripts or TypeScript:
-`f299bb9`, `ffd8c93`, `7abd622`, `e5b89b0`, `bfda6b0` and `ace4bed`.
+(11 s). Its earlier runs kept from this stage, on the working checkout before `f299bb9`, `ffd8c93`, `7abd622`,
+`e5b89b0`, `bfda6b0` and `ace4bed` were pushed, were clean too (no output).
 
 ### 48. Typecheck
 
