@@ -90,19 +90,16 @@ describe("lifetimes", () => {
 });
 
 describe("rotation", () => {
-  test("a rotated token is honoured for 30 seconds (resolving to its replacement), then refused", async () => {
+  test("a rotated token is refused at once (no grace window); its lineage is recorded, never followed", async () => {
     const user = await createUser(env, { roles: ["editor"] });
     const old = await newSession(user.id);
     const rotated = await inTransaction(env.pool, (tx) => rotateSession(tx, old.session, { now: env.deps.clock(), ip: null, userAgent: null }));
     assert.notEqual(rotated.token, old.token);
     assert.equal(rotated.session.absoluteExpiresAt.getTime(), old.session.absoluteExpiresAt.getTime());
-    const viaOld = await findSessionByToken(dbFor(env.pool), old.token, env.deps.clock());
-    assert.equal(viaOld?.session.id, rotated.session.id);
+    assert.equal(await findSessionByToken(dbFor(env.pool), old.token, env.deps.clock()), null);
     const [row] = await dbFor(env.pool).select().from(sessions).where(eq(sessions.id, old.session.id));
     assert.equal(row.revokedReason, "rotated");
     assert.equal(row.replacedById, rotated.session.id);
-    env.clock.advance(30_001);
-    assert.equal(await findSessionByToken(dbFor(env.pool), old.token, env.deps.clock()), null);
     assert.equal((await findSessionByToken(dbFor(env.pool), rotated.token, env.deps.clock()))?.session.id, rotated.session.id);
   });
 

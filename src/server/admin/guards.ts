@@ -12,12 +12,12 @@ import { auditActorOf, type Actor, type RequestMeta } from "@/server/auth/types"
 import type { AuthDeps } from "@/server/auth/deps";
 import { SENSITIVE_PERMISSIONS } from "@/server/policy/registry";
 import type { ActionState } from "./actions/state";
-import { authDeps, getAdminState, guarded, isSameOriginRequest, requestMeta } from "./context";
+import { authDeps, getAdminState, guarded, isSameOriginRequest, requestMeta, signInPathFor } from "./context";
 
 /** The signed-in, fully verified user, or a redirect to the step that is missing. */
 export async function requireActor(): Promise<{ actor: Actor; mfa: MfaState }> {
   const state = await getAdminState();
-  if (state.status === "anonymous") redirect("/admin/login");
+  if (state.status === "anonymous") redirect(signInPathFor(state));
   if (state.status === "mfa_pending") redirect("/admin/login/verify");
   if (state.status === "enrolment_required") redirect("/admin/login/enrol");
   return state;
@@ -74,7 +74,7 @@ export async function actionContext(
   const meta = await requestMeta();
   const deps = authDeps();
   const state = await getAdminState();
-  if (state.status !== "active") redirect("/admin/login");
+  if (state.status !== "active") redirect(signInPathFor(state));
   const { actor } = state;
   const refuse = async (summary: string, message: string, extra: Partial<ActionState> = {}) => {
     await auditDenied(actor, action, summary, meta, deps);

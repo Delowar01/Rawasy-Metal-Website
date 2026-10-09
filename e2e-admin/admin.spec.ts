@@ -4,7 +4,7 @@
  * second factor and recovery codes, sessions, invitations and activation, role enforcement, disabling, step-up,
  * cross-origin and anonymous mutations, keyboard use, the responsive shell and an axe audit. No real credential is used.
  */
-import { expect, request as apiRequest, test, type Browser, type Page } from "@playwright/test";
+import { expect, request as apiRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import {
   ageAuthentication,
   beginSetUp,
@@ -25,11 +25,20 @@ import {
 
 test.describe.configure({ mode: "serial" });
 
+// Every test signs in from this machine's one address: each starts with the sign-in counters cleared, so the suite's own
+// sign-ins never add up to the per-address limit (30 in 15 minutes; the limits are proven in tests/integration).
+test.beforeEach(async () => {
+  await queryTestDb("DELETE FROM rate_limits");
+});
+
 const OWNER = { email: "owner@example.test", name: "Olivia Owner" };
 const EDITOR = { email: "edward.editor@example.test", name: "Edward Editor" };
 const ADMIN = { email: "ada.admin@example.test", name: "Ada Admin" };
 let ownerSecret = "";
 let ownerCodes: string[] = [];
+
+/** Where a request with a session that has ended (revoked, rotated, signed out elsewhere) lands: sign-in, saying so. */
+const SESSION_ENDED = /\/admin\/login\?session_ended=1$/;
 
 async function newPage(browser: Browser, viewport = { width: 1280, height: 860 }): Promise<Page> {
   const context = await browser.newContext({ viewport });
@@ -313,7 +322,7 @@ test.describe("users, invitations and roles", () => {
     await expect(dialog).toBeHidden();
     await expect(page.getByText("Disabled", { exact: true })).toBeVisible();
     await editor.goto("/admin");
-    await expect(editor).toHaveURL(/\/admin\/login$/);
+    await expect(editor).toHaveURL(SESSION_ENDED);
     await signIn(editor, EDITOR.email, PASSWORDS.editor);
     await expect(editor.locator("main").getByRole("alert")).toContainText("Sign-in failed");
     await editor.context().close();
@@ -350,13 +359,13 @@ test.describe("sessions and request integrity", () => {
     await page.getByRole("dialog", { name: "Sign out this session?" }).getByRole("button", { name: "Sign it out" }).click();
     await expect(rows).toHaveCount(2);
     await other.goto("/admin");
-    await expect(other).toHaveURL(/\/admin\/login$/);
+    await expect(other).toHaveURL(SESSION_ENDED);
     // ... and the half-finished one with the others: its second step no longer works.
     await page.getByRole("button", { name: "Sign out all other sessions" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Sign them out" }).click();
     await expect(rows).toHaveCount(1);
     await halfway.goto("/admin/login/verify");
-    await expect(halfway).toHaveURL(/\/admin\/login$/);
+    await expect(halfway).toHaveURL(SESSION_ENDED);
     await other.context().close();
     await halfway.context().close();
   });
@@ -408,10 +417,183 @@ test.describe("sessions and request integrity", () => {
     // The genuine request (same origin, with the session) does sign the other session out.
     await replay(captured, withSession);
     await other.goto("/admin");
-    await expect(other).toHaveURL(/\/admin\/login$/);
+    await expect(other).toHaveURL(SESSION_ENDED);
     await other.context().close();
   });
 });
+
+test.describe("an old session token never gains what a newer session was given (A2 Correction 1)", () => {
+  const BOUNDARY = { email: "boundary.reviewer@example.test", name: "Bea Boundary" };
+
+  test("Test A: the password-only token of a sign-in never inherits the second factor", async ({ browser }) => {
+    const legit = await newPage(browser);
+    await signIn(legit, OWNER.email, PASSWORDS.owner);
+    await legit.waitForURL("**/admin/login/verify");
+    const pending = await sessionToken(legit);
+    // A witness session shows whether an authenticated action replayed with the old token takes effect.
+    const witness = await newPage(browser);
+    await signIn(witness, OWNER.email, PASSWORDS.owner);
+    await verify(witness, ownerSecret);
+    await witness.goto("/admin/account/sessions");
+    const signOutOthers = await captureAction(witness, "/admin/account/sessions", async () => {
+      await witness.getByRole("button", { name: "Sign out all other sessions" }).click();
+      await witness.getByRole("dialog").getByRole("button", { name: "Sign them out" }).click();
+    });
+    // Before the second factor a copy of the pending token reaches the second step and nothing else.
+    expect(await visit(pending, "/admin/login/verify")).toEqual({ status: 200, location: undefined });
+    expect((await visit(pending, "/admin")).location).toMatch(/\/admin\/login\/verify$/);
+    // The legitimate browser completes the second factor and receives a new token.
+    await legit.getByLabel("Authentication code").fill(await freshCode(ownerSecret));
+    await legit.getByRole("button", { name: "Verify" }).click();
+    await legit.waitForURL(/\/admin$/);
+    const verifiedAt = Date.now();
+    const fresh = await sessionToken(legit);
+    expect(fresh).not.toBe(pending);
+    // The old pending token is refused at once — no page, no authenticated action, no 30-second window.
+    for (const path of ["/admin", "/admin/users", "/admin/account/sessions", "/admin/login/verify"]) {
+      expect((await visit(pending, path)).location, path).toMatch(SESSION_ENDED);
+    }
+    const replayed = await replay(signOutOthers, { cookie: `${COOKIE}=${pending}` });
+    expect(newToken(replayed)).toBeNull();
+    await witness.goto("/admin");
+    await expect(witness).toHaveURL(/\/admin$/);
+    expect(Date.now() - verifiedAt).toBeLessThan(30_000);
+    // The new token works, and the same request sent with it does sign the others out (the replay itself is sound).
+    expect(await visit(fresh, "/admin")).toEqual({ status: 200, location: undefined });
+    await replay(signOutOthers, { cookie: `${COOKIE}=${fresh}` });
+    await witness.goto("/admin");
+    await expect(witness).toHaveURL(SESSION_ENDED);
+    await witness.context().close();
+    await legit.context().close();
+  });
+
+  test("Test B: a token from before a step-up never gains the step-up", async ({ browser }) => {
+    const legit = await newPage(browser);
+    await signIn(legit, OWNER.email, PASSWORDS.owner);
+    await verify(legit, ownerSecret);
+    // Capture an invitation (a sensitive action) without sending it, while the sign-in still counts as a confirmation.
+    await legit.goto("/admin/users/invite");
+    const invite = await captureAction(legit, "/admin/users/invite", async () => {
+      await legit.getByLabel("Email", { exact: true }).fill(BOUNDARY.email);
+      await legit.getByLabel("Name", { exact: true }).fill(BOUNDARY.name);
+      await legit.getByRole("checkbox", { name: /^Reviewer/ }).check();
+      await legit.getByRole("button", { name: "Send invitation" }).click();
+    });
+    // Ten minutes later the confirmation has expired; a copy of this token is kept (the attacker's).
+    await ageAuthentication(OWNER.email);
+    const old = await sessionToken(legit);
+    // The legitimate user confirms again: a new token with a fresh 10-minute window.
+    await legit.goto("/admin/users/invite");
+    await expect(legit.getByRole("heading", { name: "Confirm it's you" })).toBeVisible();
+    await stepUpIfAsked(legit, PASSWORDS.owner, ownerSecret);
+    await expect(legit.getByRole("button", { name: "Send invitation" })).toBeVisible();
+    const fresh = await sessionToken(legit);
+    expect(fresh).not.toBe(old);
+    // The old token is refused: no page, and the sensitive action does nothing.
+    expect((await visit(old, "/admin/users/invite")).location).toMatch(SESSION_ENDED);
+    await replay(invite, { cookie: `${COOKIE}=${old}` });
+    expect(await usersWithEmail(BOUNDARY.email)).toBe(0);
+    // The same request sent with the new token goes through (the replay itself is sound).
+    await replay(invite, { cookie: `${COOKIE}=${fresh}` });
+    expect(await usersWithEmail(BOUNDARY.email)).toBe(1);
+    await legit.context().close();
+  });
+
+  test("Test D: rotations racing on one session: at most one new token; the old one ends and is never revived", async ({ browser }) => {
+    const legit = await newPage(browser);
+    await signIn(legit, OWNER.email, PASSWORDS.owner);
+    await verify(legit, ownerSecret);
+    const old = await sessionToken(legit);
+    // The session has been in use for 30 minutes: the shell asks for a rotation as soon as a page opens.
+    await ageSession(old);
+    const rotation = await captureAction(legit, "/admin", async () => {
+      await legit.goto("/admin");
+    });
+    const before = await ownerSessionRows();
+    const raced = await Promise.all([1, 2, 3].map(() => replay(rotation, { cookie: `${COOKIE}=${old}` })));
+    const issued = raced.map(newToken).filter((t): t is string => t !== null);
+    expect(issued).toHaveLength(1);
+    expect(await ownerSessionRows()).toBe(before + 1);
+    const [fresh] = issued;
+    // The old token is refused at once and cannot be rotated again: nothing is resurrected or duplicated.
+    expect((await visit(old, "/admin")).location).toMatch(SESSION_ENDED);
+    expect(newToken(await replay(rotation, { cookie: `${COOKIE}=${old}` }))).toBeNull();
+    expect(await ownerSessionRows()).toBe(before + 1);
+    expect(await visit(fresh, "/admin")).toEqual({ status: 200, location: undefined });
+    // The browser still holds the old cookie (its own rotation never reached the server): it lands on the sign-in
+    // page, which says the session ended.
+    await legit.goto("/admin");
+    await expect(legit).toHaveURL(SESSION_ENDED);
+    await expect(legit.locator("main").getByRole("status")).toContainText("Your session has ended");
+    await legit.context().close();
+  });
+
+  test("Test D: a request still carrying the old token ends at sign-in; a tab of the browser that received the new cookie goes straight back in", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const first = await context.newPage();
+    await signIn(first, OWNER.email, PASSWORDS.owner);
+    await verify(first, ownerSecret);
+    const old = await sessionToken(first);
+    const second = await context.newPage();
+    await second.goto("/admin/account");
+    await ageSession(old);
+    // The first tab opens a page; the shell rotates the session and the browser receives the new cookie in that response.
+    const rotated = first.waitForResponse((r) => r.request().method() === "POST" && Boolean(r.request().headers()["next-action"]));
+    await first.goto("/admin");
+    await rotated;
+    await expect.poll(() => cookieValue(context)).not.toBe(old);
+    // A request that left with the old token (the second tab's, already on its way) is refused and sent to sign-in ...
+    expect((await visit(old, "/admin/account")).location).toMatch(SESSION_ENDED);
+    // ... where the second tab, whose browser holds the new cookie by now, goes straight back into the admin.
+    await second.goto("/admin/login?session_ended=1");
+    await expect(second).toHaveURL(/\/admin$/);
+    await context.close();
+  });
+});
+
+const COOKIE = "__Host-rawasy_admin";
+
+const cookieValue = async (context: BrowserContext) => (await context.cookies()).find((c) => c.name === COOKIE)?.value ?? "";
+
+/** The session token a page's browser holds. */
+async function sessionToken(page: Page): Promise<string> {
+  const value = await cookieValue(page.context());
+  expect(value).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  return value;
+}
+
+/** Makes a session look 31 minutes old, so the shell's periodic rotation is due (in this run's test database). */
+async function ageSession(token: string) {
+  await queryTestDb("UPDATE sessions SET created_at = created_at - INTERVAL 31 MINUTE WHERE token_hash = UNHEX(SHA2(?, 256))", [token]);
+}
+
+/** A page request sent with one session token from a fresh client: its status and where it redirects. */
+async function visit(token: string, path: string): Promise<{ status: number; location: string | undefined }> {
+  const client = await apiRequest.newContext({ baseURL: `http://localhost:${run().port}` });
+  try {
+    const response = await client.get(path, { headers: { cookie: `${COOKIE}=${token}` }, maxRedirects: 0 });
+    return { status: response.status(), location: response.headers().location };
+  } finally {
+    await client.dispose();
+  }
+}
+
+/** The new session token a response sets, if any. */
+const newToken = (response: { headers: Record<string, string> }) =>
+  new RegExp(`${COOKIE}=([A-Za-z0-9_-]{43})`).exec(response.headers["set-cookie"] ?? "")?.[1] ?? null;
+
+async function usersWithEmail(email: string): Promise<number> {
+  const [row] = await queryTestDb<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE email_normalized = ?", [email.toLowerCase()]);
+  return Number(row?.n ?? 0);
+}
+
+async function ownerSessionRows(): Promise<number> {
+  const [row] = await queryTestDb<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.email_normalized = ?",
+    [OWNER.email],
+  );
+  return Number(row?.n ?? 0);
+}
 
 interface CapturedAction {
   url: string;
@@ -506,14 +688,18 @@ test.describe("two-factor set-up", () => {
     await signIn(other, OWNER.email, PASSWORDS.owner);
     await verify(other, ownerSecret);
     await expect(other).toHaveURL(/\/admin$/);
-    // Confirmed: the new app works; the previous one does not; the other sessions were signed out.
+    // Confirmed: the new app works; the previous one does not; the other sessions were signed out; this page's own
+    // token from before the replacement is refused (A2 Correction 1), while the page goes on with its new one.
+    const beforeReplacement = await sessionToken(page);
     const replaced = await finishSetUp(page, "Use the new authenticator app");
+    expect((await visit(beforeReplacement, "/admin")).location).toMatch(SESSION_ENDED);
+    expect(await sessionToken(page)).not.toBe(beforeReplacement);
     expect(replaced.secret).not.toBe(ownerSecret);
     const previous = ownerSecret;
     ownerSecret = replaced.secret;
     ownerCodes = replaced.codes;
     await other.goto("/admin");
-    await expect(other).toHaveURL(/\/admin\/login$/);
+    await expect(other).toHaveURL(SESSION_ENDED);
     await signIn(other, OWNER.email, PASSWORDS.owner);
     await other.waitForURL("**/admin/login/verify");
     await other.getByLabel("Authentication code").fill(hotp(previous, Math.floor(Date.now() / 30_000)));

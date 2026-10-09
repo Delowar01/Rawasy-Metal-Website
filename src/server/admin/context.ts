@@ -9,7 +9,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 import { mfaStateOf, principalOf, type MfaState, type UserRow } from "@/server/auth/accounts";
 import { createAuthDeps, type AuthDeps } from "@/server/auth/deps";
-import { findSessionByToken, SESSION_COOKIE, SessionEndedError, touchSession, type SessionRow } from "@/server/auth/sessions";
+import { lookupSession, SESSION_COOKIE, SessionEndedError, touchSession, type SessionRow } from "@/server/auth/sessions";
 import type { Actor, RequestMeta } from "@/server/auth/types";
 import { adminBaseUrl, trustedProxyHops } from "@/server/config/env";
 import { describeDbError, getPool } from "@/server/db/pool";
@@ -32,6 +32,9 @@ export class AdminUnavailableError extends Error {
   }
 }
 
+/** Where a request whose session has ended goes: the sign-in page, saying so. */
+export const SESSION_ENDED_PATH = "/admin/login?session_ended=1";
+
 /**
  * Runs database work, turning a driver error into a code-only error (redirects and not-found pass through). A session
  * revoked while the request ran (a rotation found it ended: signed out elsewhere, password or role changed) ends the
@@ -42,26 +45,33 @@ export async function guarded<T>(work: () => Promise<T>): Promise<T> {
     return await work();
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof SessionEndedError) redirect("/admin/login?session_ended=1");
+    if (error instanceof SessionEndedError) redirect(SESSION_ENDED_PATH);
     throw new AdminUnavailableError(error);
   }
 }
 
 export type AdminState =
-  | { status: "anonymous" }
+  /** `ended`: the cookie names a session that has ended — revoked, rotated by another request, or expired. */
+  | { status: "anonymous"; ended: boolean }
   | { status: "mfa_pending"; session: SessionRow; user: UserRow }
   | { status: "enrolment_required"; actor: Actor; mfa: MfaState }
   | { status: "active"; actor: Actor; mfa: MfaState };
 
-/** The current admin session, validated once per request (cached with React's `cache`). */
+/** The sign-in page for a request without a usable session (saying so when its session has ended). */
+export const signInPathFor = (state: AdminState) => (state.status === "anonymous" && state.ended ? SESSION_ENDED_PATH : "/admin/login");
+
+/**
+ * The current admin session, validated once per request (cached with React's `cache`). Only a live session counts: a
+ * cookie holding a revoked token — the old token of a rotation included — is signed out, never mapped to its successor.
+ */
 export const getAdminState = cache(async (): Promise<AdminState> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!token) return { status: "anonymous" };
+  if (!token) return { status: "anonymous", ended: false };
   return guarded(async () => {
     const deps = authDeps();
     const now = deps.clock();
-    const found = await findSessionByToken(deps.db, token, now);
-    if (!found) return { status: "anonymous" } as const;
+    const found = await lookupSession(deps.db, token, now);
+    if (found.kind !== "live") return { status: "anonymous", ended: found.kind === "ended" } as const;
     const session = await touchSession(deps.db, found.session, now);
     const principal = await principalOf(deps.db, found.user);
     const mfa = await mfaStateOf(deps.db, found.user.id, principal.roles);

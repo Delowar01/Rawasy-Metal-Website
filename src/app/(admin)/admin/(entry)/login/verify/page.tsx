@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignOutButton, VerifyForm } from "@/components/admin/AuthForms";
-import { getAdminState } from "@/server/admin/context";
+import { getAdminState, signInPathFor } from "@/server/admin/context";
 import { safeNext } from "@/server/admin/paths";
 
 export const metadata: Metadata = { title: "Two-factor authentication" };
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Two-factor authentication" };
 export default async function VerifyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
   const state = await getAdminState();
-  if (state.status === "anonymous") redirect("/admin/login");
+  if (state.status === "anonymous") redirect(signInPathFor(state));
   if (state.status === "active") redirect("/admin");
   if (state.status === "enrolment_required") redirect("/admin/login/enrol");
   const next = safeNext(params.next, "");

@@ -12,7 +12,7 @@ import { isRecentlyAuthenticated } from "@/server/auth/sessions";
 import type { Actor, RequestMeta } from "@/server/auth/types";
 import { PASSWORD_MESSAGES } from "@/server/security/password-policy";
 import { qrPath, type QrPath } from "@/server/security/qr";
-import { authDeps, clearSessionCookie, getAdminState, guarded, isSameOriginRequest, requestMeta, writeSessionCookie } from "../context";
+import { authDeps, clearSessionCookie, getAdminState, guarded, isSameOriginRequest, requestMeta, signInPathFor, writeSessionCookie } from "../context";
 import { actionContext, auditDenied, failure, LOCKED_MESSAGE, REFUSED, STEP_UP_MESSAGE, type ActionState } from "../guards";
 
 const text = (max: number) => z.string().max(max).default("");
@@ -55,7 +55,7 @@ export async function changePasswordAction(_prev: ActionState, form: FormData): 
  */
 async function enrolmentActor(action: string): Promise<{ ok: true; actor: Actor; meta: RequestMeta } | { ok: false; state: EnrolmentState }> {
   const state = await getAdminState();
-  if (state.status !== "active" && state.status !== "enrolment_required") redirect("/admin/login");
+  if (state.status !== "active" && state.status !== "enrolment_required") redirect(signInPathFor(state));
   const meta = await requestMeta();
   if (!(await isSameOriginRequest())) {
     await auditDenied(state.actor, action, REFUSED.origin, meta);

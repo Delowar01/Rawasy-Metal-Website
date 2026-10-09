@@ -10,7 +10,7 @@ import { acceptInvitation } from "@/server/auth/invitations";
 import { completePasswordReset, requestPasswordReset } from "@/server/auth/passwords";
 import { reauthenticate, rotateIfDue, signIn, signOut, verifySecondFactor } from "@/server/auth/sign-in";
 import { PASSWORD_MESSAGES } from "@/server/security/password-policy";
-import { clearSessionCookie, getAdminState, guarded, writeSessionCookie } from "../context";
+import { clearSessionCookie, getAdminState, guarded, signInPathFor, writeSessionCookie } from "../context";
 import { actionContext, failure, LOCKED_MESSAGE, publicActionContext, type ActionState } from "../guards";
 import { safeNext } from "../paths";
 
@@ -44,7 +44,7 @@ export async function verifySecondFactorAction(_prev: ActionState, form: FormDat
   const ctx = await publicActionContext();
   if (!ctx.ok) return ctx.state;
   const state = await getAdminState();
-  if (state.status !== "mfa_pending") redirect("/admin/login");
+  if (state.status !== "mfa_pending") redirect(signInPathFor(state));
   const input = z
     .object({ method: z.enum(["totp", "recovery"]), code: text(64), next: text(200) })
     .safeParse({ method: form.get("method") ?? "totp", code: form.get("code") ?? "", next: form.get("next") ?? "" });

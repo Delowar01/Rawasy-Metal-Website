@@ -3,10 +3,15 @@
  *
  * Lifetimes (A2 locked defaults): idle 2 hours, absolute 12 hours, re-authentication window 10 minutes, no "remember
  * me". A session waiting for the second factor lives 10 minutes. `last_seen_at` is written at most once a minute.
- * Rotation (a new token, the old row revoked as `rotated` and linked to the new one) happens on sign-in, after the
- * second factor, after re-authentication, on a password change and at least every 30 minutes of activity; a rotated
- * token is still honoured for 30 seconds (requests already in flight when the new cookie was set), resolving to its
- * replacement — never beyond the replacement's own limits.
+ * Rotation (a new token, the old row revoked as `rotated`) happens on sign-in, after the second factor, after
+ * re-authentication, on a password change, after two-factor changes and at least every 30 minutes of activity.
+ *
+ * A revoked token never authenticates a request again, whatever the reason it was revoked (A2 Correction 1): the old
+ * token of a rotation stops working the moment the rotation commits, so it can never take on what the new session was
+ * given (a verified second factor, a fresh re-authentication). `replaced_by_id` records the lineage for the record and
+ * is never followed to authenticate. A request that started before the rotation finishes under its own rules; one
+ * that arrives afterwards with the old token is signed out (the browser holds the new cookie once the rotating
+ * response has arrived).
  */
 import { and, asc, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import type { Db } from "../db/client.ts";
@@ -23,7 +28,6 @@ export const STEP_UP_MS = 10 * 60 * 1000;
 export const PENDING_SESSION_MS = 10 * 60 * 1000;
 export const TOUCH_INTERVAL_MS = 60 * 1000;
 export const ROTATE_AFTER_MS = 30 * 60 * 1000;
-export const ROTATION_GRACE_MS = 30 * 1000;
 
 export const SESSION_COOKIE = "__Host-rawasy_admin";
 
@@ -81,21 +85,28 @@ async function sessionWithUser(db: Db, where: ReturnType<typeof eq>) {
   return row ? { session: row.sessions, user: row.users } : null;
 }
 
+export type SessionLookup =
+  | { kind: "live"; session: SessionRow; user: UserRow }
+  /** The token names a session that has ended (revoked — rotated included — or expired) or whose user cannot sign in. */
+  | { kind: "ended" }
+  /** No session has this token (or it is not a token at all). */
+  | { kind: "none" };
+
 /**
- * The live session a cookie token names, with its user — or null (unknown, revoked, expired, user not active).
- * A token rotated less than 30 seconds ago resolves to its replacement.
+ * What a cookie token names. Only a live session authenticates: a revoked row never does, whatever `revoked_reason`
+ * says, and `replaced_by_id` is never followed.
  */
-export async function findSessionByToken(db: Db, token: unknown, now: Date): Promise<{ session: SessionRow; user: UserRow } | null> {
-  if (!looksLikeToken(token)) return null;
+export async function lookupSession(db: Db, token: unknown, now: Date): Promise<SessionLookup> {
+  if (!looksLikeToken(token)) return { kind: "none" };
   const found = await sessionWithUser(db, eq(sessions.tokenHash, sha256(token)));
-  if (!found) return null;
-  if (found.session.revokedAt) {
-    const { revokedAt, revokedReason, replacedById } = found.session;
-    if (revokedReason !== "rotated" || !replacedById || now.getTime() - revokedAt.getTime() > ROTATION_GRACE_MS) return null;
-    const next = await sessionWithUser(db, eq(sessions.id, replacedById));
-    return next && isLive(next.session, next.user, now) ? next : null;
-  }
-  return isLive(found.session, found.user, now) ? found : null;
+  if (!found) return { kind: "none" };
+  return isLive(found.session, found.user, now) ? { kind: "live", ...found } : { kind: "ended" };
+}
+
+/** The live session a cookie token names, with its user — or null (unknown, revoked or rotated, expired, user not active). */
+export async function findSessionByToken(db: Db, token: unknown, now: Date): Promise<{ session: SessionRow; user: UserRow } | null> {
+  const found = await lookupSession(db, token, now);
+  return found.kind === "live" ? { session: found.session, user: found.user } : null;
 }
 
 /** Records activity at most once a minute: moves the idle limit (never past the absolute one). */
@@ -135,9 +146,10 @@ export class SessionEndedError extends Error {
 }
 
 /**
- * Replaces a session by a new one (new token). Run inside a transaction: the old row is claimed first (only while it is
- * still live), so a revocation committed by another request is never undone by a successor; otherwise
- * `SessionEndedError` rolls the transaction back.
+ * Replaces a session by a new one (new token); the old token stops working when the transaction commits. Run inside a
+ * transaction: the old row is claimed first (only while it is still live), so a revocation committed by another request
+ * is never undone by a successor and a session never gets two successors; otherwise `SessionEndedError` rolls the
+ * transaction back.
  */
 export async function rotateSession(db: Db, old: SessionRow, options: RotateOptions): Promise<{ token: string; session: SessionRow }> {
   const { now } = options;

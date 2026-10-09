@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/admin/AuthForms";
 import { TwoFactorPanel } from "@/components/admin/TwoFactorPanel";
-import { getAdminState, authDeps, guarded } from "@/server/admin/context";
+import { authDeps, getAdminState, guarded, signInPathFor } from "@/server/admin/context";
 import { remainingRecoveryCodes } from "@/server/auth/sign-in";
 import { isRecentlyAuthenticated } from "@/server/auth/sessions";
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Set up two-factor authentication" };
 /** Owner and Admin accounts must set up two-factor authentication before anything else (A2 default). */
 export default async function EnrolPage() {
   const state = await getAdminState();
-  if (state.status === "anonymous") redirect("/admin/login");
+  if (state.status === "anonymous") redirect(signInPathFor(state));
   if (state.status === "mfa_pending") redirect("/admin/login/verify");
   const { actor, mfa } = state;
   const deps = authDeps();
