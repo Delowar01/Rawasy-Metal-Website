@@ -494,10 +494,10 @@ tar -czf ../rawasy-app.tar.gz --exclude=.next/cache server.js package.json packa
   is not for upload: it holds the build's random preview and server-action keys, so treat any real archive as private
   (it is never served: the application root is outside the document root).
 - **Production install:** `NODE_ENV=production npm install` (what the panel's button is expected to run) added 30
-  packages in about 20 s (7 s in the rehearsal, npm's cache warm): Next.js, React, `sharp` and their native packages, about 460 MB (11,720 files and folders).
-  npm 10 installs both the glibc and the musl variants of the native packages, and `@playwright/test` (a dev dependency
-  that is also an optional peer of Next.js, so the lockfile marks it `devOptional`; no browser is downloaded). TypeScript,
-  ESLint, Tailwind and axe-core are not installed. **Development dependencies are not needed on the server** with the
+  packages in about 20 s (7 s in the rehearsal, npm's cache warm): Next.js, React, `sharp` and their native packages,
+  about 460 MB (11,720 files and folders). npm 10 installs both the glibc and the musl variants of the native packages,
+  and `@playwright/test` (a dev dependency that is also an optional peer of Next.js, so the lockfile marks it
+  `devOptional`; no browser is downloaded). TypeScript, ESLint, Tailwind and axe-core are not installed. **Development dependencies are not needed on the server** with the
   prebuilt `.next`: `next.config.ts` is compiled at start by Next.js's own SWC binary (a production dependency), and the
   pages, styles and images need nothing from the build tools (item 28, rehearsal). They would be needed only to build on
   the host, which this plan avoids.
@@ -572,8 +572,8 @@ For later, only after the release approval, the legal decision and the DNS inven
     `www.rawasymetal.com` → the server's address (not a DNS change; HTTPS may warn until the certificate exists):
     `/` → 307 `/en`; an Arabic browser → `/ar`; `/en`, `/ar`, a service, `/en/capabilities#cnc-press-brake`, a project
     page, `/en/contact`, `/en/privacy` → 200 with their page; `/en/not-a-page` → 404 page; `/sitemap.xml` 102
-    `https://www.rawasymetal.com/` addresses; `/robots.txt` names it; `/_next/image?url=%2Fmedia%2Fprojects%2Fclock-tower-1.webp&w=640&q=75`
-    in a browser → WebP; `curl -sI …/en` shows `x-nextjs-prerender: 1` and `Cache-Control: s-maxage=31536000` (the
+    `https://www.rawasymetal.com/` addresses; `/robots.txt` names it;
+    `/_next/image?url=%2Fmedia%2Fprojects%2Fclock-tower-1.webp&w=640&q=75` in a browser → WebP; `curl -sI …/en` shows `x-nextjs-prerender: 1` and `Cache-Control: s-maxage=31536000` (the
     production server's answer for a prebuilt page); the panel's log shows no error.
 15. DNS and SSL: a separate, explicitly authorized step (items 24–25), then the same smoke checks over HTTPS on both
     names.
