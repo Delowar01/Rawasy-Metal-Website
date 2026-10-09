@@ -10,9 +10,10 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-admin-a1-architecture.md` (Admin / CMS program, Phase A1 — design only; its
-  "A1 CORRECTION 1" section is at the end)
-  (earlier: `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
+- Latest report: `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` (Admin / CMS program, Phase A2 — authentication,
+  RBAC, database foundation and admin shell, local implementation only)
+  (earlier: `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
+  `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
   `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
@@ -123,22 +124,26 @@
   **Still not allowed:** uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing
   SSL, fast-forwarding `main`, removing the legal pages' pending notes (they block launch), external publication — each
   needs the user's explicit go-ahead.
-- **Admin / CMS program (A1 → A9, roadmap locked by the user): Phase A1 is built — design only** (the user's "ADMIN /
-  CMS PROGRAM — PHASE A1 — ARCHITECTURE, DATABASE & CONTENT-MODEL SPECIFICATION" brief; report
-  `2026-10-09-admin-a1-architecture.md`; specification commit `48684af`; rollback checkpoint: GitHub branch
-  `preserve/pre-admin-a1` at `74220ea`) and awaits independent review. Seven documents in `docs/admin/` (see "Admin /
-  CMS program" below). Locked phases: A1 Architecture & Database Foundation · A2 Authentication, RBAC & Admin Shell · A3
-  Core CMS · A4 Media Library · A5 Page Builder / Visual Editor · A6 Global Site Controls · A7 Forms & Enquiries · A8
-  Publishing, Versions, Audit & Backup Safety · A9 Full Content Migration & Complete QA — never merge, reorder, skip or
-  silently expand them; report any scope change for the user's approval first. **A1 Correction 1 (documentation only)
-  is built** (the user's "PHASE A1 — CORRECTION 1 — ARCHITECTURE CONSISTENCY / SECURITY / HOSTING FACTS" brief; section
-  "A1 CORRECTION 1" at the end of the same report; correction commit `fe89bec`, started from `806c66e`) and awaits
-  independent review: the proxy's admin branch for the CSP nonce, the fail-closed cache, the pool budget formula
-  (production default 2), the TOTP key escrow / rotation / emergency reset, **T1 locked to Option B**, the official
-  Namecheap platform facts and the split checklists (see "Admin / CMS program" below). **Do not start A2** (no
-  authentication, database tables, Drizzle/mysql2 install, `/admin`, proxy change, content migration or deployment) until
-  the user approves A1 and says so. Admin work must not redesign the public site (A1–A4 change no appearance, and nothing
-  from the admin reaches production before the A9 cutover).
+- **Admin / CMS program (A1 → A9, roadmap locked by the user).** Locked phases: A1 Architecture & Database Foundation ·
+  A2 Authentication, RBAC & Admin Shell · A3 Core CMS · A4 Media Library · A5 Page Builder / Visual Editor · A6 Global Site
+  Controls · A7 Forms & Enquiries · A8 Publishing, Versions, Audit & Backup Safety · A9 Full Content Migration & Complete
+  QA — never merge, reorder, skip or silently expand them; report any scope change for the user's approval first.
+  **A1 (design, with Correction 1) is approved and closed** (the user's A2 brief: "A1 IS APPROVED AND CLOSED"; report
+  `2026-10-09-admin-a1-architecture.md`; rollback checkpoint `preserve/pre-admin-a1` at `74220ea`). **Phase A2 is built —
+  local implementation only** (the user's "PHASE A2 — AUTHENTICATION, RBAC, DATABASE FOUNDATION & ADMIN SHELL — LOCAL
+  IMPLEMENTATION ONLY" brief; report `2026-10-09-admin-a2-auth-rbac-shell.md`; rollback checkpoint: GitHub branch
+  `preserve/pre-admin-a2` at `ed6b652`) and awaits independent review. Its commits, each on its own: `00ec00b` database,
+  dependencies and migration CLI; `240607e` authentication, sessions, invitations, password reset; `58adaf8` two-factor,
+  user management, server CLIs; `d50d5da` proxy admin branch, nonce CSP, admin/API headers; `36dcda6` admin shell and UI;
+  `e82ba0e` unit, MariaDB integration and admin browser tests; `1677a48` the reset page without the database; `0275c7c`
+  the unused CONTENT_SOURCE reader dropped (see "Admin / CMS program" below). The public site is frozen and proven
+  unchanged against `preserve/pre-admin-a2` (report, item "public freeze proof"). **Do not start A3** (no CMS editing,
+  media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
+  content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
+  Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
+  the public site (A1–A4 change no appearance, and nothing from the admin reaches production before the A9 cutover: a
+  release built from this branch would carry `/admin`, so the release procedure before A9 is the user's decision —
+  report item "outstanding limitations").
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab
@@ -241,7 +246,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (Phase A1 specification — nothing implemented)
+## Admin / CMS program (A1 specification; A2 implemented locally)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -281,6 +286,46 @@
   mail/DNS) come before staging (A1-ARCHITECTURE §7.3); A2 itself runs locally (Node 22.22.x, a local MariaDB compatible
   with 11.4, no production credentials).
 - The 13 held-back media become restricted media items (flags), and the packaging script keeps excluding them.
+
+### Phase A2 implementation (local only; report `2026-10-09-admin-a2-auth-rbac-shell.md`)
+
+- Stack: `drizzle-orm` 0.45.3 (core query builder only: `db.query`, `drizzle(…, { schema | mode })` and `drizzle-kit`
+  imports outside `drizzle.config.ts` fail lint), `mysql2` 3.24.4, `@node-rs/argon2` 2.2.1, `zod` 4.6.5,
+  `qrcode-generator` 2.0.4; dev `drizzle-kit` 0.31.11 (generate / check only, never push / pull). Exact pins.
+- Server code in `src/server/` (framework-free where the CLIs and tests use it: explicit `.ts` imports, Node type
+  stripping, `tsconfig` `allowImportingTsExtensions`): `config/env.ts` (every variable; values never in errors),
+  `db/` (`schema.ts` the 13 A2 tables, `columns.ts`, `pool.ts` lazy pool per process, `DB_POOL_LIMIT` default 2 max 4,
+  UTC + strict `sql_mode` per connection, `BuildPhaseDatabaseError` during `next build`; `client.ts` `inTransaction` on
+  its own connection with one deadlock retry; `migrate.ts` the migration runner), `security/` (TOTP, AES-256-GCM, client
+  IP, password hashing and policy, ids, QR), `auth/` (sign-in, sessions, tokens, invitations, passwords, MFA, user admin,
+  bootstrap, rate limits, accounts), `policy/` (`registry.ts` roles, 129 permissions, the A1 matrix; `rbac.ts` rank
+  rules), `audit/audit.ts` (insert only; `redactChanges`), `mail/mailer.ts` (`disabled` | `sink`, local only),
+  `admin/` (Next.js side: `context.ts` session state per request and the `__Host-rawasy_admin` cookie, `guards.ts`
+  `requireActor` / `actionContext` (same origin, permission, 10-minute step-up, refusals audited), `actions/*` the Server
+  Actions), `cli/runtime.ts`.
+- Migrations: `drizzle/0000_access_control.sql` (13 tables) and `0001_seed_access_control.sql` (locales, roles, 129
+  permissions, 296 role permissions; generated from `registry.ts` by `scripts/generate-access-seed.mjs`, checked by
+  `npm run db:check`). Applied only by `scripts/db-migrate.mjs` (check | status | up): named lock, journal order, applied
+  hashes, charsets verified, a backup required outside `APP_ENV=local`, exit codes 0–6.
+- CLIs (server only, never at app start): `scripts/admin-bootstrap.mjs` (first Owner; `--reset` recovery),
+  `scripts/admin-2fa-reset.mjs` (lost key), `scripts/admin-keys.mjs` (status | rekey).
+- Routes: `src/app/(admin)/admin/` — its own root layout (`admin.css`, English, `noindex`, dynamic), `(entry)` pages
+  (login, login/verify, login/enrol, invite/[token], reset, reset/[token]) and the `(shell)` (dashboard, account,
+  account/security, account/sessions, users, users/invite, users/[id], users/roles); components in
+  `src/components/admin/` (client components may import only `@/server/admin/actions/*` — lint rule). Links inside the
+  admin use `next/link`; links to the public site stay plain `<a>`.
+- Proxy: `src/proxy.ts` runs the admin branch first (`isAdminPath`): a 16-byte nonce, the nonce CSP on the request
+  (`x-nonce`) and the response, `ADMIN_PAGE_HEADERS` (`src/lib/admin-headers.ts`); no session check there. `/api/**` gets
+  static headers from `next.config.ts`. Public files may not import `src/server/**` (lint rule).
+- Tests: `npm run test:unit` (`tests/unit`), `npm run test:integration` (`tests/integration`, a fresh `rawasy_t_*`
+  database per file; `TEST_DB_HOST/PORT/USER/PASSWORD`), `npm run test:admin` (`playwright.admin.config.ts`,
+  `e2e-admin/`; `e2e-admin/server.mjs` makes a `rawasy_e2e_*` database, migrates it and starts `server.js` on 3401 with a
+  throwaway key and the mail sink). Local MariaDB in this session: Docker `rawasy-mariadb` (11.4.13) on 127.0.0.1:3307,
+  user `rawasy` with `ALL ON rawasy\_%.*`; credentials only in the session scratchpad, never in the repository.
+- Locked A2 defaults (the user's brief §35): English admin; 2FA required for Owner/Admin, optional for Editor/Reviewer;
+  idle 2 h, absolute 12 h, no remember-me; no `AUTH_PEPPER`; `DB_POOL_LIMIT` production default 2; no CAPTCHA; no
+  shareable preview links; no long-lived recovery key created locally. A full sign-in counts as the step-up
+  confirmation for 10 minutes.
 
 ## Rules from the brief
 
@@ -402,6 +447,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 ## Before pushing
 
 - Run `npm run lint`, `npm run typecheck`, `npm run build` and then `npm run test:e2e`.
+- After any admin change also `npm run test:unit`, `npm run test:integration` and `npm run test:admin` (a local MariaDB:
+  README, "Admin (local development)"), and `npm run db:check` after a schema or registry change.
 - Check pages in a browser with Playwright: EN/AR × light/dark × desktop/mobile, console errors, and
   sideways overflow. In cloud sessions Chromium is at `/opt/pw-browsers`. An axe-core audit is a cheap extra check:
   `axe-core` 4.13.0 is a dev dependency since Stage 1I correction 1 (`require.resolve("axe-core/axe.min.js")` in a spec,
@@ -1527,3 +1574,30 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   read its data, so a clock comparison misses an invalidation committed during the render; the incremental cache (and a
   custom `cacheHandler`) is created per request (`getIncrementalCache` in `next-server.js`). A1 orders entries and
   invalidations by commit generation instead (A1-PUBLISHING-VERSIONS §8.2).
+- Adding `/admin` (a static sibling of the dynamic `[locale]` segment) changes Next's router tree in every public page's
+  HTML and page data: `["locale","ar","d",[]]` became `["locale","ar","d",["admin"]]`, and `_tree.segment.rsc` has
+  `"siblings":["admin"]` (the retired theme lab did the same). Normalise exactly that entry in freeze proofs.
+- Next's route announcer (`next-route-announcer`, appended after hydration) is styled through `style.cssText` (allowed
+  under a nonce CSP) and holds an empty `role="alert"` live region in its shadow root. Playwright's CSS and role
+  locators pierce shadow roots: `locator("[style]")` counts it twice and `getByRole("alert")` matches it — scope admin
+  test lookups to `main`, and check style attributes in the served HTML and in `document.querySelectorAll`.
+- The admin's nonce CSP refuses `page.addStyleTag` (no `'unsafe-inline'`): probes change styles through the CSS object
+  model (`el.style.x = …`).
+- An absolutely positioned visually-hidden span (`.adm-sr-only`) inside a scroll box whose containing block lies outside
+  it escapes the box's clipping and widens the page (the roles matrix: 595 px at 320): give scroll boxes
+  `position: relative`.
+- A Server Action that redirects races a `page.goto` started right after its submit: wait for the redirect's URL first
+  (`verify()` in `e2e-admin/helpers.ts`).
+- A full sign-in counts as the step-up confirmation for 10 minutes, so a test of the gate ages
+  `sessions.reauthenticated_at` in its own test database (`ageAuthentication`).
+- Playwright's string `hasText` / `hasNotText` filters are case-insensitive substring matches over all text, hidden
+  `<dialog>` content included ("Sign out this session?" matched "This session"): filter on a specific element.
+- To prove a Server Action refuses replays, capture its request with `page.route` and abort it, replay each variant from
+  a fresh `request.newContext()` (no shared cookie jar), and include the unmodified replay as the positive control.
+- Drizzle's error messages hold the SQL and its parameters: log and show only the driver's code (`dbErrorInfo`,
+  `describeDbError` in `src/server/db/pool.ts`). mysql2's promise pool emits new connections on `pool.pool` (the core
+  pool); Drizzle's pool transaction leaks a connection when `BEGIN` fails (use `inTransaction`). MariaDB `GET_LOCK` names
+  are server-wide: include the database name.
+- Next sets `NEXT_PHASE=phase-production-build` before it prerenders: `assertNotBuildPhase()` makes any database use
+  during `next build` fail loudly.
+- The Bash safety check refuses `rm -rf "$VAR/…"`: use literal absolute paths (or `${VAR:?}`).

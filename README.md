@@ -34,7 +34,7 @@ sitemap). It awaits the release approval; nothing is deployed.
 | Styling | Tailwind CSS v4 + semantic CSS tokens: `src/app/(commerce)/commerce.css` + `src/components/commerce/system.css`, page stylesheets beside their components (`services.css`, `projects.css`, `capabilities.css`, `project-detail.css`) |
 | Motion | CSS transitions and the Web Animations API (hero plate, signatures), IntersectionObserver for reveals; no animation library |
 | Fonts | Plus Jakarta Sans (English display), Inter (English text), Tajawal (Arabic display), IBM Plex Sans Arabic (Arabic text), the system monospace stack for technical figures. All self-hosted: the Latin faces through `next/font`, the Arabic faces from `src/fonts` (the same files, preloaded on Arabic pages only) |
-| Rendering | Static pages for every route in both languages (109 generated at build time) |
+| Rendering | Static pages for every route in both languages (109 generated at build time); the admin (`/admin`, Phase A2, local only) renders on demand and never at build time |
 
 ## Getting started
 
@@ -51,7 +51,8 @@ npm run build && npm run test:e2e   # browser tests (Playwright, Chromium) again
 
 Optional environment variable: `NEXT_PUBLIC_SITE_URL`, the public origin used in canonical URLs, alternates, share tags,
 structured data, the sitemap and robots.txt (default `https://www.rawasymetal.com`; read at build time). See
-`.env.example`; no other variable, key or secret is needed.
+`.env.example`; the public website needs no other variable, key or secret, and the build needs no database. Only the
+admin (below, [Admin (local development)](#admin-local-development)) needs a local MariaDB and its own settings.
 
 ### On Windows
 
@@ -370,10 +371,108 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
 To run the browser tests against `server.js` locally: `npm run build`, then `NODE_ENV=production PORT=3400 node server.js`
 in one terminal and `npm run test:e2e` in another (Playwright reuses a server already answering on its port).
 
+## Admin (local development)
+
+Phase A2 of the admin / CMS program (report `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`; design in
+`docs/admin/`): sign-in, two-factor authentication, sessions, invitations, password reset, users and roles, at `/admin`
+(English, `noindex`). Content editing, media and publishing come in later phases. It runs **locally only**, against a
+local MariaDB: never point it at the hosting account's database, and nothing of it is deployed until the user decides.
+The public website is unaffected: it never reads the database and builds without one.
+
+**1. A local MariaDB (11.4).** With Docker:
+
+```bash
+docker run -d --name rawasy-mariadb -p 127.0.0.1:3306:3306 \
+  -e MARIADB_ROOT_PASSWORD='<root password>' -e MARIADB_USER=rawasy -e MARIADB_PASSWORD='<password>' mariadb:11.4
+docker exec -i rawasy-mariadb mariadb -uroot -p'<root password>' <<'SQL'
+CREATE DATABASE rawasy_admin;
+GRANT ALL PRIVILEGES ON `rawasy\_%`.* TO 'rawasy'@'%';
+SQL
+```
+
+The grant covers the admin database and the throwaway test databases (`rawasy_t_*`, `rawasy_e2e_*`).
+
+**2. Settings.** Copy `.env.example` to `.env.local` (git-ignored; never commit it) and set, for local work:
+
+```bash
+APP_ENV=local
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=rawasy_admin
+DB_USER=rawasy
+DB_PASSWORD=<password>
+AUTH_ENCRYPTION_KEY=<a throwaway key: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))">
+AUTH_ENCRYPTION_KEY_VERSION=1
+MAIL_TRANSPORT=sink          # optional: invitation and reset mails become JSON files (MAIL_SINK_DIR)
+```
+
+`ADMIN_BASE_URL` defaults to `http://localhost:3000` locally; set it to the address you open (another port, for
+example), because Server Actions from any other origin are refused.
+
+**3. Migrations** (by hand, never at app start):
+
+```bash
+npm run db:check                                              # the migration files only, no database
+node --env-file=.env.local scripts/db-migrate.mjs status      # what the database holds and what is pending
+node --env-file=.env.local scripts/db-migrate.mjs up          # applies drizzle/0000 (13 tables) and 0001 (roles, permissions)
+```
+
+The runner takes a named lock, checks the journal order and the hash of every applied file, sets the database's
+default collation (`utf8mb4_unicode_520_ci`) while it is empty and verifies every table's character set; outside
+`APP_ENV=local` it also requires `--backup-file=<a backup less than 60 minutes old>` once tables exist. Exit codes are
+listed in `scripts/db-migrate.mjs`. `npm run db:generate` (drizzle-kit) writes a new migration from
+`src/server/db/schema.ts` for review; `drizzle-kit push` and `pull` are never used.
+
+**4. The first Owner.**
+
+```bash
+npm run dev                                   # or: npm run build && npm start (both read .env.local)
+node --env-file=.env.local scripts/admin-bootstrap.mjs --email you@example.com --name "Your Name"
+```
+
+Open the printed link (single use, 30 minutes), choose a password (12–128 characters; common or leaked passwords are
+refused), sign in at `/admin/login` and set up two-factor authentication with an authenticator app (required for Owners
+and Admins); keep the 10 recovery codes. The command is refused while an active Owner exists. Other people join by
+invitation (Users → Invite); there is no public sign-up.
+
+**Recovery.** An Owner who cannot sign in: `node --env-file=.env.local scripts/admin-bootstrap.mjs --reset <email>`
+(unlocks, signs out everywhere, prints a 30-minute reset link; add `--remove-2fa` for a lost phone and lost recovery
+codes). Every run is in the audit log.
+
+**Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
+
+```bash
+npm run test:unit
+TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=rawasy TEST_DB_PASSWORD='<password>' npm run test:integration
+npm run build
+TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=rawasy TEST_DB_PASSWORD='<password>' npm run test:admin
+```
+
+`test:admin` (`playwright.admin.config.ts`, `e2e-admin/`) starts `server.js` on port 3401 with a fresh `rawasy_e2e_*`
+database, a throwaway key and the mail sink, and drops the database afterwards. The public suite (`npm run test:e2e`)
+needs no database.
+
+### Admin: keys
+
+`AUTH_ENCRYPTION_KEY` (with `AUTH_ENCRYPTION_KEY_VERSION`) encrypts the two-factor secrets (AES-256-GCM). For any real
+environment: generate the key on a trusted machine, put it in escrow **before** configuring it (offline, outside the
+hosting account: never in Git, the database, backups, tickets or chat), then set it in the app's environment.
+
+- **Rotation:** escrow the new key; move the current one to `AUTH_ENCRYPTION_RETIRED_KEYS` (`version:base64`); set the
+  new key with the next version; restart; `node scripts/admin-keys.mjs rekey`, then `status` until only the active
+  version remains. A retired version leaves the environment once no row uses it, and escrow once no retained backup can
+  need it.
+- **Lost key:** the secrets it protects can never be read again. `node scripts/admin-2fa-reset.mjs --user <email>` (or
+  `--all --confirm`) removes the affected users' two-factor authentication, signs them out and issues reset links; each
+  sets up 2FA again at the next sign-in. Then create a new key version (escrow first).
+- Locally, a throwaway key is fine: losing it only means running the reset above.
+
 ## Next stages
 
 Stages 1A–1I are approved (1G and 1H needed no batch: their pages and the Arabic site were already built). Stage 1J,
 the release candidate (security, accessibility, SEO, performance and publication QA), is built and awaits independent
 approval (report `docs/reports/2026-10-09-stage-1j-release-candidate.md`); deployment happens only on the user's
 go-ahead. The Namecheap Stellar Plus hosting adapter (`server.js`, above) is prepared and tested locally and awaits
-independent review. Phase 2 (admin panel) follows Phase 1 approval.
+independent review. The admin / CMS program (A1 → A9) has begun: A1 (architecture, design only) is approved, and A2
+(authentication, roles, the database foundation and the admin shell, local only) is built and awaits independent review.
+A3 does not start before the user approves A2.
