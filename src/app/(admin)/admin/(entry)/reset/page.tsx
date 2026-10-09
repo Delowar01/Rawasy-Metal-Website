@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ResetRequestForm } from "@/components/admin/AuthForms";
-import { authDeps } from "@/server/admin/context";
+import { mailConfig } from "@/server/config/env";
 
 export const metadata: Metadata = { title: "Reset password" };
 
 export default function ResetRequestPage() {
-  const mail = authDeps().mailer.configured;
+  // Whether this server sends email comes from its settings alone: the page itself needs no database.
+  const mail = mailConfig().transport !== "disabled";
   return (
     <>
       <div className="adm-entry-head">
