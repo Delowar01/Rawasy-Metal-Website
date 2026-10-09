@@ -26,7 +26,7 @@ stack; the Owner should know them (A1 report item 31):
 | 3 | The runtime migrator applies files whose journal timestamp is newer than the last applied one (out-of-order files are **skipped silently**), runs DDL that MariaDB commits implicitly (**no atomicity**), and takes **no lock**. | A wrapper CLI (§10): fresh backup required, named lock (`GET_LOCK`), journal order and applied-file hashes verified before running, one DDL statement per file where possible, never run at app start. |
 | 4 | Drizzle 0.45 **cannot declare table or column character sets/collations**; generated `CREATE TABLE` statements carry no table options. MariaDB 11.4's server default is still `latin1`. | `ALTER DATABASE … CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci` before the first migration; the review step adds `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci` to every `CREATE TABLE`; ASCII key columns use a `customType` that emits `CHARACTER SET ascii COLLATE ascii_bin`; a CI check fails on any table without explicit options. |
 | 5 | MariaDB's `JSON` is `LONGTEXT` + a `JSON_VALID` check; mysql2 parses it into objects only with MariaDB ≥ 10.5 extended metadata **and** mysql2 ≥ 3.23; otherwise strings come back. | A defensive JSON column type (parse when a string arrives) plus Zod validation of every JSON value read (A1-CONTENT-MODEL §15). Floors: MariaDB ≥ 10.5, mysql2 ≥ 3.23. |
-| 6 | mysql2 does not support MariaDB's `ed25519` or `PARSEC` authentication plugins. | The database user must use `mysql_native_password` (cPanel's default for MariaDB users; checked in A2 with `SHOW CREATE USER`). |
+| 6 | mysql2 does not support MariaDB's `ed25519` or `PARSEC` authentication plugins. | The database user must use `mysql_native_password` (reported as cPanel's default for MariaDB users): local users are created with it in A2; the account's user is checked with `SHOW CREATE USER` before the admin connects to it (A1-ARCHITECTURE §7.3). |
 
 Further notes: Drizzle's `.prepare()` is client-side (no server-side statement cache is consumed); `pool.execute()` is
 not used, and `maxPreparedStatements` is capped at 64 anyway (the server-wide statement limit is shared by every
@@ -43,10 +43,13 @@ dependency only — production needs only `drizzle-orm`, `mysql2` and the migrat
 Drizzle's issues grow); Prisma (engine binaries and memory are a poor fit for 2 GB shared hosting); raw `mysql2`
 (no typed schema, no migration tooling). None is better enough to replace the brief's preferred stack.
 
-**The database server.** Namecheap's knowledgebase (seen through search extracts; its pages were not reachable from the
-A1 environment) lists **MariaDB 11.4.9** on the Stellar plans; remote MySQL access is disabled (SSH tunnel only);
-phpMyAdmin is available; `max_user_connections` is reported (old forum post) as 30. All of this is verified on the
-account in A2 (A1-ARCHITECTURE §7, the Owner's checklist).
+**The database server.** Namecheap's official knowledgebase lists **MariaDB 11.4.9** on its shared hosting servers (a
+platform fact; sources in A1-ARCHITECTURE §7.1). Facts of the RAWASY account are **not** platform facts and are read on
+the account before the admin is connected to its database (A1-ARCHITECTURE §7.3, pre-staging verification):
+`max_user_connections`, `wait_timeout`, the database user's authentication plugin and grants, and whether remote access
+is closed (SSH tunnel only) and phpMyAdmin available, as search extracts suggested during A1. A figure of 30 connections
+seen in an old forum post is **not** used for planning. Local development (A2 onward) runs against a local MariaDB
+compatible with 11.4, never against the hosted database.
 
 ## 2. Character set and collation
 
@@ -90,7 +93,8 @@ account in A2 (A1-ARCHITECTURE §7, the Owner's checklist).
 - **Append-only logs: `BIGINT UNSIGNED AUTO_INCREMENT`** (`audit_events`, `login_attempts`, `content_references`,
   `enquiry_status_history`, `system_job_runs`): compact and ordered.
 - **Reference data: natural keys** (`locales.code`, `roles.key`, `permissions.key`, `menus.key`,
-  `entity_orderings.key`, singletons `site_settings.id = 'site'`, `theme_settings.id = 'theme'`).
+  `entity_orderings.key`, singletons `site_settings.id = 'site'`, `theme_settings.id = 'theme'`,
+  `cache_generation.id = 1`).
 - **Join tables: composite primary keys** (no surrogate id).
 - **Public URLs use slugs**, never ids; enquiries show a human reference (`Q-2026-00001`), never their id.
 
@@ -144,9 +148,9 @@ by the services in the same transaction, optionally backed by triggers if the ho
 // Illustrative (A2). One pool per process, kept on globalThis so hot paths reuse it.
 createPool({
   host, port, user, password, database,     // from DB_* environment variables (A1-SECURITY-RBAC §12)
-  connectionLimit: 4,                       // DB_POOL_LIMIT; see the budget below
-  maxIdle: 1,                               // must be < connectionLimit, or idle connections are never closed
-  idleTimeout: 30_000,                      // below the server's wait_timeout
+  connectionLimit: 2,                       // DB_POOL_LIMIT: production default 2 until the account is measured (§4.2)
+  maxIdle: 1,                               // DB_POOL_LIMIT − 1 (at least 0): must be < connectionLimit, or idle connections are never closed
+  idleTimeout: 30_000,                      // below the account's wait_timeout (read on the account, §4.2)
   queueLimit: 50,                           // fail fast instead of queueing forever
   waitForConnections: true,
   connectTimeout: 10_000,
@@ -163,15 +167,47 @@ createPool({
 pool.on('connection', (c) => c.query("SET time_zone = '+00:00', SESSION sql_mode = 'STRICT_ALL_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'"));
 ```
 
-### 4.2 Connection budget
-`connectionLimit = floor((max_user_connections − 3 reserved) / expected processes)`, capped at 6. With the reported
-limit of 30 and up to 4 app processes: 4 × 4 = 16 connections, leaving room for the migration CLI, backups, phpMyAdmin
-and cron scripts. Most requests are served from the page cache and touch no database at all.
+### 4.2 Connection budget (corrected in A1 Correction 1)
+
+A1 as first written assumed "up to 4 app processes" and an unverified limit of 30, and its example did not follow its
+own formula. Neither the number of app processes nor `max_user_connections` is known: the platform limits Namecheap
+publishes (2 GB of memory, 30 entry processes, 50 MB/s of I/O, 300,000 inodes) are not the app's process count and not
+a database limit. The budget is therefore a **rule to apply once both are measured**, not a figure:
+
+```
+P × L + R ≤ U        so        L = min(4, floor((U − R) / P)),  and L ≥ 1 or the plan is not feasible
+
+U = max_user_connections of the account's database user (SELECT @@max_user_connections, and the host's answer)
+P = the most app processes measured running at once (the host starts and stops them, not the app)
+L = DB_POOL_LIMIT, the connections one app process may open
+R = connections reserved outside the app processes = 5:
+      1  migration CLI (holds the migration lock while it runs)
+      1  scheduler / cron (a cron script's own connection; the scheduler's work runs in an app process, counted in P)
+      1  backups (mariadb-dump)
+      2  phpMyAdmin and operator access (an SSH session, the bootstrap or 2FA-reset CLI)
+```
+
+- **Production default: `DB_POOL_LIMIT=2`.** It is a conservative starting value, not derived from a measured P, and it
+  is **not raised** until the account has been checked for `max_user_connections`, the real process behaviour under
+  load, and the connections cron jobs, migrations, backups and phpMyAdmin actually use (A1-ARCHITECTURE §7.3). If the
+  measurement gives P × 2 + 5 > U, the value is lowered to 1 or the process count is limited in the host's settings
+  before the admin goes live; with L = 1 still too many, production does not start.
+- **Worked example with hypothetical values (not measurements):** U = 15 and P = 5 give L = floor((15 − 5) / 5) = 2, and
+  5 × 2 + 5 = 15 ≤ 15. The formula and every example in these documents agree.
+- **Cap 4:** renders are short and the pool's queue absorbs bursts; more connections per process would add little.
+- **Local development** sets any value (A2 implements `DB_POOL_LIMIT` as configuration); it never uses production
+  credentials. In static mode (production until the A9 cutover, A1-MIGRATION-PLAN) public pages make no connection at
+  all; in database mode most public requests are served from the page cache, after the one indexed freshness read
+  (A1-PUBLISHING-VERSIONS §8.2).
 
 ### 4.3 Lifecycle and failures
 - The pool is created lazily on first use and closed on process exit (A2 proposes adding `SIGTERM` → `app.close()` →
   `pool.end()` to `server.js`; changing `server.js` needs the Owner's approval).
 - Fatal connection errors remove the connection from the pool (mysql2); queries retry once only when they are reads.
+- **Breaker (A1 Correction 1):** after a failed connection or a timed-out freshness read, public reads in that process
+  fail at once for 5 seconds (doubling to 60 while failures continue) instead of each waiting for a connection; then one
+  request tries again (A1-PUBLISHING-VERSIONS §8.2). The admin reports "database unavailable" during that time. Errors are
+  logged by class or code only, never with the host, user, database name, SQL or the driver's message.
 - Transactions always run on a pooled connection obtained by `db.transaction()`; nested work uses savepoints. A failure
   in `BEGIN` itself is caught so the connection is always released.
 - The database is never queried during `next build` (the build machine has no access): the data layer throws if
@@ -258,7 +294,7 @@ Rules: publication_status = 'published' ⇒ published_revision_id IS NOT NULL; p
 
 ## 6. All tables at a glance
 
-83 tables in 8 domains. "Root" = aggregate root with the publication columns (PUB); "Tr" = translation table.
+84 tables in 8 domains. "Root" = aggregate root with the publication columns (PUB); "Tr" = translation table.
 
 | # | Table | Domain | Phase | Role |
 |---|---|---|---|---|
@@ -283,70 +319,71 @@ Rules: publication_status = 'published' ⇒ published_revision_id IS NOT NULL; p
 | 19 | `scheduled_publications` | Revisions, publishing and the public read model | A8 | job queue |
 | 20 | `review_comments` | Revisions, publishing and the public read model | A8 | ADMIN-ONLY |
 | 21 | `search_documents` | Revisions, publishing and the public read model | A3 | derived index |
-| 22 | `cache_invalidations` | Revisions, publishing and the public read model | A3 | operations |
-| 23 | `system_job_runs` | Revisions, publishing and the public read model | A8 | operations |
-| 24 | `pages` | Pages and the section (block) model | A3 | Root (published) |
-| 25 | `page_translations` | Pages and the section (block) model | A3 | Tr of `pages` |
-| 26 | `page_sections` | Pages and the section (block) model | A3 | child row |
-| 27 | `page_section_translations` | Pages and the section (block) model | A3 | Tr of `page_sections` |
-| 28 | `reusable_sections` | Pages and the section (block) model | A5 | Root (published) |
-| 29 | `reusable_section_translations` | Pages and the section (block) model | A5 | Tr of `reusable_sections` |
-| 30 | `services` | Services, machines and projects | A3 | Root (published) |
-| 31 | `service_translations` | Services, machines and projects | A3 | Tr of `services` |
-| 32 | `service_gallery_items` | Services, machines and projects | A3 | child row |
-| 33 | `service_gallery_item_translations` | Services, machines and projects | A3 | Tr of `service_gallery_items` |
-| 34 | `service_machines` | Services, machines and projects | A3 | child row |
-| 35 | `service_related_services` | Services, machines and projects | A3 | child row |
-| 36 | `service_featured_projects` | Services, machines and projects | A3 | child row |
-| 37 | `machines` | Services, machines and projects | A3 | Root (published) |
-| 38 | `machine_translations` | Services, machines and projects | A3 | Tr of `machines` |
-| 39 | `projects` | Services, machines and projects | A3 | Root (published) |
-| 40 | `project_translations` | Services, machines and projects | A3 | Tr of `projects` |
-| 41 | `project_media` | Services, machines and projects | A3 | child row |
-| 42 | `project_categories` | Services, machines and projects | A3 | Root (published) |
-| 43 | `project_category_translations` | Services, machines and projects | A3 | Tr of `project_categories` |
-| 44 | `project_category_assignments` | Services, machines and projects | A3 | child row |
-| 45 | `project_services` | Services, machines and projects | A3 | child row |
-| 46 | `project_flags` | Services, machines and projects | A3 | child row |
-| 47 | `industries` | Industries, clients and certificates | A3 | Root (published) |
-| 48 | `industry_translations` | Industries, clients and certificates | A3 | Tr of `industries` |
-| 49 | `industry_services` | Industries, clients and certificates | A3 | child row |
-| 50 | `clients` | Industries, clients and certificates | A3 | Root (published) |
-| 51 | `client_translations` | Industries, clients and certificates | A3 | Tr of `clients` |
-| 52 | `certificates` | Industries, clients and certificates | A3 | Root (published) |
-| 53 | `certificate_translations` | Industries, clients and certificates | A3 | Tr of `certificates` |
-| 54 | `certificate_facts` | Industries, clients and certificates | A3 | child row |
-| 55 | `certificate_fact_translations` | Industries, clients and certificates | A3 | Tr of `certificate_facts` |
-| 56 | `certificate_documents` | Industries, clients and certificates | A3 | child row |
-| 57 | `media_folders` | Media library | A4 | ADMIN-ONLY |
-| 58 | `media_assets` | Media library | A3 | not draft/publish: public delivery is decided by the deliverability rule |
-| 59 | `media_files` | Media library | A3 | storage record |
-| 60 | `media_variants` | Media library | A4 | storage record |
-| 61 | `media_translations` | Media library | A3 | Tr of `media_assets` |
-| 62 | `media_flags` | Media library | A3 | ADMIN-ONLY |
-| 63 | `public_media` | Media library | A3 | is the public media state |
-| 64 | `menus` | Navigation, site settings, theme, interface text and redirects | A6 | Root (published) |
-| 65 | `menu_items` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
-| 66 | `menu_item_translations` | Navigation, site settings, theme, interface text and redirects | A6 | Tr of `menu_items` |
-| 67 | `site_settings` | Navigation, site settings, theme, interface text and redirects | A6 | Root (published) |
-| 68 | `site_setting_translations` | Navigation, site settings, theme, interface text and redirects | A6 | Tr of `site_settings` |
-| 69 | `company_phones` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
-| 70 | `ui_strings` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
-| 71 | `ui_string_translations` | Navigation, site settings, theme, interface text and redirects | A6 | Tr of `ui_strings` |
-| 72 | `theme_settings` | Navigation, site settings, theme, interface text and redirects | A6 | Root (published) |
-| 73 | `design_token_overrides` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
-| 74 | `redirects` | Navigation, site settings, theme, interface text and redirects | A3 | active on save |
-| 75 | `forms` | Forms, enquiries and outgoing email | A7 | Root (published) |
-| 76 | `form_translations` | Forms, enquiries and outgoing email | A7 | Tr of `forms` |
-| 77 | `form_fields` | Forms, enquiries and outgoing email | A7 | child row |
-| 78 | `form_field_translations` | Forms, enquiries and outgoing email | A7 | Tr of `form_fields` |
-| 79 | `enquiries` | Forms, enquiries and outgoing email | A7 | PRIVATE |
-| 80 | `enquiry_files` | Forms, enquiries and outgoing email | A7 | PRIVATE |
-| 81 | `enquiry_notes` | Forms, enquiries and outgoing email | A7 | PRIVATE |
-| 82 | `enquiry_status_history` | Forms, enquiries and outgoing email | A7 | PRIVATE |
-| 83 | `email_outbox` | Forms, enquiries and outgoing email | A7 | PRIVATE |
+| 22 | `cache_generation` | Revisions, publishing and the public read model | A3 | operations |
+| 23 | `cache_invalidations` | Revisions, publishing and the public read model | A3 | operations |
+| 24 | `system_job_runs` | Revisions, publishing and the public read model | A8 | operations |
+| 25 | `pages` | Pages and the section (block) model | A3 | Root (published) |
+| 26 | `page_translations` | Pages and the section (block) model | A3 | Tr of `pages` |
+| 27 | `page_sections` | Pages and the section (block) model | A3 | child row |
+| 28 | `page_section_translations` | Pages and the section (block) model | A3 | Tr of `page_sections` |
+| 29 | `reusable_sections` | Pages and the section (block) model | A5 | Root (published) |
+| 30 | `reusable_section_translations` | Pages and the section (block) model | A5 | Tr of `reusable_sections` |
+| 31 | `services` | Services, machines and projects | A3 | Root (published) |
+| 32 | `service_translations` | Services, machines and projects | A3 | Tr of `services` |
+| 33 | `service_gallery_items` | Services, machines and projects | A3 | child row |
+| 34 | `service_gallery_item_translations` | Services, machines and projects | A3 | Tr of `service_gallery_items` |
+| 35 | `service_machines` | Services, machines and projects | A3 | child row |
+| 36 | `service_related_services` | Services, machines and projects | A3 | child row |
+| 37 | `service_featured_projects` | Services, machines and projects | A3 | child row |
+| 38 | `machines` | Services, machines and projects | A3 | Root (published) |
+| 39 | `machine_translations` | Services, machines and projects | A3 | Tr of `machines` |
+| 40 | `projects` | Services, machines and projects | A3 | Root (published) |
+| 41 | `project_translations` | Services, machines and projects | A3 | Tr of `projects` |
+| 42 | `project_media` | Services, machines and projects | A3 | child row |
+| 43 | `project_categories` | Services, machines and projects | A3 | Root (published) |
+| 44 | `project_category_translations` | Services, machines and projects | A3 | Tr of `project_categories` |
+| 45 | `project_category_assignments` | Services, machines and projects | A3 | child row |
+| 46 | `project_services` | Services, machines and projects | A3 | child row |
+| 47 | `project_flags` | Services, machines and projects | A3 | child row |
+| 48 | `industries` | Industries, clients and certificates | A3 | Root (published) |
+| 49 | `industry_translations` | Industries, clients and certificates | A3 | Tr of `industries` |
+| 50 | `industry_services` | Industries, clients and certificates | A3 | child row |
+| 51 | `clients` | Industries, clients and certificates | A3 | Root (published) |
+| 52 | `client_translations` | Industries, clients and certificates | A3 | Tr of `clients` |
+| 53 | `certificates` | Industries, clients and certificates | A3 | Root (published) |
+| 54 | `certificate_translations` | Industries, clients and certificates | A3 | Tr of `certificates` |
+| 55 | `certificate_facts` | Industries, clients and certificates | A3 | child row |
+| 56 | `certificate_fact_translations` | Industries, clients and certificates | A3 | Tr of `certificate_facts` |
+| 57 | `certificate_documents` | Industries, clients and certificates | A3 | child row |
+| 58 | `media_folders` | Media library | A4 | ADMIN-ONLY |
+| 59 | `media_assets` | Media library | A3 | not draft/publish: public delivery is decided by the deliverability rule |
+| 60 | `media_files` | Media library | A3 | storage record |
+| 61 | `media_variants` | Media library | A4 | storage record |
+| 62 | `media_translations` | Media library | A3 | Tr of `media_assets` |
+| 63 | `media_flags` | Media library | A3 | ADMIN-ONLY |
+| 64 | `public_media` | Media library | A3 | is the public media state |
+| 65 | `menus` | Navigation, site settings, theme, interface text and redirects | A6 | Root (published) |
+| 66 | `menu_items` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
+| 67 | `menu_item_translations` | Navigation, site settings, theme, interface text and redirects | A6 | Tr of `menu_items` |
+| 68 | `site_settings` | Navigation, site settings, theme, interface text and redirects | A6 | Root (published) |
+| 69 | `site_setting_translations` | Navigation, site settings, theme, interface text and redirects | A6 | Tr of `site_settings` |
+| 70 | `company_phones` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
+| 71 | `ui_strings` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
+| 72 | `ui_string_translations` | Navigation, site settings, theme, interface text and redirects | A6 | Tr of `ui_strings` |
+| 73 | `theme_settings` | Navigation, site settings, theme, interface text and redirects | A6 | Root (published) |
+| 74 | `design_token_overrides` | Navigation, site settings, theme, interface text and redirects | A6 | child row |
+| 75 | `redirects` | Navigation, site settings, theme, interface text and redirects | A3 | active on save |
+| 76 | `forms` | Forms, enquiries and outgoing email | A7 | Root (published) |
+| 77 | `form_translations` | Forms, enquiries and outgoing email | A7 | Tr of `forms` |
+| 78 | `form_fields` | Forms, enquiries and outgoing email | A7 | child row |
+| 79 | `form_field_translations` | Forms, enquiries and outgoing email | A7 | Tr of `form_fields` |
+| 80 | `enquiries` | Forms, enquiries and outgoing email | A7 | PRIVATE |
+| 81 | `enquiry_files` | Forms, enquiries and outgoing email | A7 | PRIVATE |
+| 82 | `enquiry_notes` | Forms, enquiries and outgoing email | A7 | PRIVATE |
+| 83 | `enquiry_status_history` | Forms, enquiries and outgoing email | A7 | PRIVATE |
+| 84 | `email_outbox` | Forms, enquiries and outgoing email | A7 | PRIVATE |
 
-By phase of introduction: A2 13 · A3 44 · A4 2 · A5 2 · A6 10 · A7 9 · A8 3. The A3 count includes the media registry tables (`media_assets`, `media_files`, `media_translations`, `media_flags`, `public_media`), `redirects` (automatic on slug change) and `cache_invalidations`, which A3 needs before A4/A6 build their full features — a dependency, not a reordering of the roadmap.
+By phase of introduction: A2 13 · A3 45 · A4 2 · A5 2 · A6 10 · A7 9 · A8 3. The A3 count includes the media registry tables (`media_assets`, `media_files`, `media_translations`, `media_flags`, `public_media`), `redirects` (automatic on slug change), `cache_generation` and `cache_invalidations`, which A3 needs before A4/A6 build their full features — a dependency, not a reordering of the roadmap.
 
 ## 7. Table catalogue
 
@@ -545,8 +582,8 @@ Optional TOTP second factor (one per user).
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `user_id` | ULID | no | FK users(id) ON DELETE CASCADE |
-| `totp_secret_enc` | VARBINARY(255) | no | AES-256-GCM (iv \| tag \| ciphertext) with the key from AUTH_ENCRYPTION_KEY |
-| `key_version` | TINYINT UNSIGNED | no | for key rotation |
+| `totp_secret_enc` | VARBINARY(255) | no | AES-256-GCM (iv \| tag \| ciphertext) with the AUTH_ENCRYPTION_KEY version named in key_version; the key is escrowed offline, never in backups (A1-SECURITY-RBAC §12) |
+| `key_version` | TINYINT UNSIGNED | no | version of the key that encrypted this row: rotation re-encrypts row by row; a version that cannot be recovered leads to the emergency 2FA reset (A1-SECURITY-RBAC §12.2–§12.4) |
 | `confirmed_at` | DT | yes | NULL until the first valid code |
 | `last_used_step` | BIGINT UNSIGNED | yes | rejects a replayed code |
 | `created_at` | DT | no |  |
@@ -837,22 +874,40 @@ Admin search index: one normalized plain-text row per aggregate, locale and scop
 | `body` | MEDIUMTEXT | no | normalized plain text (no markup) |
 | `updated_at` | DT | no |  |
 
+#### `cache_generation`
+
+Orders cache invalidations by commit (A1 Correction 1). One row; the publishing transaction increments it as its last write, and its row lock, held until the commit, makes a later generation impossible to see before an earlier one.
+
+- **Phase:** A3
+- **Primary key:** `id`
+- **Rules / checks:** id = 1
+- **Publication:** operations
+- **Delete behaviour:** never deleted (seeded by the first migration)
+- **Note:** Read together with `cache_invalidations` in one statement (one consistent read) by every process before it serves a cached page (A1-PUBLISHING-VERSIONS §8.2).
+
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `id` | TINYINT UNSIGNED | no | always 1 |
+| `epoch` | ULID | no | replaced by a database restore: every page cached under another epoch is treated as missing |
+| `value` | BIGINT UNSIGNED | no | generation of the newest invalidation (DEFAULT 0) |
+| `updated_at` | DT | no |  |
+
 #### `cache_invalidations`
 
-Shared record of cache-tag invalidations. Next.js 16.3.8 keeps invalidations in each process's memory only; the custom cache handler reads this table so every process (and a restarted one) honours a publish.
+Shared record of cache-tag invalidations, one row per tag. Next.js 16.3.8 keeps invalidations in each process's memory only; the custom cache handler reads this table so every process (and a restarted one) honours a publish — and serves no cached page while it cannot read it (fails closed, A1 Correction 1).
 
 - **Phase:** A3
 - **Primary key:** `tag`
-- **Indexes:** (invalidated_at)
+- **Indexes:** (generation)
 - **Publication:** operations
-- **Delete behaviour:** rows older than the longest cache lifetime (proposed 30 days) are purged
-- **Note:** Each process pulls rows newer than its last read at most once a second (one indexed query) and compares them with a cached entry's age and tags.
+- **Delete behaviour:** never purged: one row per tag (a few hundred); deleting a row would make an old entry look fresh
+- **Note:** Every process reads the rows with a generation above the one it last read, together with `cache_generation`, before it serves a cached page (default: for every request, `CACHE_SYNC_INTERVAL_MS = 0`). A failed read means no cached page is served (A1-PUBLISHING-VERSIONS §8.2).
 
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `tag` | VARCHAR(255) ascii_bin | no | e.g. 'doc:project:01J…', 'type:project', '_N_T_/en/about', 'site' |
-| `invalidated_at` | DT | no | entries cached before this instant are treated as missing |
-| `mode` | ENUM('expire','stale') | no | expire = re-render before serving (publish, unpublish, restriction); stale = serve once more while re-rendering |
+| `generation` | BIGINT UNSIGNED | no | `cache_generation.value` of the newest invalidation of this tag; a cached entry stamped with a lower generation is treated as missing |
+| `invalidated_at` | DT | no | informational (dashboard, troubleshooting); freshness is decided by generation, never by clock |
 | `updated_by_request` | ULID | yes | request id of the action that caused it |
 
 #### `system_job_runs`
@@ -2356,6 +2411,9 @@ erDiagram
   search_documents {
     key entity_type PK
   }
+  cache_generation {
+    int id PK
+  }
   cache_invalidations {
     varchar tag PK
   }
@@ -2493,6 +2551,9 @@ erDiagram
     enum scope PK
   }
   locales ||--o{ search_documents : "locale"
+  cache_generation {
+    int id PK
+  }
   cache_invalidations {
     varchar tag PK
   }
@@ -3040,7 +3101,8 @@ erDiagram
 2. **Never** `drizzle-kit push` or `pull` against any shared database; **never** edit production by hand (phpMyAdmin is
    read-only by policy, except a documented emergency that is recorded in the audit log by the Owner).
 3. **Applying:** a migration CLI (`scripts/db-migrate.mjs`, A2) run on the server over SSH/cPanel Terminal (remote
-   database access is disabled on the host), from the release folder, **before** the new release starts serving:
+   database access is reported closed on the host — verified before staging, A1-ARCHITECTURE §7.3; locally the same CLI
+   runs against the local MariaDB), from the release folder, **before** the new release starts serving:
    - refuses to run without a database backup younger than 60 minutes (or takes one: `--backup`);
    - takes `GET_LOCK('rawasy_migrate', 0)` (only one runner);
    - checks that the journal is strictly ordered and that every already-applied file still has the hash recorded in

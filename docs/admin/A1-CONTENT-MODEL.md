@@ -13,8 +13,10 @@ Related: [A1-ARCHITECTURE](A1-ARCHITECTURE.md) · [A1-DATABASE-SCHEMA](A1-DATABA
 ## 1. Principles
 
 1. **The CMS feeds the approved components; it does not replace them.** Every section of every approved page becomes a
-   *bespoke block type* whose data is exactly what that component reads today. A1–A4 change where the data comes from,
-   not what the visitor sees. New generic blocks (A5) are built in the same Modern Commerce design system.
+   *bespoke block type* whose data is exactly what that component reads today. No phase changes what the visitor sees:
+   A3–A8 build the CMS beside the static production site, and the single A9 cutover changes only where the data comes
+   from, proven pixel for pixel (T1 = Option B, [A1-MIGRATION-PLAN](A1-MIGRATION-PLAN.md) §3). New generic blocks (A5)
+   are built in the same Modern Commerce design system.
 2. **Facts are source-strict.** Records carry admin-only provenance (`source_basis`, `source_pages`, `source_note`);
    optional facts stay empty until confirmed; a statistic or a machine's power needs a provenance note before it can
    be published. The CMS cannot make something true, but it records who confirmed it and never invents defaults.
@@ -137,7 +139,9 @@ Service detail pages are not `pages` rows: their sections belong to the service 
 published with it.
 
 ### 4.3 How a generic page renders without new source files
-The existing catch-all (`app/(commerce)/[locale]/(missing)/[...rest]`, today always `notFound()`) becomes the resolver:
+In database mode (local and staging from A3, production from the A9 cutover; in static mode the catch-all keeps today's
+behaviour) the existing catch-all (`app/(commerce)/[locale]/(missing)/[...rest]`, today always `notFound()`) becomes
+the resolver:
 
 1. **Static routes always win** — Next's router matches `/about`, `/services/...` etc. before the catch-all, so a generic
    page can never shadow a system route; and the slug validator rejects reserved words anyway (§4.4).

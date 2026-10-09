@@ -42,7 +42,8 @@ Consequences:
 
 - A draft cannot leak: there is no code path from the public renderer to working tables or revisions.
 - Editing a live page never changes the live page until someone publishes.
-- Unpublishing is one row delete (plus cache invalidation) and takes effect at once.
+- Unpublishing is one row delete (plus cache invalidation) and takes effect at once: no process serves a cached copy
+  without first checking the shared invalidation state (§8.2).
 - Restoring an old version is copying a snapshot into the working copy — history is never rewritten.
 
 ## 2. Status model
@@ -173,12 +174,15 @@ One database transaction per publish; idempotent if retried:
 6. Rebuild `content_references` for scope `published` and the `search_documents` row for scope `published`.
 7. Update the root: `publication_status = 'published'`, `draft_status = 'none'`, `published_revision_id`,
    `published_at`, `published_by`, `first_published_at` if empty; cancel superseded schedules.
-8. Insert `cache_invalidations` rows for the tags in §8; write `audit_events`.
-9. Commit. **After** the commit: call `revalidateTag(tag, { expire: 0 })` for each tag in the current process (so this
-   process is fresh at once), and optionally request the affected public URLs once to re-render them (the warm step).
+8. Record the invalidation (§8.2): take the next **cache generation** (`UPDATE cache_generation SET value = value + 1`,
+   the last write before the commit, so its row lock orders invalidations by commit) and upsert one
+   `cache_invalidations` row per tag in §8.3 with that generation; write `audit_events`.
+9. Commit. **After** the commit: call `revalidateTag(tag, { expire: 0 })` for each tag in the current process (Next's own
+   per-process bookkeeping), and optionally request the affected public URLs once to re-render them (the warm step).
 
-If any step fails the transaction rolls back and nothing becomes visible. If the process dies after the commit but
-before step 9, the `cache_invalidations` rows still make every process re-render on its next read (§8.3).
+If any step fails the transaction rolls back and nothing becomes visible. The invalidation commits together with the
+content change, so a process that dies after the commit but before step 9 loses nothing: every process checks the
+shared generations before it serves a cached entry (§8.2).
 
 Unpublish, archive and purge run the same pattern: delete the `published_documents` row, remove published references,
 invalidate, audit.
@@ -198,14 +202,15 @@ unpublishing a page may create a redirect at the same time (Owner/Admin). A `410
 
 - `scheduled_publications` stores the action (`publish` or `unpublish`), the exact **revision** to publish, `run_at` in
   UTC (entered and shown in Asia/Riyadh — UTC+3 all year, no daylight saving) and its status.
-- **Runner:** a cPanel cron job every 5 minutes (Namecheap's minimum interval, reported in its knowledgebase) runs a
+- **Runner:** a cPanel cron job every 5 minutes (the platform minimum in Namecheap's official documentation,
+  [A1-ARCHITECTURE](A1-ARCHITECTURE.md) §7.1) runs a
   small Node script that calls `POST /api/internal/scheduler` on the app with the `CRON_SECRET` header. The route
   handler (inside the app process, so `revalidateTag` works there) takes due rows with `SELECT … FOR UPDATE SKIP
   LOCKED` (or an advisory `GET_LOCK`), re-checks the creator's permission and the strict validation, publishes as in §5
   and marks the row `done` / `failed`. A cron script cannot invalidate Next.js caches itself (Next 16.3.8 throws outside
   a request), hence the endpoint.
-- Precision: up to 5 minutes late (cron granularity) plus the time of the run. If exact timing ever matters, the owner
-  can ask the host about shorter intervals.
+- Precision: up to 5 minutes late (cron granularity) plus the time of the run; shorter intervals are not allowed on the
+  shared plans (and at most 5 cron jobs may run at once).
 - A failure keeps the row `failed`, writes `last_error`, audits, queues an email to the scheduler's creator (A7 outbox)
   and shows on the dashboard. Nothing is published partially.
 - Editing the working copy after scheduling does not change what will be published (the schedule names a revision);
@@ -214,32 +219,95 @@ unpublishing a page may create a redirect at the same time (Owner/Admin). A `410
 
 ## 8. Caching and invalidation
 
+**Scope (T1 = Option B, A1 Correction 1).** Everything in this section applies to **database mode**
+(`CONTENT_SOURCE=database`, [A1-ARCHITECTURE](A1-ARCHITECTURE.md) §6): local development and authenticated staging from
+A3, production only from the A9 cutover. In **static mode** — the production public site until A9 is accepted, and the
+rollback target — pages are prerendered from `src/content/*` exactly as today, no public page reads the database, and
+the custom cache handler is not configured.
+
 ### 8.1 What the research found (Next.js 16.3.8, installed source)
 - With the default cache handler, invalidated tags and on-demand revalidation live **in the memory of the one process**
   that received the call; nothing is written to disk or shared. Another process keeps serving its copy, and a restarted
   process forgets the invalidation (`server/lib/incremental-cache/file-system-cache.js`, `tags-manifest.external.js`;
   documented in `docs/01-app/02-guides/self-hosting.md` and `how-revalidation-works.md`).
-- The host may run more than one process for the app (LiteSpeed's Node launcher spawns processes on demand; Passenger
-  normally keeps one for Node) and stops or restarts them on its own schedule (web-server reloads, memory limits, idle
-  rules). See [A1-ARCHITECTURE](A1-ARCHITECTURE.md) §7.
+- The built-in cache dates an entry when it is **stored** (`lastModified: Date.now()` in `set`), after the render read
+  its data: an invalidation committed during a render is older than the entry and is missed. The design below orders
+  entries and invalidations by database commit instead of by clock.
+- The incremental cache, and with it the cache handler, is created **per request** (`getIncrementalCache` in
+  `next-server.js`: "incremental-cache is request specific"); module-level state is shared by the requests of one
+  process. The handler's `get` is awaited before Next renders, and a `null` answer is a miss: Next renders the page.
+- How many processes the host runs for the app, and when it stops or restarts them (web-server reloads, memory limits,
+  idle rules), is **not known until measured on the account** (A1 Correction 1; [A1-ARCHITECTURE](A1-ARCHITECTURE.md) §7).
+  The design must be correct for any number of processes, including one that has just started.
 - `revalidateTag(tag, profile)` takes a second argument in Next 16: `{ expire: 0 }` = expire now (next request
   re-renders), `'max'` = serve stale once while re-rendering. `updateTag` works only in Server Actions.
   `revalidatePath` maps to the path's implicit tag. Neither works outside a request (cron scripts).
 
-### 8.2 Design
-- Public data reads go through cached functions (`unstable_cache` today, the documented way without Cache Components)
-  carrying **tags**; the page that uses them inherits the tags.
-- A **custom cache handler** (Next's `cacheHandler` option, A3) wraps the built-in file-system cache unchanged (same
-  disk layout, same in-memory LRU) and adds one check: an entry older than the newest `cache_invalidations.invalidated_at`
-  of any of its tags is treated as missing (re-rendered before serving). Each process refreshes its copy of recent
-  invalidations from the database at most once a second (one indexed query); errors fall back to the built-in
-  behaviour. The handler does nothing during `next build` (no database there).
-- Every DB-backed route keeps a time-based safety net (`revalidate`, proposed 1 hour) so that a missed invalidation can
-  never last long.
+### 8.2 Design: a cache that fails closed (corrected in A1 Correction 1)
+
+**Rule (locked by the Owner): if the handler cannot establish that a cached entry is fresh, it does not serve that entry
+as fresh.** A1 as first written let the handler fall back to Next's built-in behaviour when the shared invalidation
+state could not be read; that would serve a page after it was unpublished, archived, stripped of a restricted image,
+legally corrected, redirected away or withdrawn in an emergency. That fallback is removed.
+
+- **Tagged reads.** Public data reads go through cached functions (`unstable_cache` today, the documented way without
+  Cache Components) carrying **tags** (§8.3); the page that uses them inherits the tags.
+- **Generations in commit order.** Every invalidation gets a number from `cache_generation` (one row: `epoch`,
+  `value`), taken in the publishing transaction as its last write (§5 step 8). The row lock is held until the commit, so
+  a later number is never visible before an earlier one, and a reader that sees generation *n* has every invalidation up
+  to *n*. Each tag keeps the generation of its newest invalidation (`cache_invalidations`: one row per tag).
+- **The handler** (Next's `cacheHandler` option, A3) wraps the built-in file-system cache unchanged (same disk layout,
+  same in-memory LRU) and adds the freshness check:
+  1. **Read the shared state for this request.** The handler's first call in a request reads the generations changed
+     since this process last read them (`cache_generation` joined with `cache_invalidations WHERE generation > ?`: one
+     indexed statement, one consistent read). A process that has just started reads the whole table (one row per tag, a
+     few hundred). Concurrent requests share a read only if it **began after they arrived**; otherwise they wait for
+     the next one, which they share. `CACHE_SYNC_INTERVAL_MS` (default **0**: every request) can allow a process to
+     reuse a read up to that age; any value above 0 is a documented propagation delay (a withdrawn page may be served by
+     another process for up to that long after the commit) and needs the Owner's decision.
+  2. **Stamp what is stored.** An entry stored by a request carries the `epoch` and generation of that request's read,
+     taken **before** the render read any content (later invalidations are counted as newer: an extra render at worst,
+     never a stale page). A3 keeps the stamp inside the entry Next persists and proves it never reaches a response.
+  3. **Serve only what is proven fresh.** A cached entry is returned only if this request's read succeeded, the entry's
+     epoch equals the current epoch, and none of its tags (its own, its implicit path tags, and `site`) has a generation
+     above the entry's stamp. **Anything else — a failed or timed-out read, a missing or older-epoch stamp, an unknown
+     state — is answered as a miss.**
+  4. **Render on a miss.** Next then renders from the public read model as usual. If the database is reachable, the
+     visitor gets the current published state. **If it is not, the render fails and Next answers with a server error
+     (500)**: the site never knowingly serves possibly withdrawn content. While the state cannot be read the handler
+     stores nothing.
+- **No retry loop, no background polling.** The handler reads the state only when a request needs it; a request makes
+  at most one read and one render (the read model's single retry of a read, [A1-DATABASE-SCHEMA](A1-DATABASE-SCHEMA.md)
+  §4.3, is the only retry). After a failed read the data layer's **breaker** (one per process, shared by this read and
+  the public read model) opens for 5 seconds, doubling to at most 60 seconds while failures continue: requests are then
+  misses at once and their renders fail at once, so no request waits on a database known to be down and the host's
+  entry processes are not filled by waiting requests. After the pause one request tries again; a successful read
+  closes the breaker. The read has a short time limit (proposed 1 s, MariaDB `max_statement_time`); a read that cannot
+  get a pool connection within it counts as failed.
+- **Observing it without leaking.** The handler logs one line per **state change** (current → degraded, degraded →
+  current) with the error's class or code (`ECONNREFUSED`, `ETIMEDOUT`, `ER_CON_COUNT_ERROR` …) and the duration;
+  never the host, user, database name, SQL text, parameters or the driver's message (mysql2 messages can name the user
+  and host). In-memory counters (reads, failed reads, degraded periods, misses forced by degradation) are written into
+  each scheduler run's `system_job_runs.details` by the process that answers it; the A8 dashboard shows "cache state
+  degraded N times in 24 h".
+- **Epoch.** Restoring a database backup sets a new `cache_generation.epoch` (one statement in the restore runbook,
+  [A1-ARCHITECTURE](A1-ARCHITECTURE.md) §11): every entry stamped before it is missing, even though the restored
+  generations are lower than stamps already issued. (The everyday "refresh the whole site" action is the `site` tag.)
+- **The time-based safety net is defence in depth only.** DB-backed routes keep `revalidate` (proposed 1 hour) against a
+  tag that a publish failed to name (a bug); it is never what makes a removal take effect. The stale-while-revalidate
+  it allows applies only to an entry that has just passed the check above.
+- **Availability trade-off (accepted by the Owner's rule).** In database mode the public site depends on the database:
+  while MariaDB is unreachable, cached pages are not served and visitors get a server error until it returns. Next's
+  default error page is shown unless the Owner approves a branded one (a public interface addition: an A9 decision). In
+  static mode the public site does not use the database at all.
+- The handler is **inert during `next build`** (no database there): build output carries no stamp and is rendered again
+  at runtime, then cached with one.
 - The handler does **not persist 404 results of unknown slugs** (today every unknown `/…/projects/<slug>` writes cache
-  files; a crawler could grow them without limit against the account's 300,000-inode quota).
+  files; a crawler could grow them without limit against the 300,000-inode limit).
 - The handler depends on a Next.js internal module: Next stays pinned to an exact version (as today) and the handler is
-  re-verified on every upgrade (a test that two processes sharing one `.next` see each other's invalidations).
+  re-verified on every upgrade by tests: two processes sharing one `.next` see each other's invalidations; an
+  invalidation committed during a render makes that render's entry stale; with the database stopped no cached entry is
+  served and requests fail without a retry loop; a restored epoch empties the cache.
 
 ### 8.3 Tags
 
@@ -262,14 +330,17 @@ or the site settings refreshes the whole site — at this site's size (about 100
 rendering spread over the next visits, and it is correct. Media changes are rare and invalidate broadly for the same
 reason (one tag instead of one per image keeps each page's tag list short).
 
-**Invalidation mode.** Publish, unpublish, archive, restriction of media and redirect changes use **expire** (the next
-visitor waits for a fresh render, typically a fraction of a second; never stale content after a removal). Only the
-time-based safety net uses stale-while-revalidate.
+**Invalidation mode.** Every recorded invalidation **expires** the entries it names: the next visitor waits for a fresh
+render (typically a fraction of a second). With `CACHE_SYNC_INTERVAL_MS = 0` no process serves an entry after the
+invalidation's commit; if the shared state cannot be read, no cached entry is served at all (§8.2). Only the
+time-based safety net uses stale-while-revalidate, and only for entries that passed the check.
 
 ### 8.4 After a release
-Pages are rendered at runtime on first request (the build has no database, see [A1-ARCHITECTURE](A1-ARCHITECTURE.md)
-§6). After every release a **page warm-up** (the same approach as `scripts/warm-images.mjs`: sitemap → every page, at
-most 2 requests at a time, gentle, stops on 429/503/508) fills the cache so that visitors get cached pages.
+In database mode pages are rendered at runtime on first request (the build has no database, see
+[A1-ARCHITECTURE](A1-ARCHITECTURE.md) §6). After every database-mode release a **page warm-up** (the same approach as
+`scripts/warm-images.mjs`: sitemap → every page, at most 2 requests at a time, gentle, stops on 429/503/508) fills the
+cache so that visitors get cached pages. A static-mode release is prerendered at build and needs only today's image
+warm-up.
 
 ### 8.5 What is not cached
 Admin pages and actions (`no-store`), previews (draft mode is `private, no-store` by design), enquiry submissions,
@@ -348,6 +419,9 @@ previewed and published as a whole, so a half-updated page never goes live. With
 
 **Goal:** see unpublished content exactly as visitors will — the real production components, Desktop / Tablet /
 Mobile, English / Arabic, light / dark — without any way for the public to reach it.
+
+**Where (T1 = Option B):** preview needs database mode, so until the A9 cutover it runs locally and in authenticated
+staging; the production public site is the static release and has no preview.
 
 **Mechanism (A3):**
 1. The editor clicks Preview in the admin (`POST /api/admin/preview` with the entity and optional revision). The

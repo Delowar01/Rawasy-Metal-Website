@@ -134,8 +134,11 @@ If processing a large image in the request ever approaches the host's limits, st
 ## 8. Public delivery
 
 - **Route:** `GET /media/u/{media-ulid}/{variant}-{hash}.{ext}` (a Route Handler; `/media/` is already outside the proxy
-  matcher). It validates the path pattern, looks up `public_media` (a per-process cache refreshed by the same
-  invalidation mechanism as pages), maps to `derived/…`, verifies the resolved path, streams the file.
+  matcher). It validates the path pattern, looks up `public_media` (a per-process cache that follows the pages'
+  fail-closed rule: used only after this request's read of the shared invalidation state succeeds, otherwise read from
+  the database; if the database is unreachable the route answers 503 — never a possibly withdrawn file,
+  [A1-PUBLISHING-VERSIONS](A1-PUBLISHING-VERSIONS.md) §8.2), maps to `derived/…`, verifies the resolved path, streams
+  the file.
 - **Headers:** exact `Content-Type`; `X-Content-Type-Options: nosniff`; `Cache-Control: public, max-age=31536000,
   immutable` (names are content-hashed, so a replacement is a new address); `ETag`; `Content-Disposition: inline` for
   images, `attachment` for PDFs; no cookies read.
@@ -198,14 +201,17 @@ items at all (to publish a redacted version, upload it as a new item).
   can never be in a published projection, never get a `public_media` row, and `scripts/package-namecheap.mjs` keeps
   excluding them from every archive. They are never public during or after migration unless RAWASY approves them and an
   Owner/Admin clears the flags (audited).
-- **A4** (proposed, Owner approval): copy the release files into the persistent store and serve their **same
-  addresses** (`/media/{group}/{name}.webp`) through a Route Handler that checks `public_media` by `legacy_key`; the
-  release then stops carrying `public/media`. Same URLs and bytes (no visual or HTML change), and a restriction then
-  takes the file's address offline at once instead of waiting for a release.
-- Until then (A3–A4): restricting a release-bundled file removes it from every page at once, but its direct file
-  address stays reachable until the next release excludes it, and optimized copies at `/_next/image` addresses can stay
-  in the optimizer cache for up to 4 hours (`minimumCacheTTL` 14,400 s). An emergency "clear image cache" action
-  (Owner) can empty `.next/cache/images`.
+- **Relocation at the A9 cutover** (proposed, Owner approval, T7; T1 = Option B moved it from A4, A1 Correction 1): A4
+  builds and tests, in local and staging, the copy of the release files into the persistent store and a Route Handler
+  that serves their **same addresses** (`/media/{group}/{name}.webp`) after checking `public_media` by `legacy_key`; the
+  first database-mode release (A9) then stops carrying `public/media`. Same URLs and bytes (no visual or HTML change),
+  and a restriction then takes the file's address offline at once instead of waiting for a release.
+- **Before the A9 cutover** the production site is the static release: a restriction set in the admin acts in preview
+  and staging only, and production keeps today's held-back list (the packaging script's 13 files). **If the relocation
+  is not adopted**, after the cutover restricting a release-bundled file removes it from every page at once, but its
+  direct file address stays reachable until the next release excludes it, and optimized copies at `/_next/image`
+  addresses can stay in the optimizer cache for up to 4 hours (`minimumCacheTTL` 14,400 s); an emergency "clear image
+  cache" action (Owner) can empty `.next/cache/images`.
 - **A9** (proposed, Owner decision, needs a pixel-parity proof): serve every image from pre-generated variants and stop
   using the runtime optimizer — no image CPU load on the shared host, no cold-cancellation defect, no image warm-up.
 
