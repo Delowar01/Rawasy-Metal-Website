@@ -96,11 +96,13 @@
   build, the archive's `tar` command, cPanel settings, Run NPM Install, smoke checklist, logs, DNS warning, rollback).
   Proof: a clean clone of `2043981` passed `npm ci`, audit `--omit=dev` 0, lint, typecheck, build and the full E2E suite
   against `server.js` (612 / 612); the README flow rehearsed on a fresh clone (archive, production-only install in
-  another folder) started in 482 ms and passed the smoke checks (36 / 36); `server.js` and `next start` gave 184 / 184
-  identical HTTP answers and 1,484 / 1,484 identical optimized images; the build equals the RC's. **Still not allowed:**
-  uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing SSL, fast-forwarding `main`,
-  removing the legal pages' pending notes (they block launch), external publication — each needs the user's explicit
-  go-ahead.
+  another folder) started in 482 ms, passed the smoke checks (36 / 36) and the full suite (610 / 612 on a cold image
+  cache — the Next.js image-optimizer defect in "Gotchas learned" — then 612 / 612 after a restart and a warm-up);
+  `server.js` and `next start` gave 184 / 184 identical HTTP answers and 1,484 / 1,484 identical optimized images; the
+  build equals the RC's. The image defect's mitigation (warm-up, a Next.js fix or accept) is RAWASY's decision (report
+  item 12). **Still not allowed:** uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing
+  SSL, fast-forwarding `main`, removing the legal pages' pending notes (they block launch), external publication — each
+  needs the user's explicit go-ahead.
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab

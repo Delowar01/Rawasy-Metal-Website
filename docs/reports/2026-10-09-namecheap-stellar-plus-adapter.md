@@ -3,7 +3,8 @@
 Date: 2026-10-09 · Branch: `claude/new-session-5eijs6` · Status: **adapter prepared and proven locally; awaiting
 independent review**. Nothing was uploaded to Namecheap, no domain was connected, DNS and nameservers were not touched,
 no certificate was installed, `main` was not changed and the legal pages' pending notes are still in place. The site is
-not online.
+not online. One pre-existing Next.js 16.3.8 image-optimizer defect was found on the way (item 12): not caused by the
+adapter, not changed, mitigation for RAWASY to decide.
 
 ## Summary
 
@@ -35,9 +36,9 @@ Proof, in short:
 - **Deployment rehearsal** (the README flow end to end: fresh clone, build, the README's `tar` command, extraction
   over a starter `server.js` in another folder, production-only install, start): ready in 482 ms, smoke 36 / 36, and
   the full E2E suite against that package: 610 / 612 on its cold image cache (two timeouts, the finding below), then
-  (third run: running when this commit was made; result in the next commit) after a restart and an image-cache warm-up.
+  **612 / 612** after a restart and an image-cache warm-up.
 - **Finding (pre-existing, not the adapter):** in Next.js 16.3.8, an image size whose very first request is cancelled
-  by the visitor can stay unanswered in that server process until it restarts — reproduced identically with
+  by the visitor can stay unanswered in that server process until it restarts — reproduced the same way on
   `next start` (27 of 300 cut-off variants) and `server.js` (26 of 300); cached sizes are immune. Mitigation
   options for RAWASY in item 12; nothing changed here.
 
@@ -353,8 +354,9 @@ Served by the real Next.js server (no `output: export`, no static conversion; `n
   `server/image-optimizer.js`). When that connection closes in the first moments of an uncached variant's
   optimization, the optimization never finishes; the response cache keeps it as pending, and every later request for
   that variant waits on it. Test: 300 uncached variants, each requested and cut off after 0–30 ms, then requested
-  normally (10 s limit): **27 hung on `next start`, 26 on `server.js`** — the same images, all cut off within 0–2 ms.
-  A hung variant was still unanswered minutes later on both; after a restart of the process it answered in 0.13 s.
+  normally (10 s limit): **27 hung on `next start`, 26 on `server.js`** — largely the same images (7 of the 8 listed
+  for each server matched), every listed one cut off within 0–2 ms. A hung variant was still unanswered minutes later
+  on both; after a restart of the process it answered in 0.13 s.
 - **Not caused by the adapter:** identical on `next start` (the approved RC's way) and the same code path (both run
   Next's `getRequestHandlers()`; the one option `next start` passes and a custom server does not, `httpServer`, only
   wires WebSockets). Stage 1E saw a stuck variant on `next start` too (CLAUDE.md).
@@ -442,7 +444,8 @@ resident memory 415 MiB).
 image cache: **610 passed, 2 failed** (22.0 min; 0 skipped, 0 flaky). Both failures are 60 s timeouts on `/en/about`
 waiting for three image variants that never answered — the Next.js finding in item 12, not a difference of the
 package (the clean clone's run, also on a cold cache, passed 612 / 612). **Third run**, after restarting that server
-and warming its image cache (item 12, option a): (third run: running when this commit was made; result in the next commit).
+and warming its image cache (item 12, option a): **612 passed** (21.1 min, 05:11:00–05:32:09 UTC; 0 failed, 0 skipped,
+0 flaky; peak resident memory 452 MiB; image cache 1,487 files, 26 MB).
 
 ## 21. Application-root plan
 
@@ -587,7 +590,7 @@ pages of the brief → 200, indexable with their canonical, the clock tower with
 the four unknown addresses → 404 with `noindex`; the sitemap's 102 addresses on `https://www.rawasymetal.com/`; the
 robots line; a share image and the icon; an optimized photo as WebP and as JPEG; a remote image and a wrong width → 400;
 a missing file → 404; no page (all 102, plus two 404s) referring to a withheld or held-back photo. Then the full E2E
-suite against that server: 610 / 612 on a cold image cache, then (third run: running when this commit was made; result in the next commit) after a restart and a warm-up (item 20).
+suite against that server: 610 / 612 on a cold image cache, then **612 / 612** after a restart and a warm-up (item 20).
 
 **C. Updates:** build a new archive (A); Stop App; keep the running release's archive (or compress `rawasy-app`
 without `node_modules`); delete `rawasy-app/.next` (so no stale build files stay) and extract the new archive; Run NPM
