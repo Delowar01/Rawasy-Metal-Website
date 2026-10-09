@@ -1,6 +1,6 @@
 # Stage 1J — Release candidate: security, accessibility, SEO, performance and publication QA
 
-Date: 2026-10-08 · Branch: `claude/new-session-5eijs6` · Status: **release candidate ready for independent approval**
+Date: 2026-10-09 (begun 2026-10-08) · Branch: `claude/new-session-5eijs6` · Status: **release candidate ready for independent approval**
 (not approved by the builder; **not deployed**: no hosting, DNS, tunnel or external publication; the pages are marked
 `published` in code only).
 
@@ -39,6 +39,19 @@ QA on the release candidate, in short:
 - Keyboard: 3,002 Tab stops and 88 real journeys, none hidden under the sticky header.
 - Performance: CLS ≤ 0.0012; LCP ≤ 1.19 s on desktop and ≤ 2.32 s on a throttled phone; scrolling ≥ 58.4 fps.
 - Images: drawn at ≤ 1.00× of source size everywhere except the frozen homepage's cards (item 41, for the user to decide).
+
+Each check ran on the build that was current when it was taken:
+
+| Build | Checks |
+| --- | --- |
+| `caf01fb` (publication) | metadata (item 17), structured data (18), the HTTP matrix (32) |
+| `bfda6b0` (keyboard fix) | performance (16, 40), image ratios (41), EN/AR parity (39), the Tab walk and journeys (§15, 37), full E2E 611 / 611 |
+| `ace4bed` (final code) | axe (33), the responsive matrix (38), the reflow sweep (§17), the text-only performance rows (16), the evidence (53) |
+| `e1f85f0` (fresh clone) | lint, typecheck, build, full E2E and `npm start` (43, 47–50) |
+
+The fresh clone builds the same output as `ace4bed` (item 43). Between these builds, `bfda6b0` changed one JS chunk and
+`ace4bed` changed one CSS rule on the project pages. Every prerendered page and payload is otherwise identical (the
+changed files' names aside), so the earlier results carry over.
 
 ## Findings answered outside the numbered items (§13–§17)
 
@@ -178,11 +191,42 @@ follow-up **`db5740f`** (the header's scrolled / past-hero check kept from the l
 
 ### 9. Final release-candidate SHA
 
-⟨FINAL SHA — recorded after the fresh-clone run of this commit⟩
+The release candidate is the head of `claude/new-session-5eijs6` after this stage: the last of the documentation
+commits on top of **`e1f85f0`**. A commit cannot name its own hash, so the hand-off message gives it (`git log -1`).
+
+- `e1f85f0` is the tree the fresh clone tested (item 43).
+- The commits after it change documentation only. They write the fresh-clone results into this report, rename the
+  report from `2026-10-08-…` to its completion date, `2026-10-09-…` (as the brief asks), and update the two references
+  to its name in `README.md` and `CLAUDE.md`.
+- The last code change is **`ace4bed`**; `e1f85f0` and everything after it change documentation only.
 
 ### 10. Files changed
 
-⟨FILES CHANGED — recorded with the final commit⟩
+`f69e2fa` → the final commit: **107 files** (⟨STAT⟩):
+
+| Area | Added | Modified | Deleted / renamed |
+| --- | --- | --- | --- |
+| Theme Lab: `src/app/theme-lab/**`, `src/components/theme-lab/**`, `e2e/theme-lab.spec.ts` | — | — | 42 deleted |
+| `src/fonts`: 14 Arabic `woff2` files, `arabic.css`, `woff2.d.ts`, two OFL licences | 18 | — | — |
+| Other `src` files: root layout, `fonts.ts`, `commerce.css`, `system.css`, `projects.css`, `project-detail.css`, `Motion.tsx`, `ThemeSwitch.tsx`, `Icon.tsx`, `ui.tsx`, `Ambient.tsx`, `Logo.tsx`, the three geometry modules, `navigation.ts`, `config.ts`, `dictionaries.ts`, `routes.ts`, `page-meta.ts`, `proxy.ts`, the fallback 404's fonts | — | 22 | — |
+| `e2e`: new `commerce-fonts`, `commerce-keyboard`, `commerce-transitions`; `theme-lab-a-v2` renamed `commerce-home-depth` | 3 | 9 | 1 renamed |
+| `public/og`: the two share images | — | 2 | — |
+| `scripts/generate-og.mjs` | — | 1 | — |
+| Root config: `package.json`, `package-lock.json`, `.gitignore`; new `.nvmrc`, `.env.example` | 2 | 3 | — |
+| Documentation: `README.md`, `CLAUDE.md`, `docs/ASSET_INVENTORY.md`; new: this report | 1 | 3 | — |
+
+`git diff --stat f69e2fa` reproduces this. Each 1J commit holds one concern (items 3–8, 37).
+
+**Source hygiene (§47):** the tracked tree (393 files) was checked for the brief's list:
+
+- No QA script outside the test tooling: `scripts/` holds the asset extractor and the OG generator, both documented.
+- No captures or proof folders: `docs/` holds Markdown only, and the evidence lives outside the repository.
+- No server, tunnel or `.vercel` file. No `.next`, `node_modules`, test results or logs (all ignored by `.gitignore`).
+- No secret: the tree was searched for key, token and password assignments and for private keys.
+- No `console.log` or `debugger` in `src`, and no commented-out implementation.
+- No focused or skipped test, except one conditional skip for runs against an external server (`site.spec.ts` reads
+  this checkout's build output).
+- Nothing useful was deleted: the lab spec's production checks moved to `commerce-home-depth.spec.ts` (item 23).
 
 ### 11. Dependency versions
 
@@ -213,7 +257,7 @@ lint config); not run (the brief forbids `--force`). Nothing of this chain reach
 
 ### 13. `npm audit --omit=dev`
 
-Exit 0: **found 0 vulnerabilities** (on `f299bb9` and again on the release candidate).
+Exit 0: **found 0 vulnerabilities** (on `f299bb9`, again on the release candidate, and in the fresh clone, item 43).
 
 ### 14. Next patch regression (16.3.6 vs 16.3.8)
 
@@ -270,7 +314,7 @@ Capabilities 416 → 296, Projects 392 → 348; at 390: `/ar` 392 → 260, About
 
 Release build (fresh context, cache disabled, local server; see item 40 for the method and the full comparison):
 
-| Page | Desktop FCP / LCP / CLS | Phone FCP / LCP / CLS | Phone, 4G + 4× CPU: FCP / LCP / CLS |
+| Page | Desktop FCP / LCP / CLS | Phone FCP / LCP / CLS | Phone, throttled (1.6 Mbit/s, 150 ms, 4× CPU): FCP / LCP / CLS |
 | --- | --- | --- | --- |
 | `/en` | 332 / 332 ms / 0 | 224 / 224 ms / 0 | 1,868 / 1,868 ms / 0 |
 | `/ar` | 296 / 296 ms / 0 | 228 / 228 ms / 0 | 2,320 / 2,320 ms / 0 |
@@ -494,7 +538,7 @@ in the selector on phones (item 37).
 
 ### 32. 404 / status matrix
 
-154 requests on the release build, every redirect followed to its end (at most 10 hops; a repeated address counts as a
+154 requests on the publication build (`caf01fb`; the later commits change no route, header or markup), every redirect followed to its end (at most 10 hops; a repeated address counts as a
 loop): **0 server errors, 0 redirect loops**.
 
 | Address class | Answer |
@@ -572,9 +616,10 @@ homepage's machine picks and project cards (320–834 px), the Capabilities sele
 bar (320–1024). Fix: one `focusin` listener in the motion controller, keyboard focus only (`:focus-visible`), moves the
 nearest sideways row at once until the item shows whole; the page never moves sideways and a tap or click changes
 nothing. `e2e/commerce-keyboard.spec.ts`: 25 / 25 on the release build; on the build before, 22 of its 24 row tests
-fail. Built output: one JS chunk (+504 B); stylesheets and all 601 prerendered pages and payloads identical.
+fail. Built output: one JS chunk changed (+504 B, and so its file name). The stylesheets are identical, and the 601
+prerendered pages and payloads are identical apart from that chunk's name.
 
-Tab walk on the release build (`obscured.cjs`): 14 pages (both languages, every page type) × 1440 × 900, 390 × 844,
+Tab walk on the `bfda6b0` build, with the fix (`obscured.cjs`): 14 pages (both languages, every page type) × 1440 × 900, 390 × 844,
 320 × 700 and 640 × 360 (200 % zoom), Tab from the top to the footer's last link — **3,002 focus stops**, every walk
 reaching the end (at most 116 stops; no trap). After each stop (and the browser's own scroll) a 7 × 5 grid over what
 the focus ring surrounds is checked against what is drawn on top:
@@ -721,7 +766,24 @@ width over the source width.
 
 ### 43. Fresh clone
 
-⟨CLONE — the fresh-clone run of this commit, recorded in the next commit⟩
+Run at **`e1f85f0`**. That commit holds every source, test, configuration and documentation file of the release
+candidate; the commits after it only write these results into this report and rename it (item 9).
+
+1. `git clone --branch claude/new-session-5eijs6 https://github.com/Delowar01/Rawasy-Metal-Website` into a new, empty
+   directory. HEAD was `e1f85f0`, the tree clean, and no `node_modules`, `.next`, image cache or test cache was copied
+   from the working checkout.
+2. Node **v22.22.2** and npm **10.9.7**, matching `.nvmrc` and `engines` (no engine warning).
+3. `npm ci`: exit 0, 374 packages added, 375 audited, 14 s. Its one notice, `npm warn deprecated eslint@9.39.5` (the
+   lint tool's end-of-support notice), is development-only and predates 1J. `npm audit --omit=dev` found 0
+   vulnerabilities; `npm audit` lists the same 5 development-only high entries as item 12.
+4. `npm run lint`, `npm run typecheck`, `npm run build`: exit 0 each (items 47–49).
+5. **The clone builds exactly what the QA measured** (the `ace4bed` build from the working checkout):
+   - `.next/static`: 74 of 74 files identical, apart from the build-id folder's name;
+   - prerendered pages and page data: 889 of 890 files identical once the build id is normalised; the one left,
+     `en/about.html`, differs only in the position of Next's `next-size-adjust` meta (known build-to-build noise).
+6. `npm run test:e2e` with `E2E_PORT=3500`, so Playwright started the clone's own `next start` and reused no server.
+   Nothing else ran alongside. Result: ⟨E2E LINE⟩ (item 50).
+7. `npm start` (`next start -p 3600` on the clone's build): ⟨SMOKE LINE⟩
 
 ### 44. Node / npm versions
 
@@ -750,19 +812,43 @@ application settings.)
 
 ### 47. Lint
 
-⟨LINT — from the fresh clone⟩
+`npm run lint` (ESLint 9.39.5 with `eslint-config-next` 16.3.6) in the fresh clone: **exit 0, no warnings, no errors**
+(11 s). The same on every 1J commit before it was pushed.
 
 ### 48. Typecheck
 
-⟨TYPECHECK — from the fresh clone⟩
+`npm run typecheck` (`next typegen && tsc --noEmit`, TypeScript 5.9.3) in the fresh clone: **exit 0**, route types
+generated, no error (9 s).
 
 ### 49. Build
 
-⟨BUILD — from the fresh clone⟩
+`npm run build` (Next.js 16.3.8, Turbopack) in the fresh clone: **exit 0**, compiled in 6.0 s, **109 static pages** (the 102
+published pages, `/_not-found`, Next's `/_global-error`, `robots.txt`, `sitemap.xml`, `manifest.webmanifest`, `icon.svg`,
+`apple-icon.png`), the catch-all as a dynamic route, the proxy; **no warning** in the log (20 s in all; `next/font` fetched the two Latin faces at
+build time — nothing is requested from Google at runtime). The output is the one every QA run measured: item 43.
 
 ### 50. Full E2E
 
-⟨E2E FULL — from the fresh clone⟩
+`npm run test:e2e` in the fresh clone at `e1f85f0` (item 43): Playwright 1.56.1, Chromium, 3 workers, no retries
+configured, against the clone's own production server, with nothing else running.
+
+⟨E2E TABLE⟩
+
+The suite has 19 spec files. Stage 1J added `commerce-fonts.spec.ts` (7), `commerce-transitions.spec.ts` (12) and
+`commerce-keyboard.spec.ts` (25), plus one test in `commerce-project-detail.spec.ts` (the target spacing). It retired
+`theme-lab.spec.ts` with the lab and turned `theme-lab-a-v2.spec.ts` into `commerce-home-depth.spec.ts` (item 23).
+Every other assertion was kept, or updated where Stage 1J changed the expected behaviour: `review` → `published`, the
+lab's addresses now answering 404, the Arabic preloads, and the retired strings named in the test itself.
+
+Earlier full runs in this stage:
+
+| Build | Result |
+| --- | --- |
+| `f299bb9` (the Next patch) | 606 / 606 |
+| `bfda6b0` (before the target-spacing test existed) | 611 / 611 |
+
+The specs touched by each later commit were run on that commit (e.g. 213 / 213 on `7abd622`, 90 / 90 project specs on
+`ace4bed`).
 
 ### 51. Remaining external RAWASY confirmations
 
@@ -861,4 +947,30 @@ The visual quality of the release is for the independent review; the builder doe
 
 ### 54. Deployment readiness verdict
 
-⟨VERDICT — after the fresh-clone run⟩
+**Ready for independent release review.** It is not approved (the builder does not approve its own work) and it is not
+deployed.
+
+On the release candidate, every gate of the brief that the code controls is met:
+
+- **Security:** `npm audit --omit=dev` finds 0 vulnerabilities (Next.js 16.3.8).
+- **Accessibility:** 0 axe violations of any impact on every page and interactive state with JavaScript. Keyboard
+  reaches everything, and focus is never hidden under the sticky header. Forced colours, reduced motion and no-JS
+  were checked.
+- **SEO and publication:** 102 pages published, with complete metadata and structured data built from approved facts
+  only; the sitemap lists 102 URLs; robots.txt is open; real 404s carry `noindex`.
+- **Performance:** CLS ≤ 0.0012; LCP ≤ 2.32 s on a throttled phone; scrolling ≥ 58.4 fps.
+- **Build quality:** lint, typecheck and build are clean, and the fresh clone ran ⟨E2E SHORT⟩.
+
+Open for the user's decision before going live. None of these is a code defect that blocks the candidate:
+
+1. The release approval itself: an independent review of this report and the evidence.
+2. Hosting, domain and DNS. The build assumes `https://www.rawasymetal.com` (`NEXT_PUBLIC_SITE_URL`).
+3. Two measured trade-offs, each offered as an option: the frozen homepage's card photos (up to 1.84× on a phone, item
+   41) and the Arabic preload on slow links (item 40).
+4. Accepting the documented limitations (item 52), above all the empty no-JS body of the dynamic 404 and testing in
+   Chromium only. A manual pass in Safari and Firefox, and of the live Google map on a normal network, is recommended.
+5. RAWASY's confirmations (item 51). The site already withholds everything unconfirmed, so these improve the content
+   rather than block the release.
+
+Nothing was deployed or published externally, no tunnel was opened and no DNS was changed. Production deployment waits
+for the user's explicit approval.

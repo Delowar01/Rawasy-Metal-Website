@@ -10,7 +10,7 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-08-stage-1j-release-candidate.md`
+- Latest report: `docs/reports/2026-10-09-stage-1j-release-candidate.md`
   (earlier: `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
@@ -69,7 +69,7 @@
   `2026-10-08-stage-1i-correction-3.md`; implementation commit `64f9e60`, CSS only, plus the extended spec). **Stage 1I is
   fully approved** (the user's "STAGE 1I FULLY APPROVED — BEGIN STAGE 1J").
 - **Stage 1J (the release candidate: security, accessibility, SEO, performance and publication QA) is built** (report
-  `2026-10-08-stage-1j-release-candidate.md`; rollback checkpoint: GitHub branch `preserve/pre-stage-1j` at `f69e2fa`, the
+  `2026-10-09-stage-1j-release-candidate.md`; rollback checkpoint: GitHub branch `preserve/pre-stage-1j` at `f69e2fa`, the
   last commit before 1J) and awaits the user's independent approval. Its commits, each on its own: `f299bb9` Next.js
   16.3.6 → 16.3.8 (the user's brief authorized exactly this patch; `npm audit --omit=dev` 0); `ffd8c93` the Arabic faces
   preloaded on Arabic pages only; `86bb8ac` the Projects toggles' forced-colours focus ring (`Highlight`); `7abd622` the

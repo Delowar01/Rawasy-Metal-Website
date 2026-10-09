@@ -274,5 +274,5 @@ Chromium is preinstalled at `/opt/pw-browsers`; elsewhere run `npx playwright in
 
 Stages 1A–1I are approved (1G and 1H needed no batch: their pages and the Arabic site were already built). Stage 1J,
 the release candidate (security, accessibility, SEO, performance and publication QA), is built and awaits independent
-approval (report `docs/reports/2026-10-08-stage-1j-release-candidate.md`); deployment happens only on the user's
+approval (report `docs/reports/2026-10-09-stage-1j-release-candidate.md`); deployment happens only on the user's
 go-ahead. Phase 2 (admin panel) follows Phase 1 approval.
