@@ -61,9 +61,10 @@ force; it did not exist before). `git ls-remote` after the work: still `422c397`
 
 ## 4. Branch HEAD
 
-The last of the documentation commits on top of `2043981` — `3287c08` (draft report), `ee3277f` (E2E and rehearsal
-results) and the final one with this text (documentation only: this report, `CLAUDE.md`, `README.md`). Its hash is
-given with the hand-off, since a commit cannot contain its own hash.
+The last of the documentation commits on top of `2043981`: `3287c08` (draft report), `ee3277f` (E2E and rehearsal
+results), `3b887df` (the image-optimizer finding), `37d8d5e` (final results), `ffdb66b` and `2429278` (line wrapping),
+and the commit that carries this text — documentation only (this report, `CLAUDE.md`, `README.md`). Its hash is given
+with the hand-off, since a commit cannot contain its own hash.
 
 ## 5. Files changed
 
