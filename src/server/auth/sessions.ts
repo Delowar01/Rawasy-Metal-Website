@@ -133,8 +133,10 @@ export async function rotateSession(db: Db, old: SessionRow, options: RotateOpti
     userId: old.userId,
     tokenHash: sha256(token),
     createdAt: now,
-    lastSeenAt: now,
-    idleExpiresAt: earliest(at(now, SESSION_IDLE_MS), absolute),
+    // Rotation is not activity: the idle limit moves only when the session is used (touchSession), except for a
+    // completed sign-in, which starts a fresh session.
+    lastSeenAt: options.fullLifetime ? now : old.lastSeenAt,
+    idleExpiresAt: options.fullLifetime ? earliest(at(now, SESSION_IDLE_MS), absolute) : earliest(old.idleExpiresAt, absolute),
     absoluteExpiresAt: absolute,
     reauthenticatedAt: options.reauthenticated ? now : old.reauthenticatedAt,
     mfaVerifiedAt: options.mfaCleared ? null : options.mfaVerified ? now : old.mfaVerifiedAt,
