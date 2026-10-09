@@ -10,7 +10,8 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 section is at the end)
+- Latest report: `docs/reports/2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at
+  the end)
   (earlier: `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
   `2026-10-04-stage-1f-project-details.md`,
@@ -109,7 +110,15 @@
   612 / 612 after a restart and the warm-up; each package (extracted, production install, `server.js`): the ten
   held-back addresses 404, 138 / 138 public files and 102 / 102 pages, 1,484 / 1,484 WebP sizes, 612 / 612 after its
   warm-up; warm-up at most 2 requests open (counting proxy), peak 471 MiB (436 at 1 at a time). The image defect's fix
-  (a Next.js upgrade) needs the user's authorization.
+  (a Next.js upgrade) needs the user's authorization. **Correction 1 is approved** (the user's Correction 2 brief).
+  **Correction 2 (the three held-back Laser Engraving images) is built** (section "Correction 2" at the end of the same
+  report; implementation commit `c1841ef`, script and README only) and awaits independent review: `HELD_BACK_MEDIA` in
+  `scripts/package-namecheap.mjs` lists `services/engraving-nameplates`, `services/engraving-wood` and
+  `services/engraving-rotary` by media ID (resolved through the registry; an unknown ID or missing file fails the run),
+  13 files held back in all. Proof: a clean clone of `c1841ef` passed `npm ci`, audit `--omit=dev` 0, lint, typecheck,
+  build (equal to Correction 1's) and the packaging check (the archive is Correction 1's minus exactly those three); the
+  package: the 13 addresses 404 (`/_next/image` 400), the Laser Engraving page 200 with its drawn plate and no image,
+  135 / 135 public files, 102 / 102 pages, 68 / 68 project pages, warm-up 1,484 / 1,484, E2E 612 / 612 after the warm-up.
   **Still not allowed:** uploading to Namecheap, connecting the domain, DNS or nameserver changes, installing
   SSL, fast-forwarding `main`, removing the legal pages' pending notes (they block launch), external publication — each
   needs the user's explicit go-ahead.
@@ -322,8 +331,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   (`NODE_ENV=production PORT=3400 node server.js`) or pass `E2E_PORT`.
 - Deployment scripts (Namecheap Correction 1; deployment only: never imported by the site, not in `package.json`, not
   in the archive, never run at app start): `scripts/package-namecheap.mjs` packs the build into `../rawasy-app.tar.gz`
-  without `.next/cache`, the route cache (`.next/server/route-cache`) and the held-back photos (`withheldMedia` and
-  every photo `projectDetailMedia` leaves out, mapped to files through `mediaRegistry`; ten today) and checks the
+  without `.next/cache`, the route cache (`.next/server/route-cache`) and the held-back media (`withheldMedia`, every
+  photo `projectDetailMedia` leaves out, and `HELD_BACK_MEDIA`, the three Laser Engraving images of the asset
+  inventory's item 12; media IDs mapped to files through `mediaRegistry`; thirteen today) and checks the
   archive (none held back, every public file the build refers to, every sitemap page's HTML / page data / public
   files, nothing else missing or added; a failed check deletes it; `--check=<archive>` re-checks one).
   `scripts/warm-images.mjs <address>` warms the image cache: every `/_next/image` size the sitemap's pages offer,

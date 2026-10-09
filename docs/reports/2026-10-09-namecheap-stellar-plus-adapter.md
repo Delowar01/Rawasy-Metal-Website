@@ -9,6 +9,8 @@ adapter, not changed, mitigation for RAWASY to decide.
 **Correction 1** (production archive safety and image warm-up, the user's "NAMECHEAP ADAPTER — CORRECTION 1" brief) is
 appended at the end. It supersedes item 23's archive command, the withheld-media note in item 12 and the matching known
 limitation: the archive now leaves the ten held-back photos out, and the image cache is warmed after each start.
+**Correction 2** (the three held-back Laser Engraving images, the user's "NAMECHEAP ADAPTER — CORRECTION 2" brief)
+follows it: the archive leaves thirteen held-back files out.
 
 ## Summary
 
@@ -824,7 +826,7 @@ PASS
   files whose extracted contents equal the fresh archive's (`diff -r`: identical); `--check` of the fresh archive there
   passes (the first version failed it: 1,547 of 2,271); `--check` of the 2,271-file archive fails (724 unexpected files,
   route cache named).
-- **Kept, as the brief says ("the remainder of `public/`"):** 27 public files no page refers to — 23 monochrome client
+- **Kept, as the brief says ("the remainder of `public/`"):** 27 public files no page refers to — 21 monochrome client
   logos (`*-mono.webp`), 2 brand SVGs, 1 certificate thumbnail, and the three laser-engraving photos the asset
   inventory flags (`services/engraving-nameplates.webp` — third-party brand, part and serial numbers —
   `engraving-rotary.webp`, `engraving-wood.webp`). They answer at their direct addresses, as the ten did before this
@@ -1026,3 +1028,260 @@ Locally: `NODE_ENV=production PORT=3400 node server.js`, then `node scripts/warm
 
 Independent review of this correction → RAWASY's decisions (C1-21, item 30) → an explicitly authorized upload, smoke
 test and warm-up → DNS and SSL as separate authorized steps. No Phase 2 work.
+
+---
+
+# Correction 2 — Laser Engraving deployment-media exclusion
+
+Date: 2026-10-09 · Branch: `claude/new-session-5eijs6` · Status: **correction prepared and proven locally; awaiting
+independent review.** The brief: "NAMECHEAP ADAPTER — CORRECTION 2 / EXCLUDE THE THREE HELD-BACK LASER-ENGRAVING
+ASSETS". Package filtering only: the three files stay in Git and in the source folder; no page, content, media file,
+service drawing, `server.js`, `package.json`, lockfile, Node, Next.js or React version, `warm-images.mjs` or `legal.ts`
+changed. Nothing was uploaded to Namecheap, cPanel was not touched, DNS, nameservers and SSL were not changed, `main`
+was not changed. The site is not online.
+
+## Summary
+
+- `scripts/package-namecheap.mjs` gains an explicit, deployment-only media-ID list, `HELD_BACK_MEDIA`, for the three
+  Laser Engraving images the asset inventory keeps off every page (`docs/ASSET_INVENTORY.md`, item 12; decision D6).
+  They are resolved through the media registry by the same code as the ten project photos; an ID the registry does not
+  know, or whose file is missing, stops the run before anything is packed. The archive now leaves **13** files out, and
+  every existing check covers all thirteen.
+- Proven on a clean clone and on the extracted package: the thirteen addresses answer **404**, their optimized forms
+  **400** with no image; the Laser Engraving page shows its approved drawn plate in both languages with no image to
+  break; all 102 sitemap pages, 135 / 135 packaged public files, 68 / 68 project pages and 1,484 / 1,484 optimized sizes
+  pass; warm-up 1,484 / 1,484 (0 failed, 0 timed out); full E2E against the package after the warm-up:
+  **612 / 612**.
+- The archive is Correction 1's minus exactly the three engraving files (entries compared with the build ID
+  normalised); the build is Correction 1's (1,221 of 1,224 files identical, the 3 others hold Next.js's random
+  per-build keys).
+
+## C2-1. Starting SHA
+
+`a6f33d13e535d15fff3d65b384bf19af8cf80688`, as the brief expected (clean tree, equal to `origin`). Approved adapter
+`2043981a066274e0a9cac68c5b7b4eff608561f0`; Correction 1 implementation `79cdff5bbd205e81499d14edd42d5f5260a36772`.
+
+## C2-2. Implementation SHA
+
+**`c1841ef94e09c2a90049396566dbea4ef3f15b90`** — "Namecheap package: leave the three held-back Laser Engraving images
+out": `scripts/package-namecheap.mjs` and `README.md` only. `git diff a6f33d1 c1841ef` touches those two files;
+`src/`, `public/`, `e2e/`, `next.config.ts`, `server.js`, `package.json`, `package-lock.json` and
+`scripts/warm-images.mjs` are identical to `a6f33d1`.
+
+## C2-3. Final branch HEAD
+
+The commit that adds this section (with the CLAUDE.md note and the Correction 1 erratum below), directly on top of
+`c1841ef`; its hash is given in the hand-off message (a commit cannot contain its own hash).
+
+## C2-4. The three media IDs
+
+`services/engraving-nameplates`, `services/engraving-wood`, `services/engraving-rotary` — the list `HELD_BACK_MEDIA` in
+`scripts/package-namecheap.mjs`, documented there: media the asset inventory keeps off every page that no content rule
+derives (`docs/ASSET_INVENTORY.md`, open question 12; decision D6). `engraving-nameplates` shows third-party (HITACHI)
+branding with legible part and serial numbers and awaits RAWASY's permission; `engraving-wood` and `engraving-rotary`
+are renders; the Laser Engraving page and the services overview draw an engraved plate instead. An ID leaves the list
+only once RAWASY approves showing that image. The list holds media IDs, not file names.
+
+## C2-5. Registry-derived physical filenames
+
+Resolved by `mediaRegistry[id].src`, exactly like the project photos (the same code path):
+
+| Media ID | Registry `src` | Physical file | Bytes | Why |
+| --- | --- | --- | ---: | --- |
+| `services/engraving-nameplates` | `/media/services/engraving-nameplates.webp` | `public/media/services/engraving-nameplates.webp` | 16,000 | third-party branding, part and serial numbers; permission pending |
+| `services/engraving-rotary` | `/media/services/engraving-rotary.webp` | `public/media/services/engraving-rotary.webp` | 5,290 | render |
+| `services/engraving-wood` | `/media/services/engraving-wood.webp` | `public/media/services/engraving-wood.webp` | 8,412 | render |
+
+Fail-closed, tested on the clean clone: with an ID the registry does not know added to the list,
+"`services/engraving-missing: not in the media registry. FAIL: nothing was packed.`", exit 1, no archive written; with
+`engraving-wood.webp` moved away, "`services/engraving-wood: public/media/services/engraving-wood.webp does not
+exist. FAIL: nothing was packed.`", exit 1, no archive (the file was put back, same bytes, clean tree).
+
+## C2-6. Total exclusion count
+
+**13** files, 163,684 bytes: the 10 project photos from `projects.ts` (`withheldMedia` and every photo
+`projectDetailMedia` leaves out; unchanged, Correction 1 item C1-4) and the 3 above. The script prints each with its
+source:
+
+```
+Held back (13 files, through the media registry):
+  public/media/projects/billboard-structure-1.webp  projects.ts
+  public/media/projects/canopy-tree-1.webp          projects.ts
+  public/media/projects/laser-cut-bench-1.webp      projects.ts
+  public/media/projects/lattice-cubes-1.webp        projects.ts
+  public/media/projects/litter-bins-1.webp          projects.ts
+  public/media/projects/litter-bins-2.webp          projects.ts
+  public/media/projects/litter-bins-3.webp          projects.ts
+  public/media/projects/seed-sculpture-1.webp       projects.ts
+  public/media/projects/stainless-landmark-1.webp   projects.ts
+  public/media/projects/wheat-monument-1.webp       projects.ts
+  public/media/services/engraving-nameplates.webp   asset inventory, item 12
+  public/media/services/engraving-rotary.webp       asset inventory, item 12
+  public/media/services/engraving-wood.webp         asset inventory, item 12
+```
+
+Not broadened: the other 24 public files no page refers to (21 monochrome client logos, 2 brand SVGs, 1 certificate
+thumbnail) stay in the archive.
+
+## C2-7. Archive size and hash
+
+`rawasy-app.tar.gz` from the clean clone of `c1841ef`, packed right after `npm run build`: **17,333,572 bytes
+(16.5 MB)**, sha256 **`cac7e95d6d61847585de596cc5207a39b41d8edb6186f67a85949590d2352678`**, build
+`JLLK_IYfSLhpJYj2PVaU0`; 1,544 files (`.next` 1,229, `public` 135, `src` 172, 8 at the top), listing 2,153 entries. The
+`tar` command it ran: Correction 1's, plus `--exclude=public/media/services/engraving-nameplates.webp
+--exclude=public/media/services/engraving-rotary.webp --exclude=public/media/services/engraving-wood.webp`.
+
+## C2-8. Archive verification
+
+```
+✓ the archive's build (JLLK_IYfSLhpJYj2PVaU0) is this folder's build (JLLK_IYfSLhpJYj2PVaU0)
+✓ held-back files in the archive: 0 of 13
+✓ every packed name is there: server.js package.json package-lock.json next.config.ts tsconfig.json next-env.d.ts postcss.config.mjs .nvmrc src public .next
+✓ nothing else left out: 1544 of 1544 files
+✓ nothing added: 0 unexpected files
+✓ no node_modules, .next/cache, route cache, .git, .env file, tests or docs
+✓ pages, page data, styles or scripts referring to a held-back file: 0
+✓ public files the build refers to, in the archive: 111 of 111 (media 108, og 2, brand 1; 637 files read)
+✓ sitemap pages: 102, each with its HTML and page data and the 644 public file references they make (111 files) in the archive
+PASS
+```
+
+- **Against Correction 1's archive** (`79cdff5`, build `_7siFLgs0uYOfa8M1utBY`): with the build ID normalised, the two
+  listings differ in exactly three entries, the three engraving files.
+- **Failure cases (each must fail):**
+  - an archive made by Correction 1's script from this build → `--check`: **FAIL** — held-back files 3 of 13 and 3
+    unexpected files, all three named; `--check` keeps the archive it was given;
+  - an unknown ID or a missing file → exit 1, nothing packed (C2-5);
+  - a copy of this build in which `/en/services/laser-engraving`'s HTML refers to `engraving-wood.webp` →
+    **FAIL**, 3 checks: the held-back reference, the used-file check and the sitemap page named; the new archive and
+    its listing were deleted, exit 1. (The clone's own page was untouched.)
+
+## C2-9. Direct excluded URLs
+
+On the extracted package (`node server.js`, port 3410), all **13** addresses `/media/…` answer **404** (`text/html`,
+the same answer as any missing file under `/media/`). Each one's `/_next/image` form, at `w=640` and `w=3840`
+(`q=75`), answers **400** with the 43-byte text "The requested resource isn't a valid image." — no image, no bytes of the
+file; every answer within 35 ms. The files are still in the source folder and in Git (checked).
+
+## C2-10. Legitimate Laser Engraving page
+
+Checked in Chromium on the package at 1440 × 900, `/en/services/laser-engraving` and `/ar/services/laser-engraving`, light
+and dark (4 views):
+
+- **200**; `lang` `en` / `ar-SA`, `dir` `ltr` / `rtl`; one `h1`, "Laser Engraving" / "الحفر بالليزر"; titles "Laser
+  Engraving | RAWASY" / "الحفر بالليزر | رواسي"; canonical `https://www.rawasymetal.com/{en,ar}/services/laser-engraving`;
+  sections overview, scope, process, applications, why, related.
+- **The approved drawing:** the hero holds the drawn engraved brass plate (`.sig-engrave`), 502 × 352 px, 124 drawn
+  shapes, visible, after its sequence finished; screenshots reviewed.
+- **No broken image:** the page has no `<img>` at all (as approved: no photographs on the engraving page), so none can
+  break; 0 failed requests, 0 console errors.
+- **No reference to the excluded files:** none of the 13 names appears in the page's HTML and none is requested; the
+  page asks for no file under `/media/` and no `/_next/image` (only its scripts, styles and web fonts).
+- The E2E suite's own Laser Engraving tests (no photographs, the hero drawing, the three IDs absent from the page and
+  the services overview) passed in the run below.
+
+## C2-11. Legitimate media regression
+
+On the package: **135 / 135** public files answer 200 with bytes identical (sha256) to the source — by folder: brand 3,
+certificates 8, clients 42, machines 6, projects 47, services 19, site 8, `og` 2; every public file the pages refer to,
+**111 / 111**, answers 200 with the source bytes; after the warm-up, **1,484 / 1,484** optimized sizes answer `200
+image/webp` with a WebP body (`x-nextjs-cache: HIT`), from 108 photos, none of them held back.
+
+## C2-12. Sitemap and page smoke
+
+The archive extracted into a new, empty application root; `NODE_ENV=production npm install` added 30 packages in 9 s
+(462 MB, "found 0 vulnerabilities"); `NODE_ENV=production PORT=3410 node server.js` answered its first page 710 ms
+after launch.
+
+- The adapter's 36-check smoke (redirects, language, pages, 404s, sitemap, robots, images, refusals, held-back
+  references, now for all 13): **36 / 36**.
+- **102 / 102** sitemap pages answer 200 `text/html` with their own `lang`, canonical address and one `h1`; the four test
+  404 addresses (`/en/not-a-page`, `/ar/not-a-page`, an unknown service, an unknown project) answer 404.
+
+## C2-13. Project-media safety
+
+Unchanged policy: `projects.ts` and the media registry are untouched, and the ten project files are the same as in
+Correction 1. On 106 pages (102 sitemap pages and the four 404s) there are **0** references to any of the 13; each of
+the **68 / 68** project pages refers to exactly the photos `projectDetailMedia` allows; the E2E suite's project, services
+and homepage checks of the withheld and flagged media passed below.
+
+## C2-14. Warm-up
+
+`scripts/warm-images.mjs`, unchanged since Correction 1, defaults, through a counting proxy: **1,484 discovered, 1,484
+warmed** (1,483 new, 1 already cached by the smoke), **0 failed, 0 timed out**, 0 not attempted; 102 of 102 pages read;
+103.1 s; **at most 2 requests open** (measured on the server side). The server, having first answered the checks above,
+peaked at 539 MiB resident.
+
+## C2-15. npm audit --omit=dev
+
+**found 0 vulnerabilities** (clean clone of `c1841ef`). With development dependencies: the known 5 high entries of the
+lint-only `eslint-config-next` chain, unchanged.
+
+## C2-16. Lint
+
+`npm run lint`: exit 0, no warning (12 s).
+
+## C2-17. Typecheck
+
+`npm run typecheck`: exit 0 (9 s).
+
+## C2-18. Build
+
+`NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build`: exit 0 (24 s), 109 / 109 pages. Compared with
+Correction 1's clean build (`79cdff5`), build ID and folder normalised: 1,221 of 1,224 files identical; the other 3
+(`prerender-manifest.json`, `server/server-reference-manifest.{js,json}`) hold Next.js's random per-build keys; no file
+only on one side.
+
+## C2-19. Full E2E
+
+Against the extracted package (`node server.js`, port 3410) after its warm-up: **612 / 612 passed** (24.2 min; 0
+failed, 0 skipped, 0 flaky). No test was changed or skipped, and nothing was retried. The cold-cache image defect of
+item 12 did not show: the suite ran after the warm-up, as the launch procedure prescribes.
+
+## C2-20. Legal blocker unchanged
+
+`src/content/legal.ts` is byte-identical to `422c397`; the seven visible "Pending confirmation" notes remain. Public DNS
+activation stays blocked until RAWASY resolves them.
+
+## C2-21. Nothing published
+
+No upload, no cPanel application, no DNS, nameserver or record change, no SSL, `main` unchanged (`474f61f`), nothing
+published. Every server in this correction ran on this machine and was stopped.
+
+## Correction 1 erratum
+
+Correction 1's item C1-6 said "23 monochrome client logos"; the count is **21** (21 logos + 2 brand SVGs + 1
+certificate thumbnail + the 3 engraving images = 27, the total it gave). Corrected in place.
+
+## Items needing RAWASY's confirmation
+
+1. Independent review of this correction.
+2. When RAWASY approves showing one of the three engraving images (or supplies its own engraving photos), take its ID
+   out of `HELD_BACK_MEDIA` in the same change that puts it on a page; the packaging check fails if a page refers to a
+   held-back file, so the two cannot drift apart silently.
+3. Everything Correction 1 (C1-21) and item 30 list still holds: the legal notes, the cPanel facts and memory limit, the
+   domain and mail state, SSL, and a later Next.js upgrade for the image defect (separate review).
+
+## Known limitations
+
+- Unchanged from Correction 1 (C1-22): the warm-up covers WebP-capable browsers; a stuck image size remains possible
+  between a start and the end of the warm-up; the packaging script needs Node 22.18 or later and `tar`.
+- The 24 other unreferenced public files (logos, brand SVGs, a certificate thumbnail) stay reachable by direct address,
+  as the brief keeps them.
+
+## How to run
+
+```bash
+npm ci
+NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com npm run build
+node scripts/package-namecheap.mjs          # 13 files held back; the archive is checked and deleted on any failure
+```
+
+Launch order (README, unchanged warm-up): Start App → smoke checklist → `node scripts/warm-images.mjs
+https://www.rawasymetal.com` until it reports 0 failed and 0 timed out → normal traffic; after a timeout, Restart and
+`--retry=warm-images-report.json`.
+
+## Next steps
+
+Independent review of Correction 2 → RAWASY's decisions (legal notes, cPanel facts) → an explicitly authorized upload,
+smoke test and warm-up → DNS and SSL as separate authorized steps. No Phase 2 work.
