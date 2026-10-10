@@ -2,7 +2,7 @@
 /** "Users & access" forms: invite a user, show a link that could not be emailed, and change a user's roles. */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { Fragment, useActionState, useEffect, useState } from "react";
 import { inviteUserAction, resendInvitationAction, setUserRolesAction, type InviteState } from "@/server/admin/actions/users";
 import { idle } from "@/server/admin/actions/state";
 import { Field, FormAlert, SubmitButton } from "./forms";
@@ -125,9 +125,10 @@ export function ResendInvitation({ userId, email, version }: { userId: string; e
 }
 
 /**
- * `version` is the account as this page shows it (status, roles, lock, second factor): the server refuses the change if
- * the account has changed since — an invitation accepted, a role taken away meanwhile — so the change is decided on
- * what the page shows.
+ * `version` is the account as this page shows it (status, roles, second factor): the server refuses the change if the
+ * account has changed since — an invitation accepted, a role taken away meanwhile — so the change is decided on what
+ * the page shows. The boxes are rebuilt with the version (sixth review): a refresh of the page (after any other action
+ * on it) brings the new version, and boxes ticked for the older state must not be sent with it.
  */
 export function UserRolesForm({ userId, version, roles, selected }: { userId: string; version: string; roles: RoleOption[]; selected: string[] }) {
   const [state, action] = useActionState(setUserRolesAction, idle);
@@ -139,8 +140,10 @@ export function UserRolesForm({ userId, version, roles, selected }: { userId: st
     <form action={action} className="adm-form">
       <FormAlert state={state} />
       <input type="hidden" name="user" value={userId} />
-      <input type="hidden" name="version" value={version} />
-      <RoleChecks roles={roles} selected={selected} />
+      <Fragment key={version}>
+        <input type="hidden" name="version" value={version} />
+        <RoleChecks roles={roles} selected={selected} />
+      </Fragment>
       <p className="adm-hint">Saving a change signs the user out of every session.</p>
       <div className="adm-actions">
         <SubmitButton pending="Saving…">Save roles</SubmitButton>

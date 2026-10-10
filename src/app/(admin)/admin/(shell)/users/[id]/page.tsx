@@ -95,7 +95,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                   label="Unlock"
                   title="Unlock sign-in?"
                   confirmLabel="Unlock"
-                  fields={{ user: user.id, version: user.version }}
+                  fields={{ user: user.id, version: user.unlockVersion }}
                 >
                   <p>The pause after repeated failed sign-ins ends now.</p>
                 </ConfirmAction>

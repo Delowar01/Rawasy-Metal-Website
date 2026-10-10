@@ -18,6 +18,8 @@
  *    as its page showed it (the page's fingerprint); signing a session out also ends the session it rotated into; every
  *    connection reads at REPEATABLE READ; removing a second factor withdraws pending reset links; a change that signs a
  *    user out ends sessions already past their limit too; a recovery code used for a step-up is recorded and notified.
+ *  - The sixth review: an unlock is decided on the lock and the attempts the page showed; the access fingerprint holds
+ *    only what the decisions depend on, so the user's own password change or failed sign-ins never block an Owner.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -774,10 +776,10 @@ describe("fifth review — decided on the account as the page showed it; a sign-
     env.clock.advance(16 * 60_000);
     await lockFor(30);
     const relocked = (await userRow(x.id)).lockedUntil;
-    assert.deepEqual(await unlockUser(env.deps, o1Actor, x.id, meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await unlockUser(env.deps, o1Actor, x.id, meta(), { version: shown.unlockVersion }), { kind: "denied", reason: "changed" });
     assert.equal((await userRow(x.id)).lockedUntil?.getTime(), relocked?.getTime(), "the newer lock stays");
     const now = await pageOf(o1Actor, x.id);
-    assert.equal((await unlockUser(env.deps, o1Actor, x.id, meta(), { version: now.version })).kind, "ok");
+    assert.equal((await unlockUser(env.deps, o1Actor, x.id, meta(), { version: now.unlockVersion })).kind, "ok");
     assert.equal((await userRow(x.id)).lockedUntil, null);
   });
 
@@ -923,5 +925,45 @@ describe("fifth review — decided on the account as the page showed it; a sign-
     assert.match(recorded[0].summary, /confirm identity/);
     const notices = env.mail().slice(before).filter((m) => m.to === x.email);
     assert.ok(notices.some((m) => /recovery code was just used/.test(m.text)), "the user is told");
+  });
+});
+
+describe("sixth review — each change is decided on exactly what it depends on, as the page showed it", () => {
+  async function owner() {
+    const o = await createUser(env, { roles: ["owner"], mfa: true });
+    return actorFor(env, o);
+  }
+
+  test("an unlock is refused when more attempts were made after the page was shown, even without a newer lock", async () => {
+    const ownerActor = await owner();
+    const x = await createUser(env, { roles: ["editor"] });
+    await db().update(users).set({ lockedUntil: new Date(env.clock.now.getTime() + 15 * 60_000), failedLoginCount: 5 }).where(eq(users.id, x.id));
+    const shown = await pageOf(ownerActor, x.id);
+    assert.ok(shown.lockedUntil, "the page shows the lock");
+    // The lock ends, and two more wrong passwords are counted (not enough for a new lock).
+    env.clock.advance(16 * 60_000);
+    for (const i of [1, 2]) assert.equal((await signIn(env.deps, { email: x.email, password: `wrong-${i}` }, meta("198.51.100.62"))).kind, "failed");
+    assert.equal((await userRow(x.id)).failedLoginCount, 7);
+    assert.equal((await userRow(x.id)).lockedUntil?.getTime(), shown.lockedUntil.getTime(), "no newer lock");
+    assert.deepEqual(await unlockUser(env.deps, ownerActor, x.id, meta(), { version: shown.unlockVersion }), { kind: "denied", reason: "changed" });
+    assert.equal((await userRow(x.id)).failedLoginCount, 7, "the attempts the Owner did not see stay counted");
+    const now = await pageOf(ownerActor, x.id);
+    assert.equal((await unlockUser(env.deps, ownerActor, x.id, meta(), { version: now.unlockVersion })).kind, "ok");
+    assert.equal((await userRow(x.id)).failedLoginCount, 0);
+  });
+
+  test("the user's own password change or failed sign-ins do not block an Owner's change decided on the page", async () => {
+    const ownerActor = await owner();
+    const x = await createUser(env, { roles: ["editor"] });
+    const xActor = await actorFor(env, x);
+    const shown = await pageOf(ownerActor, x.id);
+    env.clock.advance(1000);
+    // X changes their password, and a wrong password is tried on X's address.
+    const current = { session: xActor.session, user: xActor.user, roles: xActor.roles };
+    assert.equal((await changePassword(env.deps, current, { currentPassword: x.password, newPassword: strongPassword() }, meta("198.51.100.63"))).kind, "ok");
+    assert.equal((await signIn(env.deps, { email: x.email, password: "wrong-password-here" }, meta("198.51.100.64"))).kind, "failed");
+    // The Owner's change, decided on the page, still goes through: neither affects what it was decided on.
+    assert.equal((await setUserRoles(env.deps, ownerActor, x.id, ["editor", "reviewer"], meta(), { version: shown.version })).kind, "ok");
+    assert.deepEqual(await rolesNow(x.id), ["editor", "reviewer"]);
   });
 });

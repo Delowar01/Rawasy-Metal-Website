@@ -73,28 +73,34 @@ export interface UserDetail extends UserListItem {
   disabledAt: Date | null;
   sessions: SessionRow[];
   recentEvents: { occurredAt: Date; action: string; outcome: string; summary: string; ip: string | null }[];
-  /** The account as this page shows it (`accountVersion`): every form on the page sends it back. */
+  /** The account's access as this page shows it (`accountVersion`): the roles, status and 2FA forms send it back. */
   version: string;
+  /** The sign-in lock as this page shows it (`unlockVersion`): the unlock form sends it back. */
+  unlockVersion: string;
+}
+
+const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toString("hex").slice(0, 32);
+
+/**
+ * The account's access as a page shows it, as one short fingerprint (A2 Correction 1, fifth and sixth reviews): its
+ * status, the time of its disable, its roles and its second factor. The forms that change access send back the
+ * fingerprint of the page they were on, and a change that can grant, restore or loosen access (roles, enable, a 2FA
+ * reset, a new invitation link) is refused (`changed`) when the account under its row lock no longer has it — so a
+ * demotion, a newer disable or a newer authenticator committed while the page was open is never undone by it. Only what
+ * these decisions depend on is in it (not the password or the last-change time), so the user's own password change or
+ * failed sign-ins never block an Owner's change. Disabling and signing out are never refused for this reason.
+ */
+export function accountVersion(user: UserRow, roles: readonly string[], mfaConfirmedAt: Date | null): string {
+  return fingerprint([user.status, user.disabledAt?.toISOString() ?? "-", [...roles].sort().join(","), mfaConfirmedAt?.toISOString() ?? "-"]);
 }
 
 /**
- * The account as a page shows it, as one short fingerprint (A2 Correction 1, fifth review): its status, last change,
- * disable, sign-in lock, roles and second factor. Every user-management form sends back the fingerprint of the page it
- * was on, and a change that can grant, restore or loosen access (roles, enable, unlock, a 2FA reset, a new invitation
- * link) is refused (`changed`) when the account under its row lock no longer has it — so nothing is decided on an older
- * state of the account: a demotion, a re-disable, a new lock or a new authenticator committed while the page was open
- * is never undone by it. Disabling and signing out are never refused for this reason.
+ * The sign-in lock as a page shows it (sixth review): the lock and the failed attempts counted since the last success.
+ * An unlock decided on it is refused when a newer lock was set or more attempts were made meanwhile, so it never clears
+ * attempts the Owner did not see.
  */
-export function accountVersion(user: UserRow, roles: readonly string[], mfaConfirmedAt: Date | null): string {
-  const parts = [
-    user.status,
-    user.updatedAt.toISOString(),
-    user.disabledAt?.toISOString() ?? "-",
-    user.lockedUntil?.toISOString() ?? "-",
-    [...roles].sort().join(","),
-    mfaConfirmedAt?.toISOString() ?? "-",
-  ];
-  return sha256(parts.join("|")).toString("hex").slice(0, 32);
+export function unlockVersion(user: UserRow): string {
+  return fingerprint([user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount]);
 }
 
 /** The fingerprint a form was rendered with (`accountVersion`). */
@@ -157,6 +163,7 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
     sessions: live,
     recentEvents: events,
     version: accountVersion(user, roles, mfa),
+    unlockVersion: unlockVersion(user),
   };
 }
 
@@ -406,7 +413,8 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
 
 /**
  * Clears a sign-in lock and the email's credential-check slots (A2 Correction 1) — only the lock the page showed
- * (`expected`, fifth review): a newer lock, set after more failed attempts, is not cleared by an older page.
+ * (`expected` = its `unlockVersion`, fifth and sixth reviews): a newer lock, or attempts made after the page was shown,
+ * are not cleared by an older page.
  */
 export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.unlock";
@@ -419,7 +427,7 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return { kind: "not_found" };
     if (!canManageUser(actor, { roles: locked.roles })) return { kind: "refused", reason: "rank" };
-    if (!(await accountUnchanged(tx, locked, expected))) return { kind: "refused", reason: "changed" };
+    if (expected && unlockVersion(locked.target) !== expected.version) return { kind: "refused", reason: "changed" };
     await tx.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     await clearCredentialChecks(tx, target.emailNormalized);
     await recordAudit(tx, {

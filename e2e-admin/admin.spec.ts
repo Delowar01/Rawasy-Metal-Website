@@ -397,6 +397,46 @@ test.describe("users, invitations and roles", () => {
     await expect(page.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
     expect(await rolesOfIvy()).toEqual(["admin", "editor"]);
   });
+
+  test("after another action refreshes the page, the role boxes show the account as it is now (A2 Correction 1)", async ({ browser, page }) => {
+    const IVY = { email: "ivy.invited@example.test", name: "Ivy Invited" };
+    const rolesOfIvy = async () =>
+      (
+        await queryTestDb<{ role_key: string }>(
+          "SELECT ur.role_key FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE u.email_normalized = ? ORDER BY ur.role_key",
+          [IVY.email],
+        )
+      ).map((r) => r.role_key);
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/users");
+    await page.getByRole("link", { name: IVY.name }).click();
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await expect(page.getByRole("checkbox", { name: /^Admin/ })).toBeChecked();
+    // In another tab, Admin is taken away from Ivy.
+    const other = await newPage(browser);
+    await signIn(other, OWNER.email, PASSWORDS.owner);
+    await verify(other, ownerSecret);
+    await other.goto(page.url());
+    await stepUpIfAsked(other, PASSWORDS.owner, ownerSecret);
+    await other.getByRole("checkbox", { name: /^Admin/ }).uncheck();
+    await other.getByRole("button", { name: "Save roles" }).click();
+    await expect(other.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
+    await other.context().close();
+    expect(await rolesOfIvy()).toEqual(["editor"]);
+    // Back on the first page, another action refreshes it (disabling the account) ...
+    await page.getByRole("button", { name: "Disable account" }).click();
+    const dialog = page.getByRole("dialog", { name: `Disable ${IVY.name}?` });
+    await dialog.getByRole("button", { name: "Disable" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText("Disabled", { exact: true })).toBeVisible();
+    // ... and its role boxes show the account as it is now: Admin is no longer ticked, so a save cannot give it back.
+    await expect(page.getByRole("checkbox", { name: /^Admin/ })).not.toBeChecked();
+    await page.getByRole("checkbox", { name: /^Reviewer/ }).check();
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
+    expect(await rolesOfIvy()).toEqual(["editor", "reviewer"]);
+  });
 });
 
 test.describe("sessions and request integrity", () => {
