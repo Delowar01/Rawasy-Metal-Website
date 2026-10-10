@@ -82,14 +82,14 @@ export interface UserDetail extends UserListItem {
 }
 
 /**
- * What a change is decided on (A2 Correction 1, fifth to eighth reviews):
+ * What a change is decided on (A2 Correction 1, fifth to ninth reviews):
  * - "access" — roles, enable, a new invitation link: the status, the time of the disable, the roles, the second factor;
  * - "unlock" — the same and the sign-in lock: the lock and the failed attempts counted since the last success (while a
  *   lock holds nothing is counted, so nobody else can keep moving it);
- * - "mfa_reset" — the same and what says someone holds the password: its last change and the newest failed second
- *   step (a wrong code or recovery code needs the right password first). A two-factor reset hands the account to
- *   whoever holds the password, so either after the page was shown refuses it; wrong passwords alone (anyone who knows
- *   the email can send them) do not.
+ * - "mfa_reset" — the same and what says someone holds the password or a session: the password's last change, the
+ *   sessions the account has ever had and its newest failed second step (`AccountFacts.passwordUse`). A two-factor reset
+ *   hands the account to whoever holds the password, so any of them moving after the page was shown refuses it; wrong
+ *   passwords alone (anyone who knows the email can send them) do not.
  * Only what the decision depends on is in each, so the user's own password change or failed sign-ins never refuse an
  * Owner's change of roles or status. (A sign-in's rehash of the same password changes none of them.)
  */
@@ -100,8 +100,13 @@ export interface AccountFacts {
   user: UserRow;
   roles: readonly string[];
   mfaConfirmedAt: Date | null;
-  /** The newest failed second step of a sign-in or a step-up (its attempt id), or null. */
-  lastSecondStepFailure: number | null;
+  /**
+   * Who may hold the password, for a two-factor reset (read only while the account has a second factor): the sessions it
+   * has ever had — every sign-in that passed the password, pending or full, and every rotation adds one — and its newest
+   * failed second step (a wrong code at a step-up, or in a session from before the page was shown). Both move only for
+   * someone holding the password or a live session of the account, and only under its row lock.
+   */
+  passwordUse: { sessions: number; lastSecondStepFailure: number | null } | null;
 }
 
 const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toString("hex").slice(0, 32);
@@ -117,7 +122,10 @@ export function accountVersion(facts: AccountFacts, scope: VersionScope = "acces
   const { user, roles, mfaConfirmedAt } = facts;
   const parts: (string | number)[] = [scope, user.status, user.disabledAt?.toISOString() ?? "-", [...roles].sort().join(","), mfaConfirmedAt?.toISOString() ?? "-"];
   if (scope === "unlock") parts.push(user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount);
-  if (scope === "mfa_reset") parts.push(user.passwordChangedAt?.toISOString() ?? "-", facts.lastSecondStepFailure ?? "-");
+  if (scope === "mfa_reset") {
+    const use = facts.passwordUse;
+    parts.push(user.passwordChangedAt?.toISOString() ?? "-", use ? `${use.sessions}:${use.lastSecondStepFailure ?? "-"}` : "-");
+  }
   return fingerprint(parts);
 }
 
@@ -142,15 +150,28 @@ async function lastSecondStepFailure(db: Db, userId: string): Promise<number | n
   return row?.id ?? null;
 }
 
-/** The facts a fingerprint is made of, read in the caller's transaction (one snapshot, or under the row lock). */
-async function readAccountFacts(db: Db, user: UserRow, roles: readonly string[]): Promise<AccountFacts> {
-  return { user, roles, mfaConfirmedAt: await mfaConfirmedAt(db, user.id), lastSecondStepFailure: await lastSecondStepFailure(db, user.id) };
+/** The sessions an account has ever had (rows are never deleted in A2): each is created under its row lock. */
+async function sessionsEver(db: Db, userId: string): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`COUNT(*)` }).from(sessions).where(eq(sessions.userId, userId));
+  return Number(row?.n ?? 0);
+}
+
+/**
+ * The facts a fingerprint is made of, read in the caller's transaction (one snapshot, or under the row lock); the
+ * password use only when asked for (a two-factor reset, or the user page) and while the account has a second factor.
+ */
+async function readAccountFacts(db: Db, user: UserRow, roles: readonly string[], withPasswordUse: boolean): Promise<AccountFacts> {
+  const confirmedAt = await mfaConfirmedAt(db, user.id);
+  const passwordUse =
+    withPasswordUse && confirmedAt ? { sessions: await sessionsEver(db, user.id), lastSecondStepFailure: await lastSecondStepFailure(db, user.id) } : null;
+  return { user, roles, mfaConfirmedAt: confirmedAt, passwordUse };
 }
 
 /**
  * Inside a change's transaction, after `lockForChange`: does the account still look as the form's page showed it, in
  * what this change is decided on (`scope`)? (No fingerprint given — the CLIs and internal callers — means nothing to
- * compare.) The second factor is read under the user's row lock, which every change to it holds.
+ * compare.) Everything is read under the user's row lock, which every change to whether the account has a second factor,
+ * every session it gets and every failed second step hold (re-encrypting a secret under a new key changes none of them).
  */
 export async function accountUnchanged(
   tx: Db,
@@ -159,7 +180,7 @@ export async function accountUnchanged(
   scope: VersionScope = "access",
 ): Promise<boolean> {
   if (!expected) return true;
-  return accountVersion(await readAccountFacts(tx, locked.target, locked.roles), scope) === expected.version;
+  return accountVersion(await readAccountFacts(tx, locked.target, locked.roles, scope === "mfa_reset"), scope) === expected.version;
 }
 
 export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string): Promise<UserDetail | null> {
@@ -167,7 +188,7 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
   // One snapshot: what the page shows and the fingerprint its forms send back describe the same state of the account.
   const facts = await inTransaction(deps.pool, async (tx) => {
     const found = await findUserById(tx, userId);
-    return found ? readAccountFacts(tx, found, await rolesOf(tx, userId)) : null;
+    return found ? readAccountFacts(tx, found, await rolesOf(tx, userId), true) : null;
   });
   if (!facts) return null;
   const { user, mfaConfirmedAt: mfa } = facts;
@@ -488,9 +509,10 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
 
 /**
  * Owner only: removes another user's second factor (after confirming their identity outside the system) — only on the
- * account the page showed (`expected` = its "mfa_reset" fingerprint, fifth, seventh and eighth reviews): an
- * authenticator the user set up meanwhile is not removed by an older page, and a password replaced or a second step
- * failed after the page was shown refuse it, since the reset hands the account to whoever holds the password now.
+ * account the page showed (`expected` = its "mfa_reset" fingerprint, fifth and seventh to ninth reviews): an
+ * authenticator the user set up meanwhile is not removed by an older page, and a password replaced, a sign-in that
+ * passed the password, a session rotated or a second step failed after the page was shown refuse it, since the reset
+ * hands the account to whoever holds the password now.
  */
 export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.mfa_reset";

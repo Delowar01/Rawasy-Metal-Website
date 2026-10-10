@@ -24,6 +24,8 @@
  *    account to whoever holds the password); an unlock also on the status, roles and second factor.
  *  - The eighth review: a two-factor reset is decided on the password and the failed second steps only (wrong passwords
  *    alone, which anyone who knows the email can send, do not refuse it); the emergency reset takes the user's row first.
+ *  - The ninth review: a two-factor reset also sees every sign-in that passed the password and every session rotated
+ *    since the page was shown; the emergency reset reports a user it could not reset and goes on with the others.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -48,7 +50,7 @@ import { sha256 } from "../../src/server/security/ids.ts";
 import { createPasswordHasher, type PasswordHasher } from "../../src/server/security/password.ts";
 import { recoveryCodeHash, normalizeRecoveryCode } from "../../src/server/security/recovery-codes.ts";
 import { base32Decode, totpCode } from "../../src/server/security/totp.ts";
-import { actorFor, createUser, linkToken, meta, serverConnection, setupTestEnv, strongPassword, type TestEnv } from "./helpers.ts";
+import { actorFor, codeFor, createUser, linkToken, meta, serverConnection, setupTestEnv, strongPassword, type TestEnv } from "./helpers.ts";
 
 let env: TestEnv;
 before(async () => {
@@ -1081,24 +1083,151 @@ describe("eighth review — a two-factor reset decided on who may hold the passw
     const x = await createUser(env, { roles: ["editor"], mfa: true });
     const held = await env.pool.getConnection();
     const probe = await env.pool.getConnection();
+    let resetting: Promise<unknown> | undefined;
     try {
       // A change decided under the user's row lock (an Owner's on the user page, say) is under way ...
       await held.query("START TRANSACTION");
       await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [x.id]);
-      const resetting = emergencyMfaReset(env.deps, { userIds: [x.id] }, "test-operator", "review-8");
+      let done = false;
+      const running = emergencyMfaReset(env.deps, { userIds: [x.id] }, "test-operator", "review-8");
+      resetting = running.finally(() => (done = true));
       await new Promise((resolve) => setTimeout(resolve, 400));
-      // ... and the emergency reset waits for it before it touches the second factor: the factor's row is not locked.
+      // ... and the emergency reset waits for it (still running) before it touches the second factor (its row is free).
+      assert.equal(done, false, "the reset waits for the user's row");
       await probe.query("START TRANSACTION");
       const [rows] = await probe.query("SELECT user_id FROM user_mfa WHERE user_id = ? FOR UPDATE NOWAIT", [x.id]);
       assert.equal((rows as unknown[]).length, 1, "the second factor is there and free");
       await probe.query("ROLLBACK");
       await held.query("COMMIT");
-      const result = await resetting;
+      const result = await running;
       assert.equal(result.users.length, 1);
     } finally {
+      await probe.query("ROLLBACK").catch(() => {});
+      await held.query("ROLLBACK").catch(() => {});
       held.release();
       probe.release();
+      await resetting?.catch(() => {});
     }
     assert.equal(await secondFactorOf(x.id), null, "removed once the row was free");
+  });
+});
+
+/** A pool whose first statement matching `match` fails with a database error the code does not retry. */
+function failingPool(pool: Pool, match: (text: string) => boolean) {
+  let armed = true;
+  const textOf = (args: unknown[]) =>
+    JSON.stringify(args, (_key, value) => (typeof value === "function" ? undefined : typeof value === "bigint" ? String(value) : value)) ?? "";
+  const failing =
+    (target: object, fn: (...args: unknown[]) => unknown) =>
+    async (...args: unknown[]) => {
+      if (armed && match(textOf(args))) {
+        armed = false;
+        throw Object.assign(new Error("simulated lock wait timeout"), { code: "ER_LOCK_WAIT_TIMEOUT", errno: 1205 });
+      }
+      return fn.apply(target, args);
+    };
+  // As pausingPool: getters on the real object, overrides matched on their own keys only.
+  const wrap = <T extends object>(target: T, extra: Partial<Record<string | symbol, unknown>> = {}): T =>
+    new Proxy(target, {
+      get(object, prop) {
+        if (Object.hasOwn(extra, prop)) return extra[prop];
+        const value = Reflect.get(object, prop, object);
+        if ((prop === "query" || prop === "execute") && typeof value === "function") return failing(object, value as (...args: unknown[]) => unknown);
+        return typeof value === "function" ? value.bind(object) : value;
+      },
+    });
+  return wrap(pool, { getConnection: async () => wrap<PoolConnection>(await pool.getConnection()) });
+}
+
+describe("ninth review — a two-factor reset sees every use of the password after the page; the emergency reset reports each user", () => {
+  async function owner() {
+    const o = await createUser(env, { roles: ["owner"], mfa: true });
+    return actorFor(env, o);
+  }
+  const secondFactorOf = async (userId: string) =>
+    (await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, userId)))[0]?.confirmedAt ?? null;
+  /** A well-formed code that is wrong at every step the check accepts (now ± 1). */
+  function wrongCode(secret: Buffer): string {
+    const now = env.deps.clock().getTime();
+    const valid = new Set([-1, 0, 1].map((offset) => totpCode(secret, now + offset * 30_000)));
+    for (let n = 0; ; n++) {
+      const code = String(n).padStart(6, "0");
+      if (!valid.has(code)) return code;
+    }
+  }
+  async function pendingOf(user: { email: string; password: string }, ip: string) {
+    const pending = await signIn(env.deps, { email: user.email, password: user.password }, meta(ip));
+    assert.equal(pending.kind, "mfa_required");
+    const found = await findSessionByToken(db(), pending.kind === "mfa_required" ? pending.token : "", env.deps.clock());
+    assert.ok(found);
+    return found;
+  }
+
+  test("a sign-in that passed the password after the page was shown refuses a two-factor reset, even one that tried no code", async () => {
+    const ownerActor = await owner();
+    const x = await createUser(env, { roles: ["admin"], mfa: true });
+    const shown = await pageOf(ownerActor, x.id);
+    env.clock.advance(1000);
+    await pendingOf(x, "198.51.100.91");
+    assert.deepEqual(await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: shown.mfaResetVersion }), { kind: "denied", reason: "changed" });
+    assert.ok(await secondFactorOf(x.id), "the second factor stays");
+    // ... and so does a complete sign-in (the second factor passed).
+    const again = await pageOf(ownerActor, x.id);
+    env.clock.advance(1000);
+    const pending = await pendingOf(x, "198.51.100.92");
+    assert.equal((await verifySecondFactor(env.deps, pending, { code: codeFor(env, x) }, meta("198.51.100.92"))).kind, "signed_in");
+    assert.deepEqual(await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: again.mfaResetVersion }), { kind: "denied", reason: "changed" });
+    // Positive control: decided on the page as it is now.
+    const now = await pageOf(ownerActor, x.id);
+    assert.equal((await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: now.mfaResetVersion })).kind, "ok");
+  });
+
+  test("a wrong recovery code at sign-in or a wrong step-up code after the page was shown refuses it; a lock from wrong passwords alone does not", async () => {
+    const ownerActor = await owner();
+    // A wrong recovery code in a sign-in that passed the password before the page was shown.
+    const a = await createUser(env, { roles: ["editor"], mfa: true });
+    const pending = await pendingOf(a, "198.51.100.93");
+    const shownA = await pageOf(ownerActor, a.id);
+    env.clock.advance(1000);
+    assert.equal((await verifySecondFactor(env.deps, pending, { recoveryCode: "AAAAA-BBBBB-CCCCC-DDDDD" }, meta("198.51.100.93"))).kind, "failed");
+    assert.deepEqual(await resetUserMfa(env.deps, ownerActor, a.id, meta(), { version: shownA.mfaResetVersion }), { kind: "denied", reason: "changed" });
+    // A wrong code at a step-up in a session of the account.
+    const b = await createUser(env, { roles: ["editor"], mfa: true });
+    const bActor = await actorFor(env, b);
+    const shownB = await pageOf(ownerActor, b.id);
+    env.clock.advance(1000);
+    const current = { session: bActor.session, user: bActor.user, roles: bActor.roles };
+    assert.equal((await reauthenticate(env.deps, current, { password: b.password, code: wrongCode(b.totpSecret as Buffer) }, meta("198.51.100.94"))).kind, "failed");
+    assert.deepEqual(await resetUserMfa(env.deps, ownerActor, b.id, meta(), { version: shownB.mfaResetVersion }), { kind: "denied", reason: "changed" });
+    // A lock from five wrong passwords (anyone who knows the email): the reset decided on the page still goes through.
+    const c = await createUser(env, { roles: ["editor"], mfa: true });
+    const shownC = await pageOf(ownerActor, c.id);
+    env.clock.advance(1000);
+    for (const i of [1, 2, 3, 4, 5]) {
+      assert.equal((await signIn(env.deps, { email: c.email, password: `not-it-${i}` }, meta("198.51.100.95"))).kind, "failed");
+    }
+    assert.ok((await userRow(c.id)).lockedUntil, "the account is locked");
+    assert.equal((await resetUserMfa(env.deps, ownerActor, c.id, meta(), { version: shownC.mfaResetVersion })).kind, "ok");
+  });
+
+  test("the emergency reset reports a user it could not reset and goes on with the others", async () => {
+    const a = await createUser(env, { roles: ["editor"], mfa: true });
+    const b = await createUser(env, { roles: ["editor"], mfa: true });
+    const c = await createUser(env, { roles: ["editor"], mfa: true });
+    // B's reset fails at its first statement (as a second deadlock or a lock wait timeout would).
+    const pool = failingPool(env.pool, (text) => /for update/i.test(text) && text.includes(b.id));
+    const result = await emergencyMfaReset({ ...env.deps, pool, db: dbFor(pool) }, { userIds: [a.id, b.id, c.id] }, "test-operator", "review-9");
+    assert.deepEqual(
+      result.users.map((u) => [u.id, Boolean(u.link || u.delivered), u.error ?? null]),
+      [
+        [a.id, true, null],
+        [b.id, false, "ER_LOCK_WAIT_TIMEOUT"],
+        [c.id, true, null],
+      ],
+    );
+    assert.equal(result.users[1].email, b.email, "the operator is told which account");
+    assert.equal(await secondFactorOf(a.id), null);
+    assert.ok(await secondFactorOf(b.id), "nothing was changed for the account that failed");
+    assert.equal(await secondFactorOf(c.id), null);
   });
 });

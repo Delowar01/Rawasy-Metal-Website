@@ -74,6 +74,11 @@ try {
       code = 2;
     }
     for (const user of result.users) {
+      if (user.error) {
+        console.error(`${user.email}: NOT reset (database error ${user.error}); nothing was changed for this account. Run the command again for it.`);
+        code = 3;
+        continue;
+      }
       console.log(`${user.email}: two-factor authentication removed; ${user.sessionsRevoked} session(s) revoked.`);
       if (user.delivered) console.log("  Password-reset link emailed.");
       else if (user.link) console.log(`  No email was sent. Pass on this password-reset link (30 minutes, single use):\n  ${user.link}`);

@@ -16,6 +16,7 @@ import { asc, eq, ne, sql } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
 import type { KeyRing } from "../config/env.ts";
 import { inTransaction, type Db } from "../db/client.ts";
+import { dbErrorInfo } from "../db/pool.ts";
 import { userMfa, userRecoveryCodes, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { decryptSecret, encryptSecret } from "../security/encryption.ts";
@@ -349,7 +350,8 @@ export async function reencryptMfaSecrets(deps: AuthDeps): Promise<{ reencrypted
 }
 
 export interface EmergencyResetResult {
-  users: { id: string; email: string; link: string | null; delivered: boolean; sessionsRevoked: number }[];
+  /** `error`: the database error code of a user that could not be reset (nothing was changed for that account). */
+  users: { id: string; email: string; link: string | null; delivered: boolean; sessionsRevoked: number; error?: string }[];
 }
 
 /**
@@ -368,9 +370,11 @@ export async function emergencyMfaReset(
     "all" in target ? (await deps.db.select({ id: userMfa.userId }).from(userMfa)).map((r) => r.id) : [...new Set(target.userIds)];
   const out: EmergencyResetResult["users"] = [];
   for (const id of ids) {
-    // The user's row first, as every change to a second factor takes it (A2 Correction 1, eighth review): a change decided
-    // under that lock (an Owner's on the user page) sees the factor before or after this removal, never during it.
-    const removed = await inTransaction(deps.pool, async (tx) => {
+    // The user's row first, as every other change to whether an account has a second factor takes it (A2 Correction 1,
+    // eighth review): a change decided under that lock (an Owner's on the user page) sees the factor before or after this
+    // removal, never during it. One user that cannot be reset is reported and the others go on (ninth review), so the
+    // links already issued are never lost with it.
+    const removing = inTransaction(deps.pool, async (tx) => {
       const [user] = await tx.select().from(users).where(eq(users.id, id)).for("update");
       if (!user) return null;
       const count = await removeMfa(tx, id, now);
@@ -386,6 +390,17 @@ export async function emergencyMfaReset(
       });
       return { user, revoked: count, token: issued?.token ?? null };
     });
+    let removed: Awaited<typeof removing>;
+    try {
+      removed = await removing;
+    } catch (error) {
+      const known = await deps.db.select({ email: users.email }).from(users).where(eq(users.id, id)).limit(1).then(
+        (rows) => rows[0]?.email,
+        () => undefined,
+      );
+      out.push({ id, email: known ?? id, link: null, delivered: false, sessionsRevoked: 0, error: dbErrorInfo(error).code ?? "unknown" });
+      continue;
+    }
     if (!removed) continue;
     const { user, revoked, token } = removed;
     const link = token ? adminLink(deps, `reset/${token}`) : null;
