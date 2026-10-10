@@ -204,6 +204,42 @@ describe("freeing the slots", () => {
     await clearCredentialChecks(db(), email);
     assert.equal(await takenSlots(email), 0);
   });
+
+  test("slots freed while a reservation is between its insert and its claim are still there to claim", async () => {
+    const email = "freed-mid-reservation@example.test";
+    for (let i = 0; i < 5; i++) assert.equal(await reserveCredentialCheck(db(), email, env.deps.clock()), true);
+    // A reservation held right before its first claim (its INSERT IGNORE already done) ...
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let reached!: () => void;
+    const atClaim = new Promise<void>((resolve) => (reached = resolve));
+    let first = true;
+    const real = db();
+    const held = new Proxy(real, {
+      get(target, prop, receiver) {
+        if (prop !== "update") return Reflect.get(target, prop, receiver);
+        return (table: typeof rateLimits) => ({
+          set: (values: Partial<typeof rateLimits.$inferInsert>) => ({
+            where: async (condition: Parameters<ReturnType<ReturnType<typeof target.update>["set"]>["where"]>[0]) => {
+              if (first) {
+                first = false;
+                reached();
+                await gate;
+              }
+              return target.update(table).set(values).where(condition);
+            },
+          }),
+        });
+      },
+    }) as typeof real;
+    const reservation = reserveCredentialCheck(held, email, env.deps.clock());
+    await atClaim;
+    // ... while a successful check elsewhere frees every slot of the email: the held reservation takes one.
+    await clearCredentialChecks(db(), email);
+    release();
+    assert.equal(await reservation, true, "a freed slot, not a refusal");
+    assert.equal(await takenSlots(email), 1);
+  });
 });
 
 describe("password checks in a signed-in session", () => {

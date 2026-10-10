@@ -80,7 +80,14 @@ export async function reserveCredentialCheck(db: Db, normalizedEmail: string, no
   return false;
 }
 
-/** Frees every credential-check slot of an email: a successful password check, a password reset, an unlock. */
+/**
+ * Frees every credential-check slot of an email: a successful password check, a password reset, an unlock. The rows are
+ * freed, never deleted, so a reservation running at the same moment (its rows inserted, its claim not yet made) still
+ * finds them and takes a slot instead of being refused.
+ */
 export async function clearCredentialChecks(db: Db, normalizedEmail: string): Promise<void> {
-  await db.delete(rateLimits).where(and(inArray(rateLimits.keyHash, slotHashes(normalizedEmail)), eq(rateLimits.windowStart, SLOT_ROW)));
+  await db
+    .update(rateLimits)
+    .set({ expiresAt: SLOT_ROW })
+    .where(and(inArray(rateLimits.keyHash, slotHashes(normalizedEmail)), eq(rateLimits.windowStart, SLOT_ROW)));
 }
