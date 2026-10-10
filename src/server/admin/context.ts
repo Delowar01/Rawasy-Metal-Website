@@ -8,9 +8,10 @@ import { cookies, headers } from "next/headers";
 import { notFound, redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 import { isAdminEnabled } from "@/lib/admin-gate";
-import { mfaStateOf, principalOf, type MfaState, type UserRow } from "@/server/auth/accounts";
+import type { MfaState, UserRow } from "@/server/auth/accounts";
 import { createAuthDeps, type AuthDeps } from "@/server/auth/deps";
-import { lookupSession, SESSION_COOKIE, SessionEndedError, touchSession, type SessionRow } from "@/server/auth/sessions";
+import { readSessionState } from "@/server/auth/session-state";
+import { SESSION_COOKIE, SessionEndedError, type SessionRow } from "@/server/auth/sessions";
 import type { Actor, RequestMeta } from "@/server/auth/types";
 import { adminBaseUrl, trustedProxyHops } from "@/server/config/env";
 import { describeDbError, getPool } from "@/server/db/pool";
@@ -75,23 +76,25 @@ export const signInPathFor = (state: AdminState) => (state.status === "anonymous
 /**
  * The current admin session, validated once per request (cached with React's `cache`). Only a live session counts: a
  * cookie holding a revoked token — the old token of a rotation included — is signed out, never mapped to its successor.
+ * The session, its user, roles and second factor come from one database snapshot (`readSessionState`).
  */
 export const getAdminState = cache(async (): Promise<AdminState> => {
   assertAdminEnabled();
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return { status: "anonymous", ended: false };
-  return guarded(async () => {
-    const deps = authDeps();
-    const now = deps.clock();
-    const found = await lookupSession(deps.db, token, now);
-    if (found.kind !== "live") return { status: "anonymous", ended: found.kind === "ended" } as const;
-    const session = await touchSession(deps.db, found.session, now);
-    const principal = await principalOf(deps.db, found.user);
-    const mfa = await mfaStateOf(deps.db, found.user.id, principal.roles);
-    if (mfa.enrolled && !session.mfaVerifiedAt) return { status: "mfa_pending", session, user: found.user } as const;
-    const actor: Actor = { ...principal, session };
-    if (mfa.required && !mfa.enrolled) return { status: "enrolment_required", actor, mfa } as const;
-    return { status: "active", actor, mfa } as const;
+  return guarded(async (): Promise<AdminState> => {
+    const state = await readSessionState(authDeps(), token);
+    switch (state.kind) {
+      case "none":
+      case "ended":
+        return { status: "anonymous", ended: state.kind === "ended" };
+      case "mfa_pending":
+        return { status: "mfa_pending", session: state.session, user: state.user };
+      case "enrolment_required":
+        return { status: "enrolment_required", actor: { ...state.principal, session: state.session }, mfa: state.mfa };
+      case "active":
+        return { status: "active", actor: { ...state.principal, session: state.session }, mfa: state.mfa };
+    }
   });
 });
 

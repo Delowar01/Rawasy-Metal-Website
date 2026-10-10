@@ -3,7 +3,9 @@
  *
  * - `bootstrapOwner`: refuses while any active Owner exists; creates the person as `invited` with the Owner role (or
  *   renews the link of an Owner invited earlier who has not finished) and returns a single-use setup link valid 30
- *   minutes. No password is ever passed on a command line; only the token's hash is stored. Audited (`cli`).
+ *   minutes. Only the newest setup link works: issuing one retires every other unused one, whoever it was for (A2
+ *   Correction 1, fourth review: a link from a mistyped first run stayed valid). No password is ever passed on a command
+ *   line; only the token's hash is stored. Audited (`cli`).
  * - `recoveryReset`: for an existing active account when nobody can sign in — unlocks it, signs it out everywhere and
  *   returns a 30-minute password-reset link; optionally removes its second factor (lost device and recovery codes).
  */
@@ -17,7 +19,7 @@ import { adminLink, type AuthDeps } from "./deps.ts";
 import { removeMfa } from "./mfa.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
 import { revokeUserSessions } from "./sessions.ts";
-import { issueToken, retireTokens, TOKEN_LIFETIME_MS } from "./tokens.ts";
+import { issueToken, retireAllTokensOf, retireTokens, TOKEN_LIFETIME_MS } from "./tokens.ts";
 
 export type BootstrapResult =
   | { kind: "created" | "renewed"; userId: string; link: string; expiresAt: Date }
@@ -73,6 +75,7 @@ export async function bootstrapOwner(
       });
       await tx.insert(userRoles).values({ userId, roleKey: "owner", grantedBy: null, grantedAt: now });
     }
+    await retireAllTokensOf(tx, "owner_setup", now);
     const { token, row } = await issueToken(tx, { userId, purpose: "owner_setup", now });
     await recordAudit(tx, {
       at: now,

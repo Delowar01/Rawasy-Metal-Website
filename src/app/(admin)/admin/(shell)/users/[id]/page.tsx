@@ -60,7 +60,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           {can("users.edit") ? (
             <section className="adm-card" aria-labelledby="user-roles">
               <h2 id="user-roles">Roles</h2>
-              <UserRolesForm userId={user.id} roles={roles} selected={user.roles} />
+              <UserRolesForm userId={user.id} status={user.status} roles={roles} selected={user.roles} />
             </section>
           ) : null}
           <section className="adm-card" aria-labelledby="user-actions">

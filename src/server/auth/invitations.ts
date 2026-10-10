@@ -9,7 +9,8 @@
  * An invitation link carries its issuer's authority, never more (A2 Correction 1, third review): it works only while the
  * person who issued it is still an active user who may invite, manage and grant every role the invited account holds
  * now. A role change of the invited account also withdraws its link (`setUserRoles`), and a new link is issued under the
- * invited account's row lock, so neither a promotion nor a disable can slip in between the check and the link.
+ * invited account's row lock, so neither a promotion nor a disable can slip in between the check and the link. The Owner
+ * setup link exists only to create the first Owner: it works only while no Owner is active (fourth review).
  */
 import { and, eq, inArray } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
@@ -20,7 +21,7 @@ import { canGrantRoles, canManageUser } from "../policy/rbac.ts";
 import { permissionsOf, ROLE_KEYS } from "../policy/registry.ts";
 import { ulid } from "../security/ids.ts";
 import { checkPassword, type PasswordProblem } from "../security/password-policy.ts";
-import { findUserById, isPlausibleEmail, normalizeEmail, rolesOf } from "./accounts.ts";
+import { activeOwnerIds, findUserById, isPlausibleEmail, normalizeEmail, rolesOf } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
 import { lockActor } from "./sessions.ts";
@@ -33,16 +34,18 @@ const mayInvite = (inviterRoles: readonly string[], roles: readonly string[]) =>
   roles.length > 0 && permissionsOf(inviterRoles).has("users.invite") && canManageUser({ roles: inviterRoles }, { roles }) && canGrantRoles({ roles: inviterRoles }, roles);
 
 /**
- * Does an invitation link still carry enough authority for the invited account as it is now? Its issuer must be active
- * and still allowed to invite into every role the account holds. The Owner setup link comes from the server-side
- * bootstrap (no issuer) and is not affected; an invitation without an issuer is refused.
+ * Why a usable link may still not be used for the account as it is now — or null when it may:
+ * - an invitation (`issuer`): its issuer must be active and still allowed to invite into every role the account holds;
+ *   an invitation without an issuer is refused;
+ * - the Owner setup link of the server-side bootstrap (`owner_active`): only while no Owner is active (locked inside the
+ *   accepting transaction, as the last-Owner checks lock them).
  */
-async function issuerStillAuthorises(db: Db, token: TokenRow, invitedUserId: string): Promise<boolean> {
-  if (token.purpose !== "invitation") return true;
-  if (!token.createdBy) return false;
+async function linkRefusal(db: Db, token: TokenRow, invitedUserId: string, lock = false): Promise<"issuer" | "owner_active" | null> {
+  if (token.purpose === "owner_setup") return (await activeOwnerIds(db, { lock })).length > 0 ? "owner_active" : null;
+  if (!token.createdBy) return "issuer";
   const issuer = await findUserById(db, token.createdBy);
-  if (!issuer || issuer.status !== "active") return false;
-  return mayInvite(await rolesOf(db, issuer.id), await rolesOf(db, invitedUserId));
+  if (!issuer || issuer.status !== "active") return "issuer";
+  return mayInvite(await rolesOf(db, issuer.id), await rolesOf(db, invitedUserId)) ? null : "issuer";
 }
 
 export type InviteResult =
@@ -176,7 +179,7 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
 export async function inspectInvitation(deps: AuthDeps, token: string) {
   const found = await findUsableToken(deps.db, token, ["invitation", "owner_setup"], deps.clock());
   if (!found || found.user.status !== "invited") return null;
-  if (!(await issuerStillAuthorises(deps.db, found.token, found.user.id))) return null;
+  if (await linkRefusal(deps.db, found.token, found.user.id)) return null;
   const roles = await rolesOf(deps.db, found.user.id);
   return { email: found.user.email, displayName: found.user.displayName, roles, purpose: found.token.purpose };
 }
@@ -188,7 +191,7 @@ export async function acceptInvitation(deps: AuthDeps, input: { token: string; p
   const now = deps.clock();
   const found = await findUsableToken(deps.db, input.token, ["invitation", "owner_setup"], now);
   if (!found || found.user.status !== "invited") return { kind: "invalid" };
-  if (!(await issuerStillAuthorises(deps.db, found.token, found.user.id))) return { kind: "invalid" };
+  if (await linkRefusal(deps.db, found.token, found.user.id)) return { kind: "invalid" };
   const { user } = found;
   const password = String(input.password ?? "");
   const problem = checkPassword(password, { email: user.email, name: user.displayName });
@@ -197,19 +200,23 @@ export async function acceptInvitation(deps: AuthDeps, input: { token: string; p
   const ok = await inTransaction(deps.pool, async (tx) => {
     const again = await findUsableToken(tx, input.token, ["invitation", "owner_setup"], now, { lock: true });
     if (!again || again.user.status !== "invited") return false;
-    // Decided again with the token and the account locked: a link whose issuer can no longer grant the account's roles
-    // is withdrawn here, whatever else left it in place.
-    if (!(await issuerStillAuthorises(tx, again.token, again.user.id))) {
+    // Decided again with the token and the account locked: a link whose issuer can no longer grant the account's roles,
+    // or an Owner setup link once an Owner is active, is withdrawn here, whatever else left it in place.
+    const refusal = await linkRefusal(tx, again.token, again.user.id, true);
+    if (refusal) {
       await consumeToken(tx, again.token.id, now);
       await recordAudit(tx, {
         at: now,
         requestId: meta.requestId,
         actor: { type: "system", label: "Invitation check" },
         ip: meta.ip,
-        action: "user.invite_withdrawn",
+        action: refusal === "issuer" ? "user.invite_withdrawn" : "auth.owner_setup_withdrawn",
         entity: { type: "user", id: user.id, label: userLabel(user) },
         outcome: "denied",
-        summary: "Invitation link refused and withdrawn: the person who issued it may no longer grant this account's roles.",
+        summary:
+          refusal === "issuer"
+            ? "Invitation link refused and withdrawn: the person who issued it may no longer grant this account's roles."
+            : "Owner setup link refused and withdrawn: an Owner is already active.",
       });
       return false;
     }

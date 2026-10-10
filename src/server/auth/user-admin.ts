@@ -102,26 +102,23 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
   };
 }
 
+/** Why a change was refused; `changed`: the account is no longer in the state the change was decided on. */
+export type DenyReason = "permission" | "rank" | "self" | "owner_only" | "changed";
+
 export type ManageResult =
   | { kind: "ok"; summary: string }
-  | { kind: "denied"; reason: "permission" | "rank" | "self" | "owner_only" }
+  | { kind: "denied"; reason: DenyReason }
   | { kind: "last_owner" }
   | { kind: "not_found" }
   | { kind: "invalid" };
 
-async function deny(
-  deps: AuthDeps,
-  actor: Actor,
-  meta: RequestMeta,
-  action: string,
-  target: UserRow | null,
-  reason: "permission" | "rank" | "self" | "owner_only",
-): Promise<ManageResult> {
+async function deny(deps: AuthDeps, actor: Actor, meta: RequestMeta, action: string, target: UserRow | null, reason: DenyReason): Promise<ManageResult> {
   const why = {
     permission: "missing permission",
     rank: "the user's rank is equal or higher",
     self: "one cannot do this to one's own account",
     owner_only: "only an Owner may do this",
+    changed: "the account's status changed after the page that asked for this was opened",
   }[reason];
   await recordAudit(deps.db, {
     at: deps.clock(),
@@ -243,15 +240,29 @@ export async function setUserStatus(
  * invitations they sent. What changes is decided again inside the transaction, against the roles the user has under its
  * row lock, with the acting session checked there too (A2 Correction 1, review). An invited user's pending link is
  * withdrawn by any role change (A2 Correction 1, third review): it was issued for the roles its issuer could grant, so
- * the new roles need a new link from someone allowed to grant them.
+ * the new roles need a new link from someone allowed to grant them. So is a pending password-reset or email-change link
+ * (fourth review): it was minted for the account as it was.
+ *
+ * `expected.status` is the status the page showed when the change was decided (the roles form sends it): if the account
+ * is no longer in that state under its row lock — an invitation accepted meanwhile, for one — the change is refused
+ * (`changed`), so a promotion meant for an invited person never lands on an account someone else has just activated
+ * with an older link (A2 Correction 1, fourth review).
  */
-export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: string, nextRoles: string[], meta: RequestMeta): Promise<ManageResult> {
+export async function setUserRoles(
+  deps: AuthDeps,
+  actor: Actor,
+  targetId: string,
+  nextRoles: string[],
+  meta: RequestMeta,
+  expected?: { status: UserRow["status"] },
+): Promise<ManageResult> {
   const action = "user.roles_change";
   const roles = [...new Set(nextRoles)];
   if (roles.length === 0 || roles.some((r) => !ROLE_KEYS.includes(r as never))) return { kind: "invalid" };
   const checked = await authorize(deps, actor, meta, action, "users.edit", targetId);
   if ("refusal" in checked) return checked.refusal as ManageResult;
   const { target, roles: seen } = checked;
+  if (expected && target.status !== expected.status) return deny(deps, actor, meta, action, target, "changed");
   const changing = [...roles.filter((r) => !seen.includes(r)), ...seen.filter((r) => !roles.includes(r))];
   if (changing.length === 0) return { kind: "ok", summary: "No change." };
   if (!canGrantRoles(actor, changing)) return deny(deps, actor, meta, action, target, isOwner(actor) ? "rank" : "owner_only");
@@ -260,6 +271,7 @@ export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: strin
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return { kind: "not_found" as const };
     const { target: row, roles: before } = locked;
+    if (expected && row.status !== expected.status) return { kind: "refused" as const, reason: "changed" as const };
     const added = roles.filter((r) => !before.includes(r));
     const removed = before.filter((r) => !roles.includes(r));
     if (added.length === 0 && removed.length === 0) return { kind: "ok" as const, summary: "No change." };
@@ -274,8 +286,9 @@ export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: strin
     await tx.update(users).set({ updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     const revoked = await revokeUserSessions(tx, target.id, "role_changed", now);
     const ownLink = await retireTokens(tx, target.id, ["invitation", "owner_setup"], now);
+    const resetLink = await retireTokens(tx, target.id, ["password_reset", "email_change"], now);
     const withdrawn = removed.length ? await retireInvitationsIssuedBy(tx, target.id, now) : 0;
-    const summary = `Roles of ${userLabel(target)}: ${before.join(", ") || "none"} → ${roles.join(", ")}; ${revoked} session(s) signed out${ownLink ? "; their pending invitation link withdrawn (send a new one)" : ""}${withdrawn ? `; ${withdrawn} pending invitation(s) they sent withdrawn` : ""}.`;
+    const summary = `Roles of ${userLabel(target)}: ${before.join(", ") || "none"} → ${roles.join(", ")}; ${revoked} session(s) signed out${ownLink ? "; their pending invitation link withdrawn (send a new one)" : ""}${resetLink ? "; their pending reset link withdrawn" : ""}${withdrawn ? `; ${withdrawn} pending invitation(s) they sent withdrawn` : ""}.`;
     await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,
@@ -366,7 +379,7 @@ export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: strin
   if (target.id === actor.user.id) return deny(deps, actor, meta, action, target, "self");
   const now = deps.clock();
   const revoked = await inTransaction(deps.pool, async (tx) => {
-    await lockForChange(tx, actor, target.id, now);
+    if (!(await lockForChange(tx, actor, target.id, now))) return null;
     const count = await removeMfa(tx, target.id, now);
     await recordAudit(tx, {
       at: now,
@@ -380,6 +393,7 @@ export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: strin
     });
     return count;
   });
+  if (revoked === null) return { kind: "not_found" };
   await sendQuietly(
     deps.mailer,
     mailTemplates.securityNotice(target.email, target.displayName, "An Owner reset the two-factor authentication of your account. Set it up again at your next sign-in."),

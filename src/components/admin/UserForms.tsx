@@ -123,7 +123,11 @@ export function ResendInvitation({ userId, email }: { userId: string; email: str
   );
 }
 
-export function UserRolesForm({ userId, roles, selected }: { userId: string; roles: RoleOption[]; selected: string[] }) {
+/**
+ * `status` is the account's status as this page shows it: the server refuses the change if the account has moved on
+ * since (an invitation accepted meanwhile, for one), so the Owner decides on what they see.
+ */
+export function UserRolesForm({ userId, status, roles, selected }: { userId: string; status: string; roles: RoleOption[]; selected: string[] }) {
   const [state, action] = useActionState(setUserRolesAction, idle);
   const router = useRouter();
   useEffect(() => {
@@ -133,6 +137,7 @@ export function UserRolesForm({ userId, roles, selected }: { userId: string; rol
     <form action={action} className="adm-form">
       <FormAlert state={state} />
       <input type="hidden" name="user" value={userId} />
+      <input type="hidden" name="status" value={status} />
       <RoleChecks roles={roles} selected={selected} />
       <p className="adm-hint">Saving a change signs the user out of every session.</p>
       <div className="adm-actions">

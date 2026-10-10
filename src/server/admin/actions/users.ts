@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { inviteUser, resendInvitation } from "@/server/auth/invitations";
 import { resetUserMfa, revokeSessionsOf, setUserRoles, setUserStatus, unlockUser, type ManageResult } from "@/server/auth/user-admin";
+import { USER_STATUSES } from "@/server/db/schema";
 import { ROLE_KEYS } from "@/server/policy/registry";
 import { guarded } from "../context";
 import { actionContext, failure, type ActionState } from "../guards";
@@ -18,6 +19,7 @@ const REFUSALS: Record<string, string> = {
   rank: "You can't manage a user whose role is equal to or above yours.",
   self: "You can't do this to your own account. Another Owner must do it.",
   owner_only: "Only an Owner can do this.",
+  changed: "This account changed after you opened this page (for example, its invitation was accepted). Reload the page and check it before you try again.",
 };
 
 function outcome(result: ManageResult): ActionState {
@@ -86,11 +88,13 @@ export async function setUserRolesAction(_prev: ActionState, form: FormData): Pr
   const ctx = await actionContext("user.roles_change", { permission: "users.edit" });
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
+  // `status`: what the page showed when the roles were chosen; the change is refused if the account has moved on since.
   const input = z
-    .object({ user: ULID, roles: z.array(z.enum(ROLE_KEYS as [string, ...string[]])).max(4) })
-    .safeParse({ user: form.get("user"), roles: form.getAll("roles") });
+    .object({ user: ULID, roles: z.array(z.enum(ROLE_KEYS as [string, ...string[]])).max(4), status: z.enum(USER_STATUSES) })
+    .safeParse({ user: form.get("user"), roles: form.getAll("roles"), status: form.get("status") });
   if (!input.success) return failure("Choose valid roles.");
-  return outcome(await guarded(() => setUserRoles(deps, actor, input.data.user, input.data.roles, meta)));
+  const expected = { status: input.data.status };
+  return outcome(await guarded(() => setUserRoles(deps, actor, input.data.user, input.data.roles, meta, expected)));
 }
 
 export async function revokeUserSessionsAction(_prev: ActionState, form: FormData): Promise<ActionState> {

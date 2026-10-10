@@ -55,6 +55,12 @@ export async function retireTokens(db: Db, userId: string, purposes: TokenPurpos
   return result.affectedRows;
 }
 
+/** Marks every unused token of a purpose as used, whoever it belongs to (one Owner setup link at a time); returns how many. */
+export async function retireAllTokensOf(db: Db, purpose: TokenPurpose, now: Date): Promise<number> {
+  const [result] = await db.update(authTokens).set({ usedAt: now }).where(and(eq(authTokens.purpose, purpose), isNull(authTokens.usedAt)));
+  return result.affectedRows;
+}
+
 /**
  * Withdraws the unused invitations a user sent (A2 Correction 1, review): an invitation is only as good as its inviter's
  * authority, so disabling the inviter or taking a role from them retires the links they issued (an Owner or Admin can

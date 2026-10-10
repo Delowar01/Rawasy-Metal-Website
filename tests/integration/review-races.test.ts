@@ -11,14 +11,21 @@
  *  - The third review: an invitation link carries its issuer's authority, never more — raising the invited account's
  *    roles withdraws it, acceptance checks the issuer against the account as it is then, a new link is decided under the
  *    account's row lock, and a re-enable retires a link left from around the disable.
+ *  - The fourth review: a role change decided on an account that has changed since is refused; a role change withdraws
+ *    pending reset links too; a request reads its session, roles and second factor in one snapshot; only the newest Owner
+ *    setup link works, and none once an Owner is active.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { and, asc, eq, isNull } from "drizzle-orm";
+import type { Pool, PoolConnection } from "mysql2/promise";
+import { activeOwnerIds } from "../../src/server/auth/accounts.ts";
+import { bootstrapOwner, recoveryReset } from "../../src/server/auth/bootstrap.ts";
 import { acceptInvitation, inspectInvitation, inviteUser, resendInvitation } from "../../src/server/auth/invitations.ts";
 import { beginEnrolment, confirmEnrolment, regenerateRecoveryCodes } from "../../src/server/auth/mfa.ts";
 import { changePassword, completePasswordReset, inspectResetToken, requestPasswordReset } from "../../src/server/auth/passwords.ts";
 import { revokeOtherOwnSessions, revokeOwnSession } from "../../src/server/auth/self-service.ts";
+import { readSessionState } from "../../src/server/auth/session-state.ts";
 import { revokeSession, SessionEndedError } from "../../src/server/auth/sessions.ts";
 import { signIn } from "../../src/server/auth/sign-in.ts";
 import { issueToken } from "../../src/server/auth/tokens.ts";
@@ -60,7 +67,7 @@ function paused(base: PasswordHasher) {
 }
 
 /** A hasher that stops right after it has hashed a new password (an invitation being accepted), until released. */
-function pausedHash(base: PasswordHasher) {
+function pausedHash(base: PasswordHasher, deps = env.deps) {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let reached!: () => void;
@@ -76,7 +83,54 @@ function pausedHash(base: PasswordHasher) {
     needsRehash: (stored) => base.needsRehash(stored),
     verify: (stored, password) => base.verify(stored, password),
   };
-  return { deps: { ...env.deps, hasher }, hashed, release };
+  return { deps: { ...deps, hasher }, hashed, release };
+}
+
+/**
+ * A pool whose first statement matching `pattern` waits until released — on the pool itself and on the connections it
+ * hands out, so inside a transaction too (how Drizzle runs them: `query` / `execute` with the SQL text or `{ sql }`).
+ */
+function pausingPool(pool: Pool, pattern: RegExp) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let reached!: () => void;
+  const atPause = new Promise<void>((resolve) => (reached = resolve));
+  let armed = true;
+  const sqlOf = (arg: unknown) => (typeof arg === "string" ? arg : String((arg as { sql?: unknown } | null)?.sql ?? ""));
+  const pausing =
+    (target: object, fn: (...args: unknown[]) => unknown) =>
+    async (...args: unknown[]) => {
+      if (armed && pattern.test(sqlOf(args[0]))) {
+        armed = false;
+        reached();
+        await gate;
+      }
+      return fn.apply(target, args);
+    };
+  // Getters run on the real object (receiver = target): mysql2's objects read their own state through getters, and
+  // with the proxy as receiver a connection's handshake went out of order (ER_NET_PACKETS_OUT_OF_ORDER). `extra` is
+  // matched on its own keys only: `prop in extra` also matched `constructor`, Drizzle then took the wrapped connection
+  // for a config object (`constructor.name === "Object"`) and opened a pool of its own from it.
+  const wrap = <T extends object>(target: T, extra: Partial<Record<string | symbol, unknown>> = {}): T =>
+    new Proxy(target, {
+      get(object, prop) {
+        if (Object.hasOwn(extra, prop)) return extra[prop];
+        const value = Reflect.get(object, prop, object);
+        if ((prop === "query" || prop === "execute") && typeof value === "function") return pausing(object, value as (...args: unknown[]) => unknown);
+        return typeof value === "function" ? value.bind(object) : value;
+      },
+    });
+  const wrapped = wrap(pool, { getConnection: async () => wrap<PoolConnection>(await pool.getConnection()) });
+  return { pool: wrapped, reached: atPause, release };
+}
+
+/** Waits until `work` stops at the paused statement; fails, instead of waiting for ever, if it ends without reaching it. */
+async function untilPaused(paused: { reached: Promise<void> }, work: Promise<unknown>) {
+  const ended = work.then(
+    () => "ended" as const,
+    () => "ended" as const,
+  );
+  if ((await Promise.race([paused.reached.then(() => "paused" as const), ended])) === "ended") assert.fail("the request ended before the paused statement");
 }
 
 /** Sessions of a user that are not revoked. */
@@ -395,19 +449,19 @@ describe("invitations are only as good as their inviter's authority", () => {
   });
 });
 
-describe("third review — an invitation link carries its issuer's authority, never more", () => {
-  /** An Owner, and an Admin who invites a new Editor (the link read from the mail sink). */
-  async function invitedByAdmin(email: string) {
-    const owner = await createUser(env, { roles: ["owner"], mfa: true });
-    const admin = await createUser(env, { roles: ["admin"], mfa: true });
-    const adminActor = await actorFor(env, admin);
-    assert.equal((await inviteUser(env.deps, adminActor, { email, displayName: "Invited Person", roles: ["editor"] }, meta())).kind, "invited");
-    const message = env.mail().filter((m) => m.to === email && m.kind === "invitation").at(-1);
-    assert.ok(message);
-    const [invited] = await db().select().from(users).where(eq(users.emailNormalized, email));
-    return { ownerActor: await actorFor(env, owner), adminActor, invited, token: linkToken(message.text, "invite") };
-  }
+/** An Owner, and an Admin who invites a new Editor (the link read from the mail sink). */
+async function invitedByAdmin(email: string) {
+  const owner = await createUser(env, { roles: ["owner"], mfa: true });
+  const admin = await createUser(env, { roles: ["admin"], mfa: true });
+  const adminActor = await actorFor(env, admin);
+  assert.equal((await inviteUser(env.deps, adminActor, { email, displayName: "Invited Person", roles: ["editor"] }, meta())).kind, "invited");
+  const message = env.mail().filter((m) => m.to === email && m.kind === "invitation").at(-1);
+  assert.ok(message);
+  const [invited] = await db().select().from(users).where(eq(users.emailNormalized, email));
+  return { ownerActor: await actorFor(env, owner), adminActor, invited, token: linkToken(message.text, "invite") };
+}
 
+describe("third review — an invitation link carries its issuer's authority, never more", () => {
   test("an Owner raising the invited account's roles withdraws the Admin's link: it activates no Owner or Admin; the Owner's new link does", async () => {
     for (const [i, raised] of [["owner"], ["admin", "editor"]].entries()) {
       const email = `raised-${i}@example.test`;
@@ -483,5 +537,140 @@ describe("third review — an invitation link carries its issuer's authority, ne
     assert.equal((await userRow(invited.id)).status, "invited");
     assert.equal(await inspectInvitation(env.deps, token), null);
     assert.deepEqual(await acceptInvitation(env.deps, { token, password: strongPassword() }, meta()), { kind: "invalid" });
+  });
+});
+
+describe("fourth review — nothing decided on an older state of an account, and one snapshot per request", () => {
+  test("a role change decided while the account was invited is refused once its invitation was accepted: the Owner reviews it first", async () => {
+    const { ownerActor, invited, token } = await invitedByAdmin("claimed-before-save@example.test");
+    // What the Owner's page showed when the Owner chose the new roles ...
+    const shown = (await userRow(invited.id)).status;
+    assert.equal(shown, "invited");
+    // ... before the Admin, who still holds the link, activated the account.
+    assert.equal((await acceptInvitation(env.deps, { token, password: strongPassword() }, meta())).kind, "ok");
+    assert.deepEqual(await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { status: shown }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await rolesNow(invited.id), ["editor"]);
+    // Decided on the account as it is now (active), the same change is the Owner's to make (positive control).
+    assert.equal((await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { status: "active" })).kind, "ok");
+  });
+
+  test("... decided again under the account's row lock: an activation committed while the change waits for it wins", async () => {
+    const { ownerActor, invited } = await invitedByAdmin("claimed-under-lock@example.test");
+    const held = await env.pool.getConnection();
+    try {
+      await held.query("START TRANSACTION");
+      await held.query("UPDATE users SET status = 'active' WHERE id = ?", [invited.id]);
+      // Authorised against the invited account it can still see; its transaction then waits for the account's row.
+      const changing = setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { status: "invited" });
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await held.query("COMMIT");
+      assert.deepEqual(await changing, { kind: "denied", reason: "changed" });
+    } finally {
+      held.release();
+    }
+    assert.deepEqual(await rolesNow(invited.id), ["editor"]);
+  });
+
+  test("a role change also withdraws a pending reset link: one minted for an Editor never sets an Admin's password", async () => {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const ownerActor = await actorFor(env, owner);
+    const editor = await createUser(env, { roles: ["editor"] });
+    // The server-side recovery hands an operator a reset link for the Editor.
+    const recovery = await recoveryReset(env.deps, { email: editor.email, removeMfa: true }, "test-operator");
+    assert.equal(recovery.kind, "ok");
+    const token = linkToken(recovery.kind === "ok" ? recovery.link : "", "reset");
+    assert.ok(await inspectResetToken(env.deps, token), "the link works before the change");
+    const changed = await setUserRoles(env.deps, ownerActor, editor.id, ["admin"], meta());
+    assert.equal(changed.kind, "ok");
+    assert.equal(await inspectResetToken(env.deps, token), null);
+    assert.deepEqual(await completePasswordReset(env.deps, { token, password: strongPassword() }, meta()), { kind: "invalid" });
+    assert.match(changed.kind === "ok" ? changed.summary : "", /pending reset link withdrawn/);
+  });
+
+  test("one snapshot per request: a promotion committed between reading a session and its roles never shows the new roles to that session", async () => {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const ownerActor = await actorFor(env, owner);
+    const editor = await createUser(env, { roles: ["editor"] });
+    const editorActor = await actorFor(env, editor);
+    // The request stops just before it reads the roles ...
+    const paused = pausingPool(env.pool, /`user_roles`/);
+    const reading = readSessionState({ ...env.deps, pool: paused.pool, db: dbFor(paused.pool) }, editorActor.token);
+    await untilPaused(paused, reading);
+    // ... while the Editor is made an Admin (which signs the Editor out).
+    assert.equal((await setUserRoles(env.deps, ownerActor, editor.id, ["admin"], meta())).kind, "ok");
+    paused.release();
+    const state = await reading;
+    const roles = state.kind === "active" || state.kind === "enrolment_required" ? state.principal.roles : [];
+    assert.equal(roles.includes("admin"), false, `the revoked session saw the new roles (${state.kind}: ${roles.join(", ")})`);
+    assert.equal((await readSessionState(env.deps, editorActor.token)).kind, "ended", "the next request: signed out");
+  });
+
+  test("one snapshot per request: a second factor removed while a password-only session is read never signs that session in", async () => {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const ownerActor = await actorFor(env, owner);
+    const editor = await createUser(env, { roles: ["editor"], mfa: true });
+    // A sign-in that stopped at the second factor: its session is password-only.
+    const pending = await signIn(env.deps, { email: editor.email, password: editor.password }, meta("198.51.100.91"));
+    assert.equal(pending.kind, "mfa_required");
+    const token = pending.kind === "mfa_required" ? pending.token : "";
+    // The request stops just before it reads the second factor ...
+    const paused = pausingPool(env.pool, /`user_mfa`/);
+    const reading = readSessionState({ ...env.deps, pool: paused.pool, db: dbFor(paused.pool) }, token);
+    await untilPaused(paused, reading);
+    // ... while an Owner resets the Editor's second factor (which signs the Editor out).
+    assert.equal((await resetUserMfa(env.deps, ownerActor, editor.id, meta())).kind, "ok");
+    paused.release();
+    const state = await reading;
+    assert.equal(state.kind === "active" || state.kind === "enrolment_required", false, `a password-only session was signed in (${state.kind})`);
+    assert.equal((await readSessionState(env.deps, token)).kind, "ended", "the next request: signed out");
+  });
+
+  test("only the newest Owner setup link works, and none once an Owner is active", async () => {
+    const isolated = await setupTestEnv("review_setup");
+    try {
+      const idb = dbFor(isolated.pool);
+      const first = await bootstrapOwner(isolated.deps, { email: "typo-owner@example.test", displayName: "Typo Owner" }, "test-operator");
+      const second = await bootstrapOwner(isolated.deps, { email: "real-owner@example.test", displayName: "Real Owner" }, "test-operator");
+      assert.equal(first.kind, "created");
+      assert.equal(second.kind, "created");
+      const firstLink = linkToken(first.kind === "created" ? first.link : "", "invite");
+      const secondLink = linkToken(second.kind === "created" ? second.link : "", "invite");
+      assert.equal(await inspectInvitation(isolated.deps, firstLink), null, "the first run's link was retired by the second");
+      // A setup link that slipped through anyway (made here by hand), accepted while the real Owner activates: refused
+      // inside its own transaction once that Owner is active, withdrawn and audited.
+      const [typo] = await idb.select().from(users).where(eq(users.emailNormalized, "typo-owner@example.test"));
+      const { token: stray } = await issueToken(idb, { userId: typo.id, purpose: "owner_setup", now: isolated.deps.clock() });
+      const race = pausedHash(isolated.deps.hasher, isolated.deps);
+      const strayAccept = acceptInvitation(race.deps, { token: stray, password: strongPassword() }, meta());
+      await race.hashed;
+      assert.equal((await acceptInvitation(isolated.deps, { token: secondLink, password: strongPassword() }, meta())).kind, "ok");
+      race.release();
+      assert.deepEqual(await strayAccept, { kind: "invalid" });
+      assert.deepEqual(await acceptInvitation(isolated.deps, { token: firstLink, password: strongPassword() }, meta()), { kind: "invalid" });
+      assert.deepEqual(await activeOwnerIds(idb), [(await idb.select().from(users).where(eq(users.emailNormalized, "real-owner@example.test")))[0].id]);
+      const withdrawn = await idb.select().from(auditEvents).where(eq(auditEvents.action, "auth.owner_setup_withdrawn"));
+      assert.equal(withdrawn.length, 1);
+    } finally {
+      await isolated.close();
+    }
+  });
+
+  test("a 2FA reset of an account removed meanwhile reports it gone and changes nothing", async () => {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const ownerActor = await actorFor(env, owner);
+    const target = await createUser(env, { roles: ["editor"], mfa: true });
+    const held = await env.pool.getConnection();
+    try {
+      await held.query("START TRANSACTION");
+      await held.query("UPDATE users SET deleted_at = UTC_TIMESTAMP(3) WHERE id = ?", [target.id]);
+      const resetting = resetUserMfa(env.deps, ownerActor, target.id, meta());
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await held.query("COMMIT");
+      assert.deepEqual(await resetting, { kind: "not_found" });
+    } finally {
+      held.release();
+    }
+    const [factor] = await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, target.id));
+    assert.ok(factor?.confirmedAt, "its second factor is untouched");
   });
 });

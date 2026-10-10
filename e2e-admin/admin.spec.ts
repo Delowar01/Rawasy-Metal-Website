@@ -352,6 +352,51 @@ test.describe("users, invitations and roles", () => {
     await expect(editor.locator("main").getByRole("alert")).toContainText("Sign-in failed");
     await editor.context().close();
   });
+
+  test("roles chosen while the account showed Invited are refused once its invitation was accepted meanwhile (A2 Correction 1)", async ({ browser, page }) => {
+    const IVY = { email: "ivy.invited@example.test", name: "Ivy Invited" };
+    const rolesOfIvy = async () =>
+      (
+        await queryTestDb<{ role_key: string }>(
+          "SELECT ur.role_key FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE u.email_normalized = ? ORDER BY ur.role_key",
+          [IVY.email],
+        )
+      ).map((r) => r.role_key);
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/users/invite");
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await page.getByLabel("Email", { exact: true }).fill(IVY.email);
+    await page.getByLabel("Name", { exact: true }).fill(IVY.name);
+    await page.getByRole("checkbox", { name: /^Editor/ }).check();
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText(`Invitation sent to ${IVY.email}`);
+    // The Owner opens the account while it is invited and chooses to add Admin ...
+    await page.goto("/admin/users");
+    await page.getByRole("link", { name: IVY.name }).click();
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await expect(page.getByText("Invited", { exact: true })).toBeVisible();
+    await page.getByRole("checkbox", { name: /^Admin/ }).check();
+    // ... while the invitation is accepted elsewhere, with the first link (which its inviter may still hold).
+    const other = await newPage(browser);
+    await other.goto(linkIn(mailTo(IVY.email).at(-1), "invite"));
+    await other.getByLabel("New password", { exact: true }).fill(PASSWORDS.reviewer);
+    await other.getByLabel("Repeat the new password").fill(PASSWORDS.reviewer);
+    await other.getByRole("button", { name: "Set password and activate" }).click();
+    await expect(other).toHaveURL(/welcome=1/);
+    await other.context().close();
+    // The change was decided on an invited account: refused, and nothing changed.
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("alert")).toContainText("This account changed after you opened this page");
+    expect(await rolesOfIvy()).toEqual(["editor"]);
+    // Reloaded, the page shows the account as it is; a change decided on that is the Owner's to make (positive control).
+    await page.reload();
+    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+    await page.getByRole("checkbox", { name: /^Admin/ }).check();
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
+    expect(await rolesOfIvy()).toEqual(["admin", "editor"]);
+  });
 });
 
 test.describe("sessions and request integrity", () => {
