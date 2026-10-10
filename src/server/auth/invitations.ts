@@ -5,22 +5,45 @@
  *
  * Without a mail transport the invitation link is returned once to the inviting Owner or Admin, to pass on by a
  * channel they trust; the admin then says plainly that no email was sent.
+ *
+ * An invitation link carries its issuer's authority, never more (A2 Correction 1, third review): it works only while the
+ * person who issued it is still an active user who may invite, manage and grant every role the invited account holds
+ * now. A role change of the invited account also withdraws its link (`setUserRoles`), and a new link is issued under the
+ * invited account's row lock, so neither a promotion nor a disable can slip in between the check and the link.
  */
 import { and, eq, inArray } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
-import { inTransaction } from "../db/client.ts";
+import { inTransaction, type Db } from "../db/client.ts";
 import { userRoles, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { canGrantRoles, canManageUser } from "../policy/rbac.ts";
-import { ROLE_KEYS } from "../policy/registry.ts";
+import { permissionsOf, ROLE_KEYS } from "../policy/registry.ts";
 import { ulid } from "../security/ids.ts";
 import { checkPassword, type PasswordProblem } from "../security/password-policy.ts";
-import { isPlausibleEmail, normalizeEmail, rolesOf } from "./accounts.ts";
+import { findUserById, isPlausibleEmail, normalizeEmail, rolesOf } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
 import { lockActor } from "./sessions.ts";
-import { consumeToken, findUsableToken, issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
+import { consumeToken, findUsableToken, issueToken, TOKEN_LIFETIME_MS, type TokenRow } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
+import { lockForChange } from "./user-admin.ts";
+
+/** May someone with these roles invite, manage and grant every role in `roles`? (The rule `inviteUser` applies.) */
+const mayInvite = (inviterRoles: readonly string[], roles: readonly string[]) =>
+  roles.length > 0 && permissionsOf(inviterRoles).has("users.invite") && canManageUser({ roles: inviterRoles }, { roles }) && canGrantRoles({ roles: inviterRoles }, roles);
+
+/**
+ * Does an invitation link still carry enough authority for the invited account as it is now? Its issuer must be active
+ * and still allowed to invite into every role the account holds. The Owner setup link comes from the server-side
+ * bootstrap (no issuer) and is not affected; an invitation without an issuer is refused.
+ */
+async function issuerStillAuthorises(db: Db, token: TokenRow, invitedUserId: string): Promise<boolean> {
+  if (token.purpose !== "invitation") return true;
+  if (!token.createdBy) return false;
+  const issuer = await findUserById(db, token.createdBy);
+  if (!issuer || issuer.status !== "active") return false;
+  return mayInvite(await rolesOf(db, issuer.id), await rolesOf(db, invitedUserId));
+}
 
 export type InviteResult =
   | { kind: "invited"; userId: string; delivered: boolean; link: string | null }
@@ -103,13 +126,16 @@ export async function inviteUser(
   return { kind: "invited", userId: created.id, ...delivery };
 }
 
-/** A new invitation link for an invited user (the old one stops working). */
+/**
+ * A new invitation link for an invited user (the old one stops working). Decided again inside the transaction, under the
+ * invited account's row lock (A2 Correction 1, third review): a promotion or a disable committed meanwhile counts.
+ */
 export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: string, meta: RequestMeta): Promise<InviteResult> {
   const now = deps.clock();
   const [user] = await deps.db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user || user.status !== "invited") return { kind: "invalid", field: "email" };
-  const roles = await rolesOf(deps.db, userId);
-  if (!actor.permissions.has("users.invite") || !canManageUser(actor, { roles }) || !canGrantRoles(actor, roles)) {
+  const allowed = (roles: string[]) => actor.permissions.has("users.invite") && mayInvite(actor.roles, roles);
+  const refuse = async (): Promise<InviteResult> => {
     await recordAudit(deps.db, {
       at: now,
       requestId: meta.requestId,
@@ -121,10 +147,13 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
       summary: "New invitation link refused: rank rule.",
     });
     return { kind: "denied" };
-  }
-  const { token } = await inTransaction(deps.pool, async (tx) => {
-    await lockActor(tx, actor, now);
-    const issued = await issueToken(tx, { userId, purpose: "invitation", now, createdBy: actor.user.id, createdIp: meta.ip });
+  };
+  if (!allowed(await rolesOf(deps.db, userId))) return refuse();
+  const issued = await inTransaction(deps.pool, async (tx) => {
+    const locked = await lockForChange(tx, actor, userId, now);
+    if (!locked || locked.target.status !== "invited") return { kind: "gone" as const };
+    if (!allowed(locked.roles)) return { kind: "refused" as const };
+    const { token } = await issueToken(tx, { userId, purpose: "invitation", now, createdBy: actor.user.id, createdIp: meta.ip });
     await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,
@@ -135,9 +164,11 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
       outcome: "success",
       summary: "New invitation link issued; the previous one no longer works.",
     });
-    return issued;
+    return { kind: "issued" as const, token };
   });
-  const delivery = await deliverInvitation(deps, user, token);
+  if (issued.kind === "gone") return { kind: "invalid", field: "email" };
+  if (issued.kind === "refused") return refuse();
+  const delivery = await deliverInvitation(deps, user, issued.token);
   return { kind: "invited", userId, ...delivery };
 }
 
@@ -145,6 +176,7 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
 export async function inspectInvitation(deps: AuthDeps, token: string) {
   const found = await findUsableToken(deps.db, token, ["invitation", "owner_setup"], deps.clock());
   if (!found || found.user.status !== "invited") return null;
+  if (!(await issuerStillAuthorises(deps.db, found.token, found.user.id))) return null;
   const roles = await rolesOf(deps.db, found.user.id);
   return { email: found.user.email, displayName: found.user.displayName, roles, purpose: found.token.purpose };
 }
@@ -156,6 +188,7 @@ export async function acceptInvitation(deps: AuthDeps, input: { token: string; p
   const now = deps.clock();
   const found = await findUsableToken(deps.db, input.token, ["invitation", "owner_setup"], now);
   if (!found || found.user.status !== "invited") return { kind: "invalid" };
+  if (!(await issuerStillAuthorises(deps.db, found.token, found.user.id))) return { kind: "invalid" };
   const { user } = found;
   const password = String(input.password ?? "");
   const problem = checkPassword(password, { email: user.email, name: user.displayName });
@@ -163,7 +196,24 @@ export async function acceptInvitation(deps: AuthDeps, input: { token: string; p
   const hash = await deps.hasher.hash(password);
   const ok = await inTransaction(deps.pool, async (tx) => {
     const again = await findUsableToken(tx, input.token, ["invitation", "owner_setup"], now, { lock: true });
-    if (!again || again.user.status !== "invited" || !(await consumeToken(tx, again.token.id, now))) return false;
+    if (!again || again.user.status !== "invited") return false;
+    // Decided again with the token and the account locked: a link whose issuer can no longer grant the account's roles
+    // is withdrawn here, whatever else left it in place.
+    if (!(await issuerStillAuthorises(tx, again.token, again.user.id))) {
+      await consumeToken(tx, again.token.id, now);
+      await recordAudit(tx, {
+        at: now,
+        requestId: meta.requestId,
+        actor: { type: "system", label: "Invitation check" },
+        ip: meta.ip,
+        action: "user.invite_withdrawn",
+        entity: { type: "user", id: user.id, label: userLabel(user) },
+        outcome: "denied",
+        summary: "Invitation link refused and withdrawn: the person who issued it may no longer grant this account's roles.",
+      });
+      return false;
+    }
+    if (!(await consumeToken(tx, again.token.id, now))) return false;
     const [updated] = await tx
       .update(users)
       .set({ passwordHash: hash, passwordChangedAt: now, status: "active", updatedAt: now, updatedBy: user.id })

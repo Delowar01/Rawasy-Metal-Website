@@ -46,12 +46,13 @@ export async function issueToken(db: Db, input: IssueTokenInput): Promise<{ toke
   return { token, row };
 }
 
-/** Marks a user's unused tokens of the given purposes as used (so old links stop working). */
-export async function retireTokens(db: Db, userId: string, purposes: TokenPurpose[], now: Date): Promise<void> {
-  await db
+/** Marks a user's unused tokens of the given purposes as used (so old links stop working); returns how many. */
+export async function retireTokens(db: Db, userId: string, purposes: TokenPurpose[], now: Date): Promise<number> {
+  const [result] = await db
     .update(authTokens)
     .set({ usedAt: now })
     .where(and(eq(authTokens.userId, userId), inArray(authTokens.purpose, purposes), isNull(authTokens.usedAt)));
+  return result.affectedRows;
 }
 
 /**

@@ -8,6 +8,9 @@
  *    and the roles to change are decided against the target as it is under its row lock.
  *  - Finding 3: every spelling of an email address is one key (sign-in slots and account lookup alike).
  *  - Invitations sent by a user who is disabled or loses a role are withdrawn.
+ *  - The third review: an invitation link carries its issuer's authority, never more — raising the invited account's
+ *    roles withdraws it, acceptance checks the issuer against the account as it is then, a new link is decided under the
+ *    account's row lock, and a re-enable retires a link left from around the disable.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -54,6 +57,26 @@ function paused(base: PasswordHasher) {
     },
   };
   return { deps: { ...env.deps, hasher }, checked, release };
+}
+
+/** A hasher that stops right after it has hashed a new password (an invitation being accepted), until released. */
+function pausedHash(base: PasswordHasher) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let reached!: () => void;
+  const hashed = new Promise<void>((resolve) => (reached = resolve));
+  const hasher: PasswordHasher = {
+    kind: base.kind,
+    async hash(password) {
+      const stored = await base.hash(password);
+      reached();
+      await gate;
+      return stored;
+    },
+    needsRehash: (stored) => base.needsRehash(stored),
+    verify: (stored, password) => base.verify(stored, password),
+  };
+  return { deps: { ...env.deps, hasher }, hashed, release };
 }
 
 /** Sessions of a user that are not revoked. */
@@ -369,5 +392,96 @@ describe("invitations are only as good as their inviter's authority", () => {
     assert.ok(await inspectInvitation(env.deps, kept), "a role added: the invitation stands");
     assert.equal((await setUserRoles(env.deps, ownerActor, admin.id, ["reviewer"], meta())).kind, "ok");
     assert.equal(await inspectInvitation(env.deps, kept), null, "a role taken: the invitation is withdrawn");
+  });
+});
+
+describe("third review — an invitation link carries its issuer's authority, never more", () => {
+  /** An Owner, and an Admin who invites a new Editor (the link read from the mail sink). */
+  async function invitedByAdmin(email: string) {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const admin = await createUser(env, { roles: ["admin"], mfa: true });
+    const adminActor = await actorFor(env, admin);
+    assert.equal((await inviteUser(env.deps, adminActor, { email, displayName: "Invited Person", roles: ["editor"] }, meta())).kind, "invited");
+    const message = env.mail().filter((m) => m.to === email && m.kind === "invitation").at(-1);
+    assert.ok(message);
+    const [invited] = await db().select().from(users).where(eq(users.emailNormalized, email));
+    return { ownerActor: await actorFor(env, owner), adminActor, invited, token: linkToken(message.text, "invite") };
+  }
+
+  test("an Owner raising the invited account's roles withdraws the Admin's link: it activates no Owner or Admin; the Owner's new link does", async () => {
+    for (const [i, raised] of [["owner"], ["admin", "editor"]].entries()) {
+      const email = `raised-${i}@example.test`;
+      const { ownerActor, invited, token } = await invitedByAdmin(email);
+      assert.ok(await inspectInvitation(env.deps, token), "the link works before the change");
+      const changed = await setUserRoles(env.deps, ownerActor, invited.id, raised, meta());
+      assert.equal(changed.kind, "ok");
+      assert.equal(await inspectInvitation(env.deps, token), null, `${raised}: the page offers nothing`);
+      assert.deepEqual(await acceptInvitation(env.deps, { token, password: strongPassword() }, meta()), { kind: "invalid" }, `${raised}`);
+      assert.equal((await userRow(invited.id)).status, "invited");
+      assert.match(changed.kind === "ok" ? changed.summary : "", /their pending invitation link withdrawn/, "the Owner is told");
+      // The Owner, who may grant the new roles, sends a new link: that one works (positive control).
+      assert.equal((await resendInvitation(env.deps, ownerActor, invited.id, meta())).kind, "invited");
+      const fresh = linkToken(env.mail().filter((m) => m.to === email && m.kind === "invitation").at(-1)!.text, "invite");
+      assert.deepEqual((await inspectInvitation(env.deps, fresh))?.roles, [...raised].sort());
+      assert.equal((await acceptInvitation(env.deps, { token: fresh, password: strongPassword() }, meta())).kind, "ok");
+    }
+  });
+
+  test("acceptance decides again with the link and the account locked: a promotion committed while the password was being hashed wins", async () => {
+    // Through a role change (which withdraws the link), and by hand (no withdrawal: the issuer's authority alone decides).
+    for (const how of ["role change", "by hand"] as const) {
+      const { ownerActor, invited, token } = await invitedByAdmin(`raced-${how.replace(" ", "-")}@example.test`);
+      const race = pausedHash(env.deps.hasher);
+      const accepting = acceptInvitation(race.deps, { token, password: strongPassword() }, meta());
+      await race.hashed;
+      if (how === "role change") assert.equal((await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta())).kind, "ok");
+      else await db().insert(userRoles).values({ userId: invited.id, roleKey: "owner", grantedAt: env.deps.clock() });
+      race.release();
+      assert.deepEqual(await accepting, { kind: "invalid" }, how);
+      assert.equal((await userRow(invited.id)).status, "invited", how);
+      assert.equal(await inspectInvitation(env.deps, token), null, how);
+      if (how === "by hand") {
+        // Refused inside the transaction: the link is withdrawn (it stays dead when the role goes again) and audited.
+        await db().delete(userRoles).where(and(eq(userRoles.userId, invited.id), eq(userRoles.roleKey, "owner")));
+        assert.equal(await inspectInvitation(env.deps, token), null, "withdrawn, not only refused");
+        const audited = await db().select().from(auditEvents).where(and(eq(auditEvents.action, "user.invite_withdrawn"), eq(auditEvents.entityId, invited.id)));
+        assert.equal(audited.length, 1);
+      }
+    }
+  });
+
+  test("a new link is decided under the invited account's row lock: a promotion committed meanwhile wins", async () => {
+    const { adminActor, invited, token } = await invitedByAdmin("resend-raced@example.test");
+    const held = await env.pool.getConnection();
+    try {
+      await held.query("START TRANSACTION");
+      await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [invited.id]);
+      await held.query("INSERT INTO user_roles (user_id, role_key, granted_at) VALUES (?, 'admin', UTC_TIMESTAMP(3))", [invited.id]);
+      // Authorised against the editor role it can still see; its transaction then waits for the account's row.
+      const resending = resendInvitation(env.deps, adminActor, invited.id, meta());
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await held.query("COMMIT");
+      assert.deepEqual(await resending, { kind: "denied" });
+    } finally {
+      held.release();
+    }
+    const links = await db().select().from(authTokens).where(and(eq(authTokens.userId, invited.id), eq(authTokens.purpose, "invitation")));
+    assert.equal(links.length, 1, "no new link issued");
+    assert.equal(await inspectInvitation(env.deps, token), null, "and the Admin's first link no longer covers the account's roles");
+  });
+
+  test("re-enabling an invited account retires an invitation link left from around its disable", async () => {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const ownerActor = await actorFor(env, owner);
+    const email = "reenabled-invite@example.test";
+    assert.equal((await inviteUser(env.deps, ownerActor, { email, displayName: "Re Enabled", roles: ["editor"] }, meta())).kind, "invited");
+    const [invited] = await db().select().from(users).where(eq(users.emailNormalized, email));
+    assert.equal((await setUserStatus(env.deps, ownerActor, invited.id, "disabled", meta())).kind, "ok");
+    // A link that slipped in around the disable (made here by hand).
+    const { token } = await issueToken(db(), { userId: invited.id, purpose: "invitation", now: env.deps.clock(), createdBy: owner.id });
+    assert.equal((await setUserStatus(env.deps, ownerActor, invited.id, "active", meta())).kind, "ok");
+    assert.equal((await userRow(invited.id)).status, "invited");
+    assert.equal(await inspectInvitation(env.deps, token), null);
+    assert.deepEqual(await acceptInvitation(env.deps, { token, password: strongPassword() }, meta()), { kind: "invalid" });
   });
 });

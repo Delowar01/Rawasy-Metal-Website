@@ -140,9 +140,11 @@ async function deny(
  * The start of every change one user makes to another, inside its transaction (A2 Correction 1, review): both user rows
  * locked in one order (by id, so two people acting on each other at once queue instead of deadlocking), the actor still
  * active and its session still live (`SessionEndedError` otherwise), then the target and its roles as they are now —
- * the rank rule is decided on those. Revocations take a user's row before its sessions, in that order.
+ * the rank rule is decided on those. Revocations take a user's row before its sessions, in that order. Call it first in
+ * its transaction: InnoDB takes the transaction's snapshot at its first plain read, so the roles read here, after the row
+ * locks, see every role change committed before them (role changes are made under the user's row lock).
  */
-async function lockForChange(tx: Db, actor: Actor, targetId: string, now: Date): Promise<{ target: UserRow; roles: string[] } | null> {
+export async function lockForChange(tx: Db, actor: Actor, targetId: string, now: Date): Promise<{ target: UserRow; roles: string[] } | null> {
   const ids = [...new Set([actor.user.id, targetId])].sort();
   const rows = await tx.select().from(users).where(inArray(users.id, ids)).orderBy(asc(users.id)).for("update");
   const self = rows.find((row) => row.id === actor.user.id);
@@ -214,9 +216,10 @@ export async function setUserStatus(
     const next = row.passwordHash ? "active" : "invited";
     await tx.update(users).set({ status: next, disabledAt: null, disabledBy: null, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     // Nothing from before the disable comes back to life: any session left unrevoked is signed out (none is expected),
-    // and any reset or set-up link issued around the disable stops working.
+    // and any invitation, reset or set-up link issued around the disable stops working (an invited account needs a new
+    // invitation link).
     const leftover = await revokeUserSessions(tx, target.id, "user_disabled", now);
-    await retireTokens(tx, target.id, ["password_reset", "email_change", "owner_setup"], now);
+    await retireTokens(tx, target.id, ["invitation", "password_reset", "email_change", "owner_setup"], now);
     const summary = `Enabled ${userLabel(target)} (${next})${leftover ? `; ${leftover} earlier session(s) signed out` : ""}.`;
     await recordAudit(tx, {
       at: now,
@@ -238,7 +241,9 @@ export async function setUserStatus(
 /**
  * Replaces a user's roles (at least one). Signs the user out everywhere; a role taken away also withdraws the
  * invitations they sent. What changes is decided again inside the transaction, against the roles the user has under its
- * row lock, with the acting session checked there too (A2 Correction 1, review).
+ * row lock, with the acting session checked there too (A2 Correction 1, review). An invited user's pending link is
+ * withdrawn by any role change (A2 Correction 1, third review): it was issued for the roles its issuer could grant, so
+ * the new roles need a new link from someone allowed to grant them.
  */
 export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: string, nextRoles: string[], meta: RequestMeta): Promise<ManageResult> {
   const action = "user.roles_change";
@@ -268,8 +273,9 @@ export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: strin
     if (added.length) await tx.insert(userRoles).values(added.map((roleKey) => ({ userId: target.id, roleKey, grantedBy: actor.user.id, grantedAt: now })));
     await tx.update(users).set({ updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     const revoked = await revokeUserSessions(tx, target.id, "role_changed", now);
+    const ownLink = await retireTokens(tx, target.id, ["invitation", "owner_setup"], now);
     const withdrawn = removed.length ? await retireInvitationsIssuedBy(tx, target.id, now) : 0;
-    const summary = `Roles of ${userLabel(target)}: ${before.join(", ") || "none"} → ${roles.join(", ")}; ${revoked} session(s) signed out${withdrawn ? `; ${withdrawn} pending invitation(s) they sent withdrawn` : ""}.`;
+    const summary = `Roles of ${userLabel(target)}: ${before.join(", ") || "none"} → ${roles.join(", ")}; ${revoked} session(s) signed out${ownLink ? "; their pending invitation link withdrawn (send a new one)" : ""}${withdrawn ? `; ${withdrawn} pending invitation(s) they sent withdrawn` : ""}.`;
     await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,

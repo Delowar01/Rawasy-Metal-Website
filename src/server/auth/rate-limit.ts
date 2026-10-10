@@ -64,11 +64,13 @@ const slotHashes = (normalizedEmail: string) => {
  */
 export async function reserveCredentialCheck(db: Db, normalizedEmail: string, now: Date): Promise<boolean> {
   const slots = slotHashes(normalizedEmail);
-  // The slot rows exist from the first attempt on (as free slots); IGNORE leaves existing ones alone.
+  // The slot rows exist from the first attempt on (as free slots); IGNORE leaves existing ones alone. Inserted in key
+  // order, the order in which clearCredentialChecks' UPDATE locks the same rows, so the two never wait for each other in
+  // a cycle (A2 Correction 1, third review).
   await db
     .insert(rateLimits)
     .ignore()
-    .values(slots.map((keyHash) => ({ keyHash, windowStart: SLOT_ROW, count: 0, expiresAt: SLOT_ROW })));
+    .values([...slots].sort(Buffer.compare).map((keyHash) => ({ keyHash, windowStart: SLOT_ROW, count: 0, expiresAt: SLOT_ROW })));
   const freeAgainAt = new Date(now.getTime() + LIMITS.credentialChecks.windowMs);
   for (const keyHash of slots) {
     const [taken] = await db

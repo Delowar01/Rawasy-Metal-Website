@@ -240,6 +240,21 @@ describe("freeing the slots", () => {
     assert.equal(await reservation, true, "a freed slot, not a refusal");
     assert.equal(await takenSlots(email), 1);
   });
+
+  test("reservations and freeing at the same moment never deadlock: both take an email's rows in one order", async () => {
+    // A2 Correction 1, third review: the reservation's INSERT IGNORE took the 5 rows in slot order and the freeing
+    // UPDATE in key order, so the two could wait for each other (21 and 26 deadlocks in two probes of 600 such rounds).
+    const failures: unknown[] = [];
+    for (let round = 0; round < 300; round++) {
+      const email = `same-moment-${round % 20}@example.test`;
+      const work: Promise<unknown>[] = [];
+      for (let i = 0; i < 6; i++) work.push(reserveCredentialCheck(db(), email, env.deps.clock()), clearCredentialChecks(db(), email));
+      for (const outcome of await Promise.allSettled(work)) {
+        if (outcome.status === "rejected") failures.push(outcome.reason?.cause?.code ?? outcome.reason?.code ?? String(outcome.reason));
+      }
+    }
+    assert.deepEqual(failures, []);
+  });
 });
 
 describe("password checks in a signed-in session", () => {
