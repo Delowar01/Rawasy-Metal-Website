@@ -11,7 +11,7 @@
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
 - Latest report: `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` (Admin / CMS program, Phase A2 — authentication,
-  RBAC, database foundation and admin shell, local implementation only)
+  RBAC, database foundation and admin shell, local implementation only; its "A2 CORRECTION 1" section is at the end)
   (earlier: `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
   `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
   `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
@@ -143,13 +143,25 @@
   typecheck, build with no database settings, public 612 / 612 (one earlier run 611 / 612 on a pre-existing race of the
   frozen homepage showcase, the same rate on the baseline: see the gotcha), unit 15 / 15, integration 83 / 83, admin
   24 / 24. The public site is frozen and proven unchanged against `preserve/pre-admin-a2` (report, item "public freeze
-  proof"): files, stylesheets, modules, 102 pages over HTTP and 238 screens. **Do not start A3** (no CMS editing,
+  proof"): files, stylesheets, modules, 102 pages over HTTP and 238 screens. The user's review did not approve A2 yet:
+  **A2 Correction 1 is built** (the user's "PHASE A2 — CORRECTION 1" brief; section "A2 CORRECTION 1" at the end of the
+  A2 report; checkpoint `preserve/pre-admin-a2-correction1` at `b47d8e5`) and awaits independent review. Its commits, each
+  on its own: `0a7a3c9` a rotated or revoked token never authenticates (the 30-second grace alias is gone); `7d55e4a`
+  100-bit recovery codes; `c844c27` at most 5 password checks per email before any hash; `d09cb4b` the `ADMIN_ENABLED`
+  gate; `ba53a3e` the fixes of a focused security review (no session from a password replaced during the sign-in, no
+  change by a session revoked mid-request, idempotent email normalisation, invitations withdrawn with their inviter's
+  authority); `4eab6d3` credential-check slots freed, never deleted; `d9bec5a` a second review pass (the acting user
+  checked under its own row lock, the rank rule re-decided under the lock for unlock and sign-out, `lockActor`,
+  `rotateIfDue` locks the user first, a lost hash upgrade re-checked, re-enabling retires reset links); `ddf7b71` a third
+  pass (an invitation link carries its issuer's authority, never more; credential-check slots inserted in key order).
+  Its fresh-clone QA and a fourth review pass were still running at this commit; the results come with the report section.
+  **Do not start A3** (no CMS editing,
   media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
   content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
-  the public site (A1–A4 change no appearance, and nothing from the admin reaches production before the A9 cutover: a
-  release built from this branch would carry `/admin`, so the release procedure before A9 is the user's decision —
-  report item "outstanding limitations").
+  the public site (A1–A4 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
+  Correction 1 a release built from this branch carries the admin code but serves none of it unless `ADMIN_ENABLED=1`;
+  production and staging leave it unset, so `/admin` is the public localized 404 there, as before A2).
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
   COMMERCE A V2 THEME MIGRATION" brief). The target was modern commerce × premium industrial B2B × manufacturing (a
   company selling capabilities, not ecommerce). Source of truth was `/theme-lab/{en,ar}/modern-commerce-a-v2` (the lab
@@ -320,8 +332,15 @@
   account/security, account/sessions, users, users/invite, users/[id], users/roles); components in
   `src/components/admin/` (client components may import only `@/server/admin/actions/*` — lint rule). Links inside the
   admin use `next/link`; links to the public site stay plain `<a>`.
-- Proxy: `src/proxy.ts` runs the admin branch first (`isAdminPath`): a 16-byte nonce, the nonce CSP on the request
-  (`x-nonce`) and the response, `ADMIN_PAGE_HEADERS` (`src/lib/admin-headers.ts`); no session check there. The API
+- The admin gate (Correction 1, `src/lib/admin-gate.ts` `isAdminEnabled`): `ADMIN_ENABLED=1` on; any other value off;
+  unset, on only in local development (`APP_ENV=local`, or no `APP_ENV` outside a production build). Staging and
+  production are off unless explicitly `1`; never inferred from `DB_*`. Off: the proxy takes no admin branch, so
+  `/admin/**` gets the public locale redirect and localized 404 (as before A2), and `assertAdminEnabled()` (`notFound()`)
+  stops every admin layout (after `connection()`, so never at build), `getAdminState`, `authDeps`, `actionContext` and
+  `publicActionContext` before any cookie or database access. `e2e-admin/gate.spec.ts` starts `server.js` per setting
+  with a connection-counting stand-in database; `.env.example` documents the variable; no production value exists.
+- Proxy: `src/proxy.ts` runs the admin branch first when the gate is on (`isAdminPath`): a 16-byte nonce, the nonce CSP
+  on the request (`x-nonce`) and the response, `ADMIN_PAGE_HEADERS` (`src/lib/admin-headers.ts`); no session check there. The API
   namespaces where every A1-planned endpoint lives, `/api/admin/**` and `/api/internal/**`, get static headers from
   `next.config.ts` (no-store, noindex, nosniff, no-referrer, CSP `default-src 'none'; frame-ancestors 'none'; sandbox`);
   any other `/api/…` address keeps Next's own 404 unchanged — A1 §4 said `/api/**`, but its sandbox CSP stopped Next's
@@ -355,8 +374,47 @@
     trusted position gives no address, never a client-written one).
   - Enrolment refusals (other origin, replacement without a recent step-up) are audited through `auditDenied`
     (`guards.ts`), like every `actionContext` refusal.
-  - Known limit: concurrent wrong passwords at the sign-in page can each be checked before the lock is written (the
-    password is hashed outside the row lock); the per-address limit (30 / 15 min) bounds it.
+- Security invariants from A2 Correction 1 (keep them; each has a test that fails on `b47d8e5`):
+  - A revoked token never authenticates, whatever `revoked_reason` says: `lookupSession` answers live / ended / none,
+    `replaced_by_id` is lineage only (never followed), no grace window. A stale request or tab goes to
+    `/admin/login?session_ended=1` and recovers only with the new cookie its own response delivered.
+  - `signIn` creates its session (pending or full) in one transaction holding the user row, only while the account is as
+    it was checked: the same password hash (or the rehash it wrote; a rehash that lost to another sign-in's upgrade
+    re-checks the password against the stored hash), active, not deleted, not locked; otherwise `failed`, audited, and
+    never counted towards the lockout (a password replaced meanwhile is not recorded as an attempt at all). Re-enabling
+    an account revokes any session left from before the disable and retires its reset, email-change and set-up links.
+  - Every change made by a signed-in user that does not rotate the session proves, inside its transaction, that the
+    acting user is still active and the acting session still live (`SessionEndedError` otherwise). Changes to one's own
+    account start with `lockActor` (`sessions.ts`: the user's row, then the session); user-on-user changes with
+    `lockForChange` (`user-admin.ts`: both user rows in id order, the actor active, then the acting session, then the
+    target and its roles as they are now) — the rank rule (status, roles, unlock, sign-out) and the role diff are decided
+    there. `rotateIfDue` locks the user's row before claiming the session. Lock order everywhere: a user's row, then its
+    sessions (a self-service change that locked its session first deadlocked with "sign out everywhere": 24 / 13 / 15
+    deadlocks per 60 rounds of the review's probe, 0 since).
+  - Credential-check slots (`rate-limit.ts`): 5 rows per email, keyed by SHA-256 of `login:credential:<hex SHA-256 of the
+    normalised email>#<slot>`, each claimed by one conditional UPDATE (`expires_at <= now`), reserved before the account
+    lookup and before any Argon2 or dummy hash (sign-in, step-up, password change, 2FA set-up); with all 5 taken nothing is
+    hashed (`failed`, or "temporarily locked" in a session). Freed — never deleted — by a successful password check, a
+    reset, an unlock, the bootstrap recovery reset and an accepted invitation. The per-address limit stays outside.
+  - Recovery codes (`security/recovery-codes.ts`): 20 Crockford Base32 characters (100 bits), `xxxxx-xxxxx-xxxxx-xxxxx`,
+    10, single use, SHA-256 of the normalised code only.
+  - `normalizeEmail` is NFKC → lower-case → NFKC → trim (idempotent; `tests/unit/email.test.ts`).
+  - Disabling a user, or taking a role from them, withdraws the unused invitations they sent.
+  - An invitation link carries its issuer's authority, never more (third review): `inspectInvitation` and
+    `acceptInvitation` require the issuer (`auth_tokens.created_by`) to be active and allowed to invite, manage and grant
+    every role the invited account holds now (`issuerStillAuthorises`; re-checked in the accept transaction with the
+    token and the account locked, withdrawn and audited `user.invite_withdrawn` on failure); any role change of an
+    invited account withdraws its own pending link (`setUserRoles`); `resendInvitation` decides under `lockForChange`;
+    re-enabling retires `invitation` links too. The Owner setup link (bootstrap, no issuer) is not affected.
+  - Credential-check slot rows are inserted in key order (`reserveCredentialCheck`), the order the freeing UPDATE locks
+    them: slot order deadlocked with it (21 / 26 per 600 probe rounds; 0 since; `admission.test.ts`).
+- Owner decisions locked by the Correction 1 brief (do not ask again): certificate edit Owner + Admin, certificate publish
+  Owner only, `media.view` all four roles, A3 adds a "project flags — add" permission (all four roles may add restrictive
+  flags; only Owner / Admin clear blocking flags or approve public media); a full sign-in with password and required 2FA
+  counts as the step-up for 10 minutes; mail stays disabled / local sink (no SMTP); drizzle-kit's dev-only advisory is
+  accepted (no forced downgrade; production audit must stay 0); the homepage showcase race: component and tests unchanged;
+  API headers stay on `/api/admin/**` and `/api/internal/**`; host/account checks and key escrow are pre-staging work; no
+  Next.js upgrade.
 
 ## Rules from the brief
 
@@ -1643,3 +1701,33 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - On phones the homepage grows after its images load (11,980 → 12,063 px in English, 11,928 → 12,030 px in Arabic, on
   every build): a page-height comparison must walk the page and wait for every image, or it compares loading moments.
 - The Bash safety check refuses `rm -rf "$VAR/…"`: use literal absolute paths (or `${VAR:?}`).
+- Next 16 forwards a Server Action posted to any page whose worker lacks it to a worker that has it (an internal fetch
+  through the proxy, `redirect: "manual"`: `selectWorkerForForwarding` in `manifests-singleton.js`): gate the actions
+  themselves, not only the proxy and the layout (A2 Correction 1 does both).
+- A forged Server Action request needs React's reply encoding: part `0` = `[{"status":"idle"},"$K1"]` (the form state,
+  then the FormData) and the fields as `1_<name>`. With only `["$K1"]` the action fails on `form.get` before any database
+  call, which makes a "no database connection" check pass for the wrong reason; keep a positive control that reaches it.
+- `notFound()` thrown by a root layout (the admin's, gate off, proxy bypassed) answers 404 with Next's error shell
+  (`<html id="__next_error__">`), the layout's metadata title and the same segment's `not-found.tsx` in the payload.
+- Playwright cannot set a `__Host-` Secure cookie for `http://localhost` with `context.addCookies` ("Invalid cookie
+  fields"); browser tests receive the new cookie through the app's own responses (a rotation in the page).
+- The admin browser suite signs in more than 30 times in 15 minutes from one address: its `beforeEach` empties
+  `rate_limits`, or the per-address limit fails later tests.
+- `pgrep -f "[n]ode server.js"` misses `node /abs/path/server.js` (spawned by tests): match on the path or the port.
+- InnoDB REPEATABLE READ (MariaDB default here) makes its read view at the first non-locking read: reads after a
+  `SELECT … FOR UPDATE` that waited see what committed before the lock was granted (the re-checks under a row lock rely on
+  it; a transaction that reads first and locks later would not).
+- Two users changing each other at once deadlock unless both user rows are locked in one order first; `inTransaction`'s
+  single deadlock retry can deadlock again (one Owner-race round of five did before `lockForChange`).
+- A limiter that deletes its rows to "reset" races a concurrent `INSERT IGNORE` + conditional-UPDATE claim (the claim finds
+  no row and refuses): free the rows instead (`clearCredentialChecks`).
+- `toLowerCase()` after NFKC can produce a sequence NFKC composes ("J" + U+030C → "ǰ", "H" + U+0331 → "ẖ"): normalise
+  again after lower-casing, or two spellings of one address get two keys.
+- A multi-row `INSERT IGNORE` takes its rows' locks in VALUES order, while an `UPDATE … WHERE key IN (…)` takes them in
+  index order: with the rows in a different order the two deadlock (the credential-check slots did, 21 times in 600
+  probe rounds). Insert multi-row sets sorted by the key (`Buffer.compare` for `binary` keys).
+- A token or link issued by one user and honoured later must be checked against what its issuer may grant *now* and
+  against the account *as it is now* (the invitation link outlived a role raise of the invited account until the third
+  review). When adding a new link or token type, decide who may issue it and re-check that at use, under the row lock.
+- A probe script in the session scratchpad that imports `drizzle-orm` needs a `node_modules` next to it (a symlink to the
+  repository's) — bare imports resolve from the script's folder, not the working directory.
