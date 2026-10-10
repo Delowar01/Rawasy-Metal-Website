@@ -12,11 +12,12 @@ import { auditEvents, sessions, userMfa, userRoles, users } from "../db/schema.t
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { canGrantRoles, canManageUser, isOwner } from "../policy/rbac.ts";
 import { ROLE_KEYS } from "../policy/registry.ts";
+import { sha256 } from "../security/ids.ts";
 import { activeOwnerIds, findUserById, rolesOf, rolesOfMany, type UserRow } from "./accounts.ts";
 import type { AuthDeps } from "./deps.ts";
 import { removeMfa } from "./mfa.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
-import { listLiveSessions, lockActingSession, revokeSession, revokeUserSessions, SessionEndedError, type SessionRow } from "./sessions.ts";
+import { listLiveSessions, lockActingSession, revokeSessionLineage, revokeUserSessions, SessionEndedError, type SessionRow } from "./sessions.ts";
 import { retireInvitationsIssuedBy, retireTokens } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
@@ -72,13 +73,60 @@ export interface UserDetail extends UserListItem {
   disabledAt: Date | null;
   sessions: SessionRow[];
   recentEvents: { occurredAt: Date; action: string; outcome: string; summary: string; ip: string | null }[];
+  /** The account as this page shows it (`accountVersion`): every form on the page sends it back. */
+  version: string;
+}
+
+/**
+ * The account as a page shows it, as one short fingerprint (A2 Correction 1, fifth review): its status, last change,
+ * disable, sign-in lock, roles and second factor. Every user-management form sends back the fingerprint of the page it
+ * was on, and a change that can grant, restore or loosen access (roles, enable, unlock, a 2FA reset, a new invitation
+ * link) is refused (`changed`) when the account under its row lock no longer has it — so nothing is decided on an older
+ * state of the account: a demotion, a re-disable, a new lock or a new authenticator committed while the page was open
+ * is never undone by it. Disabling and signing out are never refused for this reason.
+ */
+export function accountVersion(user: UserRow, roles: readonly string[], mfaConfirmedAt: Date | null): string {
+  const parts = [
+    user.status,
+    user.updatedAt.toISOString(),
+    user.disabledAt?.toISOString() ?? "-",
+    user.lockedUntil?.toISOString() ?? "-",
+    [...roles].sort().join(","),
+    mfaConfirmedAt?.toISOString() ?? "-",
+  ];
+  return sha256(parts.join("|")).toString("hex").slice(0, 32);
+}
+
+/** The fingerprint a form was rendered with (`accountVersion`). */
+export interface Expected {
+  version: string;
+}
+
+async function mfaConfirmedAt(db: Db, userId: string): Promise<Date | null> {
+  const [row] = await db.select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, userId)).limit(1);
+  return row?.confirmedAt ?? null;
+}
+
+/**
+ * Inside a change's transaction, after `lockForChange`: does the account still look as the form's page showed it? (No
+ * fingerprint given — the CLIs and internal callers — means nothing to compare.) The second factor is read under the
+ * user's row lock, which every change to it holds.
+ */
+export async function accountUnchanged(tx: Db, locked: { target: UserRow; roles: string[] }, expected: Expected | undefined): Promise<boolean> {
+  if (!expected) return true;
+  return accountVersion(locked.target, locked.roles, await mfaConfirmedAt(tx, locked.target.id)) === expected.version;
 }
 
 export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string): Promise<UserDetail | null> {
-  const list = await listUsers(deps, actor);
-  const item = list.find((u) => u.id === userId);
-  const user = item ? await findUserById(deps.db, userId) : null;
-  if (!item || !user) return null;
+  const now = deps.clock();
+  // One snapshot: what the page shows and the fingerprint its forms send back describe the same state of the account.
+  const state = await inTransaction(deps.pool, async (tx) => {
+    const found = await findUserById(tx, userId);
+    return found ? { user: found, roles: await rolesOf(tx, userId), mfa: await mfaConfirmedAt(tx, userId) } : null;
+  });
+  if (!state) return null;
+  const { user, roles, mfa } = state;
+  const live = await listLiveSessions(deps.db, userId, now);
   const events = await deps.db
     .select({
       occurredAt: auditEvents.occurredAt,
@@ -92,17 +140,27 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
     .orderBy(desc(auditEvents.id))
     .limit(20);
   return {
-    ...item,
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    status: user.status,
+    roles,
+    mfaEnabled: Boolean(mfa),
+    lockedUntil: user.lockedUntil && user.lockedUntil.getTime() > now.getTime() ? user.lockedUntil : null,
+    lastLoginAt: user.lastLoginAt,
+    liveSessions: live.length,
+    manageable: user.id !== actor.user.id && canManageUser(actor, { roles }),
     createdAt: user.createdAt,
     passwordChangedAt: user.passwordChangedAt,
     failedLoginCount: user.failedLoginCount,
     disabledAt: user.disabledAt,
-    sessions: await listLiveSessions(deps.db, userId, deps.clock()),
+    sessions: live,
     recentEvents: events,
+    version: accountVersion(user, roles, mfa),
   };
 }
 
-/** Why a change was refused; `changed`: the account is no longer in the state the change was decided on. */
+/** Why a change was refused; `changed`: the account is no longer as the page that asked for the change showed it. */
 export type DenyReason = "permission" | "rank" | "self" | "owner_only" | "changed";
 
 export type ManageResult =
@@ -118,7 +176,7 @@ async function deny(deps: AuthDeps, actor: Actor, meta: RequestMeta, action: str
     rank: "the user's rank is equal or higher",
     self: "one cannot do this to one's own account",
     owner_only: "only an Owner may do this",
-    changed: "the account's status changed after the page that asked for this was opened",
+    changed: "the account changed after the page that asked for this was opened",
   }[reason];
   await recordAudit(deps.db, {
     at: deps.clock(),
@@ -165,7 +223,9 @@ async function authorize(deps: AuthDeps, actor: Actor, meta: RequestMeta, action
 /**
  * Disables (signing the user out everywhere and withdrawing the invitations they sent) or re-enables an account. The
  * acting session and the rank rule are checked again inside the transaction, under the target's row lock (A2
- * Correction 1, review): a revocation of the actor or a role change of the target committed meanwhile counts.
+ * Correction 1, review): a revocation of the actor or a role change of the target committed meanwhile counts. Enabling
+ * also requires the account to be as the page showed it (`expected`, fifth review): a re-enable decided on an earlier
+ * disable never undoes a newer one. Disabling is never refused for that reason.
  */
 export async function setUserStatus(
   deps: AuthDeps,
@@ -173,6 +233,7 @@ export async function setUserStatus(
   targetId: string,
   status: "active" | "disabled",
   meta: RequestMeta,
+  expected?: Expected,
 ): Promise<ManageResult> {
   const action = status === "disabled" ? "user.disable" : "user.enable";
   const checked = await authorize(deps, actor, meta, action, "users.disable", targetId);
@@ -183,7 +244,7 @@ export async function setUserStatus(
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return { kind: "not_found" as const };
     const { target: row, roles } = locked;
-    if (!canManageUser(actor, { roles })) return { kind: "refused" as const };
+    if (!canManageUser(actor, { roles })) return { kind: "refused" as const, reason: "rank" as const };
     if (status === "disabled") {
       if (row.status === "disabled") return { kind: "ok" as const, summary: "Already disabled." };
       if (roles.includes("owner") && row.status === "active") {
@@ -208,6 +269,7 @@ export async function setUserStatus(
       });
       return { kind: "ok" as const, summary };
     }
+    if (!(await accountUnchanged(tx, locked, expected))) return { kind: "refused" as const, reason: "changed" as const };
     if (row.status !== "disabled") return { kind: "ok" as const, summary: "Already enabled." };
     // An account disabled before it accepted its invitation returns to "invited" (it has no password yet).
     const next = row.passwordHash ? "active" : "invited";
@@ -231,7 +293,7 @@ export async function setUserStatus(
     });
     return { kind: "ok" as const, summary };
   });
-  if (result.kind === "refused") return deny(deps, actor, meta, action, target, "rank");
+  if (result.kind === "refused") return deny(deps, actor, meta, action, target, result.reason);
   return result;
 }
 
@@ -243,10 +305,11 @@ export async function setUserStatus(
  * the new roles need a new link from someone allowed to grant them. So is a pending password-reset or email-change link
  * (fourth review): it was minted for the account as it was.
  *
- * `expected.status` is the status the page showed when the change was decided (the roles form sends it): if the account
- * is no longer in that state under its row lock — an invitation accepted meanwhile, for one — the change is refused
- * (`changed`), so a promotion meant for an invited person never lands on an account someone else has just activated
- * with an older link (A2 Correction 1, fourth review).
+ * `expected` is the account as the page showed it when the roles were chosen (the roles form sends its fingerprint): if
+ * the account is not that any more under its row lock, the change is refused (`changed`) — so a promotion meant for an
+ * invited person never lands on an account someone else has just activated with an older link (A2 Correction 1, fourth
+ * review), and a role another Owner has just taken away is never given back by a form that still showed it (fifth
+ * review: the form sends the whole set of roles it shows).
  */
 export async function setUserRoles(
   deps: AuthDeps,
@@ -254,7 +317,7 @@ export async function setUserRoles(
   targetId: string,
   nextRoles: string[],
   meta: RequestMeta,
-  expected?: { status: UserRow["status"] },
+  expected?: Expected,
 ): Promise<ManageResult> {
   const action = "user.roles_change";
   const roles = [...new Set(nextRoles)];
@@ -262,7 +325,6 @@ export async function setUserRoles(
   const checked = await authorize(deps, actor, meta, action, "users.edit", targetId);
   if ("refusal" in checked) return checked.refusal as ManageResult;
   const { target, roles: seen } = checked;
-  if (expected && target.status !== expected.status) return deny(deps, actor, meta, action, target, "changed");
   const changing = [...roles.filter((r) => !seen.includes(r)), ...seen.filter((r) => !roles.includes(r))];
   if (changing.length === 0) return { kind: "ok", summary: "No change." };
   if (!canGrantRoles(actor, changing)) return deny(deps, actor, meta, action, target, isOwner(actor) ? "rank" : "owner_only");
@@ -271,7 +333,7 @@ export async function setUserRoles(
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return { kind: "not_found" as const };
     const { target: row, roles: before } = locked;
-    if (expected && row.status !== expected.status) return { kind: "refused" as const, reason: "changed" as const };
+    if (!(await accountUnchanged(tx, locked, expected))) return { kind: "refused" as const, reason: "changed" as const };
     const added = roles.filter((r) => !before.includes(r));
     const removed = before.filter((r) => !roles.includes(r));
     if (added.length === 0 && removed.length === 0) return { kind: "ok" as const, summary: "No change." };
@@ -321,7 +383,8 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
     if (sessionId) {
       const [owned] = await tx.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.userId, target.id))).limit(1);
       if (!owned) return { kind: "not_found" };
-      count = (await revokeSession(tx, sessionId, "revoked", now)) ? 1 : 0;
+      // With the session that replaced it, if it rotated after the page listed it (fifth review).
+      count = (await revokeSessionLineage(tx, sessionId, "revoked", now)) ? 1 : 0;
     } else {
       count = await revokeUserSessions(tx, target.id, "revoked", now);
     }
@@ -341,18 +404,22 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
   return result.kind === "refused" ? deny(deps, actor, meta, action, target, "rank") : result;
 }
 
-/** Clears a sign-in lock and the email's credential-check slots (A2 Correction 1). */
-export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta): Promise<ManageResult> {
+/**
+ * Clears a sign-in lock and the email's credential-check slots (A2 Correction 1) — only the lock the page showed
+ * (`expected`, fifth review): a newer lock, set after more failed attempts, is not cleared by an older page.
+ */
+export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.unlock";
   const checked = await authorize(deps, actor, meta, action, "users.edit", targetId);
   if ("refusal" in checked) return checked.refusal as ManageResult;
   const { target } = checked;
   const now = deps.clock();
   const summary = `Unlocked ${userLabel(target)}.`;
-  const result = await inTransaction(deps.pool, async (tx): Promise<ManageResult | { kind: "refused" }> => {
+  const result = await inTransaction(deps.pool, async (tx): Promise<ManageResult | { kind: "refused"; reason: DenyReason }> => {
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return { kind: "not_found" };
-    if (!canManageUser(actor, { roles: locked.roles })) return { kind: "refused" };
+    if (!canManageUser(actor, { roles: locked.roles })) return { kind: "refused", reason: "rank" };
+    if (!(await accountUnchanged(tx, locked, expected))) return { kind: "refused", reason: "changed" };
     await tx.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     await clearCredentialChecks(tx, target.emailNormalized);
     await recordAudit(tx, {
@@ -367,11 +434,14 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
     });
     return { kind: "ok", summary };
   });
-  return result.kind === "refused" ? deny(deps, actor, meta, action, target, "rank") : result;
+  return result.kind === "refused" ? deny(deps, actor, meta, action, target, result.reason) : result;
 }
 
-/** Owner only: removes another user's second factor (after confirming their identity outside the system). */
-export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta): Promise<ManageResult> {
+/**
+ * Owner only: removes another user's second factor (after confirming their identity outside the system) — only the one
+ * the page showed (`expected`, fifth review): an authenticator the user set up meanwhile is not removed by an older page.
+ */
+export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.mfa_reset";
   const target = await findUserById(deps.db, targetId);
   if (!isOwner(actor) || !actor.permissions.has("users.edit")) return deny(deps, actor, meta, action, target, "owner_only");
@@ -379,7 +449,9 @@ export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: strin
   if (target.id === actor.user.id) return deny(deps, actor, meta, action, target, "self");
   const now = deps.clock();
   const revoked = await inTransaction(deps.pool, async (tx) => {
-    if (!(await lockForChange(tx, actor, target.id, now))) return null;
+    const locked = await lockForChange(tx, actor, target.id, now);
+    if (!locked) return null;
+    if (!(await accountUnchanged(tx, locked, expected))) return "changed" as const;
     const count = await removeMfa(tx, target.id, now);
     await recordAudit(tx, {
       at: now,
@@ -394,6 +466,7 @@ export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: strin
     return count;
   });
   if (revoked === null) return { kind: "not_found" };
+  if (revoked === "changed") return deny(deps, actor, meta, action, target, "changed");
   await sendQuietly(
     deps.mailer,
     mailTemplates.securityNotice(target.email, target.displayName, "An Owner reset the two-factor authentication of your account. Set it up again at your next sign-in."),

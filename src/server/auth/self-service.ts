@@ -7,10 +7,13 @@ import { recordAudit, userLabel } from "../audit/audit.ts";
 import { inTransaction } from "../db/client.ts";
 import { sessions } from "../db/schema.ts";
 import type { AuthDeps } from "./deps.ts";
-import { lockActor, revokeSession, revokeUserSessions } from "./sessions.ts";
+import { lockActor, revokeSessionLineage, revokeUserSessions } from "./sessions.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
-/** Signs out one of the actor's other sessions (the current one is signed out with "Sign out"). */
+/**
+ * Signs out one of the actor's other sessions (the current one is signed out with "Sign out"), with the session that
+ * replaced it if it rotated after the list was shown (fifth review): the device the user saw is signed out either way.
+ */
 export async function revokeOwnSession(deps: AuthDeps, actor: Actor, sessionId: string, meta: RequestMeta): Promise<boolean> {
   if (sessionId === actor.session.id) return false;
   const now = deps.clock();
@@ -22,7 +25,7 @@ export async function revokeOwnSession(deps: AuthDeps, actor: Actor, sessionId: 
       .where(and(eq(sessions.id, sessionId), eq(sessions.userId, actor.user.id)))
       .limit(1);
     if (!owned) return false;
-    const done = await revokeSession(tx, sessionId, "revoked", now);
+    const done = await revokeSessionLineage(tx, sessionId, "revoked", now, actor.session.id);
     if (done) {
       await recordAudit(tx, {
         at: now,

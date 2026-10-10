@@ -440,6 +440,40 @@ test.describe("sessions and request integrity", () => {
     await halfway.context().close();
   });
 
+  test("a session signed out from the list ends even when it rotated after the list was shown (A2 Correction 1)", async ({ browser, page }) => {
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/account/sessions");
+    const rows = page.locator(".adm-list > li");
+    if ((await rows.count()) > 1) {
+      await page.getByRole("button", { name: "Sign out all other sessions" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Sign them out" }).click();
+    }
+    await expect(rows).toHaveCount(1);
+    // Another device signs in, and the list shows its session ...
+    const other = await newPage(browser);
+    await signIn(other, OWNER.email, PASSWORDS.owner);
+    await verify(other, ownerSecret);
+    await page.reload();
+    await expect(rows).toHaveCount(2);
+    // ... which then rotates there (a step-up), while this page still lists it as it was.
+    await ageAuthentication(OWNER.email);
+    await other.goto("/admin/users/invite");
+    await expect(other.getByRole("heading", { name: "Confirm it's you" })).toBeVisible();
+    await stepUpIfAsked(other, PASSWORDS.owner, ownerSecret);
+    await expect(other.getByRole("button", { name: "Send invitation" })).toBeVisible();
+    // Signing out the listed session signs the device out: not "That session has already ended".
+    const badge = (text: string) => page.locator(".adm-badge", { hasText: text });
+    await rows.filter({ hasNot: badge("This session") }).getByRole("button", { name: "Sign out" }).click();
+    const dialog = page.getByRole("dialog", { name: "Sign out this session?" });
+    await dialog.getByRole("button", { name: "Sign it out" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(rows).toHaveCount(1);
+    await other.goto("/admin");
+    await expect(other).toHaveURL(SESSION_ENDED);
+    await other.context().close();
+  });
+
   test("the sign-in action answers only the admin's own pages: refused cross-origin or cross-site, accepted from the admin", async ({ page }) => {
     await page.goto("/admin/login");
     const captured = await captureAction(page, "/admin/login", async () => {

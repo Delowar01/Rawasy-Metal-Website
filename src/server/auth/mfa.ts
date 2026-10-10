@@ -27,7 +27,7 @@ import { adminLink, type AuthDeps } from "./deps.ts";
 import { clearCredentialChecks, reserveCredentialCheck } from "./rate-limit.ts";
 import { isAccountLocked, registerFailure } from "./sign-in.ts";
 import { lockActor, revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
-import { issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
+import { issueToken, retireTokens, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
 
 export const associatedData = (userId: string) => `user_mfa:${userId}`;
@@ -266,6 +266,8 @@ export async function disableMfa(deps: AuthDeps, current: Current, meta: Request
     await tx.select({ id: users.id }).from(users).where(eq(users.id, current.user.id)).for("update");
     await tx.delete(userRecoveryCodes).where(eq(userRecoveryCodes.userId, current.user.id));
     await tx.delete(userMfa).where(eq(userMfa.userId, current.user.id));
+    // A pending reset link was not enough to sign in while the second factor was on; it must not become enough now.
+    await retireTokens(tx, current.user.id, ["password_reset", "email_change"], now);
     const others = await revokeUserSessions(tx, current.user.id, "revoked", now, current.session.id);
     const rotated = await rotateSession(tx, current.session, { now, ...meta, mfaCleared: true });
     await recordAudit(tx, {
@@ -287,10 +289,16 @@ export async function disableMfa(deps: AuthDeps, current: Current, meta: Request
   return { kind: "ok", ...result };
 }
 
-/** Removes a user's second factor and signs them out everywhere (used by the Owner's reset and the CLIs). */
+/**
+ * Removes a user's second factor and signs them out everywhere (used by the Owner's reset and the CLIs). Pending
+ * password-reset and email-change links are withdrawn too (A2 Correction 1, fifth review): a link that was not enough to
+ * sign in while the second factor was on would otherwise become enough once it is gone. The CLIs issue their own reset
+ * link after this, in the same transaction.
+ */
 export async function removeMfa(tx: Db, userId: string, now: Date): Promise<number> {
   await tx.delete(userRecoveryCodes).where(eq(userRecoveryCodes.userId, userId));
   await tx.delete(userMfa).where(eq(userMfa.userId, userId));
+  await retireTokens(tx, userId, ["password_reset", "email_change"], now);
   return revokeUserSessions(tx, userId, "revoked", now);
 }
 

@@ -7,19 +7,23 @@
 import { z } from "zod";
 import { inviteUser, resendInvitation } from "@/server/auth/invitations";
 import { resetUserMfa, revokeSessionsOf, setUserRoles, setUserStatus, unlockUser, type ManageResult } from "@/server/auth/user-admin";
-import { USER_STATUSES } from "@/server/db/schema";
 import { ROLE_KEYS } from "@/server/policy/registry";
 import { guarded } from "../context";
 import { actionContext, failure, type ActionState } from "../guards";
 
 const ULID = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+/**
+ * The account as the page showed it (`accountVersion`, A2 Correction 1, fifth review): changes that can grant, restore or
+ * loosen access are refused when the account has changed since, so nothing is decided on an older state of it.
+ */
+const VERSION = z.string().regex(/^[0-9a-f]{32}$/);
 
 const REFUSALS: Record<string, string> = {
   permission: "You don't have permission to do this.",
   rank: "You can't manage a user whose role is equal to or above yours.",
   self: "You can't do this to your own account. Another Owner must do it.",
   owner_only: "Only an Owner can do this.",
-  changed: "This account changed after you opened this page (for example, its invitation was accepted). Reload the page and check it before you try again.",
+  changed: "This account changed after you opened this page (for example, its roles or status changed, or its invitation was accepted). Reload the page and check it before you try again.",
 };
 
 function outcome(result: ManageResult): ActionState {
@@ -59,6 +63,8 @@ export async function inviteUserAction(_prev: InviteState, form: FormData): Prom
       return failure("An account with this email already exists.", { fields });
     case "denied":
       return failure("You can't grant these roles.", { fields });
+    case "changed":
+      return failure(REFUSALS.changed, { fields });
     case "invited":
       return { status: "ok", delivered: result.delivered, link: result.link, email: input.data.email };
   }
@@ -68,10 +74,11 @@ export async function resendInvitationAction(_prev: InviteState, form: FormData)
   const ctx = await actionContext("user.invite_resend", { permission: "users.invite" });
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
-  const id = ULID.safeParse(form.get("user"));
-  if (!id.success) return failure("Unknown user.");
-  const result = await guarded(() => resendInvitation(deps, actor, id.data, meta));
+  const input = z.object({ user: ULID, version: VERSION }).safeParse({ user: form.get("user"), version: form.get("version") });
+  if (!input.success) return failure("Unknown user.");
+  const result = await guarded(() => resendInvitation(deps, actor, input.data.user, meta, { version: input.data.version }));
   if (result.kind === "invited") return { status: "ok", delivered: result.delivered, link: result.link };
+  if (result.kind === "changed") return failure(REFUSALS.changed);
   return failure(result.kind === "denied" ? REFUSALS.rank : "This user is no longer waiting for an invitation.");
 }
 
@@ -79,22 +86,24 @@ export async function setUserStatusAction(_prev: ActionState, form: FormData): P
   const ctx = await actionContext("user.status_change", { permission: "users.disable" });
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
-  const input = z.object({ user: ULID, status: z.enum(["active", "disabled"]) }).safeParse({ user: form.get("user"), status: form.get("status") });
+  const input = z
+    .object({ user: ULID, status: z.enum(["active", "disabled"]), version: VERSION })
+    .safeParse({ user: form.get("user"), status: form.get("status"), version: form.get("version") });
   if (!input.success) return failure("Unknown user.");
-  return outcome(await guarded(() => setUserStatus(deps, actor, input.data.user, input.data.status, meta)));
+  const { user, status, version } = input.data;
+  return outcome(await guarded(() => setUserStatus(deps, actor, user, status, meta, { version })));
 }
 
 export async function setUserRolesAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await actionContext("user.roles_change", { permission: "users.edit" });
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
-  // `status`: what the page showed when the roles were chosen; the change is refused if the account has moved on since.
   const input = z
-    .object({ user: ULID, roles: z.array(z.enum(ROLE_KEYS as [string, ...string[]])).max(4), status: z.enum(USER_STATUSES) })
-    .safeParse({ user: form.get("user"), roles: form.getAll("roles"), status: form.get("status") });
+    .object({ user: ULID, roles: z.array(z.enum(ROLE_KEYS as [string, ...string[]])).max(4), version: VERSION })
+    .safeParse({ user: form.get("user"), roles: form.getAll("roles"), version: form.get("version") });
   if (!input.success) return failure("Choose valid roles.");
-  const expected = { status: input.data.status };
-  return outcome(await guarded(() => setUserRoles(deps, actor, input.data.user, input.data.roles, meta, expected)));
+  const { user, roles, version } = input.data;
+  return outcome(await guarded(() => setUserRoles(deps, actor, user, roles, meta, { version })));
 }
 
 export async function revokeUserSessionsAction(_prev: ActionState, form: FormData): Promise<ActionState> {
@@ -110,17 +119,19 @@ export async function unlockUserAction(_prev: ActionState, form: FormData): Prom
   const ctx = await actionContext("user.unlock", { permission: "users.edit" });
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
-  const id = ULID.safeParse(form.get("user"));
-  if (!id.success) return failure("Unknown user.");
-  return outcome(await guarded(() => unlockUser(deps, actor, id.data, meta)));
+  const input = z.object({ user: ULID, version: VERSION }).safeParse({ user: form.get("user"), version: form.get("version") });
+  if (!input.success) return failure("Unknown user.");
+  const { user, version } = input.data;
+  return outcome(await guarded(() => unlockUser(deps, actor, user, meta, { version })));
 }
 
 export async function resetUserMfaAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await actionContext("user.mfa_reset", { permission: "users.edit" });
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
-  const id = ULID.safeParse(form.get("user"));
-  if (!id.success) return failure("Unknown user.");
-  return outcome(await guarded(() => resetUserMfa(deps, actor, id.data, meta)));
+  const input = z.object({ user: ULID, version: VERSION }).safeParse({ user: form.get("user"), version: form.get("version") });
+  if (!input.success) return failure("Unknown user.");
+  const { user, version } = input.data;
+  return outcome(await guarded(() => resetUserMfa(deps, actor, user, meta, { version })));
 }
 

@@ -3,7 +3,10 @@
  *
  * - `DB_POOL_LIMIT` connections at most (production default 2 until the hosting account is measured; never derived
  *   from an assumed process count), `maxIdle` one less so idle connections are closed, a bounded queue that fails fast.
- * - Every new connection runs `SET time_zone = '+00:00'` and a strict `sql_mode` before its first query.
+ * - Every new connection runs `SET time_zone = '+00:00'`, a strict `sql_mode` and the REPEATABLE READ isolation level
+ *   before its first query. The level is set, not assumed from the server (A2 Correction 1, fifth review): a request
+ *   reads its session, roles and second factor in one transaction as one snapshot (`readSessionState`), which READ
+ *   COMMITTED — a server default some hosts use — would silently split into separate reads.
  * - Never during `next build`: the build machine has no database, and the public site is static (T1, Option B). Any
  *   attempt throws `BuildPhaseDatabaseError`, so a page that would need the database fails the build loudly.
  * - Errors name a class or code only, never the host, user, database name, SQL or the driver's message.
@@ -14,7 +17,7 @@ import { createPool, type Pool, type PoolOptions } from "mysql2/promise";
 import { readDbConfig, type DbConfig } from "../config/env.ts";
 
 export const CONNECTION_SETUP =
-  "SET time_zone = '+00:00', SESSION sql_mode = 'STRICT_ALL_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'";
+  "SET time_zone = '+00:00', SESSION sql_mode = 'STRICT_ALL_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION', SESSION transaction_isolation = 'REPEATABLE-READ'";
 
 /** Connection collation = table collation (mysql2 sends its id, 246, in the handshake). */
 export const CONNECTION_CHARSET = "utf8mb4_unicode_520_ci";

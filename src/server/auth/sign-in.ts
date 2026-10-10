@@ -34,7 +34,7 @@ import { findUserByEmail, isPlausibleEmail, mfaStateOf, normalizeEmail, rolesOf,
 import type { AuthDeps } from "./deps.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { clearCredentialChecks, HOUR, hitRateLimit, LIMITS, MINUTE, reserveCredentialCheck } from "./rate-limit.ts";
-import { createSession, isRotationDue, revokeSession, rotateSession, SessionEndedError, type SessionRow } from "./sessions.ts";
+import { createSession, isRotationDue, revokeSessionLineage, rotateSession, SessionEndedError, type SessionRow } from "./sessions.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
 
 export const LOCKOUT = { failures: 5, windowMs: 15 * MINUTE, baseLockMs: 15 * MINUTE, maxLockMs: 24 * HOUR } as const;
@@ -133,7 +133,7 @@ export async function registerFailureLocked(
   if (isLocked(row, now)) {
     // A failure during a lock (another request locked the account while this one was checking): the session it came
     // from ends as well.
-    if (context.revokeOnLock) await revokeSession(tx, context.revokeOnLock, "revoked", now);
+    if (context.revokeOnLock) await revokeSessionLineage(tx, context.revokeOnLock, "revoked", now);
     return { locked: true };
   }
   if (Number(count?.n ?? 0) < LOCKOUT.failures) return { locked: false };
@@ -143,7 +143,7 @@ export async function registerFailureLocked(
   const level = Math.max(0, Math.floor(failures / LOCKOUT.failures) - 1);
   const duration = Math.min(LOCKOUT.baseLockMs * 2 ** Math.min(level, 16), LOCKOUT.maxLockMs);
   await tx.update(users).set({ lockedUntil: new Date(now.getTime() + duration) }).where(eq(users.id, row.id));
-  if (context.revokeOnLock) await revokeSession(tx, context.revokeOnLock, "revoked", now);
+  if (context.revokeOnLock) await revokeSessionLineage(tx, context.revokeOnLock, "revoked", now);
   await recordAudit(tx, {
     at: now,
     requestId: meta.requestId,
@@ -405,7 +405,7 @@ export async function verifySecondFactor(
   const result = await inTransaction(deps.pool, async (tx): Promise<SecondFactorResult> => {
     const user = await lockUser(tx, pending.user.id);
     if (!user || user.status !== "active" || user.deletedAt || isLocked(user, now)) {
-      await revokeSession(tx, pending.session.id, "revoked", now);
+      await revokeSessionLineage(tx, pending.session.id, "revoked", now);
       return { kind: "failed", locked: true };
     }
     let ok: boolean;
@@ -493,14 +493,16 @@ export async function reauthenticate(
   }
   await clearCredentialChecks(deps.db, user.emailNormalized);
   const mfa = await mfaStateOf(deps.db, user.id, current.roles);
-  return inTransaction(deps.pool, async (tx): Promise<ReauthResult> => {
+  const code = String(input.code ?? "");
+  // A recovery code given instead of the app's code is recorded and notified, as at sign-in (fifth review).
+  const usingRecovery = mfa.enrolled && Boolean(normalizeRecoveryCode(code));
+  const result = await inTransaction(deps.pool, async (tx): Promise<ReauthResult> => {
     const row = await lockUser(tx, user.id);
     if (!row || isLocked(row, now)) return { kind: "locked" };
     if (mfa.enrolled) {
-      const code = String(input.code ?? "");
       let ok: boolean;
       try {
-        ok = normalizeRecoveryCode(code) ? await consumeRecoveryCode(tx, user.id, code, now) : await consumeTotp(deps, tx, user.id, code);
+        ok = usingRecovery ? await consumeRecoveryCode(tx, user.id, code, now) : await consumeTotp(deps, tx, user.id, code);
       } catch (error) {
         if (keyProblem(error)) return { kind: "unavailable" };
         throw error;
@@ -525,8 +527,27 @@ export async function reauthenticate(
       outcome: "success",
       summary: "Identity confirmed for sensitive actions (10 minutes).",
     });
+    if (usingRecovery) {
+      await recordAudit(tx, {
+        at: now,
+        requestId: meta.requestId,
+        actor: auditActorOf({ user, roles: current.roles, session: rotated.session }),
+        ip: meta.ip,
+        action: "auth.recovery_code_used",
+        entity: { type: "user", id: user.id, label: userLabel(user) },
+        outcome: "success",
+        summary: "A recovery code was used to confirm identity for sensitive actions.",
+      });
+    }
     return { kind: "ok", ...rotated };
   });
+  if (result.kind === "ok" && usingRecovery) {
+    await sendQuietly(
+      deps.mailer,
+      mailTemplates.securityNotice(user.email, user.displayName, "A recovery code was just used to confirm your identity for a sensitive action."),
+    );
+  }
+  return result;
 }
 
 /**
@@ -550,17 +571,24 @@ export async function rotateIfDue(deps: AuthDeps, session: SessionRow, meta: Req
   }
 }
 
+/**
+ * Ends the current session — with the session that replaced it, if another tab's request rotated it after this one read
+ * it (A2 Correction 1, fifth review) — holding the user's row, the lock every rotation takes first.
+ */
 export async function signOut(deps: AuthDeps, current: { session: SessionRow; user: UserRow; roles: string[] }, meta: RequestMeta) {
   const now = deps.clock();
-  await revokeSession(deps.db, current.session.id, "logout", now);
-  await recordAudit(deps.db, {
-    at: now,
-    requestId: meta.requestId,
-    actor: auditActorOf(current),
-    ip: meta.ip,
-    action: "auth.logout",
-    entity: { type: "user", id: current.user.id, label: userLabel(current.user) },
-    outcome: "success",
-    summary: "Signed out.",
+  await inTransaction(deps.pool, async (tx) => {
+    await lockUser(tx, current.user.id);
+    await revokeSessionLineage(tx, current.session.id, "logout", now);
+    await recordAudit(tx, {
+      at: now,
+      requestId: meta.requestId,
+      actor: auditActorOf(current),
+      ip: meta.ip,
+      action: "auth.logout",
+      entity: { type: "user", id: current.user.id, label: userLabel(current.user) },
+      outcome: "success",
+      summary: "Signed out.",
+    });
   });
 }

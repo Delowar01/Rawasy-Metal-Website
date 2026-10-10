@@ -14,6 +14,10 @@
  *  - The fourth review: a role change decided on an account that has changed since is refused; a role change withdraws
  *    pending reset links too; a request reads its session, roles and second factor in one snapshot; only the newest Owner
  *    setup link works, and none once an Owner is active.
+ *  - The fifth review: every user-management change that can grant, restore or loosen access is decided on the account
+ *    as its page showed it (the page's fingerprint); signing a session out also ends the session it rotated into; every
+ *    connection reads at REPEATABLE READ; removing a second factor withdraws pending reset links; a change that signs a
+ *    user out ends sessions already past their limit too; a recovery code used for a step-up is recorded and notified.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -22,21 +26,23 @@ import type { Pool, PoolConnection } from "mysql2/promise";
 import { activeOwnerIds } from "../../src/server/auth/accounts.ts";
 import { bootstrapOwner, recoveryReset } from "../../src/server/auth/bootstrap.ts";
 import { acceptInvitation, inspectInvitation, inviteUser, resendInvitation } from "../../src/server/auth/invitations.ts";
-import { beginEnrolment, confirmEnrolment, regenerateRecoveryCodes } from "../../src/server/auth/mfa.ts";
+import { beginEnrolment, confirmEnrolment, disableMfa, emergencyMfaReset, regenerateRecoveryCodes } from "../../src/server/auth/mfa.ts";
 import { changePassword, completePasswordReset, inspectResetToken, requestPasswordReset } from "../../src/server/auth/passwords.ts";
 import { revokeOtherOwnSessions, revokeOwnSession } from "../../src/server/auth/self-service.ts";
 import { readSessionState } from "../../src/server/auth/session-state.ts";
-import { revokeSession, SessionEndedError } from "../../src/server/auth/sessions.ts";
-import { signIn } from "../../src/server/auth/sign-in.ts";
+import { revokeSession, rotateSession, SessionEndedError } from "../../src/server/auth/sessions.ts";
+import { reauthenticate, signIn, signOut } from "../../src/server/auth/sign-in.ts";
 import { issueToken } from "../../src/server/auth/tokens.ts";
-import { resetUserMfa, revokeSessionsOf, setUserRoles, setUserStatus, unlockUser } from "../../src/server/auth/user-admin.ts";
-import { dbFor } from "../../src/server/db/client.ts";
+import type { Actor } from "../../src/server/auth/types.ts";
+import { getUserDetail, resetUserMfa, revokeSessionsOf, setUserRoles, setUserStatus, unlockUser } from "../../src/server/auth/user-admin.ts";
+import { dbFor, inTransaction } from "../../src/server/db/client.ts";
+import { CONNECTION_SETUP } from "../../src/server/db/pool.ts";
 import { auditEvents, authTokens, loginAttempts, sessions, userMfa, userRecoveryCodes, userRoles, users } from "../../src/server/db/schema.ts";
 import { sha256 } from "../../src/server/security/ids.ts";
 import { createPasswordHasher, type PasswordHasher } from "../../src/server/security/password.ts";
 import { recoveryCodeHash, normalizeRecoveryCode } from "../../src/server/security/recovery-codes.ts";
 import { base32Decode, totpCode } from "../../src/server/security/totp.ts";
-import { actorFor, createUser, linkToken, meta, setupTestEnv, strongPassword, type TestEnv } from "./helpers.ts";
+import { actorFor, createUser, linkToken, meta, serverConnection, setupTestEnv, strongPassword, type TestEnv } from "./helpers.ts";
 
 let env: TestEnv;
 before(async () => {
@@ -450,6 +456,13 @@ describe("invitations are only as good as their inviter's authority", () => {
 });
 
 /** An Owner, and an Admin who invites a new Editor (the link read from the mail sink). */
+/** The account as a user page shows it to `actor` (its fingerprint included): what a form on that page decides on. */
+const pageOf = async (actor: Actor, userId: string) => {
+  const detail = await getUserDetail(env.deps, actor, userId);
+  assert.ok(detail, "the user page exists");
+  return detail;
+};
+
 async function invitedByAdmin(email: string) {
   const owner = await createUser(env, { roles: ["owner"], mfa: true });
   const admin = await createUser(env, { roles: ["admin"], mfa: true });
@@ -544,24 +557,27 @@ describe("fourth review — nothing decided on an older state of an account, and
   test("a role change decided while the account was invited is refused once its invitation was accepted: the Owner reviews it first", async () => {
     const { ownerActor, invited, token } = await invitedByAdmin("claimed-before-save@example.test");
     // What the Owner's page showed when the Owner chose the new roles ...
-    const shown = (await userRow(invited.id)).status;
-    assert.equal(shown, "invited");
+    const shown = await pageOf(ownerActor, invited.id);
+    assert.equal(shown.status, "invited");
     // ... before the Admin, who still holds the link, activated the account.
     assert.equal((await acceptInvitation(env.deps, { token, password: strongPassword() }, meta())).kind, "ok");
-    assert.deepEqual(await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { status: shown }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
     assert.deepEqual(await rolesNow(invited.id), ["editor"]);
     // Decided on the account as it is now (active), the same change is the Owner's to make (positive control).
-    assert.equal((await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { status: "active" })).kind, "ok");
+    const now = await pageOf(ownerActor, invited.id);
+    assert.equal(now.status, "active");
+    assert.equal((await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { version: now.version })).kind, "ok");
   });
 
   test("... decided again under the account's row lock: an activation committed while the change waits for it wins", async () => {
     const { ownerActor, invited } = await invitedByAdmin("claimed-under-lock@example.test");
+    const shown = await pageOf(ownerActor, invited.id);
     const held = await env.pool.getConnection();
     try {
       await held.query("START TRANSACTION");
       await held.query("UPDATE users SET status = 'active' WHERE id = ?", [invited.id]);
       // Authorised against the invited account it can still see; its transaction then waits for the account's row.
-      const changing = setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { status: "invited" });
+      const changing = setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { version: shown.version });
       await new Promise((resolve) => setTimeout(resolve, 400));
       await held.query("COMMIT");
       assert.deepEqual(await changing, { kind: "denied", reason: "changed" });
@@ -672,5 +688,240 @@ describe("fourth review — nothing decided on an older state of an account, and
     }
     const [factor] = await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, target.id));
     assert.ok(factor?.confirmedAt, "its second factor is untouched");
+  });
+});
+
+describe("fifth review — decided on the account as the page showed it; a sign-out follows the session it meant", () => {
+  /** Two Owners, each signed in: O1 works on an older page while O2 changes the account. */
+  async function twoOwners() {
+    const o1 = await createUser(env, { roles: ["owner"], mfa: true });
+    const o2 = await createUser(env, { roles: ["owner"], mfa: true });
+    return { o1Actor: await actorFor(env, o1), o2Actor: await actorFor(env, o2) };
+  }
+  /** The other change happens a moment later (the test clock otherwise stands still). */
+  const later = () => env.clock.advance(1000);
+
+  test("a role another Owner has just taken away is not given back by a form that still showed it", async () => {
+    const { o1Actor, o2Actor } = await twoOwners();
+    const x = await createUser(env, { roles: ["admin"], mfa: true });
+    // O1's page shows X as an Admin ...
+    const shown = await pageOf(o1Actor, x.id);
+    assert.deepEqual(shown.roles, ["admin"]);
+    // ... while O2 demotes X to Editor.
+    later();
+    assert.equal((await setUserRoles(env.deps, o2Actor, x.id, ["editor"], meta())).kind, "ok");
+    // O1, on the page that still shows Admin ticked, adds Reviewer and saves: refused, X stays an Editor.
+    assert.deepEqual(await setUserRoles(env.deps, o1Actor, x.id, ["admin", "reviewer"], meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await rolesNow(x.id), ["editor"]);
+    // Positive control: decided on the page as it is now.
+    const now = await pageOf(o1Actor, x.id);
+    assert.equal((await setUserRoles(env.deps, o1Actor, x.id, ["editor", "reviewer"], meta(), { version: now.version })).kind, "ok");
+    assert.deepEqual(await rolesNow(x.id), ["editor", "reviewer"]);
+  });
+
+  test("... decided under the account's row lock: a demotion committed while the change waits for the row wins", async () => {
+    const { o1Actor } = await twoOwners();
+    const x = await createUser(env, { roles: ["admin"], mfa: true });
+    const shown = await pageOf(o1Actor, x.id);
+    const held = await env.pool.getConnection();
+    try {
+      // Another Owner's demotion, made as every role change is: the account's row first.
+      await held.query("START TRANSACTION");
+      await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [x.id]);
+      await held.query("DELETE FROM user_roles WHERE user_id = ? AND role_key = 'admin'", [x.id]);
+      await held.query("INSERT INTO user_roles (user_id, role_key, granted_at) VALUES (?, 'editor', UTC_TIMESTAMP(3))", [x.id]);
+      const changing = setUserRoles(env.deps, o1Actor, x.id, ["admin", "reviewer"], meta(), { version: shown.version });
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await held.query("COMMIT");
+      assert.deepEqual(await changing, { kind: "denied", reason: "changed" });
+    } finally {
+      held.release();
+    }
+    assert.deepEqual(await rolesNow(x.id), ["editor"]);
+  });
+
+  test("an enable decided on an earlier disable never undoes a newer one; disabling is never refused for it", async () => {
+    const { o1Actor, o2Actor } = await twoOwners();
+    const x = await createUser(env, { roles: ["editor"] });
+    assert.equal((await setUserStatus(env.deps, o2Actor, x.id, "disabled", meta())).kind, "ok");
+    // O1's page shows the account disabled (and offers "Enable account") ...
+    const shown = await pageOf(o1Actor, x.id);
+    assert.equal(shown.status, "disabled");
+    // ... while O2 enables it again, then disables it once more (a compromise, say).
+    later();
+    assert.equal((await setUserStatus(env.deps, o2Actor, x.id, "active", meta())).kind, "ok");
+    later();
+    assert.equal((await setUserStatus(env.deps, o2Actor, x.id, "disabled", meta())).kind, "ok");
+    assert.deepEqual(await setUserStatus(env.deps, o1Actor, x.id, "active", meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.equal((await userRow(x.id)).status, "disabled");
+    // Positive controls: an enable decided on the page as it is now goes through, and a disable from the older page too.
+    later();
+    const now = await pageOf(o1Actor, x.id);
+    assert.equal((await setUserStatus(env.deps, o1Actor, x.id, "active", meta(), { version: now.version })).kind, "ok");
+    later();
+    assert.equal((await setUserStatus(env.deps, o1Actor, x.id, "disabled", meta(), { version: shown.version })).kind, "ok");
+    assert.equal((await userRow(x.id)).status, "disabled");
+  });
+
+  test("an unlock decided on an earlier lock does not clear a newer one", async () => {
+    const { o1Actor } = await twoOwners();
+    const x = await createUser(env, { roles: ["editor"] });
+    const lockFor = (minutes: number) => db().update(users).set({ lockedUntil: new Date(env.clock.now.getTime() + minutes * 60_000) }).where(eq(users.id, x.id));
+    await lockFor(15);
+    const shown = await pageOf(o1Actor, x.id);
+    assert.ok(shown.lockedUntil, "the page shows the lock");
+    // The lock ends and more failed attempts lock the account again, for longer.
+    env.clock.advance(16 * 60_000);
+    await lockFor(30);
+    const relocked = (await userRow(x.id)).lockedUntil;
+    assert.deepEqual(await unlockUser(env.deps, o1Actor, x.id, meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.equal((await userRow(x.id)).lockedUntil?.getTime(), relocked?.getTime(), "the newer lock stays");
+    const now = await pageOf(o1Actor, x.id);
+    assert.equal((await unlockUser(env.deps, o1Actor, x.id, meta(), { version: now.version })).kind, "ok");
+    assert.equal((await userRow(x.id)).lockedUntil, null);
+  });
+
+  test("a 2FA reset decided on an earlier authenticator does not remove a newer one", async () => {
+    const { o1Actor } = await twoOwners();
+    const x = await createUser(env, { roles: ["editor"], mfa: true });
+    const shown = await pageOf(o1Actor, x.id);
+    assert.equal(shown.mfaEnabled, true);
+    // X replaces the authenticator meanwhile (a newer confirmation).
+    later();
+    await db().update(userMfa).set({ confirmedAt: new Date(env.clock.now) }).where(eq(userMfa.userId, x.id));
+    assert.deepEqual(await resetUserMfa(env.deps, o1Actor, x.id, meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    const [factor] = await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, x.id));
+    assert.ok(factor?.confirmedAt, "the newer authenticator stays");
+    const now = await pageOf(o1Actor, x.id);
+    assert.equal((await resetUserMfa(env.deps, o1Actor, x.id, meta(), { version: now.version })).kind, "ok");
+  });
+
+  test("a new invitation link is not issued for roles the page did not show", async () => {
+    const { o2Actor } = await twoOwners();
+    const { ownerActor, invited } = await invitedByAdmin("resend-stale@example.test");
+    const shown = await pageOf(ownerActor, invited.id);
+    later();
+    assert.equal((await setUserRoles(env.deps, o2Actor, invited.id, ["admin"], meta())).kind, "ok");
+    assert.deepEqual(await resendInvitation(env.deps, ownerActor, invited.id, meta(), { version: shown.version }), { kind: "changed" });
+    const now = await pageOf(ownerActor, invited.id);
+    assert.equal((await resendInvitation(env.deps, ownerActor, invited.id, meta(), { version: now.version })).kind, "invited");
+  });
+
+  test("signing out a session from the list also ends the session it rotated into after the list was shown", async () => {
+    const user = await createUser(env, { roles: ["editor"] });
+    const here = await actorFor(env, user);
+    const there = await actorFor(env, user);
+    // The other device's session rotates after the list was shown (its 30-minute rotation, a step-up …).
+    const successor = await inTransaction(env.pool, (tx) => rotateSession(tx, there.session, { now: env.deps.clock(), ip: null, userAgent: null }));
+    assert.equal(await revokeOwnSession(env.deps, here, there.session.id, meta()), true, "the list says it was signed out");
+    assert.equal((await readSessionState(env.deps, successor.token)).kind, "ended", "the device's new session ended too");
+    assert.equal((await readSessionState(env.deps, here.token)).kind, "active", "the session looking at the list lives on");
+  });
+
+  test("an Owner signing out one session of a user also ends the session it rotated into", async () => {
+    const { o1Actor } = await twoOwners();
+    const user = await createUser(env, { roles: ["editor"] });
+    const session = await actorFor(env, user);
+    const successor = await inTransaction(env.pool, (tx) => rotateSession(tx, session.session, { now: env.deps.clock(), ip: null, userAgent: null }));
+    const result = await revokeSessionsOf(env.deps, o1Actor, user.id, session.session.id, meta());
+    assert.equal(result.kind, "ok");
+    assert.match(result.kind === "ok" ? result.summary : "", /out of 1 session/);
+    assert.equal((await readSessionState(env.deps, successor.token)).kind, "ended");
+  });
+
+  test("a lockout ends the session the failing step-up came from, even when it rotated meanwhile", async () => {
+    const user = await createUser(env, { roles: ["editor"] });
+    const actor = await actorFor(env, user);
+    const current = { session: actor.session, user: actor.user, roles: actor.roles };
+    for (let i = 0; i < 4; i++) assert.equal((await reauthenticate(env.deps, current, { password: `wrong-${i}` }, meta("198.51.100.60"))).kind, "failed");
+    // A request on the same session rotates it while the fifth wrong password is being checked.
+    const successor = await inTransaction(env.pool, (tx) => rotateSession(tx, actor.session, { now: env.deps.clock(), ip: null, userAgent: null }));
+    assert.deepEqual(await reauthenticate(env.deps, current, { password: "wrong-4" }, meta("198.51.100.60")), { kind: "failed", locked: true });
+    assert.equal((await readSessionState(env.deps, successor.token)).kind, "ended", "the session the guesses came from ended, successor included");
+  });
+
+  test("sign-out ends the session another tab's request rotated it into after this one read it", async () => {
+    const user = await createUser(env, { roles: ["editor"] });
+    const tab = await actorFor(env, user);
+    const successor = await inTransaction(env.pool, (tx) => rotateSession(tx, tab.session, { now: env.deps.clock(), ip: null, userAgent: null }));
+    await signOut(env.deps, { session: tab.session, user: tab.user, roles: tab.roles }, meta());
+    assert.equal((await readSessionState(env.deps, successor.token)).kind, "ended");
+  });
+
+  test("every connection reads at REPEATABLE READ, whatever the server's default", async () => {
+    const raw = await serverConnection(env.database);
+    try {
+      // A host whose default is READ COMMITTED: the connection setup puts it back.
+      await raw.query("SET SESSION transaction_isolation = 'READ-COMMITTED'");
+      await raw.query(CONNECTION_SETUP);
+      const [rows] = await raw.query("SELECT @@SESSION.transaction_isolation AS level");
+      assert.equal((rows as { level: string }[])[0].level, "REPEATABLE-READ");
+    } finally {
+      await raw.end();
+    }
+    const pooled = await env.pool.getConnection();
+    try {
+      const [rows] = await pooled.query("SELECT @@SESSION.transaction_isolation AS level");
+      assert.equal((rows as { level: string }[])[0].level, "REPEATABLE-READ");
+    } finally {
+      pooled.release();
+    }
+  });
+
+  test("removing a second factor withdraws pending reset links; the emergency reset's own new link still works", async () => {
+    const { o1Actor } = await twoOwners();
+    // The Owner's reset.
+    const x = await createUser(env, { roles: ["editor"], mfa: true });
+    const xLink = await issueToken(db(), { userId: x.id, purpose: "password_reset", now: env.deps.clock() });
+    assert.ok(await inspectResetToken(env.deps, xLink.token), "the link works before");
+    assert.equal((await resetUserMfa(env.deps, o1Actor, x.id, meta())).kind, "ok");
+    assert.equal(await inspectResetToken(env.deps, xLink.token), null);
+    assert.deepEqual(await completePasswordReset(env.deps, { token: xLink.token, password: strongPassword() }, meta()), { kind: "invalid" });
+    // The user turning it off.
+    const y = await createUser(env, { roles: ["editor"], mfa: true });
+    const yActor = await actorFor(env, y);
+    const yLink = await issueToken(db(), { userId: y.id, purpose: "password_reset", now: env.deps.clock() });
+    assert.equal((await disableMfa(env.deps, { session: yActor.session, user: yActor.user, roles: yActor.roles }, meta())).kind, "ok");
+    assert.equal(await inspectResetToken(env.deps, yLink.token), null);
+    // Positive control: the emergency reset issues its link after removing the factor, and that link works.
+    const z = await createUser(env, { roles: ["editor"], mfa: true });
+    await emergencyMfaReset(env.deps, { userIds: [z.id] }, "test-operator", "emergency-test");
+    const message = env.mail().filter((m) => m.to === z.email).at(-1);
+    assert.ok(message, "the reset link was sent to the mail sink");
+    assert.ok(await inspectResetToken(env.deps, linkToken(message.text, "reset")));
+  });
+
+  test("a change that signs a user out also ends sessions already past their limit by its clock", async () => {
+    const { o1Actor } = await twoOwners();
+    const x = await createUser(env, { roles: ["editor"] });
+    const xActor = await actorFor(env, x);
+    // X's session reaches its 12-hour limit between a slower request's clock and the clock of the change.
+    await db().update(sessions).set({ absoluteExpiresAt: new Date(env.clock.now.getTime() + 1000) }).where(eq(sessions.id, xActor.session.id));
+    env.clock.advance(2000);
+    const changed = await setUserRoles(env.deps, o1Actor, x.id, ["admin"], meta());
+    assert.equal(changed.kind, "ok");
+    assert.match(changed.kind === "ok" ? changed.summary : "", /0 session\(s\) signed out/, "only live sessions are counted");
+    // A request whose clock is behind (it read the time before it got its connection) finds the session ended.
+    const behind = { ...env.deps, clock: () => new Date(env.clock.now.getTime() - 2000) };
+    assert.equal((await readSessionState(behind, xActor.token)).kind, "ended");
+  });
+
+  test("a recovery code used for a step-up is recorded and notified, as at sign-in", async () => {
+    const x = await createUser(env, { roles: ["editor"], mfa: true });
+    const xActor = await actorFor(env, x);
+    const current = { session: xActor.session, user: xActor.user, roles: xActor.roles };
+    const codes = await regenerateRecoveryCodes(env.deps, current, meta());
+    assert.ok(codes?.length);
+    const before = env.mail().length;
+    const result = await reauthenticate(env.deps, current, { password: x.password, code: codes[0] }, meta("198.51.100.61"));
+    assert.equal(result.kind, "ok");
+    const recorded = await db()
+      .select({ summary: auditEvents.summary })
+      .from(auditEvents)
+      .where(and(eq(auditEvents.action, "auth.recovery_code_used"), eq(auditEvents.entityId, x.id)));
+    assert.equal(recorded.length, 1);
+    assert.match(recorded[0].summary, /confirm identity/);
+    const notices = env.mail().slice(before).filter((m) => m.to === x.email);
+    assert.ok(notices.some((m) => /recovery code was just used/.test(m.text)), "the user is told");
   });
 });

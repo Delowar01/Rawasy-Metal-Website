@@ -27,7 +27,7 @@ import { clearCredentialChecks } from "./rate-limit.ts";
 import { lockActor } from "./sessions.ts";
 import { consumeToken, findUsableToken, issueToken, TOKEN_LIFETIME_MS, type TokenRow } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
-import { lockForChange } from "./user-admin.ts";
+import { accountUnchanged, lockForChange, type Expected } from "./user-admin.ts";
 
 /** May someone with these roles invite, manage and grant every role in `roles`? (The rule `inviteUser` applies.) */
 const mayInvite = (inviterRoles: readonly string[], roles: readonly string[]) =>
@@ -52,7 +52,9 @@ export type InviteResult =
   | { kind: "invited"; userId: string; delivered: boolean; link: string | null }
   | { kind: "exists" }
   | { kind: "invalid"; field: "email" | "displayName" | "roles" }
-  | { kind: "denied" };
+  | { kind: "denied" }
+  /** The account is no longer as the page that asked for a new link showed it (fifth review). */
+  | { kind: "changed" };
 
 const cleanName = (name: string) => name.normalize("NFKC").replace(/\s+/g, " ").trim();
 
@@ -133,12 +135,12 @@ export async function inviteUser(
  * A new invitation link for an invited user (the old one stops working). Decided again inside the transaction, under the
  * invited account's row lock (A2 Correction 1, third review): a promotion or a disable committed meanwhile counts.
  */
-export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: string, meta: RequestMeta): Promise<InviteResult> {
+export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: string, meta: RequestMeta, expected?: Expected): Promise<InviteResult> {
   const now = deps.clock();
   const [user] = await deps.db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user || user.status !== "invited") return { kind: "invalid", field: "email" };
   const allowed = (roles: string[]) => actor.permissions.has("users.invite") && mayInvite(actor.roles, roles);
-  const refuse = async (): Promise<InviteResult> => {
+  const refuse = async (why: "rank" | "changed" = "rank"): Promise<InviteResult> => {
     await recordAudit(deps.db, {
       at: now,
       requestId: meta.requestId,
@@ -147,14 +149,16 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
       action: "user.invite_resend",
       entity: { type: "user", id: user.id, label: userLabel(user) },
       outcome: "denied",
-      summary: "New invitation link refused: rank rule.",
+      summary: why === "rank" ? "New invitation link refused: rank rule." : "New invitation link refused: the account changed after the page was opened.",
     });
-    return { kind: "denied" };
+    return why === "rank" ? { kind: "denied" } : { kind: "changed" };
   };
   if (!allowed(await rolesOf(deps.db, userId))) return refuse();
   const issued = await inTransaction(deps.pool, async (tx) => {
     const locked = await lockForChange(tx, actor, userId, now);
     if (!locked || locked.target.status !== "invited") return { kind: "gone" as const };
+    // A new link carries the account's roles as they are now: only when they are what the page showed.
+    if (!(await accountUnchanged(tx, locked, expected))) return { kind: "changed" as const };
     if (!allowed(locked.roles)) return { kind: "refused" as const };
     const { token } = await issueToken(tx, { userId, purpose: "invitation", now, createdBy: actor.user.id, createdIp: meta.ip });
     await recordAudit(tx, {
@@ -170,6 +174,7 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
     return { kind: "issued" as const, token };
   });
   if (issued.kind === "gone") return { kind: "invalid", field: "email" };
+  if (issued.kind === "changed") return refuse("changed");
   if (issued.kind === "refused") return refuse();
   const delivery = await deliverInvitation(deps, user, issued.token);
   return { kind: "invited", userId, ...delivery };

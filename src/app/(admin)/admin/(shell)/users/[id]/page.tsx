@@ -60,7 +60,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           {can("users.edit") ? (
             <section className="adm-card" aria-labelledby="user-roles">
               <h2 id="user-roles">Roles</h2>
-              <UserRolesForm userId={user.id} status={user.status} roles={roles} selected={user.roles} />
+              <UserRolesForm userId={user.id} version={user.version} roles={roles} selected={user.roles} />
             </section>
           ) : null}
           <section className="adm-card" aria-labelledby="user-actions">
@@ -72,7 +72,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                   label="Disable account"
                   title={`Disable ${user.displayName}?`}
                   confirmLabel="Disable"
-                  fields={{ user: user.id, status: "disabled" }}
+                  fields={{ user: user.id, status: "disabled", version: user.version }}
                   danger
                 >
                   <p>They are signed out everywhere at once and cannot sign in until the account is enabled again. Nothing is deleted.</p>
@@ -84,13 +84,19 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                   label="Enable account"
                   title={`Enable ${user.displayName}?`}
                   confirmLabel="Enable"
-                  fields={{ user: user.id, status: "active" }}
+                  fields={{ user: user.id, status: "active", version: user.version }}
                 >
                   <p>They can sign in again with their password (an account that never accepted its invitation needs a new invitation link).</p>
                 </ConfirmAction>
               ) : null}
               {can("users.edit") && user.lockedUntil ? (
-                <ConfirmAction action={unlockUserAction} label="Unlock" title="Unlock sign-in?" confirmLabel="Unlock" fields={{ user: user.id }}>
+                <ConfirmAction
+                  action={unlockUserAction}
+                  label="Unlock"
+                  title="Unlock sign-in?"
+                  confirmLabel="Unlock"
+                  fields={{ user: user.id, version: user.version }}
+                >
                   <p>The pause after repeated failed sign-ins ends now.</p>
                 </ConfirmAction>
               ) : null}
@@ -112,7 +118,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                   label="Reset two-factor"
                   title="Reset two-factor authentication?"
                   confirmLabel="Reset"
-                  fields={{ user: user.id }}
+                  fields={{ user: user.id, version: user.version }}
                   danger
                 >
                   <p>
@@ -122,7 +128,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                 </ConfirmAction>
               ) : null}
             </div>
-            {can("users.invite") && user.status === "invited" ? <ResendInvitation userId={user.id} email={user.email} /> : null}
+            {can("users.invite") && user.status === "invited" ? <ResendInvitation userId={user.id} email={user.email} version={user.version} /> : null}
           </section>
           {can("users.sessions_revoke") && user.sessions.length ? (
             <section className="adm-card" aria-labelledby="user-sessions">

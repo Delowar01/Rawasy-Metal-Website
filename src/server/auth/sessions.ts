@@ -8,8 +8,9 @@
  *
  * A revoked token never authenticates a request again, whatever the reason it was revoked (A2 Correction 1): the old
  * token of a rotation stops working the moment the rotation commits, so it can never take on what the new session was
- * given (a verified second factor, a fresh re-authentication). `replaced_by_id` records the lineage for the record and
- * is never followed to authenticate. A request that started before the rotation finishes under its own rules; one
+ * given (a verified second factor, a fresh re-authentication). `replaced_by_id` records the lineage and is never
+ * followed to authenticate; it is followed only to end sessions (`revokeSessionLineage`). A request that started before
+ * the rotation finishes under its own rules; one
  * that arrives afterwards with the old token is signed out (the browser holds the new cookie once the rotating
  * response has arrived).
  */
@@ -215,12 +216,45 @@ export async function revokeSession(db: Db, sessionId: string, reason: RevokeRea
   return result.affectedRows > 0;
 }
 
-/** Revokes every session of a user (but one, when given). Returns how many were live. */
+/**
+ * Ends a session and, when it has been rotated, the session that replaced it (A2 Correction 1, fifth review): signing a
+ * session out — from a list of sessions, at a lockout, or with "Sign out" — while it rotates in another request (the
+ * 30-minute rotation, a step-up, another tab) ends its live successor too, instead of finding the old row revoked and
+ * leaving the new one signed in. `replaced_by_id` is followed only here, to end sessions, never to authenticate. Run it
+ * holding the user's row (every rotation takes that lock first), so no rotation slips in between. `except` is a session
+ * the walk must not end (the acting session, when a user signs out one of their other sessions). Returns whether a
+ * session was ended.
+ */
+export async function revokeSessionLineage(db: Db, sessionId: string, reason: RevokeReason, now: Date, except?: string): Promise<boolean> {
+  const seen = new Set<string>();
+  for (let id: string | null = sessionId; id && !seen.has(id) && id !== except; ) {
+    seen.add(id);
+    const [row] = await db
+      .select({ revokedAt: sessions.revokedAt, revokedReason: sessions.revokedReason, replacedById: sessions.replacedById })
+      .from(sessions)
+      .where(eq(sessions.id, id))
+      .for("update");
+    if (!row) return false;
+    if (!row.revokedAt) return revokeSession(db, id, reason, now);
+    id = row.revokedReason === "rotated" ? row.replacedById : null;
+  }
+  return false;
+}
+
+/**
+ * Revokes every session of a user (but one, when given). Returns how many were live. Rows already past their absolute
+ * limit by this clock are ended as well (A2 Correction 1, fifth review): a request whose clock is behind this one's must
+ * not find one of them unrevoked and still live after a change that signed the user out.
+ */
 export async function revokeUserSessions(db: Db, userId: string, reason: RevokeReason, now: Date, exceptSessionId?: string): Promise<number> {
-  const conditions = [eq(sessions.userId, userId), isNull(sessions.revokedAt), gt(sessions.absoluteExpiresAt, now)];
-  if (exceptSessionId) conditions.push(ne(sessions.id, exceptSessionId));
-  const [result] = await db.update(sessions).set({ revokedAt: now, revokedReason: reason }).where(and(...conditions));
-  return result.affectedRows;
+  const scope = [eq(sessions.userId, userId), isNull(sessions.revokedAt)];
+  if (exceptSessionId) scope.push(ne(sessions.id, exceptSessionId));
+  const [live] = await db
+    .update(sessions)
+    .set({ revokedAt: now, revokedReason: reason })
+    .where(and(...scope, gt(sessions.absoluteExpiresAt, now)));
+  await db.update(sessions).set({ revokedAt: now, revokedReason: reason }).where(and(...scope));
+  return live.affectedRows;
 }
 
 /** A user's live sessions, most recently used first. */
