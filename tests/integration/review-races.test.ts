@@ -20,6 +20,8 @@
  *    user out ends sessions already past their limit too; a recovery code used for a step-up is recorded and notified.
  *  - The sixth review: an unlock is decided on the lock and the attempts the page showed; the access fingerprint holds
  *    only what the decisions depend on, so the user's own password change or failed sign-ins never block an Owner.
+ *  - The seventh review: a two-factor reset is also decided on the password and the lock the page showed (it hands the
+ *    account to whoever holds the password); an unlock also on the status, roles and second factor.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -32,8 +34,8 @@ import { beginEnrolment, confirmEnrolment, disableMfa, emergencyMfaReset, regene
 import { changePassword, completePasswordReset, inspectResetToken, requestPasswordReset } from "../../src/server/auth/passwords.ts";
 import { revokeOtherOwnSessions, revokeOwnSession } from "../../src/server/auth/self-service.ts";
 import { readSessionState } from "../../src/server/auth/session-state.ts";
-import { revokeSession, rotateSession, SessionEndedError } from "../../src/server/auth/sessions.ts";
-import { reauthenticate, signIn, signOut } from "../../src/server/auth/sign-in.ts";
+import { findSessionByToken, revokeSession, rotateSession, SessionEndedError } from "../../src/server/auth/sessions.ts";
+import { reauthenticate, signIn, signOut, verifySecondFactor } from "../../src/server/auth/sign-in.ts";
 import { issueToken } from "../../src/server/auth/tokens.ts";
 import type { Actor } from "../../src/server/auth/types.ts";
 import { getUserDetail, resetUserMfa, revokeSessionsOf, setUserRoles, setUserStatus, unlockUser } from "../../src/server/auth/user-admin.ts";
@@ -791,11 +793,11 @@ describe("fifth review — decided on the account as the page showed it; a sign-
     // X replaces the authenticator meanwhile (a newer confirmation).
     later();
     await db().update(userMfa).set({ confirmedAt: new Date(env.clock.now) }).where(eq(userMfa.userId, x.id));
-    assert.deepEqual(await resetUserMfa(env.deps, o1Actor, x.id, meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await resetUserMfa(env.deps, o1Actor, x.id, meta(), { version: shown.mfaResetVersion }), { kind: "denied", reason: "changed" });
     const [factor] = await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, x.id));
     assert.ok(factor?.confirmedAt, "the newer authenticator stays");
     const now = await pageOf(o1Actor, x.id);
-    assert.equal((await resetUserMfa(env.deps, o1Actor, x.id, meta(), { version: now.version })).kind, "ok");
+    assert.equal((await resetUserMfa(env.deps, o1Actor, x.id, meta(), { version: now.mfaResetVersion })).kind, "ok");
   });
 
   test("a new invitation link is not issued for roles the page did not show", async () => {
@@ -965,5 +967,88 @@ describe("sixth review — each change is decided on exactly what it depends on,
     // The Owner's change, decided on the page, still goes through: neither affects what it was decided on.
     assert.equal((await setUserRoles(env.deps, ownerActor, x.id, ["editor", "reviewer"], meta(), { version: shown.version })).kind, "ok");
     assert.deepEqual(await rolesNow(x.id), ["editor", "reviewer"]);
+  });
+});
+
+describe("seventh review — a two-factor reset and an unlock are decided on everything they depend on", () => {
+  async function owner() {
+    const o = await createUser(env, { roles: ["owner"], mfa: true });
+    return actorFor(env, o);
+  }
+  const later = () => env.clock.advance(1000);
+  /** A well-formed code that is wrong at every step the check accepts (now ± 1). */
+  function wrongCode(secret: Buffer): string {
+    const now = env.deps.clock().getTime();
+    const valid = new Set([-1, 0, 1].map((offset) => totpCode(secret, now + offset * 30_000)));
+    for (let n = 0; ; n++) {
+      const code = String(n).padStart(6, "0");
+      if (!valid.has(code)) return code;
+    }
+  }
+  const secondFactorOf = async (userId: string) =>
+    (await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, userId)))[0]?.confirmedAt ?? null;
+
+  test("a two-factor reset is refused once the password was replaced after the page was shown", async () => {
+    const ownerActor = await owner();
+    const x = await createUser(env, { roles: ["admin"], mfa: true });
+    // The Owner opens X's page to reset the authenticator X reported lost ...
+    const shown = await pageOf(ownerActor, x.id);
+    assert.equal(shown.mfaEnabled, true);
+    // ... while someone holding a reset link for X (X's mailbox, say) sets a new password.
+    later();
+    const { token } = await issueToken(db(), { userId: x.id, purpose: "password_reset", now: env.deps.clock() });
+    assert.deepEqual(await completePasswordReset(env.deps, { token, password: strongPassword() }, meta("198.51.100.71")), { kind: "ok" });
+    // The reset decided on the page is refused: the second factor stays, the only thing between that password and X's account.
+    assert.deepEqual(await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: shown.mfaResetVersion }), { kind: "denied", reason: "changed" });
+    assert.ok(await secondFactorOf(x.id), "the second factor stays");
+    // Reloaded, the page shows the password change; a reset decided on that is the Owner's to make (positive control).
+    const now = await pageOf(ownerActor, x.id);
+    assert.notEqual(now.passwordChangedAt?.getTime(), shown.passwordChangedAt?.getTime());
+    assert.equal((await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: now.mfaResetVersion })).kind, "ok");
+    assert.equal(await secondFactorOf(x.id), null);
+  });
+
+  test("... and once second-factor codes failed after the page was shown (someone else has the password)", async () => {
+    const ownerActor = await owner();
+    const x = await createUser(env, { roles: ["admin"], mfa: true });
+    const shown = await pageOf(ownerActor, x.id);
+    // Someone with X's password signs in and tries a code: the failure is counted.
+    later();
+    const pending = await signIn(env.deps, { email: x.email, password: x.password }, meta("198.51.100.72"));
+    assert.equal(pending.kind, "mfa_required");
+    const found = await findSessionByToken(db(), pending.kind === "mfa_required" ? pending.token : "", env.deps.clock());
+    assert.ok(found);
+    assert.deepEqual(await verifySecondFactor(env.deps, found, { code: wrongCode(x.totpSecret as Buffer) }, meta("198.51.100.72")), { kind: "failed", locked: false });
+    assert.equal((await userRow(x.id)).failedLoginCount, 1);
+    assert.deepEqual(await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: shown.mfaResetVersion }), { kind: "denied", reason: "changed" });
+    assert.ok(await secondFactorOf(x.id), "the second factor stays");
+    const now = await pageOf(ownerActor, x.id);
+    assert.equal(now.failedLoginCount, 1, "the reloaded page shows the failed attempt");
+    assert.equal((await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: now.mfaResetVersion })).kind, "ok");
+  });
+
+  test("an unlock is refused once the second factor was reset or the account disabled after the page was shown", async () => {
+    const o1Actor = await owner();
+    const o2Actor = await owner();
+    const x = await createUser(env, { roles: ["editor"], mfa: true });
+    await db().update(users).set({ lockedUntil: new Date(env.clock.now.getTime() + 15 * 60_000), failedLoginCount: 5 }).where(eq(users.id, x.id));
+    const shown = await pageOf(o1Actor, x.id);
+    assert.ok(shown.lockedUntil && shown.mfaEnabled, "the page shows a locked account with its second factor");
+    // Another Owner resets X's second factor; the lock and the attempts stay as they were.
+    later();
+    assert.equal((await resetUserMfa(env.deps, o2Actor, x.id, meta())).kind, "ok");
+    assert.equal((await userRow(x.id)).failedLoginCount, 5);
+    // The unlock decided on the page that showed the second factor is refused: the lock stays on a password-only account.
+    assert.deepEqual(await unlockUser(env.deps, o1Actor, x.id, meta(), { version: shown.unlockVersion }), { kind: "denied", reason: "changed" });
+    assert.ok((await userRow(x.id)).lockedUntil, "the lock stays");
+    // So does one decided before a disable.
+    const again = await pageOf(o1Actor, x.id);
+    later();
+    assert.equal((await setUserStatus(env.deps, o2Actor, x.id, "disabled", meta())).kind, "ok");
+    assert.deepEqual(await unlockUser(env.deps, o1Actor, x.id, meta(), { version: again.unlockVersion }), { kind: "denied", reason: "changed" });
+    // Positive control: decided on the page as it is now.
+    const now = await pageOf(o1Actor, x.id);
+    assert.equal((await unlockUser(env.deps, o1Actor, x.id, meta(), { version: now.unlockVersion })).kind, "ok");
+    assert.equal((await userRow(x.id)).lockedUntil, null);
   });
 });

@@ -73,37 +73,42 @@ export interface UserDetail extends UserListItem {
   disabledAt: Date | null;
   sessions: SessionRow[];
   recentEvents: { occurredAt: Date; action: string; outcome: string; summary: string; ip: string | null }[];
-  /** The account's access as this page shows it (`accountVersion`): the roles, status and 2FA forms send it back. */
+  /** The account's access as this page shows it (`accountVersion`, "access"): the roles, status and resend forms. */
   version: string;
-  /** The sign-in lock as this page shows it (`unlockVersion`): the unlock form sends it back. */
+  /** The same plus the sign-in lock ("unlock"): the unlock form sends it back. */
   unlockVersion: string;
+  /** The same plus the lock and the password ("mfa_reset"): the two-factor reset form sends it back. */
+  mfaResetVersion: string;
 }
+
+/**
+ * What a change is decided on (A2 Correction 1, fifth to seventh reviews):
+ * - "access" — roles, enable, a new invitation link: the status, the time of the disable, the roles, the second factor;
+ * - "unlock" — the same and the sign-in lock: the lock and the failed attempts counted since the last success;
+ * - "mfa_reset" — the same, the lock and the password (its last change): a two-factor reset hands the account to
+ *   whoever holds the password, so a password replaced, or a lock or failed codes after the page was shown, refuse it.
+ * Only what the decision depends on is in each, so the user's own password change or failed sign-ins never refuse an
+ * Owner's change of roles or status. (A sign-in's rehash of the same password changes none of them.)
+ */
+export type VersionScope = "access" | "unlock" | "mfa_reset";
 
 const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toString("hex").slice(0, 32);
 
 /**
- * The account's access as a page shows it, as one short fingerprint (A2 Correction 1, fifth and sixth reviews): its
- * status, the time of its disable, its roles and its second factor. The forms that change access send back the
- * fingerprint of the page they were on, and a change that can grant, restore or loosen access (roles, enable, a 2FA
- * reset, a new invitation link) is refused (`changed`) when the account under its row lock no longer has it — so a
- * demotion, a newer disable or a newer authenticator committed while the page was open is never undone by it. Only what
- * these decisions depend on is in it (not the password or the last-change time), so the user's own password change or
- * failed sign-ins never block an Owner's change. Disabling and signing out are never refused for this reason.
+ * The account as a page shows it, as one short fingerprint per kind of decision (`VersionScope`). The forms that change
+ * access send back the fingerprint of the page they were on, and a change that can grant, restore or loosen access is
+ * refused (`changed`) when the account under its row lock no longer matches it — so a demotion, a newer disable, a newer
+ * authenticator, a newer lock or a replaced password committed while the page was open is never undone or overlooked by
+ * it. Disabling and signing out are never refused for this reason.
  */
-export function accountVersion(user: UserRow, roles: readonly string[], mfaConfirmedAt: Date | null): string {
-  return fingerprint([user.status, user.disabledAt?.toISOString() ?? "-", [...roles].sort().join(","), mfaConfirmedAt?.toISOString() ?? "-"]);
+export function accountVersion(user: UserRow, roles: readonly string[], mfaConfirmedAt: Date | null, scope: VersionScope = "access"): string {
+  const parts: (string | number)[] = [scope, user.status, user.disabledAt?.toISOString() ?? "-", [...roles].sort().join(","), mfaConfirmedAt?.toISOString() ?? "-"];
+  if (scope !== "access") parts.push(user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount);
+  if (scope === "mfa_reset") parts.push(user.passwordChangedAt?.toISOString() ?? "-");
+  return fingerprint(parts);
 }
 
-/**
- * The sign-in lock as a page shows it (sixth review): the lock and the failed attempts counted since the last success.
- * An unlock decided on it is refused when a newer lock was set or more attempts were made meanwhile, so it never clears
- * attempts the Owner did not see.
- */
-export function unlockVersion(user: UserRow): string {
-  return fingerprint([user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount]);
-}
-
-/** The fingerprint a form was rendered with (`accountVersion`). */
+/** The fingerprint a form was rendered with (`accountVersion`, the scope its change is decided on). */
 export interface Expected {
   version: string;
 }
@@ -114,13 +119,18 @@ async function mfaConfirmedAt(db: Db, userId: string): Promise<Date | null> {
 }
 
 /**
- * Inside a change's transaction, after `lockForChange`: does the account still look as the form's page showed it? (No
- * fingerprint given — the CLIs and internal callers — means nothing to compare.) The second factor is read under the
- * user's row lock, which every change to it holds.
+ * Inside a change's transaction, after `lockForChange`: does the account still look as the form's page showed it, in
+ * what this change is decided on (`scope`)? (No fingerprint given — the CLIs and internal callers — means nothing to
+ * compare.) The second factor is read under the user's row lock, which every change to it holds.
  */
-export async function accountUnchanged(tx: Db, locked: { target: UserRow; roles: string[] }, expected: Expected | undefined): Promise<boolean> {
+export async function accountUnchanged(
+  tx: Db,
+  locked: { target: UserRow; roles: string[] },
+  expected: Expected | undefined,
+  scope: VersionScope = "access",
+): Promise<boolean> {
   if (!expected) return true;
-  return accountVersion(locked.target, locked.roles, await mfaConfirmedAt(tx, locked.target.id)) === expected.version;
+  return accountVersion(locked.target, locked.roles, await mfaConfirmedAt(tx, locked.target.id), scope) === expected.version;
 }
 
 export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string): Promise<UserDetail | null> {
@@ -163,7 +173,8 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
     sessions: live,
     recentEvents: events,
     version: accountVersion(user, roles, mfa),
-    unlockVersion: unlockVersion(user),
+    unlockVersion: accountVersion(user, roles, mfa, "unlock"),
+    mfaResetVersion: accountVersion(user, roles, mfa, "mfa_reset"),
   };
 }
 
@@ -412,9 +423,9 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
 }
 
 /**
- * Clears a sign-in lock and the email's credential-check slots (A2 Correction 1) — only the lock the page showed
- * (`expected` = its `unlockVersion`, fifth and sixth reviews): a newer lock, or attempts made after the page was shown,
- * are not cleared by an older page.
+ * Clears a sign-in lock and the email's credential-check slots (A2 Correction 1) — only on the account the page showed
+ * (`expected` = its "unlock" fingerprint, fifth to seventh reviews): a newer lock, attempts made after the page was
+ * shown, or a newer status, roles or second factor are not acted on by an older page.
  */
 export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.unlock";
@@ -427,7 +438,7 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return { kind: "not_found" };
     if (!canManageUser(actor, { roles: locked.roles })) return { kind: "refused", reason: "rank" };
-    if (expected && unlockVersion(locked.target) !== expected.version) return { kind: "refused", reason: "changed" };
+    if (!(await accountUnchanged(tx, locked, expected, "unlock"))) return { kind: "refused", reason: "changed" };
     await tx.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     await clearCredentialChecks(tx, target.emailNormalized);
     await recordAudit(tx, {
@@ -446,8 +457,10 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
 }
 
 /**
- * Owner only: removes another user's second factor (after confirming their identity outside the system) — only the one
- * the page showed (`expected`, fifth review): an authenticator the user set up meanwhile is not removed by an older page.
+ * Owner only: removes another user's second factor (after confirming their identity outside the system) — only on the
+ * account the page showed (`expected` = its "mfa_reset" fingerprint, fifth and seventh reviews): an authenticator the
+ * user set up meanwhile is not removed by an older page, and a password replaced, a lock set or second-factor failures
+ * counted after the page was shown refuse it, since the reset hands the account to whoever holds the password now.
  */
 export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.mfa_reset";
@@ -459,7 +472,7 @@ export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: strin
   const revoked = await inTransaction(deps.pool, async (tx) => {
     const locked = await lockForChange(tx, actor, target.id, now);
     if (!locked) return null;
-    if (!(await accountUnchanged(tx, locked, expected))) return "changed" as const;
+    if (!(await accountUnchanged(tx, locked, expected, "mfa_reset"))) return "changed" as const;
     const count = await removeMfa(tx, target.id, now);
     await recordAudit(tx, {
       at: now,

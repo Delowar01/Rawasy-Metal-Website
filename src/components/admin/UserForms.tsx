@@ -127,8 +127,10 @@ export function ResendInvitation({ userId, email, version }: { userId: string; e
 /**
  * `version` is the account as this page shows it (status, roles, second factor): the server refuses the change if the
  * account has changed since — an invitation accepted, a role taken away meanwhile — so the change is decided on what
- * the page shows. The boxes are rebuilt with the version (sixth review): a refresh of the page (after any other action
- * on it) brings the new version, and boxes ticked for the older state must not be sent with it.
+ * the page shows. The boxes always go with the version they were drawn for: they are rebuilt with it (sixth review: a
+ * refresh after any other action on the page brings a new version, and boxes ticked for the older state must not be
+ * sent with it), and the browser does not keep them (`autoComplete="off"`, seventh review: going back to a page it loads
+ * again, or restoring a session, a browser would put the older ticks back beside the newer version).
  */
 export function UserRolesForm({ userId, version, roles, selected }: { userId: string; version: string; roles: RoleOption[]; selected: string[] }) {
   const [state, action] = useActionState(setUserRolesAction, idle);
@@ -137,7 +139,7 @@ export function UserRolesForm({ userId, version, roles, selected }: { userId: st
     if (state.status === "ok") router.refresh();
   }, [state, router]);
   return (
-    <form action={action} className="adm-form">
+    <form action={action} className="adm-form" autoComplete="off">
       <FormAlert state={state} />
       <input type="hidden" name="user" value={userId} />
       <Fragment key={version}>

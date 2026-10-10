@@ -437,6 +437,56 @@ test.describe("users, invitations and roles", () => {
     await expect(page.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
     expect(await rolesOfIvy()).toEqual(["editor", "reviewer"]);
   });
+
+  test("going back to a user page shows the role boxes as the account is now, not as the browser remembered them (A2 Correction 1)", async ({ browser, page }) => {
+    const IVY = { email: "ivy.invited@example.test", name: "Ivy Invited" };
+    const rolesOfIvy = async () =>
+      (
+        await queryTestDb<{ role_key: string }>(
+          "SELECT ur.role_key FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE u.email_normalized = ? ORDER BY ur.role_key",
+          [IVY.email],
+        )
+      ).map((r) => r.role_key);
+    expect(await rolesOfIvy()).toEqual(["editor", "reviewer"]);
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/users");
+    await page.getByRole("link", { name: IVY.name }).click();
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await expect(page).toHaveURL(/\/admin\/users\/[0-9A-HJKMNP-TV-Z]{26}$/);
+    const userPage = page.url();
+    // The Owner has the page open as served (a bookmark, a reload: the form as the server wrote it) ...
+    await page.goto(userPage);
+    await expect(page.getByRole("checkbox", { name: /^Reviewer/ })).toBeChecked();
+    // ... and leaves with another full page load (an address typed) ...
+    await page.goto("/admin");
+    // ... while another Owner takes Reviewer away.
+    const other = await newPage(browser);
+    await signIn(other, OWNER.email, PASSWORDS.owner);
+    await verify(other, ownerSecret);
+    await other.goto(userPage);
+    await stepUpIfAsked(other, PASSWORDS.owner, ownerSecret);
+    await other.getByRole("checkbox", { name: /^Reviewer/ }).uncheck();
+    await other.getByRole("button", { name: "Save roles" }).click();
+    await expect(other.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
+    await other.context().close();
+    expect(await rolesOfIvy()).toEqual(["editor"]);
+    // Back. The page is loaded again (Playwright's Chromium runs without the back/forward cache, and no-store keeps
+    // admin pages out of it anyway), and the browser must not put the boxes back as they were left beside the page's
+    // newer fingerprint. (From a back/forward cache the page would keep its older fingerprint too: refused.)
+    await page.goBack();
+    await expect(page).toHaveURL(userPage);
+    await page.waitForFunction(() => document.querySelector("next-route-announcer") !== null);
+    expect(
+      await page.evaluate(() => (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type),
+      "the page was loaded again",
+    ).toBe("back_forward");
+    await expect(page.getByRole("checkbox", { name: /^Reviewer/ })).not.toBeChecked();
+    await page.getByRole("checkbox", { name: /^Admin/ }).check();
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
+    expect(await rolesOfIvy()).toEqual(["admin", "editor"]);
+  });
 });
 
 test.describe("sessions and request integrity", () => {

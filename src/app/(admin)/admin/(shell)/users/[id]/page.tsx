@@ -118,7 +118,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                   label="Reset two-factor"
                   title="Reset two-factor authentication?"
                   confirmLabel="Reset"
-                  fields={{ user: user.id, version: user.version }}
+                  fields={{ user: user.id, version: user.mfaResetVersion }}
                   danger
                 >
                   <p>
