@@ -253,8 +253,8 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
     await registerFailure(deps, user, "bad_credentials", meta, { action: "auth.login_failed", summary: "Sign-in failed: wrong password." });
     return { kind: "failed" };
   }
-  await clearCredentialChecks(deps.db, email);
 
+  let verifiedHash = user.passwordHash;
   if (deps.hasher.needsRehash(user.passwordHash)) {
     const rehashed = await deps.hasher.hash(password);
     // Written only over the hash that was verified: a password changed or reset meanwhile is never overwritten.
@@ -263,6 +263,7 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
       .set({ passwordHash: rehashed })
       .where(and(eq(users.id, user.id), eq(users.passwordHash, user.passwordHash)));
     if (written.affectedRows === 1) {
+      verifiedHash = rehashed;
       await recordAudit(deps.db, {
         at: now,
         requestId: meta.requestId,
@@ -276,28 +277,53 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
     }
   }
 
-  const roles = await rolesOf(deps.db, user.id);
-  const mfa = await mfaStateOf(deps.db, user.id, roles);
-  if (mfa.enrolled) {
-    const { token, session } = await createSession(deps.db, { userId: user.id, now, ...meta, mfaVerified: false, pending: true });
+  // The session is created under the user's row lock, and only while the account is exactly as it was checked: the
+  // same password hash, active, not locked (A2 Correction 1, review). A password reset or change, a disable or a lock
+  // that committed while the password was being hashed wins; one that commits later takes the same row lock first and
+  // then signs this session out with the others. A password replaced meanwhile never yields a session.
+  const outcome = await inTransaction(deps.pool, async (tx) => {
+    const row = await lockUser(tx, user.id);
+    if (!row || row.status !== "active" || row.deletedAt || row.passwordHash !== verifiedHash) {
+      return { ok: false as const, reason: (row?.status === "disabled" ? "disabled" : "bad_credentials") as FailureReason };
+    }
+    if (isLocked(row, now)) return { ok: false as const, reason: "locked" as FailureReason };
+    const roles = await rolesOf(tx, row.id);
+    const mfa = await mfaStateOf(tx, row.id, roles);
+    if (mfa.enrolled) {
+      const { token, session } = await createSession(tx, { userId: row.id, now, ...meta, mfaVerified: false, pending: true });
+      await recordAudit(tx, {
+        at: now,
+        requestId: meta.requestId,
+        actor: auditActorOf({ user: row, roles, session }),
+        ip: meta.ip,
+        action: "auth.password_verified",
+        entity: { type: "user", id: row.id, label: userLabel(row) },
+        outcome: "success",
+        summary: "Password accepted; waiting for the second factor.",
+      });
+      return { ok: true as const, result: { kind: "mfa_required" as const, token, session } };
+    }
+    const { token, session } = await createSession(tx, { userId: row.id, now, ...meta, mfaVerified: false });
+    await recordSuccess(tx, row, roles, session, now, meta, mfa.required ? "with a password (two-factor set-up required)" : "with a password");
+    return { ok: true as const, result: { kind: "signed_in" as const, token, session, user: row, enrolmentRequired: mfa.required } };
+  });
+  if (!outcome.ok) {
+    // Refused like a wrong password, and not counted against the account: the password was right when it was checked.
+    await recordAttempt(deps.db, now, emailHash, user.id, meta, false, outcome.reason);
     await recordAudit(deps.db, {
       at: now,
       requestId: meta.requestId,
-      actor: auditActorOf({ user, roles, session }),
+      actor: systemActor(user),
       ip: meta.ip,
-      action: "auth.password_verified",
+      action: "auth.login_failed",
       entity: { type: "user", id: user.id, label: userLabel(user) },
-      outcome: "success",
-      summary: "Password accepted; waiting for the second factor.",
+      outcome: "failed",
+      summary: "Sign-in refused: the account changed (password, status or lock) while the password was being checked.",
     });
-    return { kind: "mfa_required", token, session };
+    return { kind: "failed" };
   }
-
-  return inTransaction(deps.pool, async (tx) => {
-    const { token, session } = await createSession(tx, { userId: user.id, now, ...meta, mfaVerified: false });
-    await recordSuccess(tx, user, roles, session, now, meta, mfa.required ? "with a password (two-factor set-up required)" : "with a password");
-    return { kind: "signed_in" as const, token, session, user, enrolmentRequired: mfa.required };
-  });
+  await clearCredentialChecks(deps.db, email);
+  return outcome.result;
 }
 
 export type SecondFactorResult =

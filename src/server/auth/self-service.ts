@@ -1,24 +1,53 @@
-/** A user's own sessions (A1-SECURITY-RBAC §3.3 "device list"): sign out one other session, or all of them. */
+/**
+ * A user's own sessions (A1-SECURITY-RBAC §3.3 "device list"): sign out one other session, or all of them. Each runs in
+ * a transaction that takes the user's row, then proves the acting session is still live (A2 Correction 1, review).
+ */
 import { and, eq } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
-import { sessions } from "../db/schema.ts";
+import { inTransaction } from "../db/client.ts";
+import { sessions, users } from "../db/schema.ts";
 import type { AuthDeps } from "./deps.ts";
-import { revokeSession, revokeUserSessions } from "./sessions.ts";
+import { lockActingSession, revokeSession, revokeUserSessions } from "./sessions.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
 /** Signs out one of the actor's other sessions (the current one is signed out with "Sign out"). */
 export async function revokeOwnSession(deps: AuthDeps, actor: Actor, sessionId: string, meta: RequestMeta): Promise<boolean> {
   if (sessionId === actor.session.id) return false;
-  const [owned] = await deps.db
-    .select({ id: sessions.id })
-    .from(sessions)
-    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, actor.user.id)))
-    .limit(1);
-  if (!owned) return false;
   const now = deps.clock();
-  const done = await revokeSession(deps.db, sessionId, "revoked", now);
-  if (done) {
-    await recordAudit(deps.db, {
+  return inTransaction(deps.pool, async (tx) => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, actor.user.id)).for("update");
+    await lockActingSession(tx, actor.session, now);
+    const [owned] = await tx
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.id, sessionId), eq(sessions.userId, actor.user.id)))
+      .limit(1);
+    if (!owned) return false;
+    const done = await revokeSession(tx, sessionId, "revoked", now);
+    if (done) {
+      await recordAudit(tx, {
+        at: now,
+        requestId: meta.requestId,
+        actor: auditActorOf(actor),
+        ip: meta.ip,
+        action: "session.revoke",
+        entity: { type: "user", id: actor.user.id, label: userLabel(actor.user) },
+        outcome: "success",
+        summary: "Signed out one of their own sessions.",
+      });
+    }
+    return done;
+  });
+}
+
+/** Signs out every other session of the actor. */
+export async function revokeOtherOwnSessions(deps: AuthDeps, actor: Actor, meta: RequestMeta): Promise<number> {
+  const now = deps.clock();
+  return inTransaction(deps.pool, async (tx) => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, actor.user.id)).for("update");
+    await lockActingSession(tx, actor.session, now);
+    const count = await revokeUserSessions(tx, actor.user.id, "revoked", now, actor.session.id);
+    await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,
       actor: auditActorOf(actor),
@@ -26,25 +55,8 @@ export async function revokeOwnSession(deps: AuthDeps, actor: Actor, sessionId: 
       action: "session.revoke",
       entity: { type: "user", id: actor.user.id, label: userLabel(actor.user) },
       outcome: "success",
-      summary: "Signed out one of their own sessions.",
+      summary: `Signed out of ${count} other session(s).`,
     });
-  }
-  return done;
-}
-
-/** Signs out every other session of the actor. */
-export async function revokeOtherOwnSessions(deps: AuthDeps, actor: Actor, meta: RequestMeta): Promise<number> {
-  const now = deps.clock();
-  const count = await revokeUserSessions(deps.db, actor.user.id, "revoked", now, actor.session.id);
-  await recordAudit(deps.db, {
-    at: now,
-    requestId: meta.requestId,
-    actor: auditActorOf(actor),
-    ip: meta.ip,
-    action: "session.revoke",
-    entity: { type: "user", id: actor.user.id, label: userLabel(actor.user) },
-    outcome: "success",
-    summary: `Signed out of ${count} other session(s).`,
+    return count;
   });
-  return count;
 }

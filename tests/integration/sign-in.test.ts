@@ -190,7 +190,8 @@ describe("password hashes", () => {
         return rehashed;
       },
     };
-    assert.equal((await signIn({ ...env.deps, hasher }, { email: user.email, password: user.password }, meta())).kind, "signed_in");
+    // The sign-in itself is refused: the password it checked was replaced meanwhile (A2 Correction 1, review).
+    assert.equal((await signIn({ ...env.deps, hasher }, { email: user.email, password: user.password }, meta())).kind, "failed");
     const [row] = await dbFor(env.pool).select().from(users).where(eq(users.id, user.id));
     assert.equal(row.passwordHash, changed);
     const audited = await dbFor(env.pool)

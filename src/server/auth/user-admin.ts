@@ -7,7 +7,7 @@
  */
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
-import { inTransaction } from "../db/client.ts";
+import { inTransaction, type Db } from "../db/client.ts";
 import { auditEvents, sessions, userMfa, userRoles, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { canGrantRoles, canManageUser, isOwner } from "../policy/rbac.ts";
@@ -16,8 +16,8 @@ import { activeOwnerIds, findUserById, rolesOf, rolesOfMany, type UserRow } from
 import type { AuthDeps } from "./deps.ts";
 import { removeMfa } from "./mfa.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
-import { listLiveSessions, revokeSession, revokeUserSessions, type SessionRow } from "./sessions.ts";
-import { retireTokens } from "./tokens.ts";
+import { listLiveSessions, lockActingSession, revokeSession, revokeUserSessions, type SessionRow } from "./sessions.ts";
+import { retireInvitationsIssuedBy, retireTokens } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
 export interface UserListItem {
@@ -136,6 +136,18 @@ async function deny(
   return { kind: "denied", reason };
 }
 
+/**
+ * The start of every change one user makes to another, inside its transaction (A2 Correction 1, review): both user rows
+ * locked in one order (by id, so two people acting on each other at once queue instead of deadlocking), then the acting
+ * session proven live, then the target as it is now. Revocations take a user's row before its sessions, in that order.
+ */
+async function lockForChange(tx: Db, actor: Actor, targetId: string, now: Date): Promise<UserRow | null> {
+  const ids = [...new Set([actor.user.id, targetId])].sort();
+  const rows = await tx.select().from(users).where(inArray(users.id, ids)).orderBy(asc(users.id)).for("update");
+  await lockActingSession(tx, actor.session, now);
+  return rows.find((row) => row.id === targetId && !row.deletedAt) ?? null;
+}
+
 /** Loads the target and applies the common checks; returns the target and its roles, or a refusal. */
 async function authorize(deps: AuthDeps, actor: Actor, meta: RequestMeta, action: string, permission: string, targetId: string) {
   const target = await findUserById(deps.db, targetId);
@@ -147,7 +159,11 @@ async function authorize(deps: AuthDeps, actor: Actor, meta: RequestMeta, action
   return { target, roles };
 }
 
-/** Disables (signing the user out everywhere) or re-enables an account. */
+/**
+ * Disables (signing the user out everywhere and withdrawing the invitations they sent) or re-enables an account. The
+ * acting session and the rank rule are checked again inside the transaction, under the target's row lock (A2
+ * Correction 1, review): a revocation of the actor or a role change of the target committed meanwhile counts.
+ */
 export async function setUserStatus(
   deps: AuthDeps,
   actor: Actor,
@@ -158,11 +174,13 @@ export async function setUserStatus(
   const action = status === "disabled" ? "user.disable" : "user.enable";
   const checked = await authorize(deps, actor, meta, action, "users.disable", targetId);
   if ("refusal" in checked) return checked.refusal as ManageResult;
-  const { target, roles } = checked;
+  const { target } = checked;
   const now = deps.clock();
-  return inTransaction(deps.pool, async (tx) => {
-    const [row] = await tx.select().from(users).where(eq(users.id, target.id)).for("update");
+  const result = await inTransaction(deps.pool, async (tx) => {
+    const row = await lockForChange(tx, actor, target.id, now);
     if (!row) return { kind: "not_found" as const };
+    const roles = await rolesOf(tx, target.id);
+    if (!canManageUser(actor, { roles })) return { kind: "refused" as const };
     if (status === "disabled") {
       if (row.status === "disabled") return { kind: "ok" as const, summary: "Already disabled." };
       if (roles.includes("owner") && row.status === "active") {
@@ -172,7 +190,8 @@ export async function setUserStatus(
       await tx.update(users).set({ status: "disabled", disabledAt: now, disabledBy: actor.user.id, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
       const revoked = await revokeUserSessions(tx, target.id, "user_disabled", now);
       await retireTokens(tx, target.id, ["invitation", "password_reset", "email_change", "owner_setup"], now);
-      const summary = `Disabled ${userLabel(target)}; ${revoked} session(s) signed out.`;
+      const withdrawn = await retireInvitationsIssuedBy(tx, target.id, now);
+      const summary = `Disabled ${userLabel(target)}; ${revoked} session(s) signed out${withdrawn ? `; ${withdrawn} pending invitation(s) they sent withdrawn` : ""}.`;
       await recordAudit(tx, {
         at: now,
         requestId: meta.requestId,
@@ -190,7 +209,9 @@ export async function setUserStatus(
     // An account disabled before it accepted its invitation returns to "invited" (it has no password yet).
     const next = row.passwordHash ? "active" : "invited";
     await tx.update(users).set({ status: next, disabledAt: null, disabledBy: null, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
-    const summary = `Enabled ${userLabel(target)} (${next}).`;
+    // Nothing from before the disable comes back to life: any session left unrevoked is signed out (none is expected).
+    const leftover = await revokeUserSessions(tx, target.id, "user_disabled", now);
+    const summary = `Enabled ${userLabel(target)} (${next})${leftover ? `; ${leftover} earlier session(s) signed out` : ""}.`;
     await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,
@@ -204,24 +225,35 @@ export async function setUserStatus(
     });
     return { kind: "ok" as const, summary };
   });
+  if (result.kind === "refused") return deny(deps, actor, meta, action, target, "rank");
+  return result;
 }
 
-/** Replaces a user's roles (at least one). Signs the user out everywhere. */
+/**
+ * Replaces a user's roles (at least one). Signs the user out everywhere; a role taken away also withdraws the
+ * invitations they sent. What changes is decided again inside the transaction, against the roles the user has under its
+ * row lock, with the acting session checked there too (A2 Correction 1, review).
+ */
 export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: string, nextRoles: string[], meta: RequestMeta): Promise<ManageResult> {
   const action = "user.roles_change";
   const roles = [...new Set(nextRoles)];
   if (roles.length === 0 || roles.some((r) => !ROLE_KEYS.includes(r as never))) return { kind: "invalid" };
   const checked = await authorize(deps, actor, meta, action, "users.edit", targetId);
   if ("refusal" in checked) return checked.refusal as ManageResult;
-  const { target, roles: before } = checked;
-  const added = roles.filter((r) => !before.includes(r));
-  const removed = before.filter((r) => !roles.includes(r));
-  if (added.length === 0 && removed.length === 0) return { kind: "ok", summary: "No change." };
-  if (!canGrantRoles(actor, [...added, ...removed])) return deny(deps, actor, meta, action, target, isOwner(actor) ? "rank" : "owner_only");
+  const { target, roles: seen } = checked;
+  const changing = [...roles.filter((r) => !seen.includes(r)), ...seen.filter((r) => !roles.includes(r))];
+  if (changing.length === 0) return { kind: "ok", summary: "No change." };
+  if (!canGrantRoles(actor, changing)) return deny(deps, actor, meta, action, target, isOwner(actor) ? "rank" : "owner_only");
   const now = deps.clock();
-  return inTransaction(deps.pool, async (tx) => {
-    const [row] = await tx.select().from(users).where(eq(users.id, target.id)).for("update");
+  const result = await inTransaction(deps.pool, async (tx) => {
+    const row = await lockForChange(tx, actor, target.id, now);
     if (!row) return { kind: "not_found" as const };
+    const before = await rolesOf(tx, target.id);
+    const added = roles.filter((r) => !before.includes(r));
+    const removed = before.filter((r) => !roles.includes(r));
+    if (added.length === 0 && removed.length === 0) return { kind: "ok" as const, summary: "No change." };
+    if (!canManageUser(actor, { roles: before })) return { kind: "refused" as const, reason: "rank" as const };
+    if (!canGrantRoles(actor, [...added, ...removed])) return { kind: "refused" as const, reason: isOwner(actor) ? ("rank" as const) : ("owner_only" as const) };
     if (removed.includes("owner") && row.status === "active") {
       const owners = await activeOwnerIds(tx, { lock: true });
       if (owners.filter((id) => id !== target.id).length === 0) return { kind: "last_owner" as const };
@@ -230,7 +262,8 @@ export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: strin
     if (added.length) await tx.insert(userRoles).values(added.map((roleKey) => ({ userId: target.id, roleKey, grantedBy: actor.user.id, grantedAt: now })));
     await tx.update(users).set({ updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     const revoked = await revokeUserSessions(tx, target.id, "role_changed", now);
-    const summary = `Roles of ${userLabel(target)}: ${before.join(", ") || "none"} → ${roles.join(", ")}; ${revoked} session(s) signed out.`;
+    const withdrawn = removed.length ? await retireInvitationsIssuedBy(tx, target.id, now) : 0;
+    const summary = `Roles of ${userLabel(target)}: ${before.join(", ") || "none"} → ${roles.join(", ")}; ${revoked} session(s) signed out${withdrawn ? `; ${withdrawn} pending invitation(s) they sent withdrawn` : ""}.`;
     await recordAudit(tx, {
       at: now,
       requestId: meta.requestId,
@@ -244,6 +277,8 @@ export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: strin
     });
     return { kind: "ok" as const, summary };
   });
+  if (result.kind === "refused") return deny(deps, actor, meta, action, target, result.reason);
+  return result;
 }
 
 /** Signs a user out of one session or all of them. */
@@ -253,26 +288,29 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
   if ("refusal" in checked) return checked.refusal as ManageResult;
   const { target } = checked;
   const now = deps.clock();
-  let count: number;
-  if (sessionId) {
-    const [owned] = await deps.db.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.userId, target.id))).limit(1);
-    if (!owned) return { kind: "not_found" };
-    count = (await revokeSession(deps.db, sessionId, "revoked", now)) ? 1 : 0;
-  } else {
-    count = await revokeUserSessions(deps.db, target.id, "revoked", now);
-  }
-  const summary = `Signed ${userLabel(target)} out of ${count} session(s).`;
-  await recordAudit(deps.db, {
-    at: now,
-    requestId: meta.requestId,
-    actor: auditActorOf(actor),
-    ip: meta.ip,
-    action,
-    entity: { type: "user", id: target.id, label: userLabel(target) },
-    outcome: "success",
-    summary,
+  return inTransaction(deps.pool, async (tx): Promise<ManageResult> => {
+    if (!(await lockForChange(tx, actor, target.id, now))) return { kind: "not_found" };
+    let count: number;
+    if (sessionId) {
+      const [owned] = await tx.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.userId, target.id))).limit(1);
+      if (!owned) return { kind: "not_found" };
+      count = (await revokeSession(tx, sessionId, "revoked", now)) ? 1 : 0;
+    } else {
+      count = await revokeUserSessions(tx, target.id, "revoked", now);
+    }
+    const summary = `Signed ${userLabel(target)} out of ${count} session(s).`;
+    await recordAudit(tx, {
+      at: now,
+      requestId: meta.requestId,
+      actor: auditActorOf(actor),
+      ip: meta.ip,
+      action,
+      entity: { type: "user", id: target.id, label: userLabel(target) },
+      outcome: "success",
+      summary,
+    });
+    return { kind: "ok", summary };
   });
-  return { kind: "ok", summary };
 }
 
 /** Clears a sign-in lock and the email's credential-check slots (A2 Correction 1). */
@@ -282,18 +320,21 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
   if ("refusal" in checked) return checked.refusal as ManageResult;
   const { target } = checked;
   const now = deps.clock();
-  await deps.db.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
-  await clearCredentialChecks(deps.db, target.emailNormalized);
   const summary = `Unlocked ${userLabel(target)}.`;
-  await recordAudit(deps.db, {
-    at: now,
-    requestId: meta.requestId,
-    actor: auditActorOf(actor),
-    ip: meta.ip,
-    action,
-    entity: { type: "user", id: target.id, label: userLabel(target) },
-    outcome: "success",
-    summary,
+  await inTransaction(deps.pool, async (tx) => {
+    await lockForChange(tx, actor, target.id, now);
+    await tx.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
+    await clearCredentialChecks(tx, target.emailNormalized);
+    await recordAudit(tx, {
+      at: now,
+      requestId: meta.requestId,
+      actor: auditActorOf(actor),
+      ip: meta.ip,
+      action,
+      entity: { type: "user", id: target.id, label: userLabel(target) },
+      outcome: "success",
+      summary,
+    });
   });
   return { kind: "ok", summary };
 }
@@ -307,6 +348,7 @@ export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: strin
   if (target.id === actor.user.id) return deny(deps, actor, meta, action, target, "self");
   const now = deps.clock();
   const revoked = await inTransaction(deps.pool, async (tx) => {
+    await lockForChange(tx, actor, target.id, now);
     const count = await removeMfa(tx, target.id, now);
     await recordAudit(tx, {
       at: now,

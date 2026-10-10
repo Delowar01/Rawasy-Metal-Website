@@ -5,10 +5,11 @@
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { SessionEndedError } from "../../src/server/auth/sessions.ts";
 import { setUserRoles, setUserStatus, revokeSessionsOf, unlockUser } from "../../src/server/auth/user-admin.ts";
 import { dbFor } from "../../src/server/db/client.ts";
-import { auditEvents, permissions, rolePermissions, roles as rolesTable } from "../../src/server/db/schema.ts";
+import { auditEvents, permissions, rolePermissions, roles as rolesTable, users } from "../../src/server/db/schema.ts";
 import { canGrantRoles, canManageUser } from "../../src/server/policy/rbac.ts";
 import { PERMISSIONS, ROLE_PERMISSIONS, SENSITIVE_PERMISSIONS } from "../../src/server/policy/registry.ts";
 import { actorFor, createUser, meta, setupTestEnv, type TestEnv } from "./helpers.ts";
@@ -215,8 +216,14 @@ describe("last-Owner protection", () => {
       const c = await createUser(isolated, { roles: ["owner"], mfa: true });
       const actorC = await actorFor(isolated, c);
       assert.equal((await setUserStatus(isolated.deps, actorC, a.id, "disabled", meta())).kind, "ok");
-      assert.deepEqual(await setUserStatus(isolated.deps, actorA, c.id, "disabled", meta()), { kind: "last_owner" });
-      assert.deepEqual(await setUserRoles(isolated.deps, actorA, c.id, ["admin"], meta()), { kind: "last_owner" });
+      // A is disabled and signed out: whatever A's revoked session still asks for is refused (A2 Correction 1, review).
+      await assert.rejects(setUserStatus(isolated.deps, actorA, c.id, "disabled", meta()), SessionEndedError);
+      await assert.rejects(setUserRoles(isolated.deps, actorA, c.id, ["admin"], meta()), SessionEndedError);
+      // Behind that, the last-Owner rule still holds: a session of A that outlived the disable (made here by hand)
+      // cannot remove C, the only active Owner.
+      const stray = await actorFor(isolated, a);
+      assert.deepEqual(await setUserStatus(isolated.deps, stray, c.id, "disabled", meta()), { kind: "last_owner" });
+      assert.deepEqual(await setUserRoles(isolated.deps, stray, c.id, ["admin"], meta()), { kind: "last_owner" });
       assert.ok(actorB);
     } finally {
       await isolated.close();
@@ -233,12 +240,18 @@ describe("last-Owner protection", () => {
         // Exactly two active Owners before the race: the previous round's survivor steps aside first.
         if (survivor) assert.equal((await setUserStatus(isolated.deps, await actorFor(isolated, a), survivor.id, "disabled", meta())).kind, "ok");
         const [actorA, actorB] = [await actorFor(isolated, a), await actorFor(isolated, b)];
-        const [ra, rb] = await Promise.all([
+        const [ra, rb] = await Promise.allSettled([
           setUserStatus(isolated.deps, actorA, b.id, "disabled", meta()),
           setUserStatus(isolated.deps, actorB, a.id, "disabled", meta()),
         ]);
-        assert.deepEqual([ra.kind, rb.kind].sort(), ["last_owner", "ok"], `round ${round}`);
-        survivor = ra.kind === "ok" ? a : b;
+        // The first to commit disables the other and signs them out; the other's request then ends with its session
+        // (A2 Correction 1, review: it used to reach the last-Owner rule with a revoked session).
+        const outcome = (r: PromiseSettledResult<{ kind: string }>) =>
+          r.status === "fulfilled" ? r.value.kind : r.reason instanceof SessionEndedError ? "session_ended" : String(r.reason);
+        assert.deepEqual([outcome(ra), outcome(rb)].sort(), ["ok", "session_ended"], `round ${round}`);
+        survivor = outcome(ra) === "ok" ? a : b;
+        const active = await dbFor(isolated.pool).select({ id: users.id }).from(users).where(and(inArray(users.id, [a.id, b.id]), eq(users.status, "active")));
+        assert.deepEqual(active.map((u) => u.id), [survivor.id], `round ${round}: exactly one of the two is still active`);
       }
     } finally {
       await isolated.close();

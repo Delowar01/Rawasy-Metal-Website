@@ -182,6 +182,20 @@ export async function rotateSession(db: Db, old: SessionRow, options: RotateOpti
   return { token, session };
 }
 
+/**
+ * For a change made by a signed-in user, inside its transaction (A2 Correction 1, review): locks the acting session's
+ * row and proves it is still live. A revocation that committed after the request was authorised (signed out elsewhere;
+ * a password, role or two-factor change; a disable) ends the change with `SessionEndedError`, which rolls the
+ * transaction back; a revocation that comes later waits for this transaction and then signs the session out. So nothing
+ * a session asked for is done after it was revoked. A change that also locks the acting user's own row takes that lock
+ * first, in the order the revocations use (the user's row, then its sessions).
+ */
+export async function lockActingSession(db: Db, session: Pick<SessionRow, "id">, now: Date): Promise<void> {
+  const [row] = await db.select().from(sessions).where(eq(sessions.id, session.id)).for("update");
+  const live = row && !row.revokedAt && row.idleExpiresAt.getTime() > now.getTime() && row.absoluteExpiresAt.getTime() > now.getTime();
+  if (!live) throw new SessionEndedError();
+}
+
 export async function revokeSession(db: Db, sessionId: string, reason: RevokeReason, now: Date): Promise<boolean> {
   const [result] = await db
     .update(sessions)

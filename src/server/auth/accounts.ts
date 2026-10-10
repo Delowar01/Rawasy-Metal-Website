@@ -9,8 +9,12 @@ import { permissionsOf, rankOf, requiresMfa } from "../policy/registry.ts";
 
 export type UserRow = typeof users.$inferSelect;
 
-/** Login identifier: trimmed, Unicode-normalized, lower-cased (A1 §3.1). */
-export const normalizeEmail = (email: string) => email.normalize("NFKC").trim().toLowerCase();
+/**
+ * Login identifier: Unicode-normalized, lower-cased, trimmed (A1 §3.1). Normalized again after lower-casing, so that
+ * normalizing twice gives the same key (A2 Correction 1, review): lower-casing can produce a sequence NFKC composes
+ * ("J" + combining caron → "ǰ"), and every spelling of an address must be one key for the sign-in slots and the lookup.
+ */
+export const normalizeEmail = (email: string) => email.normalize("NFKC").toLowerCase().normalize("NFKC").trim();
 
 /** A deliberately loose check (one @, a dot in the domain, no spaces, ≤ 254 characters). */
 export const isPlausibleEmail = (email: string) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);

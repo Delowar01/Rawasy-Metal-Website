@@ -98,15 +98,26 @@ test("no password, token, TOTP secret, code or recovery code is stored in clear 
     secrets.push(resetToken, resetPassword);
     assert.equal((await completePasswordReset(env.deps, { token: resetToken, password: resetPassword }, meta())).kind, "ok");
 
-    // An invitation, accepted.
-    const owner = { ...current, session: changed.kind === "ok" ? changed.session : done.session };
+    // An invitation, accepted — from a session signed in after the reset, which signed every session out (a revoked
+    // session changes nothing: A2 Correction 1, review).
+    env.clock.advance(30_000);
+    const fourth = await signIn(env.deps, { email: "owner@example.test", password: resetPassword }, meta());
+    if (fourth.kind !== "mfa_required") return assert.fail(fourth.kind);
+    secrets.push(fourth.token);
+    const pending4 = await findSessionByToken(dbFor(env.pool), fourth.token, env.deps.clock());
+    assert.ok(pending4);
+    const code4 = totpCode(secret, env.deps.clock().getTime());
+    const signedIn4 = await verifySecondFactor(env.deps, pending4, { code: code4 }, meta());
+    if (signedIn4.kind !== "signed_in") return assert.fail(signedIn4.kind);
+    secrets.push(signedIn4.token);
+    const owner = { ...current, session: signedIn4.session };
     const invited = await inviteUser(env.deps, owner, { email: "editor@example.test", displayName: "Editor Person", roles: ["editor"] }, meta());
     assert.equal(invited.kind, "invited");
     const inviteToken = linkToken(env.mail().at(-1)?.text ?? "", "invite");
     const editorPassword = strongPassword();
     secrets.push(inviteToken, editorPassword);
     assert.equal((await acceptInvitation(env.deps, { token: inviteToken, password: editorPassword }, meta())).kind, "ok");
-    secrets.push(code, enrolCode);
+    secrets.push(code, enrolCode, code4);
   } finally {
     Object.assign(console, originals);
   }

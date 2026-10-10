@@ -54,6 +54,19 @@ export async function retireTokens(db: Db, userId: string, purposes: TokenPurpos
     .where(and(eq(authTokens.userId, userId), inArray(authTokens.purpose, purposes), isNull(authTokens.usedAt)));
 }
 
+/**
+ * Withdraws the unused invitations a user sent (A2 Correction 1, review): an invitation is only as good as its inviter's
+ * authority, so disabling the inviter or taking a role from them retires the links they issued (an Owner or Admin can
+ * send them again). Returns how many were withdrawn.
+ */
+export async function retireInvitationsIssuedBy(db: Db, inviterId: string, now: Date): Promise<number> {
+  const [result] = await db
+    .update(authTokens)
+    .set({ usedAt: now })
+    .where(and(eq(authTokens.createdBy, inviterId), eq(authTokens.purpose, "invitation"), isNull(authTokens.usedAt)));
+  return result.affectedRows;
+}
+
 /** A usable token (right purpose, unused, unexpired) and its user, without consuming it. */
 export async function findUsableToken(
   db: Db,

@@ -26,7 +26,7 @@ import { mfaStateOf, type UserRow } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { clearCredentialChecks, reserveCredentialCheck } from "./rate-limit.ts";
 import { isAccountLocked, registerFailure } from "./sign-in.ts";
-import { revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
+import { lockActingSession, revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
 import { issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
 
@@ -219,12 +219,20 @@ export async function confirmEnrolment(
   return { kind: "ok", ...outcome };
 }
 
-/** New recovery codes (the old ones stop working). The caller checks the recent re-authentication. */
+/**
+ * New recovery codes (the old ones stop working). The caller checks the recent re-authentication. Under the user's row
+ * lock, the acting session must still be live and the authenticator still set up (A2 Correction 1, review): a session
+ * signed out meanwhile — by a replaced or removed authenticator, say — never receives codes.
+ */
 export async function regenerateRecoveryCodes(deps: AuthDeps, current: Current, meta: RequestMeta): Promise<string[] | null> {
   const now = deps.clock();
   const state = await mfaStateOf(deps.db, current.user.id, current.roles);
   if (!state.enrolled) return null;
   const codes = await inTransaction(deps.pool, async (tx) => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, current.user.id)).for("update");
+    await lockActingSession(tx, current.session, now);
+    const [confirmed] = await tx.select({ at: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, current.user.id)).limit(1);
+    if (!confirmed?.at) return null;
     const fresh = await replaceRecoveryCodes(tx, current.user.id, now);
     await recordAudit(tx, {
       at: now,
@@ -238,6 +246,7 @@ export async function regenerateRecoveryCodes(deps: AuthDeps, current: Current, 
     });
     return fresh;
   });
+  if (!codes) return null;
   await sendQuietly(
     deps.mailer,
     mailTemplates.securityNotice(current.user.email, current.user.displayName, "New recovery codes were created for your account; the old ones no longer work."),
@@ -254,6 +263,8 @@ export async function disableMfa(deps: AuthDeps, current: Current, meta: Request
   if (state.required) return { kind: "required" };
   if (!state.enrolled) return { kind: "none" };
   const result = await inTransaction(deps.pool, async (tx) => {
+    // The user's row first, like the other two-factor changes (one order of locks, fewer deadlocks).
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, current.user.id)).for("update");
     await tx.delete(userRecoveryCodes).where(eq(userRecoveryCodes.userId, current.user.id));
     await tx.delete(userMfa).where(eq(userMfa.userId, current.user.id));
     const others = await revokeUserSessions(tx, current.user.id, "revoked", now, current.session.id);
