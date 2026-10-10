@@ -5,9 +5,9 @@
 import { and, eq } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
 import { inTransaction } from "../db/client.ts";
-import { sessions, users } from "../db/schema.ts";
+import { sessions } from "../db/schema.ts";
 import type { AuthDeps } from "./deps.ts";
-import { lockActingSession, revokeSession, revokeUserSessions } from "./sessions.ts";
+import { lockActor, revokeSession, revokeUserSessions } from "./sessions.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
 /** Signs out one of the actor's other sessions (the current one is signed out with "Sign out"). */
@@ -15,8 +15,7 @@ export async function revokeOwnSession(deps: AuthDeps, actor: Actor, sessionId: 
   if (sessionId === actor.session.id) return false;
   const now = deps.clock();
   return inTransaction(deps.pool, async (tx) => {
-    await tx.select({ id: users.id }).from(users).where(eq(users.id, actor.user.id)).for("update");
-    await lockActingSession(tx, actor.session, now);
+    await lockActor(tx, actor, now);
     const [owned] = await tx
       .select({ id: sessions.id })
       .from(sessions)
@@ -44,8 +43,7 @@ export async function revokeOwnSession(deps: AuthDeps, actor: Actor, sessionId: 
 export async function revokeOtherOwnSessions(deps: AuthDeps, actor: Actor, meta: RequestMeta): Promise<number> {
   const now = deps.clock();
   return inTransaction(deps.pool, async (tx) => {
-    await tx.select({ id: users.id }).from(users).where(eq(users.id, actor.user.id)).for("update");
-    await lockActingSession(tx, actor.session, now);
+    await lockActor(tx, actor, now);
     const count = await revokeUserSessions(tx, actor.user.id, "revoked", now, actor.session.id);
     await recordAudit(tx, {
       at: now,

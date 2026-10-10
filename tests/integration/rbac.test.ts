@@ -9,7 +9,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { SessionEndedError } from "../../src/server/auth/sessions.ts";
 import { setUserRoles, setUserStatus, revokeSessionsOf, unlockUser } from "../../src/server/auth/user-admin.ts";
 import { dbFor } from "../../src/server/db/client.ts";
-import { auditEvents, permissions, rolePermissions, roles as rolesTable, users } from "../../src/server/db/schema.ts";
+import { auditEvents, permissions, rolePermissions, roles as rolesTable, userRoles, users } from "../../src/server/db/schema.ts";
 import { canGrantRoles, canManageUser } from "../../src/server/policy/rbac.ts";
 import { PERMISSIONS, ROLE_PERMISSIONS, SENSITIVE_PERMISSIONS } from "../../src/server/policy/registry.ts";
 import { actorFor, createUser, meta, setupTestEnv, type TestEnv } from "./helpers.ts";
@@ -219,11 +219,16 @@ describe("last-Owner protection", () => {
       // A is disabled and signed out: whatever A's revoked session still asks for is refused (A2 Correction 1, review).
       await assert.rejects(setUserStatus(isolated.deps, actorA, c.id, "disabled", meta()), SessionEndedError);
       await assert.rejects(setUserRoles(isolated.deps, actorA, c.id, ["admin"], meta()), SessionEndedError);
-      // Behind that, the last-Owner rule still holds: a session of A that outlived the disable (made here by hand)
-      // cannot remove C, the only active Owner.
+      // A session of A that outlived the disable (made here by hand) is refused as well: A is not active.
       const stray = await actorFor(isolated, a);
-      assert.deepEqual(await setUserStatus(isolated.deps, stray, c.id, "disabled", meta()), { kind: "last_owner" });
-      assert.deepEqual(await setUserRoles(isolated.deps, stray, c.id, ["admin"], meta()), { kind: "last_owner" });
+      await assert.rejects(setUserStatus(isolated.deps, stray, c.id, "disabled", meta()), SessionEndedError);
+      // Behind both, the last-Owner rule still holds: an Owner whose role was taken away without its sessions being
+      // signed out (made here by hand: a role change signs them out) cannot remove C, the only active Owner.
+      const d = await createUser(isolated, { roles: ["owner"], mfa: true });
+      const staleD = await actorFor(isolated, d);
+      await dbFor(isolated.pool).delete(userRoles).where(eq(userRoles.userId, d.id));
+      assert.deepEqual(await setUserStatus(isolated.deps, staleD, c.id, "disabled", meta()), { kind: "last_owner" });
+      assert.deepEqual(await setUserRoles(isolated.deps, staleD, c.id, ["admin"], meta()), { kind: "last_owner" });
       assert.ok(actorB);
     } finally {
       await isolated.close();

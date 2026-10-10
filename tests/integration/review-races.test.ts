@@ -14,15 +14,16 @@ import { after, before, describe, test } from "node:test";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { acceptInvitation, inspectInvitation, inviteUser, resendInvitation } from "../../src/server/auth/invitations.ts";
 import { beginEnrolment, confirmEnrolment, regenerateRecoveryCodes } from "../../src/server/auth/mfa.ts";
-import { changePassword, completePasswordReset, requestPasswordReset } from "../../src/server/auth/passwords.ts";
+import { changePassword, completePasswordReset, inspectResetToken, requestPasswordReset } from "../../src/server/auth/passwords.ts";
 import { revokeOtherOwnSessions, revokeOwnSession } from "../../src/server/auth/self-service.ts";
 import { revokeSession, SessionEndedError } from "../../src/server/auth/sessions.ts";
 import { signIn } from "../../src/server/auth/sign-in.ts";
+import { issueToken } from "../../src/server/auth/tokens.ts";
 import { resetUserMfa, revokeSessionsOf, setUserRoles, setUserStatus, unlockUser } from "../../src/server/auth/user-admin.ts";
 import { dbFor } from "../../src/server/db/client.ts";
-import { authTokens, loginAttempts, sessions, userMfa, userRecoveryCodes, userRoles, users } from "../../src/server/db/schema.ts";
+import { auditEvents, authTokens, loginAttempts, sessions, userMfa, userRecoveryCodes, userRoles, users } from "../../src/server/db/schema.ts";
 import { sha256 } from "../../src/server/security/ids.ts";
-import type { PasswordHasher } from "../../src/server/security/password.ts";
+import { createPasswordHasher, type PasswordHasher } from "../../src/server/security/password.ts";
 import { recoveryCodeHash, normalizeRecoveryCode } from "../../src/server/security/recovery-codes.ts";
 import { base32Decode, totpCode } from "../../src/server/security/totp.ts";
 import { actorFor, createUser, linkToken, meta, setupTestEnv, strongPassword, type TestEnv } from "./helpers.ts";
@@ -82,9 +83,27 @@ describe("finding 1 — a password checked before the account changed never yiel
     race.release();
     assert.deepEqual(await attempt, { kind: "failed" });
     assert.equal(await unrevoked(user.id), 0, "no session from the replaced password");
-    assert.equal((await userRow(user.id)).failedLoginCount, 0, "a race, not a wrong password: nothing counted");
-    assert.equal(await lastReason(user.email), "bad_credentials");
+    // A race, not a wrong password: audited, never counted towards the lockout.
+    assert.equal((await userRow(user.id)).failedLoginCount, 0);
+    assert.equal(await lastReason(user.email), undefined, "no counted attempt recorded");
+    const audited = await db().select().from(auditEvents).where(and(eq(auditEvents.action, "auth.login_failed"), eq(auditEvents.entityId, user.id)));
+    assert.match(audited.at(-1)?.summary ?? "", /changed .* while the password was being checked/);
+    // So 4 wrong passwords afterwards do not lock the account (with the race counted, they would make 5).
+    for (let i = 0; i < 4; i++) await signIn(env.deps, { email: user.email, password: `wrong ${i} wrong wrong` }, meta("198.51.100.61"));
+    assert.equal((await userRow(user.id)).lockedUntil, null);
     assert.equal((await signIn(env.deps, { email: user.email, password: next }, meta("198.51.100.61"))).kind, "signed_in");
+  });
+
+  test("two correct sign-ins while the stored hash is being upgraded: both get a session", async () => {
+    const user = await createUser(env, { roles: ["editor"], hasher: createPasswordHasher("scrypt") });
+    const race = paused(env.deps.hasher);
+    const first = signIn(race.deps, { email: user.email, password: user.password }, meta("198.51.100.68"));
+    await race.checked;
+    // The other sign-in upgrades the stored hash meanwhile; the first one's own upgrade then finds it changed.
+    assert.equal((await signIn(env.deps, { email: user.email, password: user.password }, meta("198.51.100.68"))).kind, "signed_in");
+    race.release();
+    assert.equal((await first).kind, "signed_in", "the password still matches what is stored: not refused");
+    assert.equal(await unrevoked(user.id), 2);
   });
 
   test("the same race on an account with two-factor authentication: no pending session either", async () => {
@@ -219,24 +238,36 @@ describe("finding 2 — a session revoked after its request was authorised chang
     assert.equal((await db().select().from(sessions).where(and(eq(sessions.id, otherOwnSession.session.id), isNull(sessions.revokedAt)))).length, 1);
   });
 
-  test("the rank rule is decided under the target's row lock: a promotion committed meanwhile wins", async () => {
-    const admin = await createUser(env, { roles: ["admin"], mfa: true });
-    const adminActor = await actorFor(env, admin);
-    const target = await createUser(env, { roles: ["editor"] });
-    const held = await env.pool.getConnection();
-    try {
-      await held.query("START TRANSACTION");
-      await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [target.id]);
-      await held.query("INSERT INTO user_roles (user_id, role_key, granted_at) VALUES (?, 'admin', UTC_TIMESTAMP(3))", [target.id]);
-      // Authorised against the editor role it can still see; its transaction then waits for the target's row.
-      const disabling = setUserStatus(env.deps, adminActor, target.id, "disabled", meta());
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      await held.query("COMMIT");
-      assert.deepEqual(await disabling, { kind: "denied", reason: "rank" });
-    } finally {
-      held.release();
+  test("the rank rule is decided under the target's row lock: a promotion committed meanwhile wins (disable, unlock, sign out)", async () => {
+    const changes: [string, (actor: Awaited<ReturnType<typeof actorFor>>, id: string) => Promise<unknown>][] = [
+      ["disable", (actor, id) => setUserStatus(env.deps, actor, id, "disabled", meta())],
+      ["unlock", (actor, id) => unlockUser(env.deps, actor, id, meta())],
+      ["sign out", (actor, id) => revokeSessionsOf(env.deps, actor, id, null, meta())],
+    ];
+    for (const [label, change] of changes) {
+      const admin = await createUser(env, { roles: ["admin"], mfa: true });
+      const adminActor = await actorFor(env, admin);
+      const target = await createUser(env, { roles: ["editor"] });
+      await actorFor(env, target);
+      await db().update(users).set({ lockedUntil: new Date(env.clock.now.getTime() + 15 * 60_000) }).where(eq(users.id, target.id));
+      const held = await env.pool.getConnection();
+      try {
+        await held.query("START TRANSACTION");
+        await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [target.id]);
+        await held.query("INSERT INTO user_roles (user_id, role_key, granted_at) VALUES (?, 'admin', UTC_TIMESTAMP(3))", [target.id]);
+        // Authorised against the editor role it can still see; its transaction then waits for the target's row.
+        const pending = change(adminActor, target.id);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        await held.query("COMMIT");
+        assert.deepEqual(await pending, { kind: "denied", reason: "rank" }, label);
+      } finally {
+        held.release();
+      }
+      const row = await userRow(target.id);
+      assert.equal(row.status, "active", `${label}: an Admin never disables an Admin`);
+      assert.ok(row.lockedUntil, `${label}: nor unlocks one`);
+      assert.equal(await unrevoked(target.id), 1, `${label}: nor signs one out`);
     }
-    assert.equal((await userRow(target.id)).status, "active", "an Admin never disables an Admin");
   });
 
   test("the roles to change are decided under the target's row lock: a change committed meanwhile is not left behind", async () => {
@@ -256,6 +287,19 @@ describe("finding 2 — a session revoked after its request was authorised chang
       held.release();
     }
     assert.deepEqual(await rolesNow(target.id), ["reviewer"], "exactly the roles asked for, not an Admin role left over");
+  });
+});
+
+describe("re-enabling an account", () => {
+  test("a reset link issued around a disable (made here by hand) does not work after a re-enable", async () => {
+    const owner = await createUser(env, { roles: ["owner"], mfa: true });
+    const ownerActor = await actorFor(env, owner);
+    const user = await createUser(env, { roles: ["editor"] });
+    assert.equal((await setUserStatus(env.deps, ownerActor, user.id, "disabled", meta())).kind, "ok");
+    const { token } = await issueToken(db(), { userId: user.id, purpose: "password_reset", now: env.deps.clock() });
+    assert.equal((await setUserStatus(env.deps, ownerActor, user.id, "active", meta())).kind, "ok");
+    assert.equal(await inspectResetToken(env.deps, token), null);
+    assert.deepEqual(await completePasswordReset(env.deps, { token, password: strongPassword() }, meta()), { kind: "invalid" });
   });
 });
 

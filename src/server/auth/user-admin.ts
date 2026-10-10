@@ -16,7 +16,7 @@ import { activeOwnerIds, findUserById, rolesOf, rolesOfMany, type UserRow } from
 import type { AuthDeps } from "./deps.ts";
 import { removeMfa } from "./mfa.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
-import { listLiveSessions, lockActingSession, revokeSession, revokeUserSessions, type SessionRow } from "./sessions.ts";
+import { listLiveSessions, lockActingSession, revokeSession, revokeUserSessions, SessionEndedError, type SessionRow } from "./sessions.ts";
 import { retireInvitationsIssuedBy, retireTokens } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
@@ -138,14 +138,18 @@ async function deny(
 
 /**
  * The start of every change one user makes to another, inside its transaction (A2 Correction 1, review): both user rows
- * locked in one order (by id, so two people acting on each other at once queue instead of deadlocking), then the acting
- * session proven live, then the target as it is now. Revocations take a user's row before its sessions, in that order.
+ * locked in one order (by id, so two people acting on each other at once queue instead of deadlocking), the actor still
+ * active and its session still live (`SessionEndedError` otherwise), then the target and its roles as they are now —
+ * the rank rule is decided on those. Revocations take a user's row before its sessions, in that order.
  */
-async function lockForChange(tx: Db, actor: Actor, targetId: string, now: Date): Promise<UserRow | null> {
+async function lockForChange(tx: Db, actor: Actor, targetId: string, now: Date): Promise<{ target: UserRow; roles: string[] } | null> {
   const ids = [...new Set([actor.user.id, targetId])].sort();
   const rows = await tx.select().from(users).where(inArray(users.id, ids)).orderBy(asc(users.id)).for("update");
+  const self = rows.find((row) => row.id === actor.user.id);
+  if (!self || self.status !== "active" || self.deletedAt) throw new SessionEndedError();
   await lockActingSession(tx, actor.session, now);
-  return rows.find((row) => row.id === targetId && !row.deletedAt) ?? null;
+  const target = rows.find((row) => row.id === targetId && !row.deletedAt);
+  return target ? { target, roles: await rolesOf(tx, targetId) } : null;
 }
 
 /** Loads the target and applies the common checks; returns the target and its roles, or a refusal. */
@@ -177,9 +181,9 @@ export async function setUserStatus(
   const { target } = checked;
   const now = deps.clock();
   const result = await inTransaction(deps.pool, async (tx) => {
-    const row = await lockForChange(tx, actor, target.id, now);
-    if (!row) return { kind: "not_found" as const };
-    const roles = await rolesOf(tx, target.id);
+    const locked = await lockForChange(tx, actor, target.id, now);
+    if (!locked) return { kind: "not_found" as const };
+    const { target: row, roles } = locked;
     if (!canManageUser(actor, { roles })) return { kind: "refused" as const };
     if (status === "disabled") {
       if (row.status === "disabled") return { kind: "ok" as const, summary: "Already disabled." };
@@ -209,8 +213,10 @@ export async function setUserStatus(
     // An account disabled before it accepted its invitation returns to "invited" (it has no password yet).
     const next = row.passwordHash ? "active" : "invited";
     await tx.update(users).set({ status: next, disabledAt: null, disabledBy: null, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
-    // Nothing from before the disable comes back to life: any session left unrevoked is signed out (none is expected).
+    // Nothing from before the disable comes back to life: any session left unrevoked is signed out (none is expected),
+    // and any reset or set-up link issued around the disable stops working.
     const leftover = await revokeUserSessions(tx, target.id, "user_disabled", now);
+    await retireTokens(tx, target.id, ["password_reset", "email_change", "owner_setup"], now);
     const summary = `Enabled ${userLabel(target)} (${next})${leftover ? `; ${leftover} earlier session(s) signed out` : ""}.`;
     await recordAudit(tx, {
       at: now,
@@ -246,9 +252,9 @@ export async function setUserRoles(deps: AuthDeps, actor: Actor, targetId: strin
   if (!canGrantRoles(actor, changing)) return deny(deps, actor, meta, action, target, isOwner(actor) ? "rank" : "owner_only");
   const now = deps.clock();
   const result = await inTransaction(deps.pool, async (tx) => {
-    const row = await lockForChange(tx, actor, target.id, now);
-    if (!row) return { kind: "not_found" as const };
-    const before = await rolesOf(tx, target.id);
+    const locked = await lockForChange(tx, actor, target.id, now);
+    if (!locked) return { kind: "not_found" as const };
+    const { target: row, roles: before } = locked;
     const added = roles.filter((r) => !before.includes(r));
     const removed = before.filter((r) => !roles.includes(r));
     if (added.length === 0 && removed.length === 0) return { kind: "ok" as const, summary: "No change." };
@@ -288,8 +294,10 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
   if ("refusal" in checked) return checked.refusal as ManageResult;
   const { target } = checked;
   const now = deps.clock();
-  return inTransaction(deps.pool, async (tx): Promise<ManageResult> => {
-    if (!(await lockForChange(tx, actor, target.id, now))) return { kind: "not_found" };
+  const result = await inTransaction(deps.pool, async (tx): Promise<ManageResult | { kind: "refused" }> => {
+    const locked = await lockForChange(tx, actor, target.id, now);
+    if (!locked) return { kind: "not_found" };
+    if (!canManageUser(actor, { roles: locked.roles })) return { kind: "refused" };
     let count: number;
     if (sessionId) {
       const [owned] = await tx.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.userId, target.id))).limit(1);
@@ -311,6 +319,7 @@ export async function revokeSessionsOf(deps: AuthDeps, actor: Actor, targetId: s
     });
     return { kind: "ok", summary };
   });
+  return result.kind === "refused" ? deny(deps, actor, meta, action, target, "rank") : result;
 }
 
 /** Clears a sign-in lock and the email's credential-check slots (A2 Correction 1). */
@@ -321,8 +330,10 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
   const { target } = checked;
   const now = deps.clock();
   const summary = `Unlocked ${userLabel(target)}.`;
-  await inTransaction(deps.pool, async (tx) => {
-    await lockForChange(tx, actor, target.id, now);
+  const result = await inTransaction(deps.pool, async (tx): Promise<ManageResult | { kind: "refused" }> => {
+    const locked = await lockForChange(tx, actor, target.id, now);
+    if (!locked) return { kind: "not_found" };
+    if (!canManageUser(actor, { roles: locked.roles })) return { kind: "refused" };
     await tx.update(users).set({ lockedUntil: null, failedLoginCount: 0, updatedAt: now, updatedBy: actor.user.id }).where(eq(users.id, target.id));
     await clearCredentialChecks(tx, target.emailNormalized);
     await recordAudit(tx, {
@@ -335,8 +346,9 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
       outcome: "success",
       summary,
     });
+    return { kind: "ok", summary };
   });
-  return { kind: "ok", summary };
+  return result.kind === "refused" ? deny(deps, actor, meta, action, target, "rank") : result;
 }
 
 /** Owner only: removes another user's second factor (after confirming their identity outside the system). */

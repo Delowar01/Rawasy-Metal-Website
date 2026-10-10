@@ -18,7 +18,7 @@ import { checkPassword, type PasswordProblem } from "../security/password-policy
 import { isPlausibleEmail, normalizeEmail, rolesOf } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { clearCredentialChecks } from "./rate-limit.ts";
-import { lockActingSession } from "./sessions.ts";
+import { lockActor } from "./sessions.ts";
 import { consumeToken, findUsableToken, issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "./types.ts";
 
@@ -68,7 +68,7 @@ export async function inviteUser(
     return { kind: "denied" };
   }
   const created = await inTransaction(deps.pool, async (tx) => {
-    await lockActingSession(tx, actor.session, now);
+    await lockActor(tx, actor, now);
     const [existing] = await tx.select({ id: users.id }).from(users).where(eq(users.emailNormalized, email)).limit(1);
     if (existing) return null;
     const id = ulid(now.getTime());
@@ -123,7 +123,7 @@ export async function resendInvitation(deps: AuthDeps, actor: Actor, userId: str
     return { kind: "denied" };
   }
   const { token } = await inTransaction(deps.pool, async (tx) => {
-    await lockActingSession(tx, actor.session, now);
+    await lockActor(tx, actor, now);
     const issued = await issueToken(tx, { userId, purpose: "invitation", now, createdBy: actor.user.id, createdIp: meta.ip });
     await recordAudit(tx, {
       at: now,

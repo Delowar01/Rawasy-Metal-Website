@@ -196,6 +196,17 @@ export async function lockActingSession(db: Db, session: Pick<SessionRow, "id">,
   if (!live) throw new SessionEndedError();
 }
 
+/**
+ * The start of a change a signed-in user makes to their own account, or one that touches no other user's row: the acting
+ * user's row (still active), then the acting session (still live) — the order every revocation takes them in, so a
+ * revocation at the same moment queues instead of deadlocking (A2 Correction 1, review).
+ */
+export async function lockActor(db: Db, actor: { user: Pick<UserRow, "id">; session: Pick<SessionRow, "id"> }, now: Date): Promise<void> {
+  const [row] = await db.select({ status: users.status, deletedAt: users.deletedAt }).from(users).where(eq(users.id, actor.user.id)).for("update");
+  if (!row || row.status !== "active" || row.deletedAt) throw new SessionEndedError();
+  await lockActingSession(db, actor.session, now);
+}
+
 export async function revokeSession(db: Db, sessionId: string, reason: RevokeReason, now: Date): Promise<boolean> {
   const [result] = await db
     .update(sessions)

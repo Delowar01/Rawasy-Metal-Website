@@ -274,6 +274,11 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
         outcome: "success",
         summary: `Password hash upgraded to the current ${deps.hasher.kind} parameters.`,
       });
+    } else {
+      // The stored hash changed meanwhile: another sign-in's upgrade (the password still matches it) or a real change
+      // (it does not). The password is checked against what is stored now, and the session check below compares with that.
+      const [stored] = await deps.db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, user.id)).limit(1);
+      if (stored?.passwordHash && (await deps.hasher.verify(stored.passwordHash, password))) verifiedHash = stored.passwordHash;
     }
   }
 
@@ -308,8 +313,10 @@ export async function signIn(deps: AuthDeps, input: { email: string; password: s
     return { ok: true as const, result: { kind: "signed_in" as const, token, session, user: row, enrolmentRequired: mfa.required } };
   });
   if (!outcome.ok) {
-    // Refused like a wrong password, and not counted against the account: the password was right when it was checked.
-    await recordAttempt(deps.db, now, emailHash, user.id, meta, false, outcome.reason);
+    // Refused like a wrong password, and never counted against the account (the password was right when it was checked):
+    // recorded as an attempt only with a reason the lockout ignores (disabled, locked); a password replaced meanwhile is
+    // in the audit log only.
+    if (outcome.reason !== "bad_credentials") await recordAttempt(deps.db, now, emailHash, user.id, meta, false, outcome.reason);
     await recordAudit(deps.db, {
       at: now,
       requestId: meta.requestId,
@@ -531,7 +538,12 @@ export async function rotateIfDue(deps: AuthDeps, session: SessionRow, meta: Req
   const now = deps.clock();
   if (!isRotationDue(session, now)) return null;
   try {
-    return await inTransaction(deps.pool, (tx) => rotateSession(tx, session, { now, ...meta }));
+    return await inTransaction(deps.pool, async (tx) => {
+      // The user's row first, the order every revocation uses: a "sign out everywhere" at the same moment queues
+      // instead of deadlocking with this claim and the new row's foreign key.
+      await lockUser(tx, session.userId);
+      return rotateSession(tx, session, { now, ...meta });
+    });
   } catch (error) {
     if (error instanceof SessionEndedError) return null;
     throw error;

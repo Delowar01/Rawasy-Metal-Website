@@ -26,7 +26,7 @@ import { mfaStateOf, type UserRow } from "./accounts.ts";
 import { adminLink, type AuthDeps } from "./deps.ts";
 import { clearCredentialChecks, reserveCredentialCheck } from "./rate-limit.ts";
 import { isAccountLocked, registerFailure } from "./sign-in.ts";
-import { lockActingSession, revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
+import { lockActor, revokeUserSessions, rotateSession, type SessionRow } from "./sessions.ts";
 import { issueToken, TOKEN_LIFETIME_MS } from "./tokens.ts";
 import { auditActorOf, type RequestMeta } from "./types.ts";
 
@@ -229,8 +229,7 @@ export async function regenerateRecoveryCodes(deps: AuthDeps, current: Current, 
   const state = await mfaStateOf(deps.db, current.user.id, current.roles);
   if (!state.enrolled) return null;
   const codes = await inTransaction(deps.pool, async (tx) => {
-    await tx.select({ id: users.id }).from(users).where(eq(users.id, current.user.id)).for("update");
-    await lockActingSession(tx, current.session, now);
+    await lockActor(tx, current, now);
     const [confirmed] = await tx.select({ at: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, current.user.id)).limit(1);
     if (!confirmed?.at) return null;
     const fresh = await replaceRecoveryCodes(tx, current.user.id, now);
