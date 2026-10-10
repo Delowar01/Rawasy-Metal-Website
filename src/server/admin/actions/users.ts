@@ -23,7 +23,8 @@ const REFUSALS: Record<string, string> = {
   rank: "You can't manage a user whose role is equal to or above yours.",
   self: "You can't do this to your own account. Another Owner must do it.",
   owner_only: "Only an Owner can do this.",
-  changed: "This account changed after you opened this page (for example, its roles or status changed, or its invitation was accepted). Reload the page and check it before you try again.",
+  changed:
+    "This account changed after you opened this page (for example, its roles, status or two-factor authentication changed, its invitation was accepted, its password was changed or someone tried to sign in to it). Reload the page and check it before you try again.",
 };
 
 function outcome(result: ManageResult): ActionState {

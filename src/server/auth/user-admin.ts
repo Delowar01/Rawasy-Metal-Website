@@ -8,7 +8,7 @@
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
 import { inTransaction, type Db } from "../db/client.ts";
-import { auditEvents, sessions, userMfa, userRoles, users } from "../db/schema.ts";
+import { auditEvents, loginAttempts, sessions, userMfa, userRoles, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
 import { canGrantRoles, canManageUser, isOwner } from "../policy/rbac.ts";
 import { ROLE_KEYS } from "../policy/registry.ts";
@@ -77,20 +77,32 @@ export interface UserDetail extends UserListItem {
   version: string;
   /** The same plus the sign-in lock ("unlock"): the unlock form sends it back. */
   unlockVersion: string;
-  /** The same plus the lock and the password ("mfa_reset"): the two-factor reset form sends it back. */
+  /** The same plus who may hold the password ("mfa_reset"): the two-factor reset form sends it back. */
   mfaResetVersion: string;
 }
 
 /**
- * What a change is decided on (A2 Correction 1, fifth to seventh reviews):
+ * What a change is decided on (A2 Correction 1, fifth to eighth reviews):
  * - "access" — roles, enable, a new invitation link: the status, the time of the disable, the roles, the second factor;
- * - "unlock" — the same and the sign-in lock: the lock and the failed attempts counted since the last success;
- * - "mfa_reset" — the same, the lock and the password (its last change): a two-factor reset hands the account to
- *   whoever holds the password, so a password replaced, or a lock or failed codes after the page was shown, refuse it.
+ * - "unlock" — the same and the sign-in lock: the lock and the failed attempts counted since the last success (while a
+ *   lock holds nothing is counted, so nobody else can keep moving it);
+ * - "mfa_reset" — the same and what says someone holds the password: its last change and the newest failed second
+ *   step (a wrong code or recovery code needs the right password first). A two-factor reset hands the account to
+ *   whoever holds the password, so either after the page was shown refuses it; wrong passwords alone (anyone who knows
+ *   the email can send them) do not.
  * Only what the decision depends on is in each, so the user's own password change or failed sign-ins never refuse an
  * Owner's change of roles or status. (A sign-in's rehash of the same password changes none of them.)
  */
 export type VersionScope = "access" | "unlock" | "mfa_reset";
+
+/** What a user page shows of an account, read in one snapshot (or under the account's row lock). */
+export interface AccountFacts {
+  user: UserRow;
+  roles: readonly string[];
+  mfaConfirmedAt: Date | null;
+  /** The newest failed second step of a sign-in or a step-up (its attempt id), or null. */
+  lastSecondStepFailure: number | null;
+}
 
 const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toString("hex").slice(0, 32);
 
@@ -101,10 +113,11 @@ const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toSt
  * authenticator, a newer lock or a replaced password committed while the page was open is never undone or overlooked by
  * it. Disabling and signing out are never refused for this reason.
  */
-export function accountVersion(user: UserRow, roles: readonly string[], mfaConfirmedAt: Date | null, scope: VersionScope = "access"): string {
+export function accountVersion(facts: AccountFacts, scope: VersionScope = "access"): string {
+  const { user, roles, mfaConfirmedAt } = facts;
   const parts: (string | number)[] = [scope, user.status, user.disabledAt?.toISOString() ?? "-", [...roles].sort().join(","), mfaConfirmedAt?.toISOString() ?? "-"];
-  if (scope !== "access") parts.push(user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount);
-  if (scope === "mfa_reset") parts.push(user.passwordChangedAt?.toISOString() ?? "-");
+  if (scope === "unlock") parts.push(user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount);
+  if (scope === "mfa_reset") parts.push(user.passwordChangedAt?.toISOString() ?? "-", facts.lastSecondStepFailure ?? "-");
   return fingerprint(parts);
 }
 
@@ -116,6 +129,22 @@ export interface Expected {
 async function mfaConfirmedAt(db: Db, userId: string): Promise<Date | null> {
   const [row] = await db.select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, userId)).limit(1);
   return row?.confirmedAt ?? null;
+}
+
+/** The newest failed second step of the account (written only under its row lock, `registerFailureLocked`). */
+async function lastSecondStepFailure(db: Db, userId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ id: loginAttempts.id })
+    .from(loginAttempts)
+    .where(and(eq(loginAttempts.userId, userId), eq(loginAttempts.succeeded, false), eq(loginAttempts.failureReason, "mfa_failed")))
+    .orderBy(desc(loginAttempts.id))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** The facts a fingerprint is made of, read in the caller's transaction (one snapshot, or under the row lock). */
+async function readAccountFacts(db: Db, user: UserRow, roles: readonly string[]): Promise<AccountFacts> {
+  return { user, roles, mfaConfirmedAt: await mfaConfirmedAt(db, user.id), lastSecondStepFailure: await lastSecondStepFailure(db, user.id) };
 }
 
 /**
@@ -130,18 +159,19 @@ export async function accountUnchanged(
   scope: VersionScope = "access",
 ): Promise<boolean> {
   if (!expected) return true;
-  return accountVersion(locked.target, locked.roles, await mfaConfirmedAt(tx, locked.target.id), scope) === expected.version;
+  return accountVersion(await readAccountFacts(tx, locked.target, locked.roles), scope) === expected.version;
 }
 
 export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string): Promise<UserDetail | null> {
   const now = deps.clock();
   // One snapshot: what the page shows and the fingerprint its forms send back describe the same state of the account.
-  const state = await inTransaction(deps.pool, async (tx) => {
+  const facts = await inTransaction(deps.pool, async (tx) => {
     const found = await findUserById(tx, userId);
-    return found ? { user: found, roles: await rolesOf(tx, userId), mfa: await mfaConfirmedAt(tx, userId) } : null;
+    return found ? readAccountFacts(tx, found, await rolesOf(tx, userId)) : null;
   });
-  if (!state) return null;
-  const { user, roles, mfa } = state;
+  if (!facts) return null;
+  const { user, mfaConfirmedAt: mfa } = facts;
+  const roles = [...facts.roles];
   const live = await listLiveSessions(deps.db, userId, now);
   const events = await deps.db
     .select({
@@ -172,9 +202,9 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
     disabledAt: user.disabledAt,
     sessions: live,
     recentEvents: events,
-    version: accountVersion(user, roles, mfa),
-    unlockVersion: accountVersion(user, roles, mfa, "unlock"),
-    mfaResetVersion: accountVersion(user, roles, mfa, "mfa_reset"),
+    version: accountVersion(facts),
+    unlockVersion: accountVersion(facts, "unlock"),
+    mfaResetVersion: accountVersion(facts, "mfa_reset"),
   };
 }
 
@@ -458,9 +488,9 @@ export async function unlockUser(deps: AuthDeps, actor: Actor, targetId: string,
 
 /**
  * Owner only: removes another user's second factor (after confirming their identity outside the system) — only on the
- * account the page showed (`expected` = its "mfa_reset" fingerprint, fifth and seventh reviews): an authenticator the
- * user set up meanwhile is not removed by an older page, and a password replaced, a lock set or second-factor failures
- * counted after the page was shown refuse it, since the reset hands the account to whoever holds the password now.
+ * account the page showed (`expected` = its "mfa_reset" fingerprint, fifth, seventh and eighth reviews): an
+ * authenticator the user set up meanwhile is not removed by an older page, and a password replaced or a second step
+ * failed after the page was shown refuse it, since the reset hands the account to whoever holds the password now.
  */
 export async function resetUserMfa(deps: AuthDeps, actor: Actor, targetId: string, meta: RequestMeta, expected?: Expected): Promise<ManageResult> {
   const action = "user.mfa_reset";

@@ -22,6 +22,8 @@
  *    only what the decisions depend on, so the user's own password change or failed sign-ins never block an Owner.
  *  - The seventh review: a two-factor reset is also decided on the password and the lock the page showed (it hands the
  *    account to whoever holds the password); an unlock also on the status, roles and second factor.
+ *  - The eighth review: a two-factor reset is decided on the password and the failed second steps only (wrong passwords
+ *    alone, which anyone who knows the email can send, do not refuse it); the emergency reset takes the user's row first.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -1050,5 +1052,53 @@ describe("seventh review — a two-factor reset and an unlock are decided on eve
     const now = await pageOf(o1Actor, x.id);
     assert.equal((await unlockUser(env.deps, o1Actor, x.id, meta(), { version: now.unlockVersion })).kind, "ok");
     assert.equal((await userRow(x.id)).lockedUntil, null);
+  });
+});
+
+describe("eighth review — a two-factor reset decided on who may hold the password; the emergency reset takes the user's row first", () => {
+  async function owner() {
+    const o = await createUser(env, { roles: ["owner"], mfa: true });
+    return actorFor(env, o);
+  }
+  const secondFactorOf = async (userId: string) =>
+    (await db().select({ confirmedAt: userMfa.confirmedAt }).from(userMfa).where(eq(userMfa.userId, userId)))[0]?.confirmedAt ?? null;
+
+  test("wrong passwords alone (anyone who knows the email can send them) do not refuse a two-factor reset decided on the page", async () => {
+    const ownerActor = await owner();
+    const x = await createUser(env, { roles: ["editor"], mfa: true });
+    const shown = await pageOf(ownerActor, x.id);
+    env.clock.advance(1000);
+    for (const i of [1, 2]) {
+      assert.equal((await signIn(env.deps, { email: x.email, password: `not-the-password-${i}` }, meta("198.51.100.81"))).kind, "failed");
+    }
+    assert.equal((await userRow(x.id)).failedLoginCount, 2);
+    assert.equal((await userRow(x.id)).lockedUntil, null, "no lock");
+    assert.equal((await resetUserMfa(env.deps, ownerActor, x.id, meta(), { version: shown.mfaResetVersion })).kind, "ok");
+    assert.equal(await secondFactorOf(x.id), null);
+  });
+
+  test("the emergency two-factor reset touches nothing while another change holds the user's row", async () => {
+    const x = await createUser(env, { roles: ["editor"], mfa: true });
+    const held = await env.pool.getConnection();
+    const probe = await env.pool.getConnection();
+    try {
+      // A change decided under the user's row lock (an Owner's on the user page, say) is under way ...
+      await held.query("START TRANSACTION");
+      await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [x.id]);
+      const resetting = emergencyMfaReset(env.deps, { userIds: [x.id] }, "test-operator", "review-8");
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      // ... and the emergency reset waits for it before it touches the second factor: the factor's row is not locked.
+      await probe.query("START TRANSACTION");
+      const [rows] = await probe.query("SELECT user_id FROM user_mfa WHERE user_id = ? FOR UPDATE NOWAIT", [x.id]);
+      assert.equal((rows as unknown[]).length, 1, "the second factor is there and free");
+      await probe.query("ROLLBACK");
+      await held.query("COMMIT");
+      const result = await resetting;
+      assert.equal(result.users.length, 1);
+    } finally {
+      held.release();
+      probe.release();
+    }
+    assert.equal(await secondFactorOf(x.id), null, "removed once the row was free");
   });
 });

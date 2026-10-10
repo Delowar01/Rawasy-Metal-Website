@@ -368,9 +368,11 @@ export async function emergencyMfaReset(
     "all" in target ? (await deps.db.select({ id: userMfa.userId }).from(userMfa)).map((r) => r.id) : [...new Set(target.userIds)];
   const out: EmergencyResetResult["users"] = [];
   for (const id of ids) {
-    const [user] = await deps.db.select().from(users).where(eq(users.id, id)).limit(1);
-    if (!user) continue;
-    const { revoked, token } = await inTransaction(deps.pool, async (tx) => {
+    // The user's row first, as every change to a second factor takes it (A2 Correction 1, eighth review): a change decided
+    // under that lock (an Owner's on the user page) sees the factor before or after this removal, never during it.
+    const removed = await inTransaction(deps.pool, async (tx) => {
+      const [user] = await tx.select().from(users).where(eq(users.id, id)).for("update");
+      if (!user) return null;
       const count = await removeMfa(tx, id, now);
       const issued = user.status === "active" ? await issueToken(tx, { userId: id, purpose: "password_reset", now }) : null;
       await recordAudit(tx, {
@@ -382,8 +384,10 @@ export async function emergencyMfaReset(
         outcome: "success",
         summary: `Two-factor authentication removed by the emergency reset; ${count} session(s) revoked${issued ? "; password-reset link issued" : ""}.`,
       });
-      return { revoked: count, token: issued?.token ?? null };
+      return { user, revoked: count, token: issued?.token ?? null };
     });
+    if (!removed) continue;
+    const { user, revoked, token } = removed;
     const link = token ? adminLink(deps, `reset/${token}`) : null;
     const delivered = link
       ? (
