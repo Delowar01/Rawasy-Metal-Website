@@ -795,3 +795,629 @@ Tests:
 ---
 
 A2 STATUS: READY FOR INDEPENDENT REVIEW
+
+
+---
+
+## A2 CORRECTION 1
+
+Date: 2026-10-09/10 · Branch: `claude/new-session-5eijs6` · Brief: "RAWASY METAL WEBSITE / ADMIN / CMS PROGRAM / PHASE A2 —
+CORRECTION 1 / SESSION PRIVILEGE BOUNDARY + RECOVERY CODE STRENGTH / CONCURRENT PASSWORD ADMISSION + PRE-A9 ADMIN GATE /
+LOCAL ONLY — DO NOT START A3".
+
+### Summary and status
+
+The independent review of A2 found four defects. All four are corrected, each in its own commit, each with tests that
+fail on the reviewed code (`b47d8e5`) and pass now:
+1. **Rotated tokens (critical).** After a rotation the old session token was honoured for 30 seconds and resolved to its
+   successor, so a token from before the second factor, a step-up, a password change or a 2FA change took on what the
+   new session had been given. A revoked token now never authenticates.
+2. **Recovery codes:** 50 → 100 bits each (20 Crockford Base32 characters, `xxxxx-xxxxx-xxxxx-xxxxx`).
+3. **Concurrent wrong passwords:** at most 5 password checks (Argon2 or the dummy hash) per email in any 15 minutes,
+   reserved atomically in the database before the account is even looked up.
+4. **The pre-A9 admin gate:** outside local development the admin is off unless `ADMIN_ENABLED=1`. Off, `/admin/**`
+   is the public site's unknown address again (locale redirect, localized 404) — exactly as before A2 — and every admin
+   layout, page and Server Action refuses on its own as well.
+
+The brief's focused security review (§13) then found one more case of the kind the brief rules out: a sign-in whose
+password was checked just before a password reset, a password change or a disable still created its session afterwards
+(a defect present since A2). It is fixed, with three smaller findings (`ba53a3e`). The fresh-clone QA found a race in
+the new credential-check slots, also fixed (`4eab6d3`). Two more review passes followed on the corrected code: the
+second found six smaller gaps (`d9bec5a`); the third found one more case of the kind the brief rules out — an invitation
+link that outlived a role raise of the invited account, so an Admin holding the link could have activated an Owner
+account — and a deadlock in the new limiter (`ddf7b71`). Seven more passes followed, each on the fixes of the one
+before; the first six each found something smaller: a promotion that could land on an account its inviting Admin had
+just activated (`6ac8c55`); a user-management form that could undo a change made after its page was shown, and a
+sign-out that did not follow a session's rotation (`89edcc5`); role boxes sent with a newer fingerprint after the page
+refreshed (`b66468d`); a two-factor reset let through after the password was replaced, and older role boxes restored on
+Back (`da3e5a3`); an availability lever in that reset's fingerprint and the emergency CLI's lock order (`98735f9`). The
+ninth found that the reset still missed a sign-in that passed the password, and that the emergency CLI could lose the
+links it had issued when one user failed (`d21e222`); a tenth pass reviewed that round and found no High or Medium
+defect and no old-credential path; its six Low and Info items are recorded in item 32, and the review loop ends there.
+
+The public website is unchanged: proven again against `preserve/pre-admin-a2` (item 19), now including `/admin` itself,
+which with the gate off answers exactly as the baseline did.
+
+Nothing was deployed. `main` was not touched. A3 was not started.
+
+**Final QA, on a fresh clone of `d21e222` (the final code):** `npm ci`; `npm audit --omit=dev` 0 (the full audit: A2's 9
+development-only entries, unchanged); lint, typecheck and build (no database settings) clean; `db:check` clean; unit
+**26 / 26**, integration **157 / 157**, admin browser **44 / 44** (A2: **227 / 227**); public E2E **611 / 612** in the
+first full run — one Chromium view-transition timeout under load, which passes 20 / 20 on this build and 20 / 20 on the
+baseline (item 20) — and **612 / 612** in the second full run (combined **839 / 839**). The public site is proven
+unchanged against `preserve/pre-admin-a2` (item 19).
+
+**A2 CORRECTION 1 STATUS: READY FOR INDEPENDENT REVIEW** (not self-approved).
+
+### Owner decisions recorded (brief §10, locked; not asked again)
+
+1. RBAC: certificate edit = Owner + Admin; certificate publish = Owner only; `media.view` = all four roles; A3 will add a
+   "project flags — add" permission (Owner, Admin, Editor and Reviewer may add restrictive flags; only Owner and Admin
+   may clear blocking flags or approve public media). Nothing in A2's matrix changed for this: these keys belong to A3.
+2. A complete sign-in with password and required 2FA counts as the re-authentication for 10 minutes (unchanged).
+3. Mail stays disabled / local sink; no SMTP.
+4. drizzle-kit's advisory is accepted as development-only: no forced downgrade; the production audit stays 0 (item 25).
+5. The homepage showcase race: component and tests unchanged.
+6. The API headers stay on `/api/admin/**` and `/api/internal/**`.
+7. Host / account checks and key escrow remain pre-staging work.
+8. No Next.js upgrade (16.3.8 stays).
+
+### Report items (brief §17, in order)
+
+#### 1. Starting SHA
+`b47d8e533bc59543f9d2de839d10894ba63831cb` ("Admin A2: report and project memory (docs only)") — the expected HEAD, equal to
+`origin/claude/new-session-5eijs6` at the start. `preserve/pre-admin-a2` was at `ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0`
+as required.
+
+#### 2. Correction checkpoint SHA
+`preserve/pre-admin-a2-correction1` → `b47d8e533bc59543f9d2de839d10894ba63831cb`. It did not exist before; it was created
+and pushed without force, and has not moved since (`git ls-remote` at the end, item 33).
+
+#### 3. Implementation SHAs (each correction on its own)
+| Commit | What |
+|---|---|
+| `0a7a3c9` | Correction 1 (critical): a rotated or revoked session token never authenticates again |
+| `7d55e4a` | Correction 2: recovery codes of 100 bits |
+| `c844c27` | Correction 3: at most 5 password checks per email before any hash |
+| `d09cb4b` | Correction 4: the pre-A9 admin gate (`ADMIN_ENABLED`, fail-closed) |
+| `ba53a3e` | The focused security review's fixes (item 31) |
+| `4eab6d3` | Credential-check slots are freed, never deleted (found by the fresh-clone QA) |
+| `d9bec5a` | The second review pass's fixes (item 31) |
+| `ddf7b71` | The third review pass's fixes: an invitation link carries its issuer's authority; slot rows in key order (item 31) |
+| `6ac8c55` | The fourth review pass's fixes: nothing decided on an older state of an account; one snapshot per request (item 31) |
+| `89edcc5` | The fifth review pass's fixes: every user-management change decided on the account as its page showed it; a sign-out also ends the session it rotated into; REPEATABLE READ set per connection; smaller items (item 31) |
+| `b66468d` | The sixth review pass's fixes: the role boxes rebuilt with the page's fingerprint; the unlock decided on the lock and the attempts the page showed; the access fingerprint narrowed to what its decisions depend on (item 31) |
+| `da3e5a3` | The seventh review pass's fixes: a fingerprint per kind of decision (a 2FA reset also on the password, an unlock also on the access); the roles form `autocomplete="off"` (item 31) |
+| `98735f9` | The eighth review pass's fixes: the 2FA reset decided on the password and the failed second steps, not on wrong passwords; the emergency 2FA CLI locks the user first; the refusal names what changed (item 31) |
+| `d21e222` | The ninth review pass's fixes: the 2FA reset also decided on the sessions the account has had (every sign-in that passed the password and every rotation); the emergency CLI reports each user and goes on after a failure (item 31) |
+| (the commit that adds this section) | This report section and `CLAUDE.md` (docs only; the branch's last commit) |
+
+Each commit was checked on its own where it matters: `7d55e4a` alone (a worktree): typecheck clean, unit 18 / 18,
+integration 93 / 93; `c844c27`: unit 24 / 24, integration 104 / 104, admin browser 31 / 31; `d09cb4b`: unit 24 / 24,
+gate and admin browser 40 / 40; the review rounds in the working checkout before each commit — `6ac8c55`: unit 26 / 26,
+integration 133 / 133, admin 41 / 41; `89edcc5`: 26 / 147 / 42; `b66468d`: 26 / 149 / 43; `da3e5a3`: 26 / 152 / 44;
+`98735f9`: 26 / 154 / 44; `d21e222`: 26 / 157 / 44 (each with lint, typecheck and build). The final code is items 20–30's fresh clone.
+
+#### 4. Final branch HEAD
+`d21e2226f4c4247a3d41a709dc08dc81d6a024e8` (`d21e222`) is the last commit with code; every QA result below is from a fresh clone of
+it. The docs commit that adds this section follows it and is the branch's HEAD (`git log -1 origin/claude/new-session-5eijs6`).
+
+#### 5. Files changed (`b47d8e5..d21e222`, then the docs commit)
+47 files, + 3,764 / − 338 lines (9 new), all in the admin's own code (30 files, + 1,087 / − 299), its tests (14,
++ 2,565 / − 29) and its documentation (3):
+- **The gate:** `src/lib/admin-gate.ts` (new), `src/proxy.ts`, `src/app/(admin)/admin/layout.tsx`,
+  `src/server/admin/context.ts`, `src/server/admin/guards.ts`, `.env.example`, `README.md`.
+- **Sessions and rotation:** `src/server/auth/sessions.ts`, `sign-in.ts`, `mfa.ts`, `passwords.ts`, `self-service.ts`,
+  `user-admin.ts`, `session-state.ts` (new: one snapshot per request), `src/server/db/pool.ts` (every connection at
+  REPEATABLE READ), `src/server/admin/actions/account.ts` and `auth.ts`, `(entry)/login/verify` and `login/enrol` pages.
+- **Recovery codes:** `src/server/security/recovery-codes.ts` (new), `mfa.ts`, `sign-in.ts`,
+  `src/components/admin/AuthForms.tsx`, `StepUp.tsx`, `admin.css`.
+- **Credential admission:** `src/server/auth/rate-limit.ts`, `sign-in.ts`, `mfa.ts`, `passwords.ts`, `user-admin.ts`,
+  `invitations.ts`, `bootstrap.ts`.
+- **Review fixes:** `accounts.ts` (email normalisation), `tokens.ts`, `invitations.ts`, `bootstrap.ts` (setup links),
+  `user-admin.ts` (the fingerprints), `self-service.ts`, `sessions.ts` (`revokeSessionLineage`), `sign-in.ts`, `mfa.ts`,
+  `src/server/admin/actions/users.ts`, `(shell)/users/[id]/page.tsx`, `src/components/admin/UserForms.tsx` and
+  `scripts/admin-2fa-reset.mjs`.
+- **Tests:** `tests/unit/admin-gate.test.ts` and `email.test.ts` (new), `security.test.ts`;
+  `tests/integration/privilege-boundary.test.ts`, `admission.test.ts`, `review-races.test.ts` (new), `mfa`, `rbac`,
+  `secrets`, `sessions`, `sign-in`; `e2e-admin/gate.spec.ts` (new), `admin.spec.ts`, `helpers.ts`.
+- **Docs commit:** `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` (this section) and `CLAUDE.md`.
+
+Unchanged: every public path (item 19), `package.json` and `package-lock.json`, the migrations and the schema
+(`drizzle/`, `src/server/db/schema.ts` and the other database modules; only `pool.ts`'s connection setup changed),
+`server.js` and the deployment scripts.
+
+#### 6. The rotated-token defect
+`findSessionByToken()` on `b47d8e5` looked a cookie's token up and, when the row was revoked with
+`revoked_reason = 'rotated'` less than `ROTATION_GRACE_MS` (30 seconds) ago, followed `replaced_by_id` and returned the
+**successor** session and its user. A2 rotates exactly where privilege rises: the second factor completed (a pending
+password-only session becomes a verified one), a step-up (`reauthenticated_at` set on the successor), a password change,
+2FA turned on, replaced or off, and the periodic rotation. So a token captured before such a step — the pending token of
+a sign-in that had not passed 2FA, a session before its step-up — authenticated, for 30 seconds, as the session that had
+passed it. The grace window was meant for requests in flight; it worked as an alias.
+
+#### 7. The exact old-token fix (`0a7a3c9`)
+- `src/server/auth/sessions.ts`: `ROTATION_GRACE_MS` is gone. `lookupSession(db, token, now)` answers `live` (the row is
+  unrevoked, inside its idle and absolute limits, its user active and not deleted), `ended` (the row exists but is
+  revoked — whatever `revoked_reason` says — or expired, or its user cannot sign in) or `none`. `findSessionByToken` returns
+  a session only for `live`. `replaced_by_id` is still written (lineage, for the record) and is read by nothing that
+  authenticates; since `89edcc5` it is followed in one place, `revokeSessionLineage`, and only to end a session (a
+  sign-out also ends the session it rotated into).
+- Unchanged and kept: a single successor (`rotateSession` claims the old row first, `UPDATE … WHERE revoked_at IS NULL`,
+  then inserts; a lost claim is `SessionEndedError` and rolls the transaction back), no resurrection of a revoked
+  session, the idle and absolute limits (a rotation extends neither).
+- `src/server/admin/context.ts`: a cookie naming an ended session is "signed out, session ended"
+  (`{ status: "anonymous", ended: true }`); pages and actions send it to `/admin/login?session_ended=1` ("Your session has
+  ended"). A stale tab recovers only with the **new** cookie its own legitimate response delivered: the sign-in page sends
+  a request that carries a live session to the dashboard. No server-side alias of any kind exists.
+
+#### 8. MFA privilege boundary — negative and positive proof
+- **Integration** (`tests/integration/privilege-boundary.test.ts`, "Test A", 2 tests): a sign-in returns the pending
+  (password-only) token; completing the second factor with a TOTP code — and, in the second test, a recovery code — yields
+  a new token. At that instant, and 1 ms, 1 s, 16 s and 30 s later (every moment of the old 30-second window, its last
+  included), the pending token is refused (`findSessionByToken` → null, `lookupSession` → `ended`); the new token is live
+  and verified; the old row is revoked `rotated` with `replaced_by_id` = the new id (lineage recorded, never followed).
+- **Browser** (`e2e-admin/admin.spec.ts`, "Test A"): before the second factor a copy of the pending token reaches only the
+  verification page. The browser completes the second factor; from then on the copy gets "session ended" on `/admin`,
+  `/admin/users`, `/admin/account/sessions` and the verification page. A "Sign out all other sessions" request, captured
+  from a second (witness) session, replayed with the copy **within 30 seconds** of the verification (inside the old
+  window): nothing happens, the witness stays signed in. Replayed with the new token, it signs the witness out (positive
+  control: the replay itself works).
+- **Negative control:** the 9 integration tests (A–D) run against `b47d8e5` (with a two-line shim that maps the new
+  `lookupSession` name onto the old `findSessionByToken`, changing nothing it authenticates): **9 of 9 fail**, each at
+  "the old token is refused at the same instant". All 9 pass now.
+
+#### 9. Step-up privilege boundary
+- **Integration** ("Test B"): a session older than 10 minutes steps up (password + code); the old token is refused at
+  once and through the old window; only the new token has the fresh `reauthenticated_at`.
+- **Browser** ("Test B"): the "Send invitation" request (a sensitive action) is captured; replayed with the pre-step-up
+  token it creates nobody (session ended); replayed with the new token it creates the user (positive control).
+- Fails on `b47d8e5` (item 8's control), passes now.
+
+#### 10. The other security rotations
+- **Integration** ("Test C", 5 tests): a password change, 2FA turned on (the old password-only token), the authenticator
+  replaced, 2FA turned off (an optional role), and the periodic rotation — in each, the old token is refused at the same
+  instant and for the whole old window; the new one works.
+- **"Test D"** (concurrent periodic rotation): 5 rounds of 4 simultaneous `rotateIfDue` calls on one session: exactly one
+  successor each round, 2 rows (old + new), the old token refused, and `rotateSession` on the old row afterwards throws
+  `SessionEndedError` (nothing resurrected).
+- **Browser:** "D1" replays the captured rotation request 3 times at once: 1 new token, 1 new row, the old cookie then
+  reaches "Your session has ended"; "D2": a tab's own rotation gives the browser the new cookie, a request with the old
+  token ends at `session_ended`, and a second tab at `/admin/login?session_ended=1` goes straight to the dashboard (it
+  holds the new cookie) — the only way a stale tab recovers. The 2FA-replacement browser test also checks that the token
+  from before the replacement ends.
+- All fail on `b47d8e5` (item 8's control: 9 of 9), pass now.
+
+#### 11. Recovery codes — old and new
+| | Before (`b47d8e5`) | After (`7d55e4a`) |
+|---|---|---|
+| Alphabet | Crockford Base32, 32 symbols (`0-9 a-h j k m n p-t v-z`) | the same |
+| Length | 10 characters | **20 characters** |
+| Entropy per code | log₂(32) × 10 = **50 bits** | log₂(32) × 20 = **100 bits** |
+| Format shown | `xxxxx-xxxxx` | `xxxxx-xxxxx-xxxxx-xxxxx` |
+| Count, use | 10, single use, shown once | unchanged |
+| Typed | case, spaces, dashes ignored; i/l → 1, o → 0 | unchanged |
+
+- One module, `src/server/security/recovery-codes.ts`: the generator (`crypto.randomInt` per character, uniform), the
+  normalisation, the hash, and the alphabet and length the generator uses. `mfa.ts` and `sign-in.ts` import it. The old
+  generator hashed `code.replace("-", "")` (only the first dash); every path now hashes the normalised code.
+- The sign-in and the step-up take the longer code (the step-up form gained "Use a recovery code instead"); the list of
+  new codes fits a 320 px phone, one code per line.
+- **Entropy test** (`tests/unit/security.test.ts`): 4,000 codes from the generator itself: every code matches the
+  four-group format, normalises to 20 characters, all 32 symbols occur, log₂(32) × 20 = 100 ≥ 100 bits measured from what
+  was generated, no repeats, each symbol 2,000–3,000 times of 80,000 (uniform); the declared constants agree.
+- Fails on `b47d8e5` (its generator gives `s4k8d-5htek`: 10 characters), passes now.
+
+#### 12. Recovery-code storage proof
+- `user_recovery_codes.code_hash` = SHA-256(`rawasy-recovery:` + the normalised code), 32 bytes; no other column holds
+  anything derived from the code.
+- Integration (`mfa.test.ts`): the 10 stored hashes equal the hashes of the 10 codes shown; no stored value (hex, base64,
+  latin1, id) contains any code; the code typed in capitals with spaces signs in once and is then refused in any form; a
+  code of the old 10-character shape is not a code.
+- Secrets test (`secrets.test.ts`): every code as shown, without dashes and in capitals, plus every token, password and
+  TOTP value of a full flow, is searched in every value of every table and in everything written to the console: none
+  found.
+- Browser: a recovery code works once at the sign-in (typed in capitals with spaces) and once at the step-up; the same
+  code a second time "didn't match".
+
+#### 13. Pre-hash credential admission — design (`c844c27`, `4eab6d3`)
+- `src/server/auth/rate-limit.ts`, `reserveCredentialCheck(db, normalisedEmail, now)`: 5 rows per email in the existing
+  `rate_limits` table (no schema change), keyed by SHA-256 of `login:credential:<hex SHA-256 of the normalised email>#<slot>`
+  — the plain email is never stored. A row holds the moment its slot frees again (`expires_at`). Taking a slot is one
+  conditional `UPDATE … SET expires_at = now + 15 min WHERE key = ? AND expires_at <= now`; `INSERT IGNORE` creates the
+  free rows the first time. Two requests can never take the same slot, in any number of processes: at most 5 checks for an
+  email start in any 15 minutes (a sliding window).
+- Order in `signIn`: the per-address limit (30 / 15 min, unchanged) → **the slot** → only then the account lookup → the
+  Argon2 verification, or the dummy hash for an unknown, disabled, invited or locked account. With all 5 taken nothing is
+  hashed: the answer is the same "failed", the attempt is recorded (`rate_limited`) and audited (`auth.login_throttled`).
+- The same slots guard every other password check: the step-up, the password change and the 2FA set-up ("temporarily
+  locked", nothing hashed).
+- Freed (never deleted — `4eab6d3`, item 31) by a successful password check, a completed password reset, an Owner or
+  Admin unlock, the bootstrap recovery reset and an accepted invitation.
+- The 5 rows are inserted in key order, the order in which freeing them locks them (`ddf7b71`: in slot order the two
+  deadlocked, 21 and 26 times in two probes of 600 rounds; 0 and 0 since).
+- The user-row lock is unchanged: second-factor codes are still checked under `SELECT … FOR UPDATE`.
+
+#### 14. Concurrent wrong-password proof (`tests/integration/admission.test.ts`, 13 tests)
+- 12 wrong passwords at once against **a known account**: exactly **5** Argon2 verifications; the account locked for
+  15 minutes after the 5th; 5 attempts recorded `bad_credentials`, 7 `rate_limited` (refused before any hash); at most 4
+  pool connections in use at once (the test pool's limit; no pool explosion).
+- The same against **an unknown email** and **a disabled account**: 5 dummy verifications each, the same answers.
+- 12 wrong step-ups at once from one session: at most 5 hashes, the account locked.
+- Freeing: by a success (then 5 more checks), by a completed reset (the new password signs in at once), by an Admin unlock;
+  the sliding window (slots taken at 0, 2, 4, 6, 8 minutes free again at 15, 17 …); slots freed while another request is
+  between its insert and its claim are still there to claim (`4eab6d3`); 300 rounds of 6 reservations and 6 freeings at
+  the same moment end without a single database error (`ddf7b71`).
+- **On `b47d8e5`** (a shim that answers "always free"): 12 of 12 hashed for the known, the unknown and the disabled email;
+  12 hashed at the step-up; 8 of the 11 then-existing tests fail; the 3 that pass on both guard identical answers, slots
+  per email and the unlock. The slot-freeing test fails on `d09cb4b` (the delete version) and passes now.
+
+#### 15. Known / unknown enumeration proof
+- The slot is taken before the account is looked up, for every email alike; a refusal there does the same thing for all.
+- 21 attempts (7 each against a known, an unknown and a disabled email; 5 checked and 2 refused per email) give 21
+  identical answers `{ kind: "failed" }`; the browser shows one message for all of them ("Sign-in failed. Check the email
+  address and password. After several failed attempts, sign-in is paused for a while.").
+- Unknown and disabled accounts still verify a dummy hash, so a checked attempt costs the same Argon2 time
+  (`sign-in.test.ts`, "an unknown email takes about as long as a wrong password").
+- The only other answer is the per-address throttle ("Too many sign-in attempts from your network"), which depends on the
+  address, not the account.
+
+#### 16. `ADMIN_ENABLED` — design (`d09cb4b`)
+- `src/lib/admin-gate.ts`, `isAdminEnabled(env = process.env)`, read on every call, framework-free:
+  - `ADMIN_ENABLED` set (after trimming) → on **only** if it is exactly `1` (`0`, `true`, `yes`, `on`, `01`, `1.0` … are off,
+    locally too);
+  - unset or empty → on only in local development: `APP_ENV=local`, or no `APP_ENV` outside a production build (`next dev`);
+    `production`, `staging` and any unknown `APP_ENV` → off; a production build without `APP_ENV` → off;
+  - never inferred from `DB_*` or any other setting.
+- **Proxy:** the admin branch (nonce CSP, admin headers) only when on. Off, `/admin/**` falls through to the public locale
+  logic: `307 → /en/admin…`, then the localized 404 — as on `preserve/pre-admin-a2`.
+- **Server side** (the proxy is not the boundary): `assertAdminEnabled()` → `notFound()` at the start of the admin root
+  layout (after `await connection()`, so at request time, never at build), `getAdminState()`, `authDeps()`,
+  `actionContext()` and `publicActionContext()`. Every admin page and Server Action passes through one of these before it
+  reads a cookie or opens a database connection. Needed because Next forwards a Server Action posted to **any** page to the
+  worker that has it.
+- No database is needed to decide; `npm run build` needs no database and no gate setting.
+- `.env.example` documents the variable (commented, no value); the README's admin section explains it and its Namecheap
+  section says to set none. No production value was created.
+
+#### 17. Production with the admin disabled — proof
+- `e2e-admin/gate.spec.ts` starts `node server.js` of the build with each setting and a stand-in database (a listener that
+  counts connection attempts and answers none). **Off** — production unset, production `0`, a production build without
+  `APP_ENV`, staging unset, staging `0`, production `true`:
+  - `/admin`, `/admin/login`, `/admin/users`, `/admin/anything/at/all` → `307` to `/en/…`, no CSP, no `X-Robots-Tag`, the
+    same header names as the public `/about` redirect; Arabic by header and by cookie → `/ar/admin`;
+  - `/en/admin` → 404 with the same title as `/en/not-a-page`, no CSP; a session cookie changes nothing;
+  - a forged sign-in Server Action, posted to `/admin/login` (→ the locale redirect) and to the public `/en`: **0 database
+    connection attempts**. The same request reaches the database in the "on" tests (positive control: without it the
+    "0" could mean a malformed request — the first version of this test had exactly that flaw, caught by the "on" case).
+- **Negative control:** on `b47d8e5`, all 6 "off" tests fail (`/admin` → `/admin/login`: the admin answers); the 3 "on"
+  tests pass on both.
+- **Without the proxy** (a scratch build of `d09cb4b` whose proxy matcher excludes `/admin`, so only the server-side gate
+  stands): gate off → `/admin/login`, `/admin`, `/admin/users`, `/admin/reset`, `/admin/account/security` all **404**
+  (Next's error shell; no form, no password field), the forged action at `/admin/login` 404 and at `/en` nothing, **0
+  database connections**; gate on → the sign-in page 200, and the forged action reaches the database (2 attempts).
+- The HTTP freeze proof (item 19): with the gate off, the whole `/admin` family answers byte-for-byte as on
+  `preserve/pre-admin-a2`.
+
+#### 18. Local development with the admin enabled — proof
+- The admin browser suite runs `server.js` with `APP_ENV=local` and no `ADMIN_ENABLED` (on by default): every admin test
+  passes (item 23).
+- `gate.spec.ts` "on" (production `1`, staging `1`, local unset): `/admin/login` 200 with `script-src 'self'
+  'nonce-<22 base64 chars>==' 'strict-dynamic'`, `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`; `/admin`
+  → `/admin/login`; deciding needed no database (0 connections before the first action); the forged sign-in reaches the
+  database at the admin and through a public page.
+
+#### 19. Public freeze proof (against `preserve/pre-admin-a2`, `ed6b652`)
+- **Sources.** `git diff ed6b652..d21e222` is empty for every public path: `src/app/(commerce)/**`,
+  `src/components/commerce/**`, `src/content/**`, `public/**`, `src/i18n/**`, `src/lib/page-meta.ts`,
+  `src/app/global-not-found.tsx`, `server.js`, `scripts/package-namecheap.mjs`, `scripts/warm-images.mjs`, `e2e/**` and
+  `playwright.config.ts`. The public E2E tests are byte-identical to the baseline's; the 13 held-back-media rules
+  (`withheldMedia`, `projectDetailMedia`, `HELD_BACK_MEDIA`) are untouched.
+- **Build output** (a clean build of `d21e222`, copied right after `next build`, against the baseline's clean
+  build): 890 public files per build: 114 byte-identical, 193 differing only by the build id or `/_next/static` chunk
+  names, 408 only by the router-tree entry that lists the `[locale]` segment's static siblings (`[]` → `["admin"]`, as in
+  A2), **0 other differences** (175 server bundles and manifests compared by module instead). Stylesheets: on all 104
+  prerendered public pages the same stylesheets in the same order, byte-identical. Scripts by module: the same module set
+  and code on every page; the only module-level differences are A2's own two (the Turbopack runtime naming the two
+  renamed shared chunks, and Next's error-page styles module, whose renamed local collides with an object key). Every one
+  of these figures equals A2's final proof (`20bef7a`): this correction changed no client byte of the public site.
+- **HTTP** (both builds served by `server.js` in production mode; the final one with the gate off: no `ADMIN_ENABLED`,
+  no `APP_ENV`, no database settings): three gate-off settings, each against a freshly started baseline with its route cache emptied —
+  production with nothing set (the deployment default), production with `ADMIN_ENABLED=0`, and staging with nothing
+  set — and in all three:
+  - **102 / 102 sitemap pages:** the same status, headers (date, etag and cache-state headers aside), normalised HTML,
+    SEO facts (lang / dir, title, description, robots, canonical, 306 hreflang links, Open Graph, 208 JSON-LD blocks, 618
+    media references, 292,957 characters of visible text) and page data (`RSC: 1`);
+  - `robots.txt`, `sitemap.xml`, the manifest and both icons byte-identical; `/favicon.ico` (no such file) answers 404 on
+    both with the same headers and a body that differs only by the build id and chunk names (identical once normalised);
+  - **28 / 28 redirect and locale cases identical**, among them `/admin`, `/admin/`, `/admin/login`,
+    `/admin/login?next=…`, `/admin/users`, `/admin/reset`, `/admin/invite/abc`, `/admin/anything/at/all` (each `307` →
+    `/en/…`), `/admin` with an Arabic header (→ `/ar/admin`), with the language cookie and with a forged session cookie,
+    `/ADMIN`, `/Admin`, `/%61dmin`, `//admin`, `/administrator`, `/admin-panel` and `/adminx/login`;
+  - **18 / 18 not-found cases identical** (status, title, robots, headers), among them `/en/admin`, `/ar/admin`,
+    `/en/admin/login`, `/ar/admin/login`, `/en/admin/users`, `/en/administrator`, `/en/admin-panel`, `/en/ADMIN` (the
+    localized 404) and the unknown `/api/anything`, `/api/no-such`, `/api/administrator` (Next's own 404, unchanged);
+  - a form POST to `/admin/login` or `/admin` answers the same locale redirect; no public page links to the admin;
+  - the only intended difference: `/api/admin/…` and `/api/internal/…` (404 on both) carry the A2 API headers.
+- **Pixels:** the same 11 representative pages as A2's proof (`/en`, `/ar`, `/en/about`, `/ar/services/laser-cutting`,
+  `/en/services/laser-engraving`, `/en/projects`, `/ar/capabilities`, `/en/contact`, `/ar/certificates`,
+  `/en/projects/clock-tower-landmark`, `/ar/not-a-page`), screen by screen (up to 6) in EN/AR × light/dark × desktop
+  1440 × 900 / phone 390 × 844, reduced motion, every image decoded, the map stubbed: **237 screens, 228 pixel-identical**
+  at the first pass, with equal page heights in every state. The other 9 (1 to 888 pixels: the Arabic Laser Cutting
+  drawing on desktop and phone, `/en/projects`, one pixel of `/ar/certificates`, the Arabic 404) were captured 3 more
+  times per build: each is pixel-identical between the builds in at least one of the three pairs, and the baseline
+  differs from itself by the same amounts (31, 28 and 8 pixels; once 1,197,225, when its browser-built 404 was caught
+  mid-render) — run-to-run noise, not a change.
+- **Held-back media:** the 13 files answer the same on both builds, and no page refers to them (every page's media list is
+  identical, item above).
+
+#### 20. Public E2E
+On the fresh clone of `d21e222` (the final code), served by `server.js` on port 3400 after the image warm-up (1,484 /
+1,484 sizes, none failed), two full runs of the whole suite (3 workers):
+- **First run: 611 / 612** (31.2 min). The one failure: `commerce-transitions.spec.ts:151` (Arabic, "a gallery choice
+  moves the cards that stay…"): `page.evaluate: TimeoutError: Transition was aborted because of timeout in DOM update`.
+  Chromium gave up on the gallery's view transition because its update step did not finish in time while two other
+  workers were rendering heavy pages; none of the test's assertions was reached. Not this correction's: the public code
+  is byte-identical to the baseline's (item 19), and the same test, run 10 times per language 3 at a time, passed 20 / 20
+  on the final build and 20 / 20 on the baseline build (`preserve/pre-admin-a2`).
+- **Second run (the whole suite again, not the failing test alone): 612 / 612 (31.5 min)**.
+
+#### 21. A2 unit result
+**26 / 26** (fresh clone; A2 had 15): + 6 `admin-gate.test.ts` (the gate's settings A–E and every other value), + 2
+`email.test.ts` (normalisation idempotent over every code point and 3.9 million letter + mark strings; one key per
+spelling), + 3 in `security.test.ts` (recovery-code entropy, format and normalisation).
+
+#### 22. MariaDB integration result
+**157 / 157** (fresh clone, local MariaDB 11.4.13, a fresh `rawasy_t_*` database per file; A2 had 83): + 9
+`privilege-boundary.test.ts` (Tests A–D), + 13 `admission.test.ts`, + 51 `review-races.test.ts` (review passes 1 to 9),
++ 1 in `mfa.test.ts` (recovery-code storage).
+
+#### 23. Admin browser result
+**44 / 44** (17.3 min; fresh clone; `server.js` on port 3401 with `APP_ENV=local`, a fresh `rawasy_e2e_*`
+database and the mail sink; A2 had 24): `admin.spec.ts` 35 (A2's 24 + Tests A, B, D1 and D2, the recovery code at the
+step-up, the new codes list at 320 and 390 px, and the review passes' four: roles chosen while the account showed
+Invited, a listed session that rotated meanwhile, the role boxes after another action refreshed the page, and Back to a
+user page) and `gate.spec.ts` 9 (6 settings off, 3 on).
+
+#### 24. Combined
+A2 alone: unit 26 + integration 157 + admin browser 44 = **227 / 227** (A2 had 15 + 83 + 24 = 122). With the public
+suite: **838 / 839** with the first public run (its one failure above) and **839 / 839** with the second.
+
+#### 25. `npm audit --omit=dev`
+**0 vulnerabilities** (fresh clone).
+
+#### 26. Full `npm audit`
+**9 (4 moderate, 5 high), all development-only, the report byte-identical to A2's final run** — no dependency changed in
+this correction (`package.json` and `package-lock.json` untouched since `b47d8e5`):
+- 5 high: `braces` ← `micromatch` ← `fast-glob` ← `@next/eslint-plugin-next` ← `eslint-config-next` (lint only; the
+  offered fix is a forced downgrade to `eslint-config-next@14.2.35`);
+- 4 moderate: `esbuild ≤ 0.24.2` ← `@esbuild-kit/core-utils` ← `@esbuild-kit/esm-loader` ← `drizzle-kit` (the migration
+  generator, development only; the offered fix is a forced downgrade to `drizzle-kit@0.18.1`). Accepted as dev-only by
+  Owner decision 4; no forced downgrade.
+
+#### 27. Lint
+`npm run lint`: exit 0, no warning (fresh clone).
+
+#### 28. Typecheck
+`npm run typecheck`: exit 0 (fresh clone).
+
+#### 29. Build
+`npm run build` with no `DB_*`, `APP_ENV` or `ADMIN_ENABLED`: exit 0, no warning (fresh clone). Nothing touches a database
+during the build (`assertNotBuildPhase`).
+
+#### 30. `db:check`
+Exit 0: "Everything's fine" (drizzle-kit), "Migration files OK: 2 (0000_access_control, 0001_seed_access_control)",
+"Seed migration matches the registry." The schema did not change in this correction (the limiter uses `rate_limits` as
+it was).
+
+#### 31. Focused security review findings (brief §13)
+Ten read-only review passes, each by an independent agent that read the code (the first two also probed the local
+MariaDB; from the fourth on, each reviewed the fixes of the one before). Each confirmed finding was fixed with a test that
+fails on the code before the fix, or is recorded in item 32.
+
+| Pass (code reviewed) | Finding | Severity | Outcome |
+|---|---|---|---|
+| 1 (`0a7a3c9` + tree) | A sign-in whose password was checked before a reset, a password change, a disable or a lock created its session afterwards (and a re-enable revived it) — **an old credential outliving the change** | High | Fixed `ba53a3e`: the session is created under the user-row lock, only while hash, status and lock are as checked; a re-enable revokes leftovers |
+| 1 | A change asked for by a session revoked mid-request still completed | Low | Fixed `ba53a3e` (`lockActingSession` in every such transaction; `lockForChange`) |
+| 1 | Email normalisation not idempotent (two slot keys; an account invited with "J + combining caron" could never sign in) | Low | Fixed `ba53a3e` (NFKC → lower → NFKC → trim) |
+| 1 | Failures at the public sign-in form also block the signed-in step-up (the same slots and lock) | Low (availability) | Not changed: options for the Owner (item 32) |
+| 1 | Invitations stay valid after their inviter is disabled or demoted | Info | Fixed `ba53a3e` (withdrawn) |
+| 1 | Reset-request timing reveals a known account once mail exists; clock skew shortens the slot window; `getAdminState` runs before the origin check (same-site only, SameSite=Strict) | Info | Reported (item 32) |
+| QA (fresh clone) | Freeing the slots by deleting their rows raced a reservation between its insert and its claim (4 checks instead of 5) | Low | Fixed `4eab6d3` (rows freed, never deleted) |
+| 2 (`ba53a3e`) | Two correct sign-ins while the stored hash is upgraded: one refused | Low | Fixed `d9bec5a` (re-verify against the stored hash) |
+| 2 | A race-refused sign-in counted towards the lockout | Low | Fixed `d9bec5a` (audited only) |
+| 2 | Unlock and "sign out everywhere" did not re-decide the rank rule under the lock | Low | Fixed `d9bec5a` |
+| 2 | Lock-order inversions: invite / resend / rotation against revocations (deadlocks absorbed by the single retry) | Low (robustness) | Fixed `d9bec5a` (`lockActor`, `rotateIfDue` locks the user): 24 / 13 / 15 → 0 / 0 / 0 deadlocks per 60 probe rounds |
+| 2 | A change overlapping its own session's periodic rotation ends "session ended" | Info | By design (no grace window); item 32 |
+| 2 | Re-enable revoked leftover sessions but not leftover reset links | Info | Fixed `d9bec5a` |
+| 2 | `lockActingSession` did not check the acting user's status | Info | Fixed `d9bec5a` (defence in depth) |
+| 2 | Removing any role withdraws all invitations the user sent | Info | Documented; item 32 |
+| 3 (`d9bec5a`) | **An invitation link outlived a role raise of the invited account**: an Admin's link for an Editor still activated the account after an Owner made it an Owner (the Admin holds the link when no mail is configured) — **the old-credential → newer-privilege case** | High | Fixed `ddf7b71`: a role change withdraws the invited account's link; acceptance and the invitation page check the issuer's authority against the account as it is (again inside the accept transaction, under lock); a new link is decided under the account's row lock |
+| 3 | A re-enable brought back an invitation link issued around the disable | Low | Fixed `ddf7b71` |
+| 3 | Pre-existing deadlock cycles: token-first (`completePasswordReset`, `acceptInvitation`) against user-first transactions; the emergency 2FA CLI's lock order; the slot `INSERT IGNORE` against the slot freeing | Info | The slot cycle confirmed by a probe (21 and 26 deadlocks in 600 rounds) and fixed `ddf7b71` (rows inserted in key order: 0 and 0); the other two resolve correctly on the single retry — item 32 |
+| 3 | The Owner's in-app 2FA reset leaves the password valid (the next password-only sign-in enrols a new authenticator) | Info (design) | Not changed (accepted A2 behaviour): an option for the Owner, item 32 |
+| 4 (`ddf7b71`) | **A promotion decided while the account showed "Invited" could land on an account its inviting Admin had just activated with the older Editor link**: the Owner ticks Owner on the invited account, the Admin accepts the link first and sets the password, the Owner's save then makes the Admin-controlled account an Owner (Owner-assisted; Admin → Owner) — **the old-credential → newer-privilege kind** | Medium | Fixed `6ac8c55`: the roles form sends the status the page showed; `setUserRoles` refuses (`changed`, "reload and check") when the account is no longer in that state, decided before and again under the account's row lock |
+| 4 | A role change left the account's password-reset link alive: a link minted (by the recovery CLI) for an Editor could set the password of the Admin it became — **the same kind** | Low | Fixed `6ac8c55`: a role change also retires the account's `password_reset` and `email_change` links |
+| 4 | `getAdminState` read the session, the roles and the 2FA state in separate statements: a promotion committed in between could render one read-only page with the new roles for the session it revoked, and a 2FA removal could render a password-only session as signed in (every change still refused under lock) | Low | Fixed `6ac8c55`: `readSessionState` reads all four in one transaction (one snapshot); the session's activity is recorded after it |
+| 4 | Owner setup links: the link of an earlier bootstrap run (a mistyped email) stayed valid and could create a second Owner after the first was active | Low | Fixed `6ac8c55`: each bootstrap retires every other unused setup link; a setup link is refused while any Owner is active (decided again under lock in the accept transaction, the link withdrawn and audited) |
+| 4 | `resetUserMfa` ignored a target that vanished before its lock | Info | Fixed `6ac8c55` (`not_found`, nothing changed) |
+| 5 (`6ac8c55`) | **The roles form applied the whole set of roles its page showed, so a role another Owner had just taken away came back** (an older page re-granted Admin after a demotion); enable, unlock, a 2FA reset and a new invitation link carried no state either (an older page's "Enable" undid a newer disable) — **the decision-on-an-older-state kind** | Low | Fixed `89edcc5`: every user-management form sends the account's fingerprint as its page showed it (`accountVersion`: status, last change, disable, lock, roles, second factor, read in one snapshot); roles, enable, unlock, a 2FA reset and a new invitation link are refused (`changed`) under the account's row lock when it differs; disabling and signing out never are |
+| 5 | Signing a session out by its id did not follow its rotation: a device whose session rotated after the list was shown stayed signed in ("That session has already ended."), and a lockout or "Sign out" racing a rotation left the successor live — the mirror image (a newer token escaping a revocation) | Low | Fixed `89edcc5`: `revokeSessionLineage` also ends the session it rotated into, under the user's row lock (sign-out now takes it); `replaced_by_id` is followed only to end sessions, never to authenticate |
+| 5 | The one-snapshot read relied on the server's default isolation level (READ COMMITTED would split it again) | Info | Fixed `89edcc5`: every connection is set to REPEATABLE READ; proven with the local server's default switched to READ COMMITTED: round 4's two snapshot tests fail on `6ac8c55` and pass now |
+| 5 | Removing a second factor left pending reset links valid (a link not enough to sign in while 2FA was on became enough) — **the same kind** | Info | Fixed `89edcc5`: `removeMfa` and `disableMfa` withdraw reset and email-change links (the CLIs issue their own link afterwards) |
+| 5 | A session already past its absolute limit by the revoker's clock was not revoked, so a request whose clock was behind could read it live with the new roles for one page — **the same kind** (negligible) | Info | Fixed `89edcc5`: every unrevoked row is ended (only live ones counted); `readSessionState` reads the time once it holds its connection |
+| 5 | The admin's origin check accepts any page of the shared origin, and the public pages carry no CSP | Info | Not changed: nothing but RAWASY's own code runs on the public site today; carried to A3 (item 32) |
+| 5 | A recovery code used for a step-up was neither audited nor notified | Info | Fixed `89edcc5` (as at sign-in) |
+| 6 (`89edcc5`) | **After any other action refreshed the user page, the roles form sent the boxes ticked for the older state together with the page's new fingerprint**: the boxes are uncontrolled and keep what they showed across the page refresh, while the hidden fingerprint takes the new one — so once, say, "Disable" on the same page had refreshed it, a page that still showed Admin ticked gave back the Admin role another Owner had just taken away, and the server's check passed — **the decision-on-an-older-state kind**, in the browser | Medium | Fixed `b66468d`: the boxes are rebuilt together with the fingerprint (`<Fragment key={version}>` in `UserRolesForm`): a new fingerprint remounts them from the account as it is now |
+| 6 | An unlock decided on the page cleared failed attempts counted after it was shown (the fingerprint held the lock, not the count), resetting the escalation those attempts had earned | Info | Fixed `b66468d`: the unlock form sends its own fingerprint (`unlockVersion`: the lock and the attempts counted since the last success) and is refused (`changed`) when either moved |
+| 6 | The access fingerprint held the last-change time and the lock, so the user's own password change or a failed sign-in refused an Owner's role change made on a page opened before it — a stall, not a hole | Info | Fixed `b66468d`: the access fingerprint (`accountVersion`) holds only what roles, enable, a 2FA reset and a new invitation link are decided on: status, the disable time, roles and the second factor |
+| 6 | Portability of the per-connection isolation: `transaction_isolation` exists from MariaDB 11.1 (`tx_isolation` before), and from 11.6.2 `innodb_snapshot_isolation` is on by default (a write to a row changed after the snapshot fails with error 1020, which the admin shows as "unavailable") | Info | Not changed (the local server and Namecheap's listed version are 11.4): added to the pre-staging checks (item 32) |
+| 7 (`b66468d`) | **A two-factor reset decided on the page no longer saw a password replaced, a lock set or second-factor codes failed after the page was shown** (the sixth review's narrower fingerprint had dropped the last change and the lock): someone holding a reset link for the account (its mailbox, once mail exists) or its password could have the Owner remove the second factor that still stood between them and the account — **the old-credential → newer-access kind**, Owner-assisted | Low | Fixed `da3e5a3`: the reset form sends its own fingerprint (`mfa_reset`: the access, the sign-in lock and failed attempts, and the password's last change) and is refused when any of them moved |
+| 7 | The unlock compared only the lock and the attempts: an older page could unlock an account whose second factor had been reset, or that had been disabled or promoted, after it was shown | Info | Fixed `da3e5a3`: the unlock's fingerprint (`unlock`) holds the access as well |
+| 7 | **Going Back to a user page that the browser loads again, or restoring a session, put the older page's role ticks back beside the newer fingerprint** (Chromium restores form state into the form as the server wrote it, and React keeps it while hydrating): a save then gave back a role taken away meanwhile — **the decision-on-an-older-state kind**, in the browser | Low | Fixed `da3e5a3`: the roles form carries `autocomplete="off"`, so the browser neither saves nor restores its boxes |
+| 8 (`da3e5a3`) | The two-factor reset's fingerprint counted every wrong password, so anyone who knows the email could keep an Owner's reset refused ("changed") with a wrong password every few minutes, without ever locking the account; the refusal did not say why | Low (availability) | Fixed `98735f9`: the reset is decided on the password's last change and the newest failed second step (a wrong code needs the right password first), no longer on the lock or the count; the refusal names password changes and sign-in attempts |
+| 8 | Adding a role to an account without two-factor does not notice a password replaced after the page was shown (the access fingerprint leaves the password out, so the user's own password change never stalls an Owner) | Low (design) | Not changed: the round-6 choice, recorded with the option (item 32) |
+| 8 | The emergency 2FA-reset CLI removed the factor without taking the user's row first, so a change decided under that lock could read the factor while it was being removed, and the two could wait on each other's rows (one retry) | Low | Fixed `98735f9`: the CLI locks the user's row first, as every other change to a second factor does |
+| 9 (`98735f9`) | The two-factor reset's fingerprint did not see a sign-in that passed the password after the page was shown, whether it stopped at the code prompt (a pending session, listed on the page) or completed | Low | Fixed `d21e222`: the reset is also decided on the sessions the account has ever had (each sign-in and each rotation adds one, under its row lock); only someone holding the password or a session can move it |
+| 9 | Lock order against token-first writers (`completePasswordReset`, `acceptInvitation`, a reset request with mail): with the emergency CLI now locking the user first, it joins the documented cycle, and in `--all` mode a second deadlock on one user threw away the links already issued to the others | Low | The CLI fixed `d21e222`: each user is reported (a failure with its error code, nothing changed for that account) and the others go on; the cycle itself stays documented (item 32) |
+| 9 | Test gaps: the CLI lock test did not show the CLI waiting and left transactions open on failure; a wrong recovery code, a wrong step-up code and a lock from wrong passwords were untested for the reset | Low | Fixed `d21e222`: the test shows the CLI still waiting and rolls back before releasing; the three cases are tested |
+| 9 | Two writers outside the "user row first" rule: re-encrypting TOTP secrets (changes nothing a decision reads) and the bootstrap recovery reset (decides from a read before its transaction; harmless) | Info | Comments corrected `d21e222`; recorded |
+| 9 | The newest failed second step is found by walking the user's `login_attempts` rows, which anyone can add to (about 480 a day per email); nothing prunes them in A2 | Info | `d21e222` reads it only for the reset and the user page while the account has a second factor; an index on `(user_id, failure_reason)` and pruning belong to A8 (item 32) |
+| 10 (`d21e222`) | The emergency CLI reports a user whose transaction failed as "NOT reset … nothing was changed"; if the connection dropped after the server had committed, the reset was in fact applied and its link lost | Low | Not changed: recorded (item 32); running the command again for that user is right in both cases (it issues a fresh link) |
+| 10 | The 2FA reset's session count would be lowered by the daily purge of expired sessions planned in A1 (no purge exists in A2): a purge and a new sign-in could cancel out | Low (latent) | Not changed: recorded for A8 (item 32) — count and newest id, or a per-user counter, when the purge is built |
+| 10 | Test gaps: the complete-sign-in half of the new test does not isolate a counted rotation; the CLI failure is injected before any write (the rollback of a partly done reset and the script's exit code are not exercised) | Info | Recorded (item 32) |
+| 10 | One `now` for the whole emergency run: after lock-wait timeouts, later users' 30-minute links start with less time | Info | Recorded (item 32) |
+| 10 | Comment wording: "every sign-in that passed the password adds a session" overstates (a sign-in refused under the lock checks the password and adds none) | Info | Recorded (item 32) |
+
+**The brief's question — an old credential that follows, aliases or inherits a newer privilege:** passes 1 and 3 each
+found one such case (a password checked before it was replaced; an invitation link outliving a role raise); both are
+fixed and tested. Passes 4 and 7 found three more of that kind, all fixed and tested: a promotion decided on an invited
+account landing on one its inviting Admin had just activated with the older link, and a reset link minted for an Editor
+still working after the promotion (pass 4); a two-factor reset that removed the only thing between a password replaced
+after the page was shown and the account (pass 7). Passes 5 to 7 closed the neighbouring kind, a decision taken on an
+older state of an account, on the server (a fingerprint per kind of decision) and in the browser (role boxes rebuilt
+with it, never restored by the browser). Passes 8 to 10 found no old-credential path in the seventh to ninth rounds'
+code, and pass 10 no High or Medium defect of any kind: the loop ends there, its remaining Low and Info items in item 32.
+Paths checked across the passes: the pending, verified, rotated, revoked and expired session tokens (`replaced_by_id` is
+written and never read for authentication; since `89edcc5` it is followed only to end a session); the step-up timestamp
+(set only by a password-plus-code step, a full sign-in, a password change without 2FA or an enrolment, and carried only
+within one session's own rotation); the sealed enrolment blob (bound to user, session, expiry and the replace flag); invitation,
+reset, email-change and Owner-setup tokens (single use, retired by password change, reset, disable, re-enable, role
+change and a second factor's removal; an invitation checked against its issuer's authority now; only the newest Owner
+setup link, none once an Owner is active); the user page's forms (each decided on the account as its page showed it, in
+what that decision depends on); recovery codes (single use under the user-row lock,
+deleted on regenerate, disable, replace and reset); TOTP (±1 step, `last_used_step` strictly increasing); roles cached in
+an actor (every role change revokes the target's sessions; every change proves its session live under lock); replayed
+Server Actions (the old cookie reads "ended"); the `next` parameter (admin pages only); the cookie (`__Host-`, Secure,
+HttpOnly, SameSite=Strict, the token only).
+
+**Negative controls — which new security tests fail on the code before their fix and pass now:**
+
+| Tests | On the code before | Now |
+|---|---|---|
+| `privilege-boundary.test.ts` (Tests A–D, 9) | `b47d8e5`: **9 of 9 fail** ("the old token is refused at the same instant") | 9 / 9 |
+| `security.test.ts` recovery codes (3) / recovery-code integration (`mfa.test.ts`, `secrets.test.ts`) | `b47d8e5`: 2 of 3 fail / 2 of 21 fail | pass |
+| `admission.test.ts` (the 11 first tests) | `b47d8e5` with an "always free" shim: **8 of 11 fail** (12 of 12 wrong passwords hashed; the 3 that pass guard identical answers, per-email slots and the unlock) | pass |
+| `admission.test.ts` — slots freed mid-reservation | `d09cb4b` (the delete version): fails | passes |
+| `admission.test.ts` — reservations and freeing at the same moment (300 rounds) | `d9bec5a`: fails (`ER_LOCK_DEADLOCK`) | passes |
+| `gate.spec.ts` — the 6 "off" settings | `b47d8e5`: **6 of 6 fail** (`/admin` answers); the 3 "on" tests pass on both (positive controls) | 9 / 9 |
+| `review-races.test.ts` — passes 1 (14 tests) | `b47d8e5` and `d09cb4b`: **13 of 14 fail** (the 14th is a positive control) | pass |
+| `email.test.ts` (2) | `b47d8e5`: 2 of 2 fail | 2 / 2 |
+| `review-races.test.ts` — pass 2 (4 new tests) | `4eab6d3`: 4 of 4 fail | pass |
+| `review-races.test.ts` — pass 3 (4 new tests) | `d9bec5a`: **4 of 4 fail** (the Admin's link still showed "Owner" and activated it; the accept and resend races; the re-enable) | pass |
+| `review-races.test.ts` — pass 4 (7 new tests) | `ddf7b71` (the session read through a shim of `ddf7b71`'s separate reads): **7 of 7 fail** — the role change decided on "Invited" succeeds (twice: before and under the lock), the reset link minted for the Editor still works after the promotion, the revoked session reads the new roles (`enrolment_required: admin`), the password-only session reads as `active`, the first bootstrap's setup link still works (and, run on its own, a stray setup link accepted after the real Owner activated creates a second Owner: `kind: ok`), the 2FA reset of a removed account returns `ok`; the 20 earlier tests in the file pass on both | 27 / 27 |
+| `admin.spec.ts` — roles chosen while the account showed Invited (1 new test) | `ddf7b71` (built in a worktree, the new spec copied in): **fails** — no refusal appears, the Owner's save goes through on the account the older link has just activated; the 12 tests before it pass (the spec runs in order, so the 19 after it did not run) | passes (admin 41 / 41) |
+| `review-races.test.ts` — pass 5 (14 new tests) | `6ac8c55` (the two role tests pass the status the page showed, the only state that commit compared): **14 of 14 fail** — the older roles form gives Admin back (`editor → admin, reviewer`, also under the lock), the older enable, unlock and 2FA reset go through, the older resend issues a link, the listed session's successor stays signed in (the own list answers "already ended", the Owner's "out of 0 session(s)", the lockout and "Sign out" leave it `active`), the connection stays at `READ-COMMITTED`, the reset link outlives the 2FA reset, the expired session is read with the new roles (`enrolment_required`), and the step-up's recovery code leaves no audit entry | 41 / 41 |
+| Round 4's two snapshot tests, with the local server's default isolation switched to READ COMMITTED (restored after) | `6ac8c55`: **2 of 2 fail** (the separate reads come back); now: pass | pass |
+| `admin.spec.ts` — a listed session that rotated meanwhile (1 new test) | `6ac8c55` (built in a worktree, the new spec copied in): **fails** — the dialog answers "That session has already ended." and stays open, the device's new session still signed in; the 14 tests before it pass (the 18 after it did not run) | passes (admin 42 / 42) |
+| `review-races.test.ts` — pass 6 (2 new tests) | `89edcc5` (the unlock test sends the fingerprint that commit compared): **2 of 2 fail** — the older unlock clears 7 counted attempts (`kind: ok`), and the Owner's role change is refused after the user's own password change (`denied`, `changed`) | pass |
+| `admin.spec.ts` — the role boxes after another action refreshed the page (1 new test) | `89edcc5` (built in a worktree, the new spec copied in): **fails** — after "Disable" refreshed the page, the Admin box is still ticked although another Owner took Admin away; a variant that saves anyway **gives Admin back** (`admin, editor, reviewer` in the database); the 13 tests before it pass | passes |
+| `review-races.test.ts` — pass 7 (3 new tests) | `b66468d` (the reset tests send the fingerprint that commit compared): **3 of 3 fail** — the 2FA reset goes through after the password was replaced and after a failed code, and the unlock after a 2FA reset (`kind: ok` each time) | pass |
+| `admin.spec.ts` — Back to a user page (1 new test) | `b66468d` (its build, the new spec): **fails** — the page is loaded again (`back_forward`) and Chromium puts the Reviewer box back ticked although another Owner took Reviewer away; a variant that saves anyway **gives Reviewer back** (`admin, editor, reviewer` in the database); the 14 tests before it pass | passes |
+| `review-races.test.ts` — pass 8 (2 new tests) | `da3e5a3`: **2 of 2 fail** — two wrong passwords refuse the Owner's 2FA reset (`denied`, `changed`), and while another change holds the user's row the CLI already holds the second factor's row (`ER_LOCK_WAIT_TIMEOUT` on a no-wait probe) | pass |
+| `review-races.test.ts` — pass 9 (3 new tests) | `98735f9`: **2 of 3 fail** — the 2FA reset goes through after a sign-in that passed the password (`kind: ok`), and the emergency CLI's whole run aborts on the failing user, losing the link already issued to the first; the third (a wrong recovery code, a wrong step-up code, a lock from wrong passwords) passes on both, as intended: it pins round 8's rule, which the review found untested | pass |
+
+#### 32. Remaining limitations
+- **Availability lever (pass 1):** anyone who knows an Owner's email can keep that account's 5 credential-check slots
+  taken and its sign-in lock set; the signed-in Owner then cannot step up (no disable or role change in an incident).
+  Options for the Owner: a separate per-user budget for in-session checks, or recovery through the server-side CLI (which
+  exists: `admin-bootstrap --reset`, `admin-2fa-reset`).
+- **The in-app 2FA reset leaves the password valid (pass 3):** the next password-only sign-in may enrol any authenticator.
+  The emergency CLI forces a password-reset link; doing the same in the app is an option for the Owner (not changed: an
+  accepted A2 behaviour, §11).
+- **With no mail transport the inviting Owner or Admin holds the invitation link** (the A2 design) and could activate the
+  account themselves; since `ddf7b71` such a link can only ever activate roles its issuer may grant, and since `6ac8c55`
+  a promotion the Owner decided on the invited account is refused once the account was activated meanwhile.
+- The slot window uses each app process's clock (skew shortens it by the skew); `rate_limits` rows are never pruned (5
+  rows per email ever tried; housekeeping belongs to A8).
+- Reset-request timing can reveal whether an account exists once mail is configured (mail is disabled: no effect now).
+- Pre-existing lock order: token-first transactions (`completePasswordReset`, `acceptInvitation`, a reset request when
+  mail is configured) can deadlock with user-first ones on the same user (role and status changes, 2FA removal, a password
+  change and, since the eighth review, the emergency 2FA CLI); `inTransaction` retries once and the outcome is correct (the
+  token is used → "invalid"); a second deadlock is an error page, and the CLI reports that user and goes on (ninth
+  review). Two writers stay outside the "user row first" rule, harmlessly: re-encrypting TOTP secrets (changes nothing a
+  decision reads) and the bootstrap recovery reset (decides from a read made before its transaction).
+- The newest failed second step is found by walking the user's `login_attempts` rows, which anyone can add to (about
+  480 a day per email) and which nothing prunes in A2: it is read only for the 2FA reset and the user page of an account
+  with a second factor; an index on `(user_id, failure_reason)` and pruning belong to A8.
+- A change that overlaps its own session's periodic rotation ends "session ended" (the tab recovers with the new cookie);
+  periodic rotation happens on navigation only.
+- Removing any role from a user withdraws every invitation they sent (they can be sent again).
+- **Adding a role to an account without two-factor does not notice a password replaced after the page was shown** (pass
+  8, a design choice of the sixth round): the access fingerprint leaves the password out so that the user's own password
+  change never stalls an Owner's role change. Option for the Owner: also compare the password's last change when a
+  change adds a role to an account without a confirmed second factor (a second hidden fingerprint on the roles form).
+- **The two-factor reset is decided on what happened after its page was shown** (a password replaced, a sign-in that
+  passed the password — pending or complete —, a session rotated, a failed second step: each refuses it since
+  `d21e222`). What happened before is on the page itself (sessions, recent security events) for the Owner to read before
+  confirming: part of the accepted in-app reset behaviour above.
+- **A compromised account can replace its own authenticator, which moves the fingerprint**, so an Owner's change decided
+  on an older page is refused until the page is reloaded; the incident step is to disable the account first (disabling
+  is never refused for this reason).
+- **A sign-out request that carries an already-ended token ends nothing**; if another tab's late rotation left the browser
+  holding the successor, "Sign out everywhere" (or an Owner's sign-out, which follows the rotation) ends it.
+- **Shared origin (pass 5):** the admin's same-origin check accepts any page of the site, and the public pages carry no
+  CSP. Nothing but RAWASY's own code runs on the public site today; carried to A3.
+- **Database portability (pass 6):** every connection sets `transaction_isolation` (MariaDB 11.1 or later; older servers
+  call it `tx_isolation`), and from MariaDB 11.6.2 `innodb_snapshot_isolation` is on by default, under which a write to a
+  row changed after the transaction's snapshot fails with error 1020 (the admin would answer "unavailable"). Namecheap
+  lists 11.4.9 and the local server is 11.4.13; both checks are added to the pre-staging account checks.
+- **Form-state restoration is tested in Chromium only** (the browser suite's engine). Firefox does not restore form state
+  for no-store pages; `autocomplete="off"` also covers Safari's WebKit, untested here.
+- **Emergency CLI (pass 10):** a user whose reset failed is reported as "NOT reset … nothing was changed"; in the rare
+  case where the connection dropped right after the server committed, the reset was applied and its link lost. Running
+  the command again for that user is right in both cases (it issues a fresh link). All links of one run count their 30
+  minutes from the run's start, so after lock-wait timeouts later users' links have less time left.
+- **For A8 (pass 10):** the 2FA reset's fingerprint counts the sessions an account has ever had; the daily purge of
+  expired sessions planned in A1 must not lower what it counts (use the count and the newest id, or a per-user counter,
+  when the purge is built).
+- **Test gaps (pass 10):** no test isolates a rotation counted by the 2FA reset, or a CLI failure after its first write;
+  the CLI script's exit code 3 is not tested. One comment overstates which sign-ins add a session (one refused under the
+  lock checks the password and adds none).
+- `last_owner` is now defence in depth: a disabled or demoted Owner's sessions end first.
+- With the gate off and the proxy bypassed (not possible in this deployment), `/admin` answers Next's error shell with
+  the admin root layout's title rather than the localized 404.
+- Carried over: the frozen homepage showcase race (Owner decision 5: unchanged); the dev-only audit advisories (decision
+  4); nothing tested on a real Namecheap host (decision 7: account checks and key escrow before staging).
+
+#### 33. `preserve/pre-admin-a2` unchanged
+`git ls-remote` at the end: `refs/heads/preserve/pre-admin-a2` → `ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0`, as at the
+start (never pushed to); `refs/heads/preserve/pre-admin-a2-correction1` → `b47d8e533bc59543f9d2de839d10894ba63831cb`
+(created once, without force, and not moved since).
+
+#### 34. `main` untouched
+`refs/heads/main` → `474f61f10f12981e41f9b7e7fd6065a0ec9da541`, as at the start: nothing was pushed to `main`, and no
+branch other than `claude/new-session-5eijs6` and the new checkpoint was pushed.
+
+#### 35. No A3
+Nothing of A3–A9 was started: no CMS editing, media, page builder, navigation or settings management, enquiries,
+publishing, revisions, database-backed public pages, content migration, cache handler, projections, redirects or
+persistent media. Every change is in the four corrected areas and the review fixes (item 5), plus their tests and docs.
+
+#### 36. Nothing deployed
+Nothing was uploaded, no Namecheap database was created or connected to, no cPanel, DNS, nameserver, SSL or email setting
+was touched, no production SMTP was used and no production secret or `ADMIN_ENABLED` value was created. All database work
+ran against the local Docker MariaDB 11.4.13 (`127.0.0.1:3307`).
+
+### Items for the Owner's decision (none blocks this correction)
+1. The options recorded in item 32: an in-app 2FA reset that also forces a password reset (as the emergency CLI does); a
+   separate budget for in-session password checks; comparing the password's last change when a role is added to an
+   account without a second factor; the emergency CLI's wording after a connection lost at commit.
+2. Two additions to the pre-staging account checks (A1-ARCHITECTURE §7.3): the server is MariaDB 11.1 or later
+   (`transaction_isolation`), and from 11.6.2 `innodb_snapshot_isolation` is either off or handled. With the key escrow
+   and the other account checks, unchanged.
+3. For A8: the planned purge of expired sessions must keep the 2FA reset's session count from going down (item 32).
+
+### How to run (local)
+Unchanged from A2 (README, "Admin (local development)"): a local MariaDB compatible with 11.4, then `npm run test:unit`,
+`npm run test:integration` and `npm run test:admin` with `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER` and
+`TEST_DB_PASSWORD`. Locally the admin is on without `ADMIN_ENABLED` (`APP_ENV=local`); staging and production leave it
+unset, so `/admin` stays the public localized 404 there.
+
+### Next steps
+The independent review of A2 with this correction. A3 starts only when the Owner approves A2 and says so; nothing is
+deployed before the Owner's go-ahead.
+
+---
+
+A2 CORRECTION 1 STATUS: READY FOR INDEPENDENT REVIEW

@@ -153,8 +153,22 @@
   authority); `4eab6d3` credential-check slots freed, never deleted; `d9bec5a` a second review pass (the acting user
   checked under its own row lock, the rank rule re-decided under the lock for unlock and sign-out, `lockActor`,
   `rotateIfDue` locks the user first, a lost hash upgrade re-checked, re-enabling retires reset links); `ddf7b71` a third
-  pass (an invitation link carries its issuer's authority, never more; credential-check slots inserted in key order).
-  Its fresh-clone QA and a fourth review pass were still running at this commit; the results come with the report section.
+  pass (an invitation link carries its issuer's authority, never more; credential-check slots inserted in key order);
+  `6ac8c55` a fourth pass (nothing decided on an older state of an account; one snapshot per request; only the newest
+  Owner setup link, none once an Owner is active); `89edcc5` a fifth pass (every user-management change decided on the
+  account's fingerprint as its page showed it; a sign-out also ends the session it rotated into; REPEATABLE READ set per
+  connection; removing 2FA withdraws reset links; expired rows revoked too; recovery codes at step-up audited); `b66468d` a
+  sixth pass (the role boxes rebuilt with the page's fingerprint; the unlock decided on the lock and the attempts the page
+  showed; the access fingerprint holds only what its decisions depend on); `da3e5a3` a seventh pass (a fingerprint per kind
+  of decision: a 2FA reset also on the password, an unlock also on the access; the roles form `autocomplete="off"`);
+  `98735f9` an eighth pass (the 2FA reset no longer refused by wrong passwords alone; the emergency 2FA CLI locks the user
+  first); `d21e222` a ninth pass (the 2FA reset also sees every sign-in and session since the page; the emergency CLI reports
+  each user and goes on). A tenth pass reviewed `d21e222`'s diff: no High or Medium defect, no old-credential path; its Low
+  and Info items are in the report's item 32. Final QA on a fresh clone of `d21e222`: `npm ci`, audit `--omit=dev` 0, lint,
+  typecheck, build with no database settings, `db:check`, unit 26 / 26, integration 157 / 157, admin 44 / 44, public
+  611 / 612 then 612 / 612 in a second full run (the one failure a Chromium view-transition timeout under load: 20 / 20 on
+  this build and on the baseline), and the public site proven unchanged against `preserve/pre-admin-a2` again (files,
+  stylesheets, modules, 102 pages over HTTP in three gate-off settings, 237 screens).
   **Do not start A3** (no CMS editing,
   media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
   content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
@@ -402,12 +416,44 @@
   - Disabling a user, or taking a role from them, withdraws the unused invitations they sent.
   - An invitation link carries its issuer's authority, never more (third review): `inspectInvitation` and
     `acceptInvitation` require the issuer (`auth_tokens.created_by`) to be active and allowed to invite, manage and grant
-    every role the invited account holds now (`issuerStillAuthorises`; re-checked in the accept transaction with the
+    every role the invited account holds now (`linkRefusal`; re-checked in the accept transaction with the
     token and the account locked, withdrawn and audited `user.invite_withdrawn` on failure); any role change of an
     invited account withdraws its own pending link (`setUserRoles`); `resendInvitation` decides under `lockForChange`;
-    re-enabling retires `invitation` links too. The Owner setup link (bootstrap, no issuer) is not affected.
+    re-enabling retires `invitation` links too. The Owner setup link (bootstrap, no issuer) works only while no Owner
+    is active (fourth review, below).
   - Credential-check slot rows are inserted in key order (`reserveCredentialCheck`), the order the freeing UPDATE locks
     them: slot order deadlocked with it (21 / 26 per 600 probe rounds; 0 since; `admission.test.ts`).
+  - One snapshot per request (fourth review): `readSessionState` (`session-state.ts`, used by `getAdminState`) reads the
+    session, user, roles and second factor in one transaction, the time read once the connection is held; every
+    connection runs at REPEATABLE READ (`CONNECTION_SETUP`, fifth review: with a READ COMMITTED server default the two
+    snapshot tests fail on `6ac8c55`).
+  - Nothing decided on an older state of an account (fourth to ninth reviews): `getUserDetail` reads the account in one
+    snapshot (`readAccountFacts`) and returns a fingerprint per kind of decision (`accountVersion(facts, scope)`): `version`
+    ("access": status, `disabled_at`, roles, `user_mfa.confirmed_at`) for roles, enable and a new invitation link;
+    `unlockVersion` ("unlock": access + `locked_until`, `failed_login_count`; nothing is counted while a lock holds);
+    `mfaResetVersion` ("mfa_reset": access + `password_changed_at` + `passwordUse` — the sessions the account has ever had
+    and the newest `mfa_failed` attempt, read only while it has a second factor: a 2FA reset hands the account to whoever
+    holds the password, so any use of the password or a session after the page refuses it, while wrong passwords alone,
+    which anyone can send, never do). Only what a decision depends on is in its scope, so the user's own password change
+    or failed sign-ins never refuse an Owner's role or status change. Each form sends its fingerprint back; the change is
+    refused (`changed`, "reload and check") under `lockForChange` when it differs (`accountUnchanged(tx, locked,
+    expected, scope)`); disable and sign-out never are; a caller without a fingerprint (CLIs, internal) compares
+    nothing. Every write those facts read happens under the user's row lock (sessions, `mfa_failed` attempts, second
+    factors; `emergencyMfaReset` locks the user first since the eighth review and reports each user, going on after a
+    failure, since the ninth). `UserRolesForm` rebuilds its boxes with the fingerprint
+    (`<Fragment key={version}>`) and carries `autoComplete="off"`: see the gotcha on uncontrolled inputs. The integration
+    tests' clock stands still, so tests of it advance the clock between changes.
+  - Links are minted for the account as it was: a role change withdraws its invitation, owner-setup, password-reset and
+    email-change links; removing a second factor (`removeMfa`, `disableMfa`) withdraws reset and email-change links (the
+    CLIs issue their own link afterwards); only the newest Owner setup link works (`bootstrapOwner` retires the others),
+    and none once an Owner is active (`linkRefusal`, again under lock in `acceptInvitation`, audited
+    `auth.owner_setup_withdrawn`); a 2FA reset of an account removed meanwhile is `not_found`.
+  - Ending one session ends what it rotated into (fifth review): the own sessions list, an Owner's per-session sign-out, a
+    lockout's "the session it came from" and `signOut` (now under the user's row lock) call `revokeSessionLineage`, which
+    follows `replaced_by_id` from a `rotated` row to the live successor under the user's row lock — the only place
+    `replaced_by_id` is followed, and never to authenticate (a sign-out that already carries an ended token ends nothing).
+    `revokeUserSessions` ends every unrevoked row, expired ones too (it counts the live ones).
+  - A recovery code used for a step-up is audited (`auth.recovery_code_used`) and notified, as at sign-in.
 - Owner decisions locked by the Correction 1 brief (do not ask again): certificate edit Owner + Admin, certificate publish
   Owner only, `media.view` all four roles, A3 adds a "project flags — add" permission (all four roles may add restrictive
   flags; only Owner / Admin clear blocking flags or approve public media); a full sign-in with password and required 2FA
@@ -1731,3 +1777,27 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   review). When adding a new link or token type, decide who may issue it and re-check that at use, under the row lock.
 - A probe script in the session scratchpad that imports `drizzle-orm` needs a `node_modules` next to it (a symlink to the
   repository's) — bare imports resolve from the script's folder, not the working directory.
+- A Proxy over mysql2 objects (a test that pauses a statement) must call getters with the real object as receiver
+  (`Reflect.get(target, prop, target)`; with the proxy a handshake went `ER_NET_PACKETS_OUT_OF_ORDER`), and must match its
+  own overrides with `Object.hasOwn`: `prop in extra` also matched `constructor`, Drizzle's `isConfig` then took the
+  wrapped connection for a config object and opened a pool from it ("Ignoring invalid configuration option passed to
+  Connection: _events …", then a hang). A test waiting for a paused statement must fail, not hang, when the work ends
+  without reaching it (`untilPaused` in `review-races.test.ts`).
+- After a container restart Docker is not running: `nohup dockerd > <log> 2>&1 &`, then `docker start rawasy-mariadb`;
+  drop the `rawasy_t_*` databases interrupted runs left behind.
+- `node --test --test-name-pattern` runs every test of a `describe` whose name matches the pattern.
+- Uncontrolled inputs (`defaultChecked`, `defaultValue`) keep their state across `router.refresh()` (React's mount and
+  hydration set `checked` / `value`, so a later `defaultChecked` no longer moves them), while controlled hidden inputs
+  take the new props: a form that sends both mixed an older page's role boxes with a newer fingerprint (sixth review).
+  Key the uncontrolled part on the state it was rendered for (`<Fragment key={version}>` in `UserRolesForm`).
+- The browser does the same on Back to a page it loads again (no-store) and on session restore: Chromium puts the saved
+  control state back into the form as the server wrote it, React keeps it while hydrating (`node.checked = node.checked`),
+  and hidden inputs take the server's value (seventh review: a role taken away came back). `autoComplete="off"` on the
+  `<form>` stops the save and the restore. Chromium restores only into a form that matches the one it saved: a page
+  reached by an in-app navigation (a form React built in the browser) was not restored, one opened by a full load was.
+  Playwright launches Chromium with `--disable-back-forward-cache`, so `goBack()` always loads the page again.
+- Under the full public suite's load, `commerce-transitions.spec.ts`'s gallery test can fail with `TimeoutError:
+  Transition was aborted because of timeout in DOM update`: Chromium abandons a view transition whose update does not
+  finish in time, before any assertion runs. A2 Correction 1's final run hit it once (611 / 612); the test then passed
+  20 / 20 on the final build and 20 / 20 on the baseline, 3 at a time. Compare with the baseline and report it; never
+  hide it behind a retry.
