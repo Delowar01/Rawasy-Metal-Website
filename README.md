@@ -316,7 +316,8 @@ nothing goes online until RAWASY approves the release, and the legal pages' "bef
   Application root **`rawasy-app`** (a folder in the account's home, never `public_html`) · Application URL
   **www.rawasymetal.com** with an empty path (the domain entry the panel lists for it) · Application startup file
   **`server.js`** · one environment variable, **`NEXT_PUBLIC_SITE_URL=https://www.rawasymetal.com`** (the build already
-  holds it; set it here too). No other variable, key or secret.
+  holds it; set it here too). No other variable, key or secret — in particular no `ADMIN_ENABLED`: until the A9 cutover
+  the admin stays off in production, and `/admin` is the public site's localized 404.
 - **Install and start:** stop the application, upload the archive with File Manager and extract it into `rawasy-app`
   (replacing any starter `server.js` the panel created), press **Run NPM Install** (with the prebuilt `.next` only the
   production dependencies are needed: Next.js, React and `sharp`), then **Start App** (**Restart** after an update). For
@@ -378,6 +379,13 @@ Phase A2 of the admin / CMS program (report `docs/reports/2026-10-09-admin-a2-au
 (English, `noindex`). Content editing, media and publishing come in later phases. It runs **locally only**, against a
 local MariaDB: never point it at the hosting account's database, and nothing of it is deployed until the user decides.
 The public website is unaffected: it never reads the database and builds without one.
+
+**The admin gate (`ADMIN_ENABLED`).** Whether a server serves the admin at all is decided from the environment alone:
+`ADMIN_ENABLED=1` turns it on, any other value turns it off, and unset it is on only in local development
+(`APP_ENV=local`, or `next dev`). In staging and production it is therefore **off** unless explicitly set to `1`; off,
+`/admin` gets the public site's own locale redirect and localized 404 (exactly as before the admin existed), no admin
+header is sent and no database is asked, and every admin page, layout and Server Action refuses on its own as well.
+Releases before the A9 cutover leave it unset.
 
 **1. A local MariaDB (11.4).** With Docker:
 

@@ -5,8 +5,9 @@
  */
 import "server-only";
 import { cookies, headers } from "next/headers";
-import { redirect, unstable_rethrow } from "next/navigation";
+import { notFound, redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
+import { isAdminEnabled } from "@/lib/admin-gate";
 import { mfaStateOf, principalOf, type MfaState, type UserRow } from "@/server/auth/accounts";
 import { createAuthDeps, type AuthDeps } from "@/server/auth/deps";
 import { lookupSession, SESSION_COOKIE, SessionEndedError, touchSession, type SessionRow } from "@/server/auth/sessions";
@@ -16,10 +17,21 @@ import { describeDbError, getPool } from "@/server/db/pool";
 import { resolveClientIp } from "@/server/security/client-ip";
 import { ulid } from "@/server/security/ids";
 
+/**
+ * The pre-A9 admin gate (A2 Correction 1), enforced here as well as in the proxy: with the admin off (ADMIN_ENABLED,
+ * src/lib/admin-gate.ts) every admin layout, page and Server Action ends as "not found" before it reads a cookie or
+ * opens a database connection. Read from the environment at request time: the admin's root layout awaits
+ * `connection()` before calling it, so `next build` never decides it.
+ */
+export function assertAdminEnabled(): void {
+  if (!isAdminEnabled()) notFound();
+}
+
 const HOLDER = Symbol.for("rawasy.admin.authDeps");
 
-/** This process's services, created on first use. */
+/** This process's services, created on first use (only while the admin is on). */
 export function authDeps(): AuthDeps {
+  assertAdminEnabled();
   const holder = globalThis as { [HOLDER]?: AuthDeps };
   return (holder[HOLDER] ??= createAuthDeps(getPool()));
 }
@@ -65,6 +77,7 @@ export const signInPathFor = (state: AdminState) => (state.status === "anonymous
  * cookie holding a revoked token — the old token of a rotation included — is signed out, never mapped to its successor.
  */
 export const getAdminState = cache(async (): Promise<AdminState> => {
+  assertAdminEnabled();
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return { status: "anonymous", ended: false };
   return guarded(async () => {

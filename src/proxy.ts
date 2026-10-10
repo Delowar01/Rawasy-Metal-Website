@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isAdminEnabled } from "@/lib/admin-gate";
 import { ADMIN_PAGE_HEADERS, adminContentSecurityPolicy, createNonce, isAdminPath } from "@/lib/admin-headers";
 import { defaultLocale, isLocale, LOCALE_COOKIE, locales, type Locale } from "@/i18n/config";
 
@@ -24,6 +25,9 @@ function negotiate(header: string | null): Locale {
  * Admin pages (A1-SECURITY-RBAC §4): a fresh nonce and the nonce-based CSP on the request (Next.js reads the nonce
  * from it while rendering) and on the response, plus the admin headers. Nothing else: no locale redirect, no public
  * routing, and no session or permission check — every admin page, action and handler checks those server-side.
+ * Only while the admin is on (ADMIN_ENABLED, src/lib/admin-gate.ts): with it off, `/admin/**` is an unknown public
+ * address like any other (the locale redirect, then the localized 404), as before A2; the admin's layout, pages and
+ * actions check the gate again, so a request that reaches them some other way finds nothing either.
  */
 function admin(request: NextRequest) {
   const nonce = createNonce();
@@ -40,7 +44,7 @@ function admin(request: NextRequest) {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (isAdminPath(pathname)) return admin(request);
+  if (isAdminPath(pathname) && isAdminEnabled()) return admin(request);
   const hasLocale = locales.some(
     (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`),
   );

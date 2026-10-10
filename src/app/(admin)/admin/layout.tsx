@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { assertAdminEnabled } from "@/server/admin/context";
 import "./admin.css";
 
 /**
  * The admin's own root layout (A1-SECURITY-RBAC §4): no public shell, fonts, ambient or motion. Every admin page is
- * rendered at request time (the session decides what it shows), never indexed and never cached.
+ * rendered at request time (the session decides what it shows), never indexed and never cached. With the admin off
+ * (ADMIN_ENABLED) it renders nothing but "not found" — checked after `connection()`, so at request time, never at build.
  */
 export const metadata: Metadata = {
   title: { default: "RAWASY Admin", template: "%s · RAWASY Admin" },
@@ -24,6 +26,7 @@ export const viewport: Viewport = {
 
 export default async function AdminRootLayout({ children }: { children: ReactNode }) {
   await connection();
+  assertAdminEnabled();
   return (
     <html lang="en" dir="ltr">
       <body className="adm">{children}</body>

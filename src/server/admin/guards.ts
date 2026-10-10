@@ -12,7 +12,7 @@ import { auditActorOf, type Actor, type RequestMeta } from "@/server/auth/types"
 import type { AuthDeps } from "@/server/auth/deps";
 import { SENSITIVE_PERMISSIONS } from "@/server/policy/registry";
 import type { ActionState } from "./actions/state";
-import { authDeps, getAdminState, guarded, isSameOriginRequest, requestMeta, signInPathFor } from "./context";
+import { assertAdminEnabled, authDeps, getAdminState, guarded, isSameOriginRequest, requestMeta, signInPathFor } from "./context";
 
 /** The signed-in, fully verified user, or a redirect to the step that is missing. */
 export async function requireActor(): Promise<{ actor: Actor; mfa: MfaState }> {
@@ -71,6 +71,7 @@ export async function actionContext(
   action: string,
   options: { permission?: string; stepUp?: boolean } = {},
 ): Promise<{ ok: true; context: ActionContext } | { ok: false; state: ActionState }> {
+  assertAdminEnabled();
   const meta = await requestMeta();
   const deps = authDeps();
   const state = await getAdminState();
@@ -91,8 +92,9 @@ export async function actionContext(
   return { ok: true, context: { deps, actor, meta } };
 }
 
-/** For the unauthenticated forms (sign-in, invitation, reset): only the origin check. */
+/** For the unauthenticated forms (sign-in, invitation, reset): the admin gate, then only the origin check. */
 export async function publicActionContext(): Promise<{ ok: true; deps: AuthDeps; meta: RequestMeta } | { ok: false; state: ActionState }> {
+  assertAdminEnabled();
   if (!(await isSameOriginRequest())) return { ok: false, state: failure("This request was refused.") };
   return { ok: true, deps: authDeps(), meta: await requestMeta() };
 }
