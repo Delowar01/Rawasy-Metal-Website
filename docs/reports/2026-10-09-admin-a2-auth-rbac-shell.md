@@ -1421,3 +1421,484 @@ deployed before the Owner's go-ahead.
 ---
 
 A2 CORRECTION 1 STATUS: READY FOR INDEPENDENT REVIEW
+
+---
+
+## A2 CORRECTION 2
+
+Date: 2026-10-15 · Branch: `claude/new-session-5eijs6` · Brief: "RAWASY METAL WEBSITE / ADMIN / CMS PROGRAM / PHASE A2 —
+CORRECTION 2 / STALE PASSWORD / ROLE-PROMOTION BOUNDARY / NARROW SECURITY CORRECTION ONLY / LOCAL ONLY — DO NOT START A3".
+
+### Summary and status
+
+Correction 1 left one stale-state boundary open (its item 32): an Owner's role change was compared only with the
+account's **access** as its page showed it (status, disable, roles, second factor). A promotion chosen before someone
+replaced the account's password therefore still went through, and the new holder of the password received the new role
+(for Admin or Owner, they could then set up their own authenticator at the next sign-in). Correction 2 closes it
+(`6ccd43a`):
+- **A role change that adds privilege** — a permission, a higher rank or the Owner role the account did not hold, judged
+  on the roles it has under its row lock — is also decided on the account's **credentials as its page showed them**: the
+  password's last change (`password_changed_at`, so a sign-in's rehash of the same password never counts) and the
+  recovery codes issued. If either moved after the page was shown, the change is refused (`changed`: "reload and check"),
+  with or without a second factor.
+- **A change that adds nothing** — removing roles, or a swap such as Admin → Editor or Owner → Admin — is decided on the
+  access fingerprint alone, as before: the account being contained cannot hold it off by changing its password.
+- The roles form sends both fingerprints and draws its boxes again whenever either changes, so boxes ticked before a
+  password change are never sent with the newer fingerprint.
+
+The brief's final read-only security pass (§13, item 24) found **no path in the role-change code**: a credential or
+security state that changed after the Owner's page was shown cannot receive a privilege decided on that page. It found
+**one pre-existing path of the same kind outside it**, in the user page's confirmation dialogs (Reset two-factor, Unlock,
+Enable): a refresh of the page behind an open dialog (another action's success) replaced the dialog's fingerprint with the
+newer one, so a decision taken on the older page was sent as if taken on the newer one — a two-factor reset could then go
+through after the password was replaced. It is fixed in its own commit (`f0498dd`): a dialog sends what it held when it
+opened. A browser test fails on the code before and passes now (item 11). Three information items are recorded for the
+Owner (item 24), among them one deviation from the brief's examples that needs the Owner's confirmation: **Editor →
+Reviewer counts as adding privilege** (a Reviewer may review and publish reviewed work, which an Editor may not), so it is
+refused after a password change like any other promotion.
+
+Everything Correction 1 protects is unchanged: its tests pass, and the one test that asserted the behaviour this
+correction removes (a promotion after the user's own password change) now asserts what stays (item 12). The public
+website is unchanged (item 13). Nothing was deployed; `main` was not touched; A3 was not started.
+
+**Final QA, on a fresh clone of `f0498dd` (the final code):** `npm ci`; `npm audit --omit=dev` 0 (the full audit: the
+same 9 development-only entries, byte-identical to Correction 1's); lint, typecheck and build (no database settings)
+clean; `db:check` clean; unit **30 / 30**, integration **164 / 164**, admin browser **47 / 47** (A2: **241 / 241**); public
+E2E **612 / 612** in the first full run (combined **853 / 853**). The public site is proven unchanged against
+`preserve/pre-admin-a2` (item 13).
+
+**Final visual evidence (brief §15):** 116 screens (24 screens, each in up to five variants: desktop 1280 × 800 light
+and dark, phone 390 × 844 light and dark, 320 × 640 light) and 9 contact sheets, captured from the fresh clone of
+`f0498dd` after all its tests passed, packaged for the Owner as `rawasy-a2-c2-final-evidence.zip` (with an `INDEX.md`;
+not committed).
+
+**A2 CORRECTION 2 STATUS: READY FOR FINAL INDEPENDENT REVIEW** (not self-approved).
+
+### Items for the Owner's decision (none blocks this correction)
+1. **Editor → Reviewer after a password change (item 8).** The brief lists Editor → Reviewer among the demotions that must
+   stay possible after the account's password changed. In this registry a Reviewer holds 18 permissions an Editor does not
+   (`review` and `publish_reviewed` on nine kinds of content: putting someone else's work on the live site), so the change
+   adds privilege and is refused until the page is reloaded, as the brief's own conservative rule ("any role addition")
+   would also do. Containment is not delayed: disabling the account and "Sign out everywhere" are never refused, and the
+   change goes through from a reloaded page. If the Owner prefers, a swap that lowers the rank can be let through instead;
+   it would then grant the Reviewer's publishing permissions on an older page.
+2. **The entry pages' long buttons at phone widths** (item 25, found while capturing the evidence; present since A2): the
+   full-width buttons on the entry pages' cards (sign-in, set-up, invitation, reset) keep their labels on one line, so the
+   page scrolls sideways — by 4 px at 390 px on the 2FA set-up's key step, and at 320 px by 74 px there and 13 px on the
+   Owner set-up link and the invitation page. A one-rule
+   CSS fix (`.adm-entry-card .adm-btn { white-space: normal }`) is prepared and measured (all 116 captured screens then
+   fit) but not applied: this correction is security-only and asks for no UI change.
+3. **Optional hardening (item 24, I2):** a password-change counter instead of the change's time (no defect found).
+4. Carried from Correction 1, unchanged: an in-app 2FA reset that also forces a password reset; a separate budget for
+   in-session password checks; the pre-staging MariaDB checks; the A8 purge rule for the 2FA reset's session count.
+
+### Report items (brief §14, in order)
+
+#### 1. Starting branch HEAD
+`bca33aad848b84a629de76f6a658a9316408a5d8` ("Admin A2 Correction 1: report section and project memory (docs only)"), equal
+to `origin/claude/new-session-5eijs6`, with `d21e2226f4c4247a3d41a709dc08dc81d6a024e8` as its direct parent and a clean
+working tree. `preserve/pre-admin-a2` was at `ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0`,
+`preserve/pre-admin-a2-correction1` at `b47d8e533bc59543f9d2de839d10894ba63831cb` and `main` at
+`474f61f10f12981e41f9b7e7fd6065a0ec9da541`, as the brief expected.
+
+#### 2. `preserve/pre-admin-a2-correction2`
+→ `bca33aad848b84a629de76f6a658a9316408a5d8`. It did not exist before; it was created and pushed without force and has not
+moved since (`git ls-remote` at the end, item 26).
+
+#### 3. Implementation SHAs
+| Commit | What |
+|---|---|
+| `6ccd43a` | The correction: a role change that adds privilege is decided on the account's credentials as its page showed them (brief §1–8) |
+| `f0498dd` | The final review's one fix: a confirmation dialog sends the fingerprint it opened with (brief §13, item 24) |
+| (the commit that adds this section) | This report section and `CLAUDE.md` (docs only; the branch's last commit) |
+
+Each was checked in the working checkout before its commit: `6ccd43a` — lint and typecheck clean, unit 30 / 30,
+integration 164 / 164, admin browser 46 / 46; `f0498dd` — lint and typecheck clean, unit 30 / 30, integration 164 / 164,
+admin browser 47 / 47.
+
+#### 4. Final code SHA
+`f0498dd9c0b30e4951108def629bcd9460962bb2` (`f0498dd`) is the last commit with code; every QA result below (items 13–23)
+is from a fresh clone of it.
+
+#### 5. Final docs HEAD
+The docs commit that adds this section follows `f0498dd` and is the branch's HEAD
+(`git log -1 origin/claude/new-session-5eijs6`; its SHA is given in the final message, since a commit cannot name itself).
+
+Files changed `bca33aa..f0498dd` (10 files, + 699 / − 51 lines, 2 new), all in the admin's own code and its tests:
+- **The rule:** `src/server/policy/rbac.ts` (`addsPrivilege`), `src/server/auth/user-admin.ts` (the "roles" fingerprint,
+  `getUserDetail`'s `rolesVersion`, `setUserRoles`), `src/server/admin/actions/users.ts` (the action requires both
+  fingerprints), `src/app/(admin)/admin/(shell)/users/[id]/page.tsx` and `src/components/admin/UserForms.tsx` (the form
+  sends both and rebuilds its boxes with them).
+- **The review fix:** `src/components/admin/ConfirmAction.tsx`.
+- **Tests:** `tests/unit/privilege.test.ts` and `tests/integration/promotion-boundary.test.ts` (new),
+  `tests/integration/review-races.test.ts` (item 12), `e2e-admin/admin.spec.ts` (three tests).
+- **Docs commit:** `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` (this section) and `CLAUDE.md`.
+
+Unchanged: every public path (item 13), `package.json` and `package-lock.json`, the migrations and the schema
+(`drizzle/`, `src/server/db/**`), the access registry and its seed (`npm run db:check`, item 23), `server.js` and the
+deployment scripts.
+
+#### 6. The exact defect
+On `d21e222`, `setUserRoles` compared the page's `version` — `accountVersion(facts, "access")`: status, `disabled_at`,
+the sorted roles and `user_mfa.confirmed_at` — under its row locks, and nothing else. The Correction 1 sixth review had
+left `password_changed_at` out on purpose, so that the user's own password change never stalled an Owner. So:
+1. the Owner opens Editor X's page (t0);
+2. someone holding X's password changes it in X's own session, or sets a new one with a reset link (t1);
+3. the Owner adds Admin on the t0 page (t2): the access is as the page showed it, the change goes through, and whoever
+   chose the new password holds an Admin account — at the next password-only sign-in, the account's required 2FA set-up
+   is theirs to complete with their own authenticator.
+
+The same held with a second factor already confirmed (the password change does not move `confirmed_at`), and for every
+other addition (Editor → Editor + Reviewer, Reviewer → Editor, Admin → Owner …). Recovery codes issued after the page was
+shown were not compared either. The negative control (item 9) shows each case accepted on `d21e222`.
+
+#### 7. The exact fingerprint and decision rule
+- **Which changes add privilege** (`addsPrivilege(before, after)`, `src/server/policy/rbac.ts`): the new role set gives
+  the account a permission it did not hold (`permissionsOf`, the registry the whole admin authorises with), a higher rank
+  (`rankOf`: whom it may manage, which roles it may grant, who may manage it) or the Owner role (which the rank rules do
+  not bind). `before` is the account's roles **read under its row lock** in `setUserRoles` (`lockForChange`), never the
+  page's or the browser's word: the server works out `added` itself, as §5 asks. Because the access check runs first and
+  requires those roles to equal the ones the page showed, `before` is also exactly what the Owner decided on.
+- **The "roles" fingerprint** (`accountVersion(facts, "roles")`, `src/server/auth/user-admin.ts`): the access facts plus
+  `password_changed_at` (to the millisecond) and the ids of the account's recovery-code rows, hashed (SHA-256, 32 hex
+  characters) like the other fingerprints. `getUserDetail` reads it in the same snapshot as the page's other facts and
+  returns it as `rolesVersion`; the roles form sends it in a hidden field next to `version`.
+- **The decision, inside `setUserRoles`'s one transaction:** `lockForChange` (both user rows in id order, the actor still
+  active, its session still live, the target and its roles as they are) → the rank and grant rules → the **access**
+  fingerprint against `version` (as in Correction 1: stale roles, status, disable, second factor, invitation activation)
+  → no change: "No change." → **if `addsPrivilege(locked roles, requested roles)`, the "roles" fingerprint against
+  `rolesVersion`** → otherwise refused `changed` (audited "Refused: the account changed after the page that asked for
+  this was opened.") → the change, its session revocation and link withdrawal, and its audit.
+- **What moves the password part:** only a real replacement — a password change in the account's own session, a reset
+  link, accepting an invitation — each under the account's row lock. A sign-in's upgrade of an outdated hash writes the
+  hash only (test D). The recovery-code part moves when codes are issued (set-up, replacement, "new recovery codes"),
+  not when one is used.
+- **Not tied to a second factor:** the password is compared whether or not the account has a confirmed second factor
+  (brief §4).
+- **The Server Action** (`setUserRolesAction`) requires both fingerprints (two 32-hex strings, else "Choose valid roles");
+  a caller with no fingerprint (none in production code) compares nothing, as in Correction 1.
+- **The browser:** the boxes are rebuilt whenever either fingerprint changes
+  (``<Fragment key={`${version}:${rolesVersion}`}>``), and `autocomplete="off"` still stops form restoration
+  (Correction 1, seventh review).
+- **Deviation from §5's suggested design, reported:** §5 suggests "if `added.length > 0`". Read literally, Admin → Editor
+  "adds" Editor and would be refused, which §3 forbids; so the test is on what the account can do, not on role names.
+  §4 allows this precise reading provided it is "proved comprehensively": `tests/unit/privilege.test.ts` checks it
+  against a model of every capability a role set confers (each permission, whom it may manage, which roles it may grant,
+  whom it is protected from, Owner status) over all 256 pairs of role sets — a change judged to add nothing never gives
+  anything, and a change judged to add privilege always gives something.
+
+#### 8. Why privilege removals remain unblocked
+A change that adds nothing is decided on the access fingerprint only, so a password change, a reset or new recovery codes
+cannot hold it off: removing any role, Admin → Editor, Owner → Admin, removing Owner or Admin, Admin + Editor → Editor
+(138 of the 210 changes between non-empty role sets add nothing; 72 add privilege). It is still refused on a stale
+access state — roles changed by another Owner, the account disabled or enabled, its second factor replaced — as in
+Correction 1 (test C). Disabling the account and "Sign out everywhere" are never refused on a fingerprint, so containing
+an account is never delayed.
+
+The one example of brief §3 decided differently is **Editor → Reviewer**: it gives the account the Reviewer's `review` and
+`publish_reviewed` permissions on nine kinds of content, so it is a promotion here and is refused after a password change
+(the brief's conservative option would refuse it too). It needs a reload, not a different action; the Owner's decision is
+asked for above (item 1 of the Owner's list).
+
+#### 9. Negative control on `d21e222`
+- **Integration:** `promotion-boundary.test.ts`, run against a worktree of `d21e222` (its own `node_modules` links, the
+  local MariaDB): **3 / 7 pass, 4 fail**, each at its promotion assertion with `kind: 'ok'` — "editor → editor, admin" in
+  test A (all four variants: 2FA off and on, own session and reset link), under the row lock (A2) and after new recovery
+  codes (A3), and "editor → editor, reviewer" in test B. The three that pass on both builds are the ones that guard
+  against blocking too much (test C's two, test D).
+- **Browser:** `admin.spec.ts` against a build of `d21e222` (that spec file only): 15 passed, then the brief's §7 test
+  failed — no "account changed" alert, the promotion went through ("Roles of Petra Password …: editor, reviewer → admin,
+  editor, reviewer"); the rest of the serial run did not start (21).
+- **The refreshed boxes:** with only the form's key reverted to `key={version}` on `6ccd43a`, the second browser test
+  fails (the Owner box ticked before the password change was still ticked after the refresh) and, saved anyway, granted
+  Owner: "admin, editor → owner, admin, editor" — the refreshed `rolesVersion` went out with the older ticks.
+- **The review fix (L1):** the new dialog test against `6ccd43a`'s `ConfirmAction` (only the test added; both browser
+  spec files): 17 tests of `admin.spec.ts` passed, then the new test failed at its decisive assertion — "the reset chosen
+  before the password change did not go through": expected 1 second factor, received 0 (the reset had gone through); the
+  rest of the serial run did not start (20); `gate.spec.ts` passed (9).
+
+#### 10. Integration tests
+`tests/integration/promotion-boundary.test.ts` (new, 7 tests, a fresh `rawasy_t_*` database, the frozen test clock moved on
+between changes):
+- **A (§6 A).** Editor → Editor + Admin decided on a page shown before the password was replaced is `changed`, the roles
+  stay Editor, no Admin is granted and the refusal is audited — for 2FA off and on, through the account's own session and
+  a reset link; reloaded (the access fingerprint equal, the roles fingerprint new), the same promotion goes through. Also:
+  a password change committed while the promotion waits for the account's row wins (`changed`); recovery codes issued
+  after the page refuse a promotion, a code used meanwhile does not.
+- **B (§6 B).** Seven other additions, each refused and then accepted from a fresh page: Editor → Editor + Reviewer
+  (permissions at the same rank), Editor → Reviewer, Reviewer → Editor, Admin → Owner, Admin + Editor → Owner + Editor,
+  and an Admin adding Editor to a Reviewer or swapping an Editor for Reviewer.
+- **C (§6 C).** Six removals and changes that add nothing, each decided on the older page after a password change made
+  both ways (own session, reset link), by an Owner and by an Admin, all go through: Admin removed, Admin → Editor, Owner →
+  Admin, Owner removed, Editor added to an Admin, Reviewer removed. They are still refused when the access changed (a
+  second factor replaced, roles changed by another Owner).
+- **D (§6 D).** An scrypt hash upgraded to Argon2id at sign-in leaves `password_changed_at` and the roles fingerprint as
+  they were; the promotion goes through.
+- **E (§6 E).** Correction 1's stale-state tests run as before (item 12).
+
+`tests/unit/privilege.test.ts` (new, 4 tests): the exhaustive proof of item 7, the brief's demotions, and Editor →
+Reviewer's 18 permissions.
+
+#### 11. Browser tests
+In `e2e-admin/admin.spec.ts`, on the real pages (the local production build on `server.js`, a fresh test database):
+- **The brief's §7 test:** the Owner invites Petra (Editor + Reviewer), Petra activates the account and signs in; the
+  Owner opens her page and ticks Admin; Petra changes her password in her own session; the Owner's Save shows "This
+  account changed after you opened this page …", and the database still holds Editor + Reviewer. A removal from the same
+  older page goes through (Reviewer removed). Reloaded, the form is rebuilt from the account as it is, and the deliberate
+  promotion succeeds (Admin + Editor).
+- **The refreshed form:** the Owner ticks Owner; a reset link (the server CLI) sets a new password; another action on the
+  same page ("Sign out everywhere") refreshes it; the boxes are drawn again — Owner unticked — and a Save sends "No
+  change".
+- **The confirmation dialog (the review's L1):** Petra (Admin) sets up 2FA; the Owner opens her page; Petra changes her
+  password; the Owner saves the roles unchanged (the request held on its way) and opens "Reset two-factor" before its answer
+  arrives; the answer refreshes the page behind the open dialog (the newest security event becomes the password change).
+  The Owner's Reset is refused ("This account changed after you opened this page"), Petra keeps her authenticator, and
+  the dialog still holds the fingerprint it opened with; opened again on the page as it is now, the reset goes through.
+
+Correction 1's browser tests of the refreshed form, of Back with form restoration and of the invitation activation race
+are unchanged and pass.
+
+#### 12. Regression of the Correction 1 security tests
+All of Correction 1's unit, integration and browser tests run and pass (items 15–17). Two mechanical edits and one narrowed
+test, all in `tests/integration/review-races.test.ts`:
+- six calls to `setUserRoles` pass both fingerprints through one helper (`rolesForm(page)`), since the roles form now sends
+  two; each assertion is unchanged;
+- the sixth review's test "the user's own password change or failed sign-ins do not block an Owner's change decided on the
+  page" asserted a promotion going through after the user's own password change — the exact behaviour this correction
+  removes. It now asserts what that review protected and still holds: a wrong password tried on the account (which anyone
+  can send) refuses nothing, a promotion included; and the account's own password change does not hold off a removal. The
+  new rule's own refusal is asserted in `promotion-boundary.test.ts`.
+
+#### 13. Public freeze proof (against `preserve/pre-admin-a2`, `ed6b652`)
+- **Sources.** `git diff ed6b652..f0498dd` is empty for every public path: `src/app/(commerce)/**`,
+  `src/components/commerce/**`, `src/content/**`, `public/**`, `src/i18n/**`, `src/lib/page-meta.ts`,
+  `src/app/global-not-found.tsx`, `server.js`, `scripts/package-namecheap.mjs`, `scripts/warm-images.mjs`, `e2e/**` and
+  `playwright.config.ts`. The public E2E tests are byte-identical to the baseline's; the 13 held-back-media rules are
+  untouched. Since `bca33aa` no package, lockfile, migration, schema or registry file changed.
+- **Build output** (a clean build of `f0498dd`, copied right after `next build`, against the baseline's clean build):
+  890 public files per build: 114 byte-identical, 193 differing only by the build id or `/_next/static` chunk names, 408
+  only by the router-tree entry that lists the `[locale]` segment's static siblings (`[]` → `["admin"]`, as in A2),
+  **0 other differences** (175 server bundles and manifests compared by module instead). Stylesheets: on all 104
+  prerendered public pages the same stylesheets in the same order, byte-identical. Scripts by module: the same module set
+  and code on every page; the only module-level differences are A2's own two. Every figure — and every public chunk's
+  name and size — equals Correction 1's final proof (`d21e222`): this correction changed no client byte of the public
+  site.
+- **HTTP** (both builds served by `server.js` in production mode; the final one with the gate off): three gate-off
+  settings — nothing set (the deployment default), `ADMIN_ENABLED=0`, and staging with nothing set — each against a
+  freshly started baseline with its route cache emptied, and in all three:
+  - **102 / 102 sitemap pages:** the same status, headers (date, etag and cache-state headers aside), normalised HTML,
+    SEO facts (306 hreflang links, 208 JSON-LD blocks, 618 media references, 292,957 characters of visible text) and page
+    data (`RSC: 1`);
+  - `robots.txt`, `sitemap.xml`, the manifest and both icons byte-identical; `/favicon.ico` (no such file) answers 404 on
+    both with the same headers and a body identical once the build id and chunk names are normalised;
+  - **28 / 28 redirect and locale cases** (`/admin` and its variants, each `307` to the localized address) and **18 / 18
+    not-found cases** identical; a form POST to `/admin/login` or `/admin` answers the same redirect; no public page links
+    to the admin; the 13 held-back files answer the same, and no page refers to them;
+  - the only intended difference, as in A2: `/api/admin/…` and `/api/internal/…` (404 on both) carry the A2 API headers.
+  The three reports equal Correction 1's final ones apart from the two build ids.
+- **Pixels:** the same 11 representative pages as before, screen by screen (up to 6), in EN/AR × light/dark × desktop
+  1440 × 900 / phone 390 × 844, reduced motion, every image decoded, the map stubbed: **236 screens, 232 pixel-identical**
+  at the first pass, with equal page heights in every state. The other 4 were captured 3 more times per build:
+  `/en/about` on the phone (69 pixels) was identical between the builds in all three pairs, and the baseline differed
+  from itself by the same 69; `/en/projects` desktop dark (8) was identical in two of three, and the baseline differed
+  from itself by 8; the Arabic 404's first screen (1) was identical in all three; its second screen (1) was caught
+  mid-render — the 404 is built in the browser — on both builds in the repeat (1,197,225 pixels, each build against itself
+  as much as against the other), and 6 more captures per build then gave one image, identical on both. Run-to-run noise,
+  as in Correction 1.
+
+#### 14. Public E2E
+On the fresh clone of `f0498dd` (the final code), served by `server.js` on port 3400 after the image warm-up (1,484 /
+1,484 sizes, none failed; at most 2 requests at once; 103 s): **612 / 612 in the first full run** (3 workers, 24.6 min). No
+test failed, was retried or was skipped, so this one full run is the only one on the final code. The public E2E tests
+are byte-identical to the baseline's (item 13).
+
+#### 15. Unit
+**30 / 30** (fresh clone; Correction 1 had 26): + 4 `tests/unit/privilege.test.ts`.
+
+#### 16. Integration
+**164 / 164** (fresh clone, local MariaDB 11.4.13, a fresh `rawasy_t_*` database per file, 27 s; Correction 1
+had 157): + 7 `tests/integration/promotion-boundary.test.ts`; Correction 1's tests as in item 12.
+
+#### 17. Admin browser
+**47 / 47** (18.4 min; fresh clone; `server.js` on port 3401 with `APP_ENV=local`, a fresh `rawasy_e2e_*` database
+and the mail sink; Correction 1 had 44): `admin.spec.ts` 38 (Correction 1's 35 + the three tests of item 11) and
+`gate.spec.ts` 9. A2 alone: unit 30 + integration 164 + admin browser 47 = **241 / 241** (Correction 1: 227).
+
+#### 18. `npm audit --omit=dev`
+**0 vulnerabilities** (fresh clone).
+
+#### 19. Full `npm audit`
+**9 (4 moderate, 5 high), all development-only; the report is byte-identical to Correction 1's final run** — no
+dependency changed (`package.json` and `package-lock.json` untouched):
+- 5 high: `braces` ← `micromatch` ← `fast-glob` ← `@next/eslint-plugin-next` ← `eslint-config-next` (lint only; the
+  offered fix is a forced downgrade to `eslint-config-next@14.2.35`);
+- 4 moderate: `esbuild ≤ 0.24.2` ← `@esbuild-kit/core-utils` ← `@esbuild-kit/esm-loader` ← `drizzle-kit` (the migration
+  generator, development only; the offered fix is a forced downgrade). Accepted as development-only (brief §10); no
+  forced downgrade.
+
+#### 20. Lint
+`npm run lint`: exit 0, no warning (fresh clone).
+
+#### 21. Typecheck
+`npm run typecheck` (`next typegen && tsc --noEmit`): exit 0 (fresh clone).
+
+#### 22. Build
+`npm run build` with no `DB_*`, `APP_ENV` or `ADMIN_ENABLED`: exit 0, no warning (compiled in 9.6 s; 120 static
+pages; fresh clone). Nothing touches a database during the build (`assertNotBuildPhase`).
+
+#### 23. `db:check`
+Exit 0: "Everything's fine" (drizzle-kit), "Migration files OK: 2 (0000_access_control, 0001_seed_access_control)",
+"Seed migration matches the registry." No schema, migration or registry change in this correction.
+
+#### 24. Final focused security review (brief §13)
+One read-only pass over `6ccd43a`, by a separate reviewer given the brief's list and question, reading the code and
+probing it against the local MariaDB (three probe files, 13 cases, outside the repository; their databases dropped).
+
+**The question — can a credential or security state that changed after the Owner's page was shown receive a privilege the
+Owner decided on before that change? — No, in the role-change code:** every write that decides who holds the account (the
+password, the second factor, the recovery codes, status, roles) commits under the account's row lock; `setUserRoles`
+compares the roles fingerprint under that lock, its read view made after the locks; a concurrent write either commits
+first (refused `changed`) or waits and then finds its session revoked and its links retired by the promotion. Everything
+outside the fingerprint either hands the account to nobody new (sessions, sign-ins, a code or TOTP used, the sign-in rehash,
+key re-encryption, the lock state) or is withdrawn by the role change; the email address cannot change in A2.
+
+**Paths checked:** role additions (password changed with and without 2FA, own session or reset link, committed while the
+promotion waits; a permission at the same rank, swaps, Owner, an Admin actor; the only production caller requires both
+fingerprints, a missing one fails closed); role removals (allowed after a password change or new codes, by an Owner and
+by an Admin; still refused on stale roles or a replaced authenticator; the last-Owner rule unchanged); every password
+write; second factor and codes (set-up, replacement, disable, the Owner's 2FA reset and both CLIs change the access and are
+refused; a set-up begun before the promotion cannot be confirmed after it); invited → active (status and the password both
+move; a promotion that commits first withdraws the link); stale browser forms; actor changes (a demoted or disabled actor's
+sessions end and `lockForChange` refuses); the other user-management actions; `addsPrivilege` against every source of
+authority (the registry, which the database's role table only seeds; the rank; Owner status); regressions (no new lock,
+one plain read in the same snapshot). Its test runs: `privilege.test.ts` 4 / 4, `promotion-boundary` 7 / 7,
+`review-races` 51 / 51, `privilege-boundary` 9 / 9, `rbac` 12 / 12, `admission` 13 / 13; its probes 13 / 13.
+
+**Findings:**
+- **L1 — Low, pre-existing (A2), fixed in `f0498dd`.** The user page's confirmation dialogs (`ConfirmAction`: Reset
+  two-factor, Unlock, Enable; also Disable and the sign-outs, which no fingerprint refuses) wrote their hidden fields
+  from the page's current props. A dialog stays open across a refresh (React does not manage `<dialog open>`, and a
+  refresh keeps client state), so when another action's success refreshed the page while a dialog was open, the dialog
+  took the newer fingerprint: the Owner's decision, taken on the older page, went out as if taken on the newer one.
+  Example: the Owner opens an account's page; its password is replaced; the Owner saves the roles (or closes a pending
+  sign-out dialog) and opens "Reset two-factor" before the answer arrives; the refresh lands; Reset is accepted, and the
+  new password holder signs in with the password alone. The roles form was immune since Correction 1 (its key); the
+  dialogs were not. It needs the Owner's own overlapping actions, which nobody else can trigger — hence Low — but it is
+  the class this correction closes, so it is fixed: a dialog now freezes its fields when it opens (`useState`, set by
+  the button that opens it) and sends those; opened again later it takes the page as it is then. The browser test of
+  item 11 fails before (on `6ccd43a` the reset went through and the authenticator was removed) and passes after.
+- **I1 — Info, for the Owner's decision:** Editor → Reviewer is refused after a password change (item 8). The reviewer
+  agrees with the permission-based reading (a Reviewer can publish others' reviewed work) and notes the brief's examples
+  pull both ways (its §5 rule would also refuse Admin → Editor).
+- **I2 — Info, probe-confirmed, no change:** the password part compares `password_changed_at` for equality, at millisecond
+  precision. Two committed replacements cannot share a time through concurrency — each ends what the other needs (probe:
+  change + change, change + reset ×6, reset + reset with two tokens: exactly one commits each time, with a stopped clock);
+  a later one starts after the earlier one committed, so its time is later. Only a backward step of the server clock onto
+  the same millisecond could produce equal values. Optional hardening: a counter, or `GREATEST(now, previous + 1 ms)`.
+- **I3 — Info, no change:** the roles fingerprint also covers issued recovery codes, beyond the brief's literal "use
+  `passwordChangedAt`" (stricter; consistent with §13's question). The refusal message names examples ("its roles, status
+  or two-factor authentication changed … its password was changed …"); new recovery codes fall under two-factor
+  authentication and show in the page's recent security events.
+
+No High or Medium finding. **The fix, checked by the same reviewer (reading only, `f0498dd`): it closes L1 for every
+use of the dialog, with no finding.** The three dialogs that carry a fingerprint (Enable, Unlock, Reset two-factor) send
+the one they opened with, and the others carry nothing a decision depends on. A refresh that makes a dialog's action stale
+removes that dialog, open form and all. The frozen fields are never older than the page on screen at the click: React
+applies the state before the dialog can be used, and React 19's form reset keeps component state. No legitimate flow
+breaks: a refused dialog reopened on a refreshed page goes through, and on an unrefreshed one it is refused again. No
+other admin form carries page state that a refresh could swap under a pending choice: the roles form is keyed on both
+fingerprints, "New invitation link" is one click, and the 2FA set-up's sealed value comes from its own action. The
+review ends there.
+
+#### 25. Remaining limitations
+Closed by this correction: "Adding a role to an account without two-factor does not notice a password replaced after the
+page was shown" (Correction 1, item 32) — no longer true with or without two-factor.
+
+Kept, as the brief requires (§10):
+- **The in-app Owner 2FA reset leaves the password valid:** the next password-only sign-in may set up any authenticator;
+  for a suspected compromise use the emergency CLI (`admin-2fa-reset`), which forces a password reset.
+- **Shared credential / lockout availability:** anyone who knows an Owner's email can keep its 5 credential-check slots
+  taken and its sign-in lock set; recovery is the server-side CLI.
+- **Reset-request timing can reveal whether an account exists:** this MUST be solved before SMTP is enabled (mail is
+  disabled / local sink now).
+- **The shared public/admin origin** must be reviewed again before untrusted or raw CMS content can ever execute on the
+  public origin, and before A9.
+- **MariaDB transaction-isolation and version checks** (`transaction_isolation` needs 11.1 or later;
+  `innodb_snapshot_isolation` from 11.6.2) remain mandatory before staging.
+- **A8 session pruning** must preserve a monotonic signal for the 2FA reset's decision (the count of sessions an account
+  has had must never go down).
+- The development-only `npm audit` findings remain accepted (item 19).
+- The frozen homepage showcase race stays unchanged.
+
+New or restated in this correction:
+- **Editor → Reviewer** after a password change needs a reload (item 8; Owner decision 1).
+- **A compromised account can delay a change decided on an older page** by moving the fingerprint it is decided on: its
+  authenticator (any role change, as before) or now also its password or recovery codes (a promotion only). The incident
+  step stays: disable first (never refused).
+- **Equal timestamps** (I2): no defect; a counter is the optional hardening.
+- **The entry pages' long buttons make the page scroll sideways at 390 and 320 px** (pre-existing, found by the evidence
+  capture, not changed: Owner decision 2).
+- Carried from Correction 1, unchanged: the lock-order notes, the unpruned rate-limit and login-attempt rows (A8), form
+  restoration tested in Chromium only, the emergency CLI's wording after a connection lost at commit, the test gaps listed
+  by its tenth pass, nothing tested on a real Namecheap host (account checks and key escrow before staging).
+
+#### 26. Preservation branches unchanged
+`git ls-remote` at the end: `refs/heads/preserve/pre-admin-a2` → `ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0`,
+`refs/heads/preserve/pre-admin-a2-correction1` → `b47d8e533bc59543f9d2de839d10894ba63831cb` (both as at the start,
+never pushed to), and `refs/heads/preserve/pre-admin-a2-correction2` → `bca33aad848b84a629de76f6a658a9316408a5d8`
+(created once, without force, and not moved since).
+
+#### 27. `main` untouched
+`refs/heads/main` → `474f61f10f12981e41f9b7e7fd6065a0ec9da541`, as at the start: nothing was pushed to `main`, and no
+branch other than `claude/new-session-5eijs6` and the new checkpoint was pushed.
+
+#### 28. No A3
+Nothing of A3–A9 was started: no CMS editing, media, page builder, navigation or settings management, enquiries,
+publishing, revisions, database-backed public pages, content migration, cache handler, projections, redirects or
+persistent media. Every change is the role-change rule, the dialog fix, their tests and docs (item 5).
+
+#### 29. Nothing deployed
+Nothing was uploaded, no Namecheap database was created or connected to, no cPanel, DNS, nameserver, SSL or email setting
+was touched, no production SMTP was used and no production secret or `ADMIN_ENABLED` value was created. All database work
+ran against the local Docker MariaDB 11.4.13 (`127.0.0.1:3307`).
+
+### Final admin visual evidence (brief §15)
+Captured from the fresh clone of `f0498dd` after every test above passed (the brief's order): the production build on
+`server.js` with `APP_ENV=local`, a throwaway local database (`rawasy_e2e_shots_*`, dropped after the capture) and the
+local mail sink. Every account, password, QR code, key and recovery code shown is throwaway. No UI was changed for the
+captures.
+- **Screens (24), covering the brief's list:** sign-in and its one failure answer; the first Owner's set-up link; the
+  required 2FA set-up (password; QR code and key; the 10 recovery codes shown once); the second step with a code and with
+  a recovery code; accepting an invitation; "Forgot password" and choosing a new password from a reset link; the
+  dashboard; the phone menu; inviting a user and "invitation sent"; the users list; managing a user (roles, access,
+  sessions, recent security events); **a promotion decided on an older page, refused** ("This account changed after you
+  opened this page …", this correction); the roles and permissions matrix; profile and password; two-factor
+  authentication (status, recovery codes, replace the app); sessions (one stopped at the second step); the step-up gate;
+  the admin's 404.
+- **Variants:** desktop 1280 × 800 light and dark, phone 390 × 844 light and dark, and 320 × 640 light — every screen in
+  all five, except the phone menu (phones only) and the 404 (desktop light and dark, phone light): **116 captures**, full
+  pages.
+- **The package:** `rawasy-a2-c2-final-evidence.zip` (19.6 MB, sent with this report; not committed — the session's
+  scratch folder keeps it): `INDEX.md`; 9 contact sheets (`sheets/`: entry and shell pages, desktop and phone; rows are
+  screens, columns are variants, each labelled with its width and, where the page scrolls sideways, OVERFLOW); the 116
+  full-page screens (`raw/`); `shots.json`.
+- **What the capture found:** 5 of the 116 captures scroll sideways, all on entry pages and all present since A2: the 2FA
+  set-up's key step at 390 px (4 px, light and dark) and at 320 px (74 px), and the Owner set-up link and the invitation
+  page at 320 px (13 px each). The cause is the entry cards' full-width buttons, whose labels never wrap. The prepared
+  one-rule fix makes all 116 fit; it is left for the Owner (decision 2) and not applied here. Every shell page fits at
+  320 px, as the admin browser suite also checks.
+
+### How to run (local)
+Unchanged from A2 (README, "Admin (local development)"): a local MariaDB compatible with 11.4, then `npm run test:unit`,
+`npm run test:integration` and `npm run test:admin` with `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER` and
+`TEST_DB_PASSWORD`. The new tests alone: `node --test tests/unit/privilege.test.ts`;
+`node --test tests/integration/promotion-boundary.test.ts` (with the `TEST_DB_*` settings); the three "A2 Correction 2"
+browser tests run inside `npm run test:admin` (its spec is serial: they build on the tests before them).
+
+### Next steps
+The final independent review of A2 with this correction. A3 starts only when the Owner approves A2 and says so; nothing is
+deployed before the Owner's go-ahead.
+
+---
+
+A2 CORRECTION 2 STATUS: READY FOR FINAL INDEPENDENT REVIEW
