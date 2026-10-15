@@ -35,6 +35,8 @@ export interface OptionModel {
   label: string;
   slug: string | null;
   archived: boolean;
+  /** A dependency shown beside the chosen item before saving (A3 Correction 1: a service featuring this project). */
+  note?: string;
 }
 
 /** A field of the item itself (not translated). */

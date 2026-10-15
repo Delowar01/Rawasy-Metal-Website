@@ -63,8 +63,21 @@ const table = (info: EntityInfo) => sql.identifier(info.table);
 /**
  * A content change: one transaction that first locks the acting user's row (still active) and the acting session (still
  * live) — a sign-out, a disabled account or a role change (which signs the user out) that commits first makes the
- * change fail with SessionEndedError instead of landing under an authority that is gone. Lock order everywhere: the
- * user, then the session, then the content root, then its ordering.
+ * change fail with SessionEndedError instead of landing under an authority that is gone.
+ *
+ * Lock order everywhere (A3; A3 Correction 1):
+ * 1. the acting user's row, then the acting session (`lockActor`);
+ * 2. the item's root row, FOR UPDATE (`lockRoot`; an archive or restore, a save, a flag change);
+ * 3. what the change links anew — a newly chosen reference, then each relation's newly added targets in the type's
+ *    relation order — share-locked (`checkReference`, `targetStates(…, { lock: true })`);
+ * 4. the cross-record pairs a relation's rule depends on, share-locked (`LOCK IN SHARE MODE`): a service's featured
+ *    projects → their project_services rows; a project's removed services → their service_featured_projects rows;
+ * 5. the item's own rows (translations, relation rows, children, search rows, audit) and then its collection's ordering.
+ * InnoDB's foreign-key checks share-lock the target's root row for every relation row inserted, so a project's root row
+ * (step 2 of its own save) is also the mutex of every (service, project) pair: no service can add a featured project
+ * while that project's save holds it. Two saves of related items can still meet in opposite orders (each holds its own
+ * root and wants the other's); InnoDB then ends one with a deadlock error, rolls it back whole, and `inTransaction`
+ * retries it once — every attempt decides on locking reads, so the invariants hold whichever commits.
  */
 export function contentTransaction<T>(deps: CmsDeps, actor: Actor, work: (tx: Db, now: Date) => Promise<T>): Promise<T> {
   const now = deps.clock();

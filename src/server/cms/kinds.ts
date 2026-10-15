@@ -16,7 +16,7 @@
  * - **Certificates** — document metadata only: title, issuer, ordered facts, an admin-only expiry date; every public
  *   text passes the digit guard; files arrive in A4.
  */
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { AnyMySqlColumn, AnyMySqlTable } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import type { Db } from "../db/client.ts";
@@ -49,7 +49,8 @@ import {
   services,
   serviceTranslations,
 } from "../db/schema-cms.ts";
-import type { KindSpec, TrField } from "./engine.ts";
+import type { KindSpec, RelationRefusal, TrField } from "./engine.ts";
+import { refLabel, refsByIds, type ItemRef } from "./lookups.ts";
 import { LIMITS, SERVICE_ICON_KEYS, type EntityType } from "./registry.ts";
 import { rowsOf, targetStates, type FieldErrors, type RelationTable } from "./store.ts";
 import { httpsUrlProblem, normalizedHttpsUrl } from "./text.ts";
@@ -128,17 +129,86 @@ export const pageSpec: KindSpec = {
 
 // --- Services ----------------------------------------------------------------------------------------------------------
 
-/** Featured projects must list the service in their own record (A1 §8.1), checked on every save. */
-async function featuredListService(db: Db, serviceId: string | null, ids: readonly string[]): Promise<string | null> {
+const idList = (ids: readonly string[]) =>
+  sql.join(
+    ids.map((id) => sql`${id}`),
+    sql`, `,
+  );
+
+/** Names for messages and audit summaries: “Title” (slug), the first three, then a count. */
+function nameList(refs: readonly ItemRef[], withSlug: boolean): string {
+  const names = refs.map((ref) => {
+    const label = refLabel(ref);
+    const clipped = [...label].length > 60 ? `${[...label].slice(0, 59).join("")}…` : label;
+    return `“${clipped}”${withSlug && ref.slug && label !== `(${ref.slug})` ? ` (${ref.slug})` : ""}${ref.archived ? " (archived)" : ""}`;
+  });
+  const shown = names.slice(0, 3);
+  const more = names.length - shown.length;
+  if (more > 0) return `${shown.join(", ")} and ${more} more`;
+  return shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}` : (shown[0] ?? "");
+}
+
+/**
+ * Featured projects must list the service in their own record (A1 §8.1; A3 Correction 1: every
+ * service_featured_projects row has its project_services row at every commit), checked on every save. The pairs are read
+ * with a locking read — the latest committed rows, share-locked until this save commits: a project dropping this service
+ * at the same moment either commits first and is seen here, or waits for this save and is then refused itself
+ * (`keepsFeaturingServices`). A plain read would answer from this transaction's snapshot, which can predate that
+ * project's save (race B of the correction's tests).
+ */
+async function featuredListService(db: Db, serviceId: string | null, ids: readonly string[]): Promise<string | RelationRefusal | null> {
   if (!ids.length) return null;
   if (!serviceId) return "A new service has no projects yet: save it, add it to a project's services, then feature the project here.";
-  const rows = await db
-    .select({ projectId: projectServices.projectId })
-    .from(projectServices)
-    .where(and(eq(projectServices.serviceId, serviceId), inArray(projectServices.projectId, [...ids])));
-  const listed = new Set(rows.map((r) => r.projectId));
+  const rows = await rowsOf<{ project_id: string }>(
+    db,
+    sql`SELECT project_id FROM project_services WHERE service_id = ${serviceId} AND project_id IN (${idList(ids)}) LOCK IN SHARE MODE`,
+  );
+  const listed = new Set(rows.map((r) => r.project_id));
   const missing = ids.filter((id) => !listed.has(id));
-  return missing.length ? `${missing.length} featured project(s) no longer list this service in their own record: remove them, or add the service to those projects first.` : null;
+  if (!missing.length) return null;
+  return {
+    message: `${missing.length} featured project(s) no longer list this service in their own record: remove them, or add the service to those projects first.`,
+    summary: `Refused: featured project${missing.length === 1 ? "" : "s"} ${nameList(await refsByIds(db, "project", missing), true)} ${missing.length === 1 ? "does" : "do"} not list this service in ${missing.length === 1 ? "its" : "their"} own record.`,
+    changes: { relation: "featuredProjects", notListing: [...missing] },
+  };
+}
+
+/**
+ * A project keeps a service that features it (A3 Correction 1). A service features only projects that list it, so
+ * removing the service from the project would leave the service's Featured projects pointing at a project that no
+ * longer lists it; the save is refused instead — a service's curated list is never changed silently. The project is
+ * taken out of that service's Featured projects first, then the service can be removed here.
+ *
+ * Runs with the project's root row locked (FOR UPDATE) and before any write (lock order: `contentTransaction`). That row
+ * is the pair's mutex: a service featuring the project anew share-locks it first (`targetStates`), and InnoDB's
+ * foreign-key check share-locks it for every row inserted into service_featured_projects, so no new (service, this
+ * project) row can commit while this save holds it. The rows that exist are read with a locking read — the latest
+ * committed state, waiting for a service save that is removing one at this moment — never from the snapshot.
+ * Only removed services are checked: a reorder or an unchanged list never triggers it.
+ */
+async function keepsFeaturingServices(db: Db, projectId: string | null, ids: readonly string[], before: readonly string[]): Promise<RelationRefusal | null> {
+  if (!projectId) return null;
+  const kept = new Set(ids);
+  const removed = before.filter((id) => !kept.has(id));
+  if (!removed.length) return null;
+  const rows = await rowsOf<{ service_id: string }>(
+    db,
+    sql`SELECT service_id FROM service_featured_projects WHERE project_id = ${projectId} AND service_id IN (${idList(removed)}) LOCK IN SHARE MODE`,
+  );
+  const featuring = new Set(rows.map((r) => r.service_id));
+  const services = removed.filter((id) => featuring.has(id));
+  if (!services.length) return null;
+  const one = services.length === 1;
+  const refs = await refsByIds(db, "service", services);
+  const archived = refs.some((ref) => ref.archived);
+  const first = archived
+    ? `Restore ${one ? "that service" : "the archived ones"} and remove the project from ${one ? "its" : "those services'"} Featured projects first`
+    : `Remove it from ${one ? "that service's" : "those services'"} Featured projects first`;
+  return {
+    message: `This project is currently featured by ${nameList(refs, false)}. ${first}, then remove the ${one ? "service" : "services"} here.`,
+    summary: `Refused: removing ${one ? "service" : `${services.length} services`} ${nameList(refs, true)} from this project — ${one ? "it still features" : "they still feature"} the project in ${one ? "its" : "their"} Featured projects.`,
+    changes: { relation: "services", featuredBy: services },
+  };
 }
 
 export const serviceSpec: KindSpec = {
@@ -333,7 +403,15 @@ export const projectSpec: KindSpec = {
       max: LIMITS.relations.categories,
       hint: "Website classifications; cards show the first two.",
     },
-    { key: "services", label: "Services", target: "service", table: rel(projectServices, "projectId", "serviceId"), max: LIMITS.relations.projectServices, hint: "The services the project's own record lists." },
+    {
+      key: "services",
+      label: "Services",
+      target: "service",
+      table: rel(projectServices, "projectId", "serviceId"),
+      max: LIMITS.relations.projectServices,
+      check: (db, ownerId, ids, before) => keepsFeaturingServices(db, ownerId, ids, before),
+      hint: "The services the project's own record lists.",
+    },
   ],
 };
 
@@ -523,5 +601,11 @@ export const SPECS: Readonly<Record<EntityType, KindSpec>> = {
 export async function projectsListingService(db: Db, serviceId: string): Promise<string[]> {
   const rows = await db.select({ projectId: projectServices.projectId }).from(projectServices).where(eq(projectServices.serviceId, serviceId));
   return rows.map((r) => r.projectId);
+}
+
+/** Services that feature a project (the project's services picker marks them: they stay until un-featured there). */
+export async function servicesFeaturingProject(db: Db, projectId: string): Promise<string[]> {
+  const rows = await db.select({ serviceId: serviceFeaturedProjects.serviceId }).from(serviceFeaturedProjects).where(eq(serviceFeaturedProjects.projectId, projectId));
+  return rows.map((r) => r.serviceId);
 }
 

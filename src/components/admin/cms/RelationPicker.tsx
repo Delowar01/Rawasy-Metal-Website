@@ -2,7 +2,8 @@
 /**
  * An ordered relation (A3 brief §32–§33): the chosen items in order, each with Move up / Move down / Remove buttons,
  * and a list to add from. Archived items that are already linked stay, marked "Archived"; archived items are never
- * offered for adding. The order goes out as repeated hidden inputs; the server checks every target again.
+ * offered for adding. A chosen item can carry a dependency note (a service featuring this project: A3 Correction 1).
+ * The order goes out as repeated hidden inputs; the server checks every target again.
  */
 import { useId, useRef, useState } from "react";
 import type { OptionModel, RelationModel } from "@/server/admin/actions/cms-model";
@@ -81,6 +82,7 @@ export function RelationPicker({
                 {option.label}
                 {option.slug ? <span className="adm-muted adm-mono"> {option.slug}</span> : null}
                 {option.archived ? <span className="adm-badge is-warning">Archived</span> : null}
+                {option.note ? <span className="adm-badge">{option.note}</span> : null}
               </span>
               <span className="adm-rel-buttons">
                 <button

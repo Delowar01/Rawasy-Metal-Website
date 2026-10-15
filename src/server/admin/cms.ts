@@ -9,7 +9,7 @@ import type { Actor } from "@/server/auth/types";
 import type { Db } from "@/server/db/client";
 import { users } from "@/server/db/schema";
 import type { EditorItem, KindSpec } from "@/server/cms/engine";
-import { projectsListingService, SPECS } from "@/server/cms/kinds";
+import { projectsListingService, servicesFeaturingProject, SPECS } from "@/server/cms/kinds";
 import { pickerOptions, refLabel, type ItemRef } from "@/server/cms/lookups";
 import { routeIntent, pageTypeOf } from "@/server/cms/pages";
 import { can, isFixedPage } from "@/server/cms/permissions";
@@ -177,13 +177,21 @@ export async function editorModel({ db, actor, type, item, newPageType, newSyste
   for (const relation of spec.relations ?? []) {
     let options = (await pickerOptions(db, relation.target)).filter((o) => !(relation.self && item && o.id === item.id));
     let emptyNote: string | undefined;
+    let hint = relation.hint;
+    const notes = new Map<string, string>();
     if (type === "service" && relation.key === "featuredProjects") {
       const listing = item ? new Set(await projectsListingService(db, item.id)) : new Set<string>();
       const linked = new Set(item?.rel.featuredProjects ?? []);
       options = options.filter((o) => listing.has(o.id) || linked.has(o.id));
       if (!options.length) emptyNote = item ? "No project lists this service yet. Add the service to a project's services first." : "Save the service first; then projects that list it can be featured.";
     }
-    relations.push({ key: relation.key, label: relation.label, max: relation.max, hint: relation.hint, options: options.map(option), emptyNote });
+    if (type === "project" && relation.key === "services" && item) {
+      // A3 Correction 1: a service that features this project can't be removed here until it stops featuring it.
+      const featuring = await servicesFeaturingProject(db, item.id);
+      for (const serviceId of featuring) notes.set(serviceId, "Features this project");
+      if (featuring.length) hint = `${hint ?? ""} A service marked “Features this project” stays until the project is removed from that service's Featured projects.`.trim();
+    }
+    relations.push({ key: relation.key, label: relation.label, max: relation.max, hint, options: options.map((o) => ({ ...option(o), ...(notes.has(o.id) ? { note: notes.get(o.id) } : {}) })), emptyNote });
   }
   const children: ChildrenModel | null = spec.children
     ? {

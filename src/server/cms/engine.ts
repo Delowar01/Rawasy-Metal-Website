@@ -74,6 +74,16 @@ export interface TrField {
   hint?: string;
 }
 
+/**
+ * A refusal that another record's state imposes on a relation change (A3 Correction 1): its message goes on the
+ * relation's field and its summary into a failed audit event — names and slugs only, never long texts.
+ */
+export interface RelationRefusal {
+  message: string;
+  summary: string;
+  changes?: Record<string, unknown>;
+}
+
 export interface RelationSpec {
   key: string;
   label: string;
@@ -82,8 +92,12 @@ export interface RelationSpec {
   max: number;
   /** A relation from a type to itself (related services): the item may not list itself. */
   self?: boolean;
-  /** An extra rule on the chosen targets (e.g. featured projects must list the service). */
-  check?: (db: Db, ownerId: string | null, ids: readonly string[], before: readonly string[]) => Promise<string | null>;
+  /**
+   * An extra rule on the chosen targets (featured projects must list the service; a project keeps a service that
+   * features it). Runs after `checkTargets`, with the item's root row locked and before any write; a string is an
+   * input problem, a `RelationRefusal` a cross-record refusal (also audited).
+   */
+  check?: (db: Db, ownerId: string | null, ids: readonly string[], before: readonly string[]) => Promise<string | RelationRefusal | null>;
   hint?: string;
 }
 
@@ -526,18 +540,36 @@ function searchEntries(spec: KindSpec, input: ParsedInput, slug: string | null) 
   });
 }
 
-async function checkRelations(db: Db, spec: KindSpec, input: ParsedInput, stored: StoredItem | null, itemId: string | null): Promise<FieldErrors> {
+/** The relations' problems (field → message) and the cross-record refusals among them (audited as failed changes). */
+async function checkRelations(
+  db: Db,
+  spec: KindSpec,
+  input: ParsedInput,
+  stored: StoredItem | null,
+  itemId: string | null,
+): Promise<{ errors: FieldErrors; refusals: RelationRefusal[] }> {
   const errors: FieldErrors = {};
+  const refusals: RelationRefusal[] = [];
   for (const relation of spec.relations ?? []) {
     const next = input.rel[relation.key] ?? [];
     const before = stored?.rel[relation.key] ?? [];
     const problem =
       (await checkTargets(db, relation.target, next, before, { max: relation.max, self: relation.self ? (itemId ?? undefined) : undefined })) ??
       (relation.check ? await relation.check(db, itemId, next, before) : null);
-    if (problem) errors[`rel.${relation.key}`] = problem;
+    if (typeof problem === "string") errors[`rel.${relation.key}`] = problem;
+    else if (problem) {
+      errors[`rel.${relation.key}`] = problem.message;
+      refusals.push(problem);
+    }
   }
-  return errors;
+  return { errors, refusals };
 }
+
+/** The audit event of a change refused by other records (A3 Correction 1): one failed event, summaries joined. */
+const refusalEvent = (refusals: readonly RelationRefusal[]) => ({
+  summary: refusals.map((r) => r.summary).join(" "),
+  changes: { refused: refusals.map((r) => r.changes ?? {}) },
+});
 
 function checkChildren(spec: KindSpec, input: ParsedInput, stored: StoredItem | null): FieldErrors {
   if (!spec.children || !input.children) return {};
@@ -591,13 +623,16 @@ export async function createItem(ctx: ChangeContext, spec: KindSpec, form: FormO
   const rootInput = Object.fromEntries(Object.keys(spec.rootShape).map((k) => [k, input[k]]));
   try {
     return await contentTransaction(deps, actor, async (tx, now) => {
-      const errors: FieldErrors = {
-        ...(spec.checkRoot ? await spec.checkRoot(tx, rootInput, null) : {}),
-        ...(await checkRelations(tx, spec, input, null, null)),
-        ...checkChildren(spec, input, null),
-      };
+      const errors: FieldErrors = spec.checkRoot ? await spec.checkRoot(tx, rootInput, null) : {};
+      const relations = await checkRelations(tx, spec, input, null, null);
+      Object.assign(errors, relations.errors, checkChildren(spec, input, null));
       if (slug && (await slugTaken(tx, spec.type, slug, null))) errors.slug = `The slug “${slug}” is already used by another ${info.one} (perhaps an archived one).`;
-      if (Object.keys(errors).length) return { kind: "invalid", errors } as const;
+      if (Object.keys(errors).length) {
+        if (relations.refusals.length) {
+          await contentAudit(tx, actor, meta, now, { action: `${spec.type}.create`, type: spec.type, id: "new", label: titleOf(spec, input) || slug, outcome: "failed", ...refusalEvent(relations.refusals) });
+        }
+        return { kind: "invalid", errors } as const;
+      }
       const id = ulid(now.getTime());
       const source = spec.hasSource
         ? { sourceBasis: input.sourceBasis ?? null, sourcePages: input.sourcePages ?? null, sourceNote: (input.sourceNote as string) || null }
@@ -676,8 +711,8 @@ export async function updateItem(ctx: ChangeContext, spec: KindSpec, id: string,
       if (!stored) return { kind: "not_found" } as const;
       const pageFacts = options.pageTypeOf ? { pageType: options.pageTypeOf(stored.root) } : undefined;
       const title = String(stored.tr.en?.[spec.titleKey] || stored.tr.ar?.[spec.titleKey] || "");
-      const refuse = async (summary: string, outcome: "denied" | "failed") => {
-        await contentAudit(tx, actor, meta, now, { action: `${spec.type}.update`, type: spec.type, id, label: title || state.slug, outcome, summary });
+      const refuse = async (summary: string, outcome: "denied" | "failed", changes?: Record<string, unknown>) => {
+        await contentAudit(tx, actor, meta, now, { action: `${spec.type}.update`, type: spec.type, id, label: title || state.slug, outcome, summary, changes });
       };
       if (!can(actor.permissions, spec.type, "edit", pageFacts)) {
         await refuse(`Refused: editing this ${info.one} needs ${pageFacts?.pageType === "legal" ? "legal.edit" : `${info.resource}.edit`}.`, "denied");
@@ -708,15 +743,18 @@ export async function updateItem(ctx: ChangeContext, spec: KindSpec, id: string,
         return { kind: "denied", message: "You don't have permission to change robots, canonical or sitemap settings." } as const;
       }
       const rootInput = Object.fromEntries(Object.keys(spec.rootShape).map((k) => [k, input[k]]));
-      Object.assign(
-        errors,
-        spec.checkRoot ? await spec.checkRoot(tx, rootInput, id) : {},
-        await checkRelations(tx, spec, input, stored, id),
-        checkChildren(spec, input, stored),
-      );
+      Object.assign(errors, spec.checkRoot ? await spec.checkRoot(tx, rootInput, id) : {});
+      const relations = await checkRelations(tx, spec, input, stored, id);
+      Object.assign(errors, relations.errors, checkChildren(spec, input, stored));
       const planned = planTranslations(spec, input, stored);
       if (!planned.ok) Object.assign(errors, planned.errors);
-      if (Object.keys(errors).length || !planned.ok) return { kind: "invalid", errors } as const;
+      if (Object.keys(errors).length || !planned.ok) {
+        if (relations.refusals.length) {
+          const event = refusalEvent(relations.refusals);
+          await refuse(event.summary, "failed", event.changes);
+        }
+        return { kind: "invalid", errors } as const;
+      }
       const source = spec.hasSource
         ? { sourceBasis: input.sourceBasis ?? null, sourcePages: input.sourcePages ?? null, sourceNote: (input.sourceNote as string) || null }
         : {};
