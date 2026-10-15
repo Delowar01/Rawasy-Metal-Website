@@ -95,12 +95,13 @@ On top of `dcd089d`, each on its own, pushed to `claude/new-session-5eijs6`:
 | `221fea7` | README: local use of the Core CMS (docs only) |
 | `a7e501e` | The focused security review's fixes (4 Low, 4 Info) and the 320 px stale-message fix, each with a test that fails before (item 29) |
 | `e2c67db` | Phone list rows keep the title cell's lines apart (`admin.css`, A3 rules only), with a browser assertion that fails before (item 29) |
-| docs commit | This report, the project memory (CLAUDE.md) and two README corrections (docs only; item 4) |
+| `811c2eb`, then a wording fix | This report, the project memory (CLAUDE.md) and two README corrections (docs only; item 4) |
 
 ### 4. Final branch HEAD
 `e2c67db17486ed15434380ec2057ce9a9d93608d` (`e2c67db`) is the last commit with code. Every QA result below (items
-30–42) comes from a fresh clone of it. The docs commit that adds this report follows it and is the branch's HEAD. Its
-SHA is given in the hand-over message, since a commit cannot name itself (`git log -1 origin/claude/new-session-5eijs6`).
+30–42) comes from a fresh clone of it. Two docs-only commits follow it: `811c2eb` (this report, CLAUDE.md, README) and
+a wording fix of this report. The last one is the branch's HEAD; its SHA is given in the hand-over message, since a
+commit cannot name itself (`git log -1 origin/claude/new-session-5eijs6`).
 
 ### 5. Files changed
 `git diff --stat dcd089d e2c67db`: 88 files (78 added, 10 modified), +25,594 / −54 lines. Of these, 13,794 lines are the
@@ -942,7 +943,7 @@ The brief's §59 list, screen by screen:
 The set also has P02 (a reserved slug refused), P04 (an Admin registering fixed pages) and P05 (a legal page record
 with its review label).
 
-**Two notes on reading the evidence.**
+**Three notes on reading the evidence.**
 - *Sticky bars.* Full-page captures are taken from the top with the top bar and the editor's save bar in their place in
   the page. In the browser, both stay on screen while the page scrolls. The first capture run drew them at the window's
   edge, over the title and the first fields (a full-page screenshot artefact, not the screen), so it was redone with this
