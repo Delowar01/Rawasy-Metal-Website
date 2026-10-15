@@ -374,11 +374,14 @@ in one terminal and `npm run test:e2e` in another (Playwright reuses a server al
 
 ## Admin (local development)
 
-Phase A2 of the admin / CMS program (report `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`; design in
-`docs/admin/`): sign-in, two-factor authentication, sessions, invitations, password reset, users and roles, at `/admin`
-(English, `noindex`). Content editing, media and publishing come in later phases. It runs **locally only**, against a
-local MariaDB: never point it at the hosting account's database, and nothing of it is deployed until the user decides.
-The public website is unaffected: it never reads the database and builds without one.
+Phases A2 and A3 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` and
+`docs/reports/2026-10-15-admin-a3-core-cms.md`; design in `docs/admin/`): sign-in, two-factor authentication, sessions,
+invitations, password reset, users and roles (A2), and the core content records — pages, services, projects and their
+categories, machinery, industries, clients and certificate metadata — as working copies in the database (A3), at
+`/admin` (English, `noindex`). Media, the visual editor, site settings, enquiries and publishing come in later phases.
+It runs **locally only**, against a local MariaDB: never point it at the hosting account's database, and nothing of it
+is deployed until the user decides. The public website is unaffected: it never reads the database (the content records
+are not shown on it before the A9 cutover) and builds without one.
 
 **The admin gate (`ADMIN_ENABLED`).** Whether a server serves the admin at all is decided from the environment alone:
 `ADMIN_ENABLED=1` turns it on, any other value turns it off, and unset it is on only in local development
@@ -422,11 +425,14 @@ example), because Server Actions from any other origin are refused.
 ```bash
 npm run db:check                                              # the migration files only, no database
 node --env-file=.env.local scripts/db-migrate.mjs status      # what the database holds and what is pending
-node --env-file=.env.local scripts/db-migrate.mjs up          # applies drizzle/0000 (13 tables) and 0001 (roles, permissions)
+node --env-file=.env.local scripts/db-migrate.mjs up          # applies every pending file in order (below)
 ```
 
-The runner takes a named lock, checks the journal order and the hash of every applied file, sets the database's
-default collation (`utf8mb4_unicode_520_ci`) while it is empty and verifies every table's character set; outside
+The files: `drizzle/0000` (13 access-control tables) and `0001` (roles, permissions), from A2; `0002` (the 32 content
+tables) and `0003` (the collections' orderings and the permission "Project flags — add"), from A3. A database migrated
+during A2 takes the two A3 files with the same `up`. The runner takes a named lock, checks the journal order and the hash
+of every applied file, sets the database's default collation (`utf8mb4_unicode_520_ci`) while it is empty and verifies
+every table's character set; outside
 `APP_ENV=local` it also requires `--backup-file=<a backup less than 60 minutes old>` once tables exist. Exit codes are
 listed in `scripts/db-migrate.mjs`. `npm run db:generate` (drizzle-kit) writes a new migration from
 `src/server/db/schema.ts` for review; `drizzle-kit push` and `pull` are never used.
@@ -446,6 +452,15 @@ invitation (Users → Invite); there is no public sign-up.
 **Recovery.** An Owner who cannot sign in: `node --env-file=.env.local scripts/admin-bootstrap.mjs --reset <email>`
 (unlocks, signs out everywhere, prints a 30-minute reset link; add `--remove-2fa` for a lost phone and lost recovery
 codes). Every run is in the audit log.
+
+**5. Content (A3).** Signed in, the sidebar's CONTENT group lists Pages, Services, Projects (with Categories), Machinery,
+Industries, Clients and Certificates — each a list (search, filters, 25 a page, Archived filter) with New, Order (Move up /
+Move down) and an editor (General · English · العربية · the type's own rows · Relations · SEO · Status). Saving writes a
+draft working copy only: there is no Publish button, nothing reaches the public site, and media (pictures, certificate
+files) come in A4. What each role may do follows the permission matrix (`src/server/policy/registry.ts`): Owner, Admin and
+Editor edit general content, Owner and Admin archive, restore and register the site's fixed pages, only Owner and Admin
+edit certificates and legal pages (the Owner alone archives certificates), and a Reviewer reads and may add a project
+restriction; only an Owner or Admin clears one, with a reason. Test content only ("Test …", "Demo …").
 
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
@@ -481,6 +496,6 @@ Stages 1A–1I are approved (1G and 1H needed no batch: their pages and the Arab
 the release candidate (security, accessibility, SEO, performance and publication QA), is built and awaits independent
 approval (report `docs/reports/2026-10-09-stage-1j-release-candidate.md`); deployment happens only on the user's
 go-ahead. The Namecheap Stellar Plus hosting adapter (`server.js`, above) is prepared and tested locally and awaits
-independent review. The admin / CMS program (A1 → A9) has begun: A1 (architecture, design only) is approved, and A2
-(authentication, roles, the database foundation and the admin shell, local only) is built and awaits independent review.
-A3 does not start before the user approves A2.
+independent review. The admin / CMS program (A1 → A9) has begun: A1 (architecture, design only) and A2 (authentication,
+roles, the database foundation and the admin shell, local only) are approved; A3 (the core content records, local only)
+is built and awaits independent review. A4 does not start before the user approves A3.
