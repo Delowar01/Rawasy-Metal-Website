@@ -10,10 +10,11 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` (Admin / CMS program, Phase A2 — authentication,
-  RBAC, database foundation and admin shell, local implementation only; its "A2 CORRECTION 1", "A2 CORRECTION 2" and
-  "A2 FINAL VISUAL CORRECTION" sections are at the end)
-  (earlier: `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
+- Latest report: `docs/reports/2026-10-15-admin-a3-core-cms.md` (Admin / CMS program, Phase A3 — Core CMS, database
+  working copies of the core content, local implementation only)
+  (earlier: `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
+  shell; its "A2 CORRECTION 1", "A2 CORRECTION 2" and "A2 FINAL VISUAL CORRECTION" sections are at the end),
+  `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
   `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
   `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
   `2026-10-05-stage-1i-correction-1.md`, `2026-10-05-stage-1i-motion-polish.md`,
@@ -185,14 +186,29 @@
   after a password change until the page is reloaded). **The A2 final visual correction is built** (the "PHASE A2 —
   FINAL VISUAL CORRECTION" brief; section "A2 FINAL VISUAL CORRECTION" at the end of the A2 report; `b4bf194`,
   `admin.css` only: `.adm-entry-card .adm-btn { white-space: normal; text-align: center }`, so entry-page button labels
-  wrap on phones instead of pushing the card and the page past the screen) and awaits the Owner's independent visual
-  signoff. QA on a fresh clone of `b4bf194`: `npm ci`, audit `--omit=dev` 0, lint, typecheck, build, admin 47 / 47 (and
+  wrap on phones instead of pushing the card and the page past the screen).
+  QA on a fresh clone of `b4bf194`: `npm ci`, audit `--omit=dev` 0, lint, typecheck, build, admin 47 / 47 (and
   `db:check`, unit 30 / 30, integration 164 / 164; public build output identical to `f0498dd`'s apart from the build id;
   no second public E2E run, per the brief). Evidence `rawasy-a2-final-evidence.zip` (not committed): 127 captures, 9
   contact sheets, 0 horizontal overflow (8 before), desktop control boxes identical.
-  **Do not start A3** (no CMS editing,
-  media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
-  content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
+  **A2 is approved and closed**, final visual signoff included (the user's A3 brief: "A2 … is independently FULLY
+  APPROVED and CLOSED").
+  **Phase A3 (Core CMS) is built — local implementation only** (the user's "PHASE A3 — CORE CMS / … / DO NOT START A4"
+  brief; report `2026-10-15-admin-a3-core-cms.md`; rollback checkpoint: GitHub branch `preserve/pre-admin-a3` at
+  `dcd089d`) and awaits independent review: see "Phase A3 implementation" below. Its commits, each on its own: `d85d2f2`
+  schema, migrations 0002/0003, permission and CMS registry; `c6b70e0` the Core CMS services and their integration
+  tests; `a4c9d5c` unit tests; `861c6e7` the shared editor, list, order and restriction UI and the Server Actions;
+  `1465ecd` Pages and Services; `921e47f` Projects, categories and restrictions; `eb9cd7c` Machinery and Industries;
+  `af9439b` Clients and Certificates; `e3c7239` the CONTENT navigation and dashboard counts; `f24f870` browser tests;
+  `221fea7` README; `a7e501e` the focused security review's fixes (4 Low, 4 Info; no High or Medium); `e2c67db` phone
+  list rows keep the title cell's lines apart. Final QA on a fresh clone of `e2c67db`: `npm ci`, audit `--omit=dev` 0,
+  lint, typecheck, build with no database settings, `db:check`, unit 90 / 90, integration 243 / 243, admin 63 / 63,
+  public 612 / 612 in the first full run, and the public site proven unchanged against `preserve/pre-admin-a3` (files,
+  stylesheets, modules, 102 pages over HTTP in three gate-off settings, no public database connection with the admin on,
+  237 screens); evidence `rawasy-a3-evidence.zip` (not committed): 108 captures, 0 horizontal overflow.
+  **Do not start A4** (no media library, uploads, page builder, global settings or menus, enquiries, publishing,
+  revisions in use, database-backed public pages, content migration, cache handler, projections, redirects, persistent
+  media) until the user approves A3 and says so.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
   the public site (A1–A4 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
   Correction 1 a release built from this branch carries the admin code but serves none of it unless `ADMIN_ENABLED=1`;
@@ -504,6 +520,75 @@
   accepted (no forced downgrade; production audit must stay 0); the homepage showcase race: component and tests unchanged;
   API headers stay on `/api/admin/**` and `/api/internal/**`; host/account checks and key escrow are pre-staging work; no
   Next.js upgrade.
+
+### Phase A3 implementation (local only; report `2026-10-15-admin-a3-core-cms.md`)
+
+- Scope: database working copies of pages, services, projects (+ categories, restrictions), machinery, industries,
+  clients and certificate metadata, edited at `/admin/{pages,services,projects,projects/categories,machinery,industries,
+  clients,certificates}` (list, `new`, `[id]`, `order`; pages have no order). The public site never reads them (T1 Option
+  B): no Publish button, no public route, no media (A4), no sections (A5), no settings or menus (A6), no revisions in use
+  (A8), no content import (A9). Test data only ("Test …", "Demo …").
+- Schema: `src/server/db/schema-cms.ts` → `drizzle/0002_core_cms.sql` (32 tables) and `0003_seed_core_cms.sql` (the seven
+  `entity_orderings` rows and the permission `projects.add_flags` for all four roles, generated by
+  `scripts/generate-access-seed.mjs` from `src/server/cms/registry.ts` and the policy registry; `npm run db:check`).
+  Three additions beyond A1's catalogue, because the A3 brief asks for them: `machine_attributes` (+ translations, like
+  `certificate_facts`), `industry_projects` (like `industry_services`), `clients.is_featured` (like `projects.is_featured`).
+  No media columns (A4). `revisions` exists (the publication columns refer to it) and stays empty.
+- Server code `src/server/cms/` (framework-free, `.ts` imports): `registry.ts` (types, paths, limits, system pages,
+  flags, icons), `kinds.ts` (one `KindSpec` per type: fields, Zod root shapes, relations, children), `engine.ts`
+  (`createItem` / `updateItem` / `setItemArchived` / `loadEditorItem`, `parseInput`), `store.ts` (`contentTransaction`
+  = `inTransaction` + A2's `lockActor`, `lockRoot`, relations, orderings, search rows, `contentAudit`, `instantOf`),
+  `pages.ts`, `flags.ts` + `restrictions.ts`, `ordering.ts` + `reorder.ts`, `list.ts` (lists, filters, dashboard counts),
+  `lookups.ts` (pickers, "used by"), `completeness.ts`, `permissions.ts`, `slug.ts` + `src/i18n/reserved-slugs.ts`,
+  `text.ts` (plain text, paragraph documents, URLs, digit guard, Arabic search normalization), `form.ts`. Next.js side:
+  `src/server/admin/actions/cms.ts` (Server Actions), `cms-model.ts` (types shared with client components),
+  `src/server/admin/cms.ts` (editor models), `src/components/admin/cms/*` (client), `src/app/(admin)/admin/_components/
+  cms.tsx` (`ContentList`, `ContentEdit`, `ContentNew`, `ContentOrder`; route files are thin wrappers).
+- Rules to keep (each has tests in `tests/unit/cms-*.test.ts`, `tests/integration/cms-*.test.ts`, `e2e-admin/cms.spec.ts`):
+  - Authority from the session only: no actor, status, version or translation status is read from a form; each Zod
+    schema reads only its fields (no mass assignment). Every change runs in `contentTransaction` and re-decides its
+    permission there from the registry, on the stored record (a legal page needs `legal.edit`, recognized from its
+    stored `page_type`; fixed pages are registered with `pages.edit` + `pages.archive`; certificates `certificates.*`;
+    robots/canonical/sitemap `seo.advanced`; order `orderings.edit`). Refusals are audited (`denied` / `failed`).
+  - Optimistic concurrency: the form sends `lockVersion`; `updateItem` / `setItemArchived` lock the root row and refuse a
+    different version as `stale` ("This content changed after you opened it. Reload and review the latest version before
+    saving."; typed values stay in the browser). Orderings have their own `lock_version`. Restriction clears are decided
+    on the flag instance (`flagToken`: the time it was added). Flags never change an item's version.
+  - Archived items are read-only, keep slug, place and links, can't be added to a new relation, restore to a draft.
+    Fixed pages are never archived; a category in use by active projects can't be.
+  - Plain text only (no HTML, markup, control or bidi-override characters); longer copy is A1's paragraph document edited
+    as plain text. Child lists (attributes, facts) are exact `{ id, en: {label, value}, ar: {label, value} }` arrays; a
+    child id must belong to the item. Client websites https only with a public host name; canonical overrides a same-site
+    path only. The certificate digit guard applies to every public certificate text, facts included.
+  - Slugs: ASCII lowercase, unique per type (archived items keep theirs); generic pages never take a reserved route
+    (`reserved-slugs.ts`, tested against `src/i18n/routes.ts`, the app's top-level folders and metadata files); machine,
+    project and certificate slugs are anchors and refuse their page's own ids.
+  - English and Arabic are equals: missing / incomplete / draft / complete / needs review (`completeness.ts` and
+    `localeStateSql` must agree); neither language is required to save; a form is the full state (emptying a language
+    removes its row). Arabic inputs `dir="rtl" lang="ar"`.
+  - Restrictions: every role adds (`projects.add_flags`); only Owner / Admin clear (`projects.clear_flags`), with a
+    reason, never on an archived project; an unknown flag blocks (fail-closed).
+  - Lists: server-side, 25 a page (10–100), state in the address, bound parameters only, table and column names from
+    fixed maps; the slug is compared only for ASCII queries (an `ascii_bin` column LIKE a non-ASCII literal is a collation
+    error).
+  - From the A3 security review (`a7e501e`; each with a test that fails on `221fea7`): newly linked relation targets
+    and references are read with a share lock (`targetStates(…, { lock: true })`), so nothing is linked anew while it is
+    being archived; a project is not restored while one of its categories is archived (`LIFECYCLE_RULES` in `kinds.ts`,
+    used by the Server Action and the tests); a create reads the order's last position `FOR UPDATE`, and duplicate keys
+    are told by the index they name (`duplicateResult`); archive and restore bump the collection's order version; every
+    A3 Server Action calls `actionContext` before it reads or answers its input; moving a certificate needs
+    `certificates.edit` too; a client's website is stored as `URL.href` (backslashes and control characters refused);
+    certificate slugs pass the digit guard (`hasRegistrationNumber`), which counts every digit script and separator.
+- UI notes: the editor is keyed `${id}:${lockVersion}` (remounts with the stored values after a save's redirect to
+  `?saved=1` / `?created=1`); controlled fields submit through `startTransition`; `useUnsavedChanges` warns on
+  `beforeunload` and on same-origin link clicks (capture phase; in-page `#` links pass; Back/Forward are not intercepted).
+  Admin pages stream after a loading skeleton: tests wait for `main :is(h1, h2)`. Inline `style` attributes are refused by
+  the CSP: classes only. On phones (below 48rem) A2's stacked table (`.adm-table.is-stack`) makes every cell
+  `display: block`; the list's title cell (`.adm-cell-title`: title, Arabic title, slug) keeps its grid through
+  `.adm-table.is-stack .adm-cell-title` (`e2c67db`), or its lines run together; `cms.spec.ts` checks them at 390 / 320 px.
+  `.adm-editor-alert .adm-btn` wraps (the stale message's buttons at 320 px).
+- Tests: `e2e-admin/seed-user.mjs` (test only; refused outside `APP_ENV=local` and a `rawasy_e2e_<hex>` database) seeds one
+  user per role for `e2e-admin/cms.spec.ts`.
 
 ## Rules from the brief
 
@@ -1793,9 +1878,12 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - Next 16 forwards a Server Action posted to any page whose worker lacks it to a worker that has it (an internal fetch
   through the proxy, `redirect: "manual"`: `selectWorkerForForwarding` in `manifests-singleton.js`): gate the actions
   themselves, not only the proxy and the layout (A2 Correction 1 does both).
-- A forged Server Action request needs React's reply encoding: part `0` = `[{"status":"idle"},"$K1"]` (the form state,
-  then the FormData) and the fields as `1_<name>`. With only `["$K1"]` the action fails on `form.get` before any database
-  call, which makes a "no database connection" check pass for the wrong reason; keep a positive control that reaches it.
+- A forged Server Action request needs React's reply encoding as this React version's client writes it: the FormData
+  argument's fields as `_1_<name>` (prefix `_` + reference id + `_`), **before** part `0` = `[{"status":"idle"},"$K1"]`
+  (the form state, then the reference): the server resolves `$K1` when part `0` arrives (busboy streaming), from the
+  fields received so far. A Playwright `multipart` object sends the integer key "0" first: pass a `FormData` instead.
+  The old `1_<name>` form (A2's `gate.spec.ts`, left unchanged) reaches the action with an empty FormData, so a "no
+  database connection" check can pass for the wrong reason; keep a positive control that reaches the database.
 - `notFound()` thrown by a root layout (the admin's, gate off, proxy bypassed) answers 404 with Next's error shell
   (`<html id="__next_error__">`), the layout's metadata title and the same segment's `not-found.tsx` in the payload.
 - Playwright cannot set a `__Host-` Secure cookie for `http://localhost` with `context.addCookies` ("Invalid cookie
@@ -1852,3 +1940,27 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   finish in time, before any assertion runs. A2 Correction 1's final run hit it once (611 / 612); the test then passed
   20 / 20 on the final build and 20 / 20 on the baseline, 3 at a time. Compare with the baseline and report it; never
   hide it behind a retry.
+- Drizzle's raw `db.execute(sql…)` on mysql2 returns `DATETIME` columns as strings (`"2026-10-15 18:52:29.833"`), while
+  its mapped selects return `Date`s: parse raw rows with `instantOf()` (`src/server/cms/store.ts`) before formatting, or
+  React throws "Invalid time value" (#441) on the page.
+- MariaDB refuses `ascii_bin_column LIKE '%عربي%'` (illegal mix of collations): compare the slug only for ASCII queries.
+- InnoDB answers a plain read from the transaction's snapshot even after a later `FOR UPDATE` waited: a check that
+  decides on another row (a relation target, the order's last position) must use a locking read (`LOCK IN SHARE MODE` /
+  `FOR UPDATE`), or a change committed meanwhile is missed (A3 review, findings 3 and 4). Lock only what the change
+  adds, never rows the other side locks first, or a cycle deadlocks (a project save locks its row then the category's;
+  an archive must not lock project rows).
+- A literal no-break space inside a regex class can be lost by an editor and look identical: write non-ASCII characters
+  in source regexes as `\u` escapes (the certificate digit guard lost one in A3).
+- A test that races two transactions is deterministic when the other side is a held row lock on its own connection: start
+  the change, check it is still pending (waiting on the lock), then change and commit the held row
+  (`tests/integration/cms-review.test.ts`, `holding()` / `stillWaiting()`).
+- A full-page screenshot (`fullPage: true`) draws `position: sticky` bars where the window is, not where they sit in the
+  page: the admin's top bar over the title and the editor's save bar (`bottom: 0`) over the first fields. Evidence captures
+  scroll to the top and set those bars `position: static` through the CSSOM (the nonce CSP refuses style tags), then put
+  them back.
+- Inline JSX siblings (`<a>`, `<span>`, `<span>`) get no space between them: when a later rule turns their grid or flex
+  parent into `display: block` (the stacked table on phones), they run together on one line. Page-overflow checks miss
+  it; compare the children's line boxes (`titleCellsRunTogether` in `e2e-admin/cms.spec.ts`).
+- A second HTTP freeze run on the same build copies differs from the first on unknown-slug 404s: the copies keep the
+  first run's runtime route cache (`.next/server/route-cache`). Empty it in every served copy (or use fresh copies) before
+  each comparison, as `start_base` does for the baseline.

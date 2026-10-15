@@ -435,7 +435,7 @@ of every applied file, sets the database's default collation (`utf8mb4_unicode_5
 every table's character set; outside
 `APP_ENV=local` it also requires `--backup-file=<a backup less than 60 minutes old>` once tables exist. Exit codes are
 listed in `scripts/db-migrate.mjs`. `npm run db:generate` (drizzle-kit) writes a new migration from
-`src/server/db/schema.ts` for review; `drizzle-kit push` and `pull` are never used.
+`src/server/db/schema.ts` and `schema-cms.ts` (A3) for review; `drizzle-kit push` and `pull` are never used.
 
 **4. The first Owner.**
 
@@ -455,7 +455,7 @@ codes). Every run is in the audit log.
 
 **5. Content (A3).** Signed in, the sidebar's CONTENT group lists Pages, Services, Projects (with Categories), Machinery,
 Industries, Clients and Certificates — each a list (search, filters, 25 a page, Archived filter) with New, Order (Move up /
-Move down) and an editor (General · English · العربية · the type's own rows · Relations · SEO · Status). Saving writes a
+Move down; pages have none) and an editor (General · English · العربية · the type's own rows · Relations · SEO · Status). Saving writes a
 draft working copy only: there is no Publish button, nothing reaches the public site, and media (pictures, certificate
 files) come in A4. What each role may do follows the permission matrix (`src/server/policy/registry.ts`): Owner, Admin and
 Editor edit general content, Owner and Admin archive, restore and register the site's fixed pages, only Owner and Admin
