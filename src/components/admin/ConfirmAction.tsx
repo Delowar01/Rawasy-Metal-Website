@@ -2,9 +2,13 @@
 /**
  * A button that opens a confirmation dialog (native <dialog>: focus moves in, Escape closes, focus returns) whose form
  * runs a Server Action. The page refreshes after a success so the change shows; errors stay in the dialog.
+ *
+ * The form sends `fields` as they were when the dialog opened (A2 Correction 2, final review): another action's success
+ * refreshes the page behind an open dialog, and its newer fingerprint (`version`) must not go out with a decision taken
+ * on the older page — the server would then compare the account with a state the person never saw.
  */
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useId, useRef, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { ActionState } from "@/server/admin/actions/state";
 import { idle } from "@/server/admin/actions/state";
 import { FormAlert, SubmitButton } from "./forms";
@@ -31,6 +35,7 @@ export function ConfirmAction({
   small?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [sent, setSent] = useState(fields);
   const [state, run] = useActionState(action, idle);
   const router = useRouter();
   const titleId = useId();
@@ -45,7 +50,10 @@ export function ConfirmAction({
       <button
         type="button"
         className={["adm-btn", danger ? "is-danger" : "", small ? "is-small" : ""].filter(Boolean).join(" ")}
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          setSent(fields);
+          dialog.current?.showModal();
+        }}
       >
         {label}
       </button>
@@ -59,7 +67,7 @@ export function ConfirmAction({
           <h2 id={titleId}>{title}</h2>
           <div>{children}</div>
           <FormAlert state={state} />
-          {Object.entries(fields).map(([name, value]) => (
+          {Object.entries(sent).map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
           ))}
           <div className="adm-actions">

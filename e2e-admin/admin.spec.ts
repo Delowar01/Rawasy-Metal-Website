@@ -490,7 +490,7 @@ test.describe("users, invitations and roles", () => {
   });
 
   const PETRA = { email: "petra.password@example.test", name: "Petra Password" };
-  const PETRA_PASSWORDS = ["lilac anchor tundra bicycle", "walnut comet harbour violet"];
+  const PETRA_PASSWORDS = ["lilac anchor tundra bicycle", "walnut comet harbour violet", "ember quarry saddle lagoon"];
   const rolesOfPetra = async () =>
     (
       await queryTestDb<{ role_key: string }>(
@@ -604,6 +604,86 @@ test.describe("users, invitations and roles", () => {
     const rolesForm = page.locator("main form").filter({ has: page.getByRole("button", { name: "Save roles" }) });
     await expect(rolesForm.getByRole("status")).toContainText("No change");
     expect(await rolesOfPetra()).toEqual(["admin", "editor"]);
+  });
+
+  test("a two-factor reset confirmed in a dialog opened before the account's password was changed is refused, though the page refreshed behind it (A2 Correction 2)", async ({
+    browser,
+    page,
+  }) => {
+    const mfaOfPetra = async () =>
+      Number(
+        (await queryTestDb<{ n: number }>("SELECT COUNT(*) AS n FROM user_mfa m JOIN users u ON u.id = m.user_id WHERE u.email_normalized = ?", [PETRA.email]))[0]?.n,
+      );
+    const CHANGED = "Refused: the account changed after the page that asked for this was opened.";
+    expect(await rolesOfPetra()).toEqual(["admin", "editor"]);
+    // Petra (an Admin: two-factor required) signs in and sets up her authenticator app.
+    const petra = await newPage(browser);
+    await signIn(petra, PETRA.email, PETRA_PASSWORDS[1]);
+    await expect(petra).toHaveURL(/\/admin\/login\/enrol$/);
+    await enrol(petra, PETRA_PASSWORDS[1]);
+    await petra.getByRole("link", { name: /I saved them/ }).click();
+    await expect(petra).toHaveURL(/\/admin$/);
+    expect(await mfaOfPetra()).toBe(1);
+    // The Owner opens Petra's page.
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/users");
+    await page.getByRole("link", { name: PETRA.name }).click();
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await expect(page.getByRole("button", { name: "Reset two-factor" })).toBeVisible();
+    // Behind an open modal dialog the page is inert: read it with CSS locators.
+    const newestEvent = page.locator("section[aria-labelledby='user-events'] li").first();
+    await expect(newestEvent).not.toContainText("Password changed;");
+    // Whoever holds Petra's password changes it, in her own signed-in session.
+    const shown = await passwordChangeOfPetra();
+    await petra.goto("/admin/account");
+    await petra.getByLabel("Current password").fill(PETRA_PASSWORDS[1]);
+    await petra.getByLabel("New password", { exact: true }).fill(PETRA_PASSWORDS[2]);
+    await petra.getByLabel("Repeat the new password").fill(PETRA_PASSWORDS[2]);
+    await petra.getByRole("button", { name: "Change password" }).click();
+    await expect(petra.locator("main").getByRole("status")).toContainText("Password changed");
+    await petra.context().close();
+    expect(await passwordChangeOfPetra()).not.toBe(shown);
+    // On the older page the Owner saves the roles unchanged (another action, held on its way) and, before its answer
+    // arrives, opens the two-factor reset.
+    const userPath = new URL(page.url()).pathname;
+    const onUserPage = (url: URL) => url.pathname === userPath;
+    let release = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    let held = false;
+    await page.route(onUserPage, async (route) => {
+      if (route.request().method() !== "POST" || held) return route.fallback();
+      held = true;
+      await released;
+      await route.continue();
+    });
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect.poll(() => held).toBe(true);
+    await page.getByRole("button", { name: "Reset two-factor" }).click();
+    const dialog = page.getByRole("dialog", { name: "Reset two-factor authentication?" });
+    await expect(dialog).toBeVisible();
+    const opened = await dialog.locator("input[name='version']").inputValue();
+    // The save's answer arrives ("No change.") and the page refreshes behind the open dialog: it shows the password change.
+    release();
+    const rolesForm = page.locator("main form").filter({ has: page.locator("button", { hasText: "Save roles" }) });
+    await expect(rolesForm.locator("[role='status']")).toContainText("No change");
+    await expect(newestEvent).toContainText("Password changed;");
+    await page.unroute(onUserPage);
+    // The reset confirmed in the dialog opened on the older page is refused: it is sent with that page's fingerprint.
+    const refusals = await deniedAudits(CHANGED, "user.mfa_reset");
+    await dialog.getByRole("button", { name: "Reset", exact: true }).click();
+    await expect.poll(async () => (await mfaOfPetra()) === 0 || (await deniedAudits(CHANGED, "user.mfa_reset")) > refusals).toBe(true);
+    expect(await mfaOfPetra(), "the reset chosen before the password change did not go through").toBe(1);
+    await expect(dialog.getByRole("alert")).toContainText("This account changed after you opened this page");
+    expect(await dialog.locator("input[name='version']").inputValue(), "the open dialog kept the fingerprint it was opened with").toBe(opened);
+    // Opened again on the page as it is now, the dialog takes that page's fingerprint, and the reset goes through.
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Reset two-factor" }).click();
+    await expect(dialog.locator("input[name='version']")).not.toHaveValue(opened);
+    await dialog.getByRole("button", { name: "Reset", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    expect(await mfaOfPetra()).toBe(0);
   });
 });
 
