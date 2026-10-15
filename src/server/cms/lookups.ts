@@ -8,20 +8,9 @@ import { localeStateSql } from "./list.ts";
 import type { LocaleState } from "./completeness.ts";
 import { ENTITIES, type EntityType } from "./registry.ts";
 import { rowsOf } from "./store.ts";
+import { COMPLETENESS } from "./translated.ts";
 
 const id = (name: string) => sql.identifier(name);
-
-/** Title columns per type (the field the lists and pickers name an item by). */
-const TITLE: Record<EntityType, string> = {
-  page: "title",
-  service: "name",
-  machine: "name",
-  project: "title",
-  project_category: "label",
-  industry: "name",
-  client: "name",
-  certificate: "title",
-};
 
 export interface ItemRef {
   id: string;
@@ -41,7 +30,7 @@ export const PICKER_LIMIT = 500;
 function refQuery(type: EntityType, where: ReturnType<typeof sql>, limit = PICKER_LIMIT) {
   const info = ENTITIES[type];
   const parent = id(info.trParent);
-  const title = id(TITLE[type]);
+  const title = id(COMPLETENESS[type].title);
   const ordering = info.orderingKey ? sql`LEFT JOIN entity_ordering_items oi ON oi.ordering_key = ${info.orderingKey} AND oi.entity_id = r.id` : sql``;
   return sql`SELECT r.id, r.slug, (r.publication_status = 'archived') AS archived,
       te.${title} AS title_en, ta.${title} AS title_ar,

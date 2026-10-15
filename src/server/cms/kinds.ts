@@ -21,39 +21,28 @@ import type { AnyMySqlColumn, AnyMySqlTable } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import type { Db } from "../db/client.ts";
 import {
-  certificateFacts,
-  certificateFactTranslations,
   certificates,
-  certificateTranslations,
   clients,
-  clientTranslations,
   industries,
   industryProjects,
   industryServices,
-  industryTranslations,
-  machineAttributes,
-  machineAttributeTranslations,
   machines,
-  machineTranslations,
   pages,
-  pageTranslations,
   projectCategories,
   projectCategoryAssignments,
-  projectCategoryTranslations,
   projects,
   projectServices,
-  projectTranslations,
   serviceFeaturedProjects,
   serviceMachines,
   serviceRelatedServices,
   services,
-  serviceTranslations,
 } from "../db/schema-cms.ts";
-import type { KindSpec, RelationRefusal, TrField } from "./engine.ts";
+import type { KindSpec, RelationRefusal } from "./engine.ts";
 import { refLabel, refsByIds, type ItemRef } from "./lookups.ts";
 import { LIMITS, SERVICE_ICON_KEYS, type EntityType } from "./registry.ts";
 import { rowsOf, targetStates, type FieldErrors, type RelationTable } from "./store.ts";
 import { httpsUrlProblem, normalizedHttpsUrl } from "./text.ts";
+import { CERTIFICATE_FACT_TABLES, MACHINE_ATTRIBUTE_TABLES, TRANSLATED } from "./translated.ts";
 
 const T = LIMITS.text;
 const checkbox = z.string().max(16).optional().transform((v) => v !== undefined);
@@ -73,13 +62,6 @@ const dateField = z.preprocess(
     }, "Use a date that exists.")
     .optional(),
 );
-
-const SEO_FIELDS: TrField[] = [
-  { key: "seoTitle", label: "SEO title", kind: "line", max: T.seoTitle, optional: true, seo: true, hint: "Falls back to the title. Over 60 characters may be cut by search engines." },
-  { key: "seoDescription", label: "SEO description", kind: "line", max: T.seoDescription, optional: true, seo: true, hint: "Falls back to the summary. Over 160 characters may be cut." },
-  { key: "ogTitle", label: "Share title", kind: "line", max: T.seoTitle, optional: true, seo: true, hint: "Falls back to the SEO title." },
-  { key: "ogDescription", label: "Share description", kind: "line", max: T.seoDescription, optional: true, seo: true, hint: "Falls back to the SEO description." },
-];
 
 /** An ordered relation table: (owner, target, position) columns named by the table's own properties. */
 const rel = <Tab extends AnyMySqlTable & { position: AnyMySqlColumn }>(table: Tab, owner: keyof Tab & string, target: keyof Tab & string): RelationTable => ({
@@ -111,16 +93,7 @@ export const pageSpec: KindSpec = {
   hasSeo: true,
   root: pages,
   rootId: pages.id,
-  tr: pageTranslations,
-  trParentColumn: pageTranslations.pageId,
-  trLocaleColumn: pageTranslations.locale,
-  trParentKey: "pageId",
-  titleKey: "title",
-  fields: [
-    { key: "title", label: "Title", kind: "line", max: T.pageTitle, required: true, search: true },
-    { key: "navLabel", label: "Navigation label", kind: "line", max: T.navLabel, optional: true, search: true, hint: "A short label for menus and breadcrumbs (optional)." },
-    ...SEO_FIELDS,
-  ],
+  ...TRANSLATED.page,
   rootShape: { navHidden: checkbox, effectiveDate: dateField },
   rootColumns: (input, { pageType }) => ({ navHidden: input.navHidden === true, effectiveDate: pageType === "legal" ? ((input.effectiveDate as string) ?? null) : null }),
   rootValues: (row) => ({ navHidden: Boolean(row.navHidden), effectiveDate: row.effectiveDate ?? null }),
@@ -218,26 +191,7 @@ export const serviceSpec: KindSpec = {
   hasSeo: true,
   root: services,
   rootId: services.id,
-  tr: serviceTranslations,
-  trParentColumn: serviceTranslations.serviceId,
-  trLocaleColumn: serviceTranslations.locale,
-  trParentKey: "serviceId",
-  titleKey: "name",
-  fields: [
-    { key: "name", label: "Name", kind: "line", max: T.serviceName, required: true, search: true },
-    { key: "tagline", label: "Tagline", kind: "line", max: T.tagline, required: true, search: true, hint: "One line for cards and the footer." },
-    { key: "summary", label: "Summary", kind: "text", max: T.summary, required: true, search: true, hint: "Two or three sentences." },
-    { key: "body", label: "Description", kind: "rich", max: T.paragraph, required: true },
-    {
-      key: "highlights",
-      label: "Highlights (key points)",
-      kind: "lines",
-      max: T.highlight,
-      maxItems: T.highlights,
-      hint: "The service's key points or benefits.",
-    },
-    ...SEO_FIELDS,
-  ],
+  ...TRANSLATED.service,
   rootShape: {
     serviceGroup: z.enum(["metal", "scaffolding"], { message: "Choose the section." }),
     iconKey: z.enum(SERVICE_ICON_KEYS, { message: "Choose an icon." }),
@@ -276,17 +230,7 @@ export const machineSpec: KindSpec = {
   hasSeo: false,
   root: machines,
   rootId: machines.id,
-  tr: machineTranslations,
-  trParentColumn: machineTranslations.machineId,
-  trLocaleColumn: machineTranslations.locale,
-  trParentKey: "machineId",
-  titleKey: "name",
-  fields: [
-    { key: "name", label: "Name (as printed)", kind: "line", max: T.machineName, required: true, search: true },
-    { key: "shortName", label: "Short name", kind: "line", max: T.shortName, required: true, search: true },
-    { key: "category", label: "Type", kind: "line", max: T.category, required: true, search: true },
-    { key: "capability", label: "Capability", kind: "text", max: T.capability, required: true, hint: "Only what the source states." },
-  ],
+  ...TRANSLATED.machine,
   rootShape: {
     powerWatts: z.preprocess(
       (v) => (v === "" || v === undefined ? undefined : v),
@@ -312,15 +256,7 @@ export const machineSpec: KindSpec = {
   children: {
     key: "attributes",
     label: "Technical attributes",
-    table: machineAttributes,
-    idColumn: machineAttributes.id,
-    parentColumn: machineAttributes.machineId,
-    positionColumn: machineAttributes.position,
-    parentKey: "machineId",
-    trTable: machineAttributeTranslations,
-    trParentColumn: machineAttributeTranslations.attributeId,
-    trLocaleColumn: machineAttributeTranslations.locale,
-    trParentKey: "attributeId",
+    ...MACHINE_ATTRIBUTE_TABLES,
     max: LIMITS.attributes,
     labelMax: T.attrLabel,
     valueMax: T.attrValue,
@@ -336,23 +272,7 @@ export const projectSpec: KindSpec = {
   hasSeo: true,
   root: projects,
   rootId: projects.id,
-  tr: projectTranslations,
-  trParentColumn: projectTranslations.projectId,
-  trLocaleColumn: projectTranslations.locale,
-  trParentKey: "projectId",
-  titleKey: "title",
-  fields: [
-    { key: "title", label: "Title", kind: "line", max: T.projectTitle, required: true, search: true },
-    { key: "summary", label: "Summary", kind: "text", max: T.summary, required: true, search: true, hint: "Describe only what the photos show." },
-    { key: "scope", label: "Scope", kind: "text", max: T.scope, optional: true, hint: "Only once confirmed." },
-    { key: "description", label: "Description", kind: "rich", max: T.paragraph, optional: true, hint: "Only once confirmed." },
-    { key: "materials", label: "Materials", kind: "line", max: T.materials, optional: true, hint: "Only once confirmed." },
-    { key: "location", label: "Location", kind: "line", max: T.location, optional: true, search: true, hint: "Only once confirmed." },
-    { key: "clientName", label: "Client name", kind: "line", max: T.clientName, optional: true, hint: "Only when the client has no client record, and only once confirmed." },
-    { key: "challenge", label: "Challenge", kind: "text", max: T.challenge, optional: true, hint: "Only once confirmed." },
-    { key: "solution", label: "Solution", kind: "text", max: T.solution, optional: true, hint: "Only once confirmed." },
-    ...SEO_FIELDS,
-  ],
+  ...TRANSLATED.project,
   rootShape: {
     galleryRef: z.preprocess(empty, z.string().max(T.galleryRef).regex(/^[A-Za-z0-9. -]+$/, "Letters, digits, dots and spaces, e.g. 04 or p.3.").optional()),
     year: z.preprocess(
@@ -424,12 +344,7 @@ export const categorySpec: KindSpec = {
   hasSeo: false,
   root: projectCategories,
   rootId: projectCategories.id,
-  tr: projectCategoryTranslations,
-  trParentColumn: projectCategoryTranslations.categoryId,
-  trLocaleColumn: projectCategoryTranslations.locale,
-  trParentKey: "categoryId",
-  titleKey: "label",
-  fields: [{ key: "label", label: "Label", kind: "line", max: T.categoryLabel, required: true, search: true }],
+  ...TRANSLATED.project_category,
   rootShape: {},
   rootColumns: () => ({}),
   rootValues: () => ({}),
@@ -489,15 +404,7 @@ export const industrySpec: KindSpec = {
   hasSeo: false,
   root: industries,
   rootId: industries.id,
-  tr: industryTranslations,
-  trParentColumn: industryTranslations.industryId,
-  trLocaleColumn: industryTranslations.locale,
-  trParentKey: "industryId",
-  titleKey: "name",
-  fields: [
-    { key: "name", label: "Name", kind: "line", max: T.industryName, required: true, search: true },
-    { key: "description", label: "Description", kind: "text", max: T.industryDescription, required: true, search: true },
-  ],
+  ...TRANSLATED.industry,
   rootShape: { classification: z.enum(["profile_sector", "website_classification"], { message: "Choose where the sector comes from." }) },
   rootColumns: (input) => ({ classification: input.classification }),
   rootValues: (row) => ({ classification: row.classification }),
@@ -517,12 +424,7 @@ export const clientSpec: KindSpec = {
   hasSeo: false,
   root: clients,
   rootId: clients.id,
-  tr: clientTranslations,
-  trParentColumn: clientTranslations.clientId,
-  trLocaleColumn: clientTranslations.locale,
-  trParentKey: "clientId",
-  titleKey: "name",
-  fields: [{ key: "name", label: "Name", kind: "line", max: T.clientName, required: true, search: true }],
+  ...TRANSLATED.client,
   rootShape: {
     websiteUrl: z.preprocess(
       (v) => (typeof v === "string" ? v.trim() || undefined : v),
@@ -554,15 +456,7 @@ export const certificateSpec: KindSpec = {
   hasSeo: false,
   root: certificates,
   rootId: certificates.id,
-  tr: certificateTranslations,
-  trParentColumn: certificateTranslations.certificateId,
-  trLocaleColumn: certificateTranslations.locale,
-  trParentKey: "certificateId",
-  titleKey: "title",
-  fields: [
-    { key: "title", label: "Title", kind: "line", max: T.certificateTitle, required: true, search: true, digitGuard: true },
-    { key: "issuer", label: "Issuer", kind: "line", max: T.issuer, required: true, search: true, digitGuard: true },
-  ],
+  ...TRANSLATED.certificate,
   rootShape: { expiresOn: dateField },
   rootColumns: (input) => ({ expiresOn: (input.expiresOn as string | undefined) ?? null }),
   rootValues: (row) => ({ expiresOn: row.expiresOn ?? null }),
@@ -570,15 +464,7 @@ export const certificateSpec: KindSpec = {
   children: {
     key: "facts",
     label: "Displayed facts",
-    table: certificateFacts,
-    idColumn: certificateFacts.id,
-    parentColumn: certificateFacts.certificateId,
-    positionColumn: certificateFacts.position,
-    parentKey: "certificateId",
-    trTable: certificateFactTranslations,
-    trParentColumn: certificateFactTranslations.factId,
-    trLocaleColumn: certificateFactTranslations.locale,
-    trParentKey: "factId",
+    ...CERTIFICATE_FACT_TABLES,
     max: LIMITS.facts,
     labelMax: T.factLabel,
     valueMax: T.factValue,

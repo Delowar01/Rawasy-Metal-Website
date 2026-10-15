@@ -2,9 +2,10 @@
  * The list screens' queries (A3 brief §17, §42–§44): server-side search, filters and pagination, never unlimited rows.
  * The state lives in the address's query parameters (bookmarkable); unknown or out-of-range values fall back to the
  * defaults. Search compares Arabic-normalized text (A1 `search_documents`) and the slug; language states are computed
- * in SQL with the same required fields the editor uses, so a filter and a badge never disagree.
+ * in SQL from the same field definition the editor uses (`translated.ts`), so a filter and a badge never disagree.
  *
- * Table and column names come from this file's fixed maps; every value is a bound parameter.
+ * Table and column names come from code — this file's fixed maps and the field definition (`translated.ts`) — never from
+ * input; every value is a bound parameter.
  */
 import { sql, type SQL } from "drizzle-orm";
 import type { Db } from "../db/client.ts";
@@ -12,44 +13,22 @@ import type { LocaleState } from "./completeness.ts";
 import { ENTITIES, LIMITS, PROJECT_FLAGS, type EntityType, type Locale } from "./registry.ts";
 import { instantOf, rowsOf } from "./store.ts";
 import { likePattern, normalizeForSearch } from "./text.ts";
-
-interface ChildRule {
-  table: string;
-  parent: string;
-  tr: string;
-  trParent: string;
-}
-
-/** Required translated columns per type (the same as the editor's `required` fields). */
-const REQUIRED: Record<EntityType, { title: string; text: string[]; rich?: string[]; children?: ChildRule }> = {
-  page: { title: "title", text: ["title"] },
-  service: { title: "name", text: ["name", "tagline", "summary"], rich: ["body"] },
-  machine: {
-    title: "name",
-    text: ["name", "short_name", "category", "capability"],
-    children: { table: "machine_attributes", parent: "machine_id", tr: "machine_attribute_translations", trParent: "attribute_id" },
-  },
-  project: { title: "title", text: ["title", "summary"] },
-  project_category: { title: "label", text: ["label"] },
-  industry: { title: "name", text: ["name", "description"] },
-  client: { title: "name", text: ["name"] },
-  certificate: {
-    title: "title",
-    text: ["title", "issuer"],
-    children: { table: "certificate_facts", parent: "certificate_id", tr: "certificate_fact_translations", trParent: "fact_id" },
-  },
-};
+import { COMPLETENESS } from "./translated.ts";
 
 const id = (name: string) => sql.identifier(name);
 
-/** The state of one language of the root `r`, as SQL (missing / incomplete / draft / complete / needs_review). */
+/**
+ * The state of one language of the root `r`, as SQL (missing / incomplete / draft / complete / needs_review): the
+ * editor's rule (`requiredFilled`) over the same required fields (`COMPLETENESS`, derived from `translated.ts`).
+ */
 export function localeStateSql(type: EntityType, alias: string, locale: Locale): SQL {
-  const rule = REQUIRED[type];
+  const rule = COMPLETENESS[type];
   const t = id(alias);
   const parent = id(ENTITIES[type].trParent);
   const filled = [
     ...rule.text.map((c) => sql`${t}.${id(c)} <> ''`),
-    ...(rule.rich ?? []).map((c) => sql`JSON_LENGTH(${t}.${id(c)}, '$.content') > 0`),
+    ...rule.rich.map((c) => sql`JSON_LENGTH(${t}.${id(c)}, '$.content') > 0`),
+    ...rule.lines.map((c) => sql`JSON_LENGTH(${t}.${id(c)}) > 0`),
     ...(rule.children
       ? [
           sql`NOT EXISTS (SELECT 1 FROM ${id(rule.children.table)} c LEFT JOIN ${id(rule.children.tr)} ct
@@ -95,7 +74,7 @@ function extraColumns(type: EntityType): SQL {
 /** The base rows of a type: every item not in the Trash, with titles, language states, order and attribution. */
 function baseQuery(type: EntityType): SQL {
   const info = ENTITIES[type];
-  const rule = REQUIRED[type];
+  const rule = COMPLETENESS[type];
   const tr = id(info.trTable);
   const parent = id(info.trParent);
   const ordering = info.orderingKey

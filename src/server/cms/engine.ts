@@ -46,33 +46,12 @@ import {
 } from "./store.ts";
 import { digitGuardProblem, docToPlain, EMPTY_DOC, isDocEmpty, linesList, plainText, richTextFromPlain, sitePathProblem, storedLines } from "./text.ts";
 import { diffOrdered } from "./reorder.ts";
+import type { ChildTables, TranslatedSpec, TrField } from "./translated.ts";
 import type { AnchorNamespace } from "../../i18n/reserved-slugs.ts";
 
 // --- Specifications ----------------------------------------------------------------------------------------------------
 
-export type TextKind = "line" | "text" | "rich" | "lines";
-
-/** A translated field: its column (property name), how it is edited and checked, and what completeness needs. */
-export interface TrField {
-  key: string;
-  label: string;
-  kind: TextKind;
-  /** Characters (rich text: per paragraph; lines: per line). */
-  max: number;
-  /** Required for the language to be complete (a NOT NULL column holding "" while missing). */
-  required?: boolean;
-  /** Nullable column: stored NULL when empty (optional facts, A1 §3.5). */
-  optional?: boolean;
-  /** Lines: at most this many. */
-  maxItems?: number;
-  /** Public certificate text: the digit guard applies. */
-  digitGuard?: boolean;
-  /** Included in the admin search body. */
-  search?: boolean;
-  /** Shown in the SEO section of the editor. */
-  seo?: boolean;
-  hint?: string;
-}
+export type { TextKind, TrField } from "./translated.ts";
 
 /**
  * A refusal that another record's state imposes on a relation change (A3 Correction 1): its message goes on the
@@ -101,26 +80,18 @@ export interface RelationSpec {
   hint?: string;
 }
 
-/** Ordered child items with label/value texts per language (certificate facts, machine attributes). */
-export interface ChildSpec {
+/** Ordered child items with label/value texts per language (certificate facts, machine attributes; tables: `translated.ts`). */
+export interface ChildSpec extends ChildTables {
   key: "facts" | "attributes";
   label: string;
-  table: AnyMySqlTable;
-  idColumn: AnyMySqlColumn;
-  parentColumn: AnyMySqlColumn;
-  positionColumn: AnyMySqlColumn;
-  parentKey: string;
-  trTable: AnyMySqlTable;
-  trParentColumn: AnyMySqlColumn;
-  trLocaleColumn: AnyMySqlColumn;
-  trParentKey: string;
   max: number;
   labelMax: number;
   valueMax: number;
   digitGuard?: boolean;
 }
 
-export interface KindSpec {
+/** A content type: its translations (`translated.ts`, shared with the lists) and everything else the engine needs. */
+export interface KindSpec extends TranslatedSpec {
   type: EntityType;
   /** Where the slug is used: generic pages (reserved routes), an anchor namespace, or a plain unique slug. */
   slugNamespace: "page" | AnchorNamespace | null;
@@ -128,13 +99,6 @@ export interface KindSpec {
   hasSeo: boolean;
   root: AnyMySqlTable;
   rootId: AnyMySqlColumn;
-  tr: AnyMySqlTable;
-  trParentColumn: AnyMySqlColumn;
-  trLocaleColumn: AnyMySqlColumn;
-  trParentKey: string;
-  fields: readonly TrField[];
-  /** The field used as the item's title (lists, audit, search). */
-  titleKey: string;
   /** Root fields of this type (validated; column property → schema). Slug, provenance and SEO are handled here. */
   rootShape: z.ZodRawShape;
   /** Root columns to write from the parsed root fields (pages: decided with the record's own page type). */
