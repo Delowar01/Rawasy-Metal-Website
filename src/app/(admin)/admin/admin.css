@@ -232,6 +232,13 @@ body.adm {
   align-items: center;
 }
 
+/* A long button label wraps on a narrow phone, centred like a one-line label (a link styled as a button included),
+   instead of pushing the page wider than the screen (A2 final visual correction). */
+.adm-entry-card .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* Shell                                                                                                              */
 
