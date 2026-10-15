@@ -9,6 +9,7 @@ import {
   ageAuthentication,
   beginSetUp,
   bootstrapLink,
+  cli,
   enrol,
   finishSetUp,
   freshCode,
@@ -486,6 +487,123 @@ test.describe("users, invitations and roles", () => {
     await page.getByRole("button", { name: "Save roles" }).click();
     await expect(page.locator("main").getByRole("status")).toContainText("Roles of Ivy Invited");
     expect(await rolesOfIvy()).toEqual(["admin", "editor"]);
+  });
+
+  const PETRA = { email: "petra.password@example.test", name: "Petra Password" };
+  const PETRA_PASSWORDS = ["lilac anchor tundra bicycle", "walnut comet harbour violet"];
+  const rolesOfPetra = async () =>
+    (
+      await queryTestDb<{ role_key: string }>(
+        "SELECT ur.role_key FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE u.email_normalized = ? ORDER BY ur.role_key",
+        [PETRA.email],
+      )
+    ).map((r) => r.role_key);
+  const passwordChangeOfPetra = async () =>
+    (await queryTestDb<{ at: string }>("SELECT CAST(password_changed_at AS CHAR) AS at FROM users WHERE email_normalized = ?", [PETRA.email]))[0]?.at;
+
+  test("a promotion chosen before the account's password was changed is refused; a removal from the same page is not; reloaded, it goes through (A2 Correction 2)", async ({
+    browser,
+    page,
+  }) => {
+    // The Owner invites Petra as an Editor and a Reviewer; Petra activates the account (no second factor: optional for both).
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/users/invite");
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await page.getByLabel("Email", { exact: true }).fill(PETRA.email);
+    await page.getByLabel("Name", { exact: true }).fill(PETRA.name);
+    await page.getByRole("checkbox", { name: /^Editor/ }).check();
+    await page.getByRole("checkbox", { name: /^Reviewer/ }).check();
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText(`Invitation sent to ${PETRA.email}`);
+    const petra = await newPage(browser);
+    await petra.goto(linkIn(mailTo(PETRA.email).at(-1), "invite"));
+    await petra.getByLabel("New password", { exact: true }).fill(PASSWORDS.editor);
+    await petra.getByLabel("Repeat the new password").fill(PASSWORDS.editor);
+    await petra.getByRole("button", { name: "Set password and activate" }).click();
+    await expect(petra).toHaveURL(/welcome=1/);
+    await signIn(petra, PETRA.email, PASSWORDS.editor);
+    await expect(petra).toHaveURL(/\/admin$/);
+    // The Owner opens Petra's page and ticks Admin ...
+    await page.goto("/admin/users");
+    await page.getByRole("link", { name: PETRA.name }).click();
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await expect(page).toHaveURL(/\/admin\/users\/[0-9A-HJKMNP-TV-Z]{26}$/);
+    await expect(page.getByRole("checkbox", { name: /^Reviewer/ })).toBeChecked();
+    const shown = await passwordChangeOfPetra();
+    await page.getByRole("checkbox", { name: /^Admin/ }).check();
+    // ... while whoever holds Petra's password changes it, in Petra's own signed-in session.
+    await petra.goto("/admin/account");
+    await petra.getByLabel("Current password").fill(PASSWORDS.editor);
+    await petra.getByLabel("New password", { exact: true }).fill(PETRA_PASSWORDS[0]);
+    await petra.getByLabel("Repeat the new password").fill(PETRA_PASSWORDS[0]);
+    await petra.getByRole("button", { name: "Change password" }).click();
+    await expect(petra.locator("main").getByRole("status")).toContainText("Password changed");
+    await petra.context().close();
+    expect(await passwordChangeOfPetra()).not.toBe(shown);
+    // The promotion chosen on the older page is refused, and Admin is not granted.
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("alert")).toContainText("This account changed after you opened this page");
+    expect(await rolesOfPetra()).toEqual(["editor", "reviewer"]);
+    // A removal chosen on the same older page is not held off by the password change: Reviewer goes.
+    await page.getByRole("checkbox", { name: /^Admin/ }).uncheck();
+    await page.getByRole("checkbox", { name: /^Reviewer/ }).uncheck();
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText("Roles of Petra Password");
+    expect(await rolesOfPetra()).toEqual(["editor"]);
+    // Reloaded, the form is rebuilt from the account as it is now; the promotion chosen on that goes through.
+    await page.reload();
+    await expect(page.getByRole("checkbox", { name: /^Editor/ })).toBeChecked();
+    await expect(page.getByRole("checkbox", { name: /^Admin/ })).not.toBeChecked();
+    await page.getByRole("checkbox", { name: /^Admin/ }).check();
+    await page.getByRole("button", { name: "Save roles" }).click();
+    await expect(page.locator("main").getByRole("status")).toContainText("Roles of Petra Password");
+    expect(await rolesOfPetra()).toEqual(["admin", "editor"]);
+  });
+
+  test("boxes ticked before the account's password was changed are not sent after another action refreshes the page (A2 Correction 2)", async ({
+    browser,
+    page,
+  }) => {
+    expect(await rolesOfPetra()).toEqual(["admin", "editor"]);
+    // Petra signs in (an Admin without a second factor: the session waits at the set-up), so the page lists a session.
+    const petra = await newPage(browser);
+    await signIn(petra, PETRA.email, PETRA_PASSWORDS[0]);
+    await expect(petra).toHaveURL(/\/admin\/login\/enrol$/);
+    await petra.context().close();
+    await signIn(page, OWNER.email, PASSWORDS.owner);
+    await verify(page, ownerSecret);
+    await page.goto("/admin/users");
+    await page.getByRole("link", { name: PETRA.name }).click();
+    await stepUpIfAsked(page, PASSWORDS.owner, ownerSecret);
+    await expect(page.getByRole("button", { name: "Sign out everywhere" })).toBeVisible();
+    // The Owner ticks Owner ...
+    await page.getByRole("checkbox", { name: /^Owner/ }).check();
+    // ... while a reset link (the server-side recovery) sets a new password for Petra.
+    const shown = await passwordChangeOfPetra();
+    const link = /http:\/\/localhost:\d+\/admin\/reset\/[A-Za-z0-9_-]{43}/.exec(cli("admin-bootstrap.mjs", ["--reset", PETRA.email]))?.[0];
+    expect(link, "the recovery printed a reset link").toBeTruthy();
+    const reset = await newPage(browser);
+    await reset.goto(link as string);
+    await reset.getByLabel("New password", { exact: true }).fill(PETRA_PASSWORDS[1]);
+    await reset.getByLabel("Repeat the new password").fill(PETRA_PASSWORDS[1]);
+    await reset.getByRole("button", { name: "Set new password" }).click();
+    await expect(reset).toHaveURL(/\/admin\/login\?reset=1$/);
+    await reset.context().close();
+    expect(await passwordChangeOfPetra()).not.toBe(shown);
+    // Another action on the same page refreshes it (its access, which the other forms decide on, did not change) ...
+    await page.getByRole("button", { name: "Sign out everywhere" }).click();
+    const dialog = page.getByRole("dialog", { name: `Sign ${PETRA.name} out everywhere?` });
+    await dialog.getByRole("button", { name: "Sign out" }).click();
+    await expect(dialog).toBeHidden();
+    // ... and the role boxes are drawn again for the account as it is now: the Owner tick chosen before the password
+    // change is gone, so a save cannot send it with the page's newer fingerprints.
+    await expect(page.getByRole("checkbox", { name: /^Owner/ })).not.toBeChecked();
+    await expect(page.getByRole("checkbox", { name: /^Admin/ })).toBeChecked();
+    await page.getByRole("button", { name: "Save roles" }).click();
+    const rolesForm = page.locator("main form").filter({ has: page.getByRole("button", { name: "Save roles" }) });
+    await expect(rolesForm.getByRole("status")).toContainText("No change");
+    expect(await rolesOfPetra()).toEqual(["admin", "editor"]);
   });
 });
 

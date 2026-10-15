@@ -14,7 +14,8 @@ import { actionContext, failure, type ActionState } from "../guards";
 const ULID = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/);
 /**
  * The account as the page showed it (`accountVersion`, A2 Correction 1, fifth review): changes that can grant, restore or
- * loosen access are refused when the account has changed since, so nothing is decided on an older state of it.
+ * loosen access are refused when the account has changed since, so nothing is decided on an older state of it. The roles
+ * form also sends its credentials as shown (`rolesVersion`, A2 Correction 2), for a change that adds privilege.
  */
 const VERSION = z.string().regex(/^[0-9a-f]{32}$/);
 
@@ -100,11 +101,11 @@ export async function setUserRolesAction(_prev: ActionState, form: FormData): Pr
   if (!ctx.ok) return ctx.state;
   const { deps, actor, meta } = ctx.context;
   const input = z
-    .object({ user: ULID, roles: z.array(z.enum(ROLE_KEYS as [string, ...string[]])).max(4), version: VERSION })
-    .safeParse({ user: form.get("user"), roles: form.getAll("roles"), version: form.get("version") });
+    .object({ user: ULID, roles: z.array(z.enum(ROLE_KEYS as [string, ...string[]])).max(4), version: VERSION, rolesVersion: VERSION })
+    .safeParse({ user: form.get("user"), roles: form.getAll("roles"), version: form.get("version"), rolesVersion: form.get("rolesVersion") });
   if (!input.success) return failure("Choose valid roles.");
-  const { user, roles, version } = input.data;
-  return outcome(await guarded(() => setUserRoles(deps, actor, user, roles, meta, { version })));
+  const { user, roles, version, rolesVersion } = input.data;
+  return outcome(await guarded(() => setUserRoles(deps, actor, user, roles, meta, { version, rolesVersion })));
 }
 
 export async function revokeUserSessionsAction(_prev: ActionState, form: FormData): Promise<ActionState> {

@@ -127,12 +127,26 @@ export function ResendInvitation({ userId, email, version }: { userId: string; e
 /**
  * `version` is the account as this page shows it (status, roles, second factor): the server refuses the change if the
  * account has changed since — an invitation accepted, a role taken away meanwhile — so the change is decided on what
- * the page shows. The boxes always go with the version they were drawn for: they are rebuilt with it (sixth review: a
- * refresh after any other action on the page brings a new version, and boxes ticked for the older state must not be
- * sent with it), and the browser does not keep them (`autoComplete="off"`, seventh review: going back to a page it loads
- * again, or restoring a session, a browser would put the older ticks back beside the newer version).
+ * the page shows. `rolesVersion` adds its credentials (the password's last change, the recovery codes issued): a change
+ * that adds privilege is also refused if those moved (A2 Correction 2). The boxes always go with the versions they were
+ * drawn for: they are rebuilt with them (sixth review: a refresh after any other action on the page brings new versions,
+ * and boxes ticked for the older state must not be sent with them), and the browser does not keep them
+ * (`autoComplete="off"`, seventh review: going back to a page it loads again, or restoring a session, a browser would
+ * put the older ticks back beside the newer versions).
  */
-export function UserRolesForm({ userId, version, roles, selected }: { userId: string; version: string; roles: RoleOption[]; selected: string[] }) {
+export function UserRolesForm({
+  userId,
+  version,
+  rolesVersion,
+  roles,
+  selected,
+}: {
+  userId: string;
+  version: string;
+  rolesVersion: string;
+  roles: RoleOption[];
+  selected: string[];
+}) {
   const [state, action] = useActionState(setUserRolesAction, idle);
   const router = useRouter();
   useEffect(() => {
@@ -142,8 +156,9 @@ export function UserRolesForm({ userId, version, roles, selected }: { userId: st
     <form action={action} className="adm-form" autoComplete="off">
       <FormAlert state={state} />
       <input type="hidden" name="user" value={userId} />
-      <Fragment key={version}>
+      <Fragment key={`${version}:${rolesVersion}`}>
         <input type="hidden" name="version" value={version} />
+        <input type="hidden" name="rolesVersion" value={rolesVersion} />
         <RoleChecks roles={roles} selected={selected} />
       </Fragment>
       <p className="adm-hint">Saving a change signs the user out of every session.</p>

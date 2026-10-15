@@ -8,9 +8,9 @@
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { recordAudit, userLabel } from "../audit/audit.ts";
 import { inTransaction, type Db } from "../db/client.ts";
-import { auditEvents, loginAttempts, sessions, userMfa, userRoles, users } from "../db/schema.ts";
+import { auditEvents, loginAttempts, sessions, userMfa, userRecoveryCodes, userRoles, users } from "../db/schema.ts";
 import { mailTemplates, sendQuietly } from "../mail/mailer.ts";
-import { canGrantRoles, canManageUser, isOwner } from "../policy/rbac.ts";
+import { addsPrivilege, canGrantRoles, canManageUser, isOwner } from "../policy/rbac.ts";
 import { ROLE_KEYS } from "../policy/registry.ts";
 import { sha256 } from "../security/ids.ts";
 import { activeOwnerIds, findUserById, rolesOf, rolesOfMany, type UserRow } from "./accounts.ts";
@@ -75,6 +75,8 @@ export interface UserDetail extends UserListItem {
   recentEvents: { occurredAt: Date; action: string; outcome: string; summary: string; ip: string | null }[];
   /** The account's access as this page shows it (`accountVersion`, "access"): the roles, status and resend forms. */
   version: string;
+  /** The same plus its credentials ("roles"): the roles form sends it back too, for a change that adds privilege. */
+  rolesVersion: string;
   /** The same plus the sign-in lock ("unlock"): the unlock form sends it back. */
   unlockVersion: string;
   /** The same plus who may hold the password ("mfa_reset"): the two-factor reset form sends it back. */
@@ -82,18 +84,25 @@ export interface UserDetail extends UserListItem {
 }
 
 /**
- * What a change is decided on (A2 Correction 1, fifth to ninth reviews):
+ * What a change is decided on (A2 Correction 1, fifth to ninth reviews; A2 Correction 2):
  * - "access" — roles, enable, a new invitation link: the status, the time of the disable, the roles, the second factor;
- * - "unlock" — the same and the sign-in lock: the lock and the failed attempts counted since the last success (while a
- *   lock holds nothing is counted, so nobody else can keep moving it);
- * - "mfa_reset" — the same and what says someone holds the password or a session: the password's last change, the
+ * - "roles" — a role change that adds privilege (`addsPrivilege`): the same and the credentials that decide who holds
+ *   the account — the password's last change and the recovery codes issued (the second factor is in "access"). A
+ *   promotion decided before someone replaced the password, or issued new recovery codes, would hand the new privilege
+ *   to whoever did; a role change that adds nothing (a removal, Admin → Editor) is decided on "access" alone, so the
+ *   account it is meant to contain never stalls it. Using a password or a code changes neither, nor does a sign-in's
+ *   rehash of the same password;
+ * - "unlock" — the same as "access" and the sign-in lock: the lock and the failed attempts counted since the last
+ *   success (while a lock holds nothing is counted, so nobody else can keep moving it);
+ * - "mfa_reset" — "access" and what says someone holds the password or a session: the password's last change, the
  *   sessions the account has ever had and its newest failed second step (`AccountFacts.passwordUse`). A two-factor reset
  *   hands the account to whoever holds the password, so any of them moving after the page was shown refuses it; wrong
  *   passwords alone (anyone who knows the email can send them) do not.
- * Only what the decision depends on is in each, so the user's own password change or failed sign-ins never refuse an
- * Owner's change of roles or status. (A sign-in's rehash of the same password changes none of them.)
+ * Only what the decision depends on is in each: the user's own failed sign-ins never refuse an Owner's change, and the
+ * user's own password change refuses only a role change that adds privilege and a two-factor reset — never a removal
+ * of roles, a status change or an unlock. (A sign-in's rehash of the same password changes none of them.)
  */
-export type VersionScope = "access" | "unlock" | "mfa_reset";
+export type VersionScope = "access" | "roles" | "unlock" | "mfa_reset";
 
 /** What a user page shows of an account, read in one snapshot (or under the account's row lock). */
 export interface AccountFacts {
@@ -107,6 +116,12 @@ export interface AccountFacts {
    * someone holding the password or a live session of the account, and only under its row lock.
    */
   passwordUse: { sessions: number; lastSecondStepFailure: number | null } | null;
+  /**
+   * The account's recovery codes as issued, for a role change that adds privilege (null when not read): the ids of its
+   * code rows, which a new set replaces (set-up, replacement, regeneration — each under the user's row lock) and using a
+   * code does not (it only marks its row used).
+   */
+  recoveryCodes: readonly string[] | null;
 }
 
 const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toString("hex").slice(0, 32);
@@ -121,6 +136,10 @@ const fingerprint = (parts: (string | number)[]) => sha256(parts.join("|")).toSt
 export function accountVersion(facts: AccountFacts, scope: VersionScope = "access"): string {
   const { user, roles, mfaConfirmedAt } = facts;
   const parts: (string | number)[] = [scope, user.status, user.disabledAt?.toISOString() ?? "-", [...roles].sort().join(","), mfaConfirmedAt?.toISOString() ?? "-"];
+  if (scope === "roles") {
+    if (!facts.recoveryCodes) throw new Error("accountVersion: the recovery codes were not read");
+    parts.push(user.passwordChangedAt?.toISOString() ?? "-", [...facts.recoveryCodes].sort().join(",") || "-");
+  }
   if (scope === "unlock") parts.push(user.lockedUntil?.toISOString() ?? "-", user.failedLoginCount);
   if (scope === "mfa_reset") {
     const use = facts.passwordUse;
@@ -132,6 +151,11 @@ export function accountVersion(facts: AccountFacts, scope: VersionScope = "acces
 /** The fingerprint a form was rendered with (`accountVersion`, the scope its change is decided on). */
 export interface Expected {
   version: string;
+}
+
+/** What the roles form sends back: the account's access and its credentials ("roles"), both as its page showed them. */
+export interface RolesExpected extends Expected {
+  rolesVersion: string;
 }
 
 async function mfaConfirmedAt(db: Db, userId: string): Promise<Date | null> {
@@ -156,22 +180,36 @@ async function sessionsEver(db: Db, userId: string): Promise<number> {
   return Number(row?.n ?? 0);
 }
 
+/** The account's recovery codes as issued: the ids of its code rows (a new set replaces them all; using one does not). */
+async function recoveryCodeIds(db: Db, userId: string): Promise<string[]> {
+  const rows = await db.select({ id: userRecoveryCodes.id }).from(userRecoveryCodes).where(eq(userRecoveryCodes.userId, userId)).orderBy(asc(userRecoveryCodes.id));
+  return rows.map((row) => row.id);
+}
+
 /**
- * The facts a fingerprint is made of, read in the caller's transaction (one snapshot, or under the row lock); the
- * password use only when asked for (a two-factor reset, or the user page) and while the account has a second factor.
+ * The facts a fingerprint is made of, read in the caller's transaction (one snapshot, or under the row lock), each only
+ * when asked for: the password use for a two-factor reset (and only while the account has a second factor), the
+ * recovery codes for a role change that adds privilege. The user page asks for both.
  */
-async function readAccountFacts(db: Db, user: UserRow, roles: readonly string[], withPasswordUse: boolean): Promise<AccountFacts> {
+async function readAccountFacts(
+  db: Db,
+  user: UserRow,
+  roles: readonly string[],
+  read: { passwordUse?: boolean; recoveryCodes?: boolean },
+): Promise<AccountFacts> {
   const confirmedAt = await mfaConfirmedAt(db, user.id);
   const passwordUse =
-    withPasswordUse && confirmedAt ? { sessions: await sessionsEver(db, user.id), lastSecondStepFailure: await lastSecondStepFailure(db, user.id) } : null;
-  return { user, roles, mfaConfirmedAt: confirmedAt, passwordUse };
+    read.passwordUse && confirmedAt ? { sessions: await sessionsEver(db, user.id), lastSecondStepFailure: await lastSecondStepFailure(db, user.id) } : null;
+  const recoveryCodes = read.recoveryCodes ? await recoveryCodeIds(db, user.id) : null;
+  return { user, roles, mfaConfirmedAt: confirmedAt, passwordUse, recoveryCodes };
 }
 
 /**
  * Inside a change's transaction, after `lockForChange`: does the account still look as the form's page showed it, in
  * what this change is decided on (`scope`)? (No fingerprint given — the CLIs and internal callers — means nothing to
- * compare.) Everything is read under the user's row lock, which every change to whether the account has a second factor,
- * every session it gets and every failed second step hold (re-encrypting a secret under a new key changes none of them).
+ * compare.) Everything is read under the user's row lock, which every password write, every change to whether the
+ * account has a second factor or which recovery codes it has, every session it gets and every failed second step hold
+ * (re-encrypting a secret under a new key changes none of them).
  */
 export async function accountUnchanged(
   tx: Db,
@@ -180,7 +218,8 @@ export async function accountUnchanged(
   scope: VersionScope = "access",
 ): Promise<boolean> {
   if (!expected) return true;
-  return accountVersion(await readAccountFacts(tx, locked.target, locked.roles, scope === "mfa_reset"), scope) === expected.version;
+  const facts = await readAccountFacts(tx, locked.target, locked.roles, { passwordUse: scope === "mfa_reset", recoveryCodes: scope === "roles" });
+  return accountVersion(facts, scope) === expected.version;
 }
 
 export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string): Promise<UserDetail | null> {
@@ -188,7 +227,7 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
   // One snapshot: what the page shows and the fingerprint its forms send back describe the same state of the account.
   const facts = await inTransaction(deps.pool, async (tx) => {
     const found = await findUserById(tx, userId);
-    return found ? readAccountFacts(tx, found, await rolesOf(tx, userId), true) : null;
+    return found ? readAccountFacts(tx, found, await rolesOf(tx, userId), { passwordUse: true, recoveryCodes: true }) : null;
   });
   if (!facts) return null;
   const { user, mfaConfirmedAt: mfa } = facts;
@@ -224,6 +263,7 @@ export async function getUserDetail(deps: AuthDeps, actor: Actor, userId: string
     sessions: live,
     recentEvents: events,
     version: accountVersion(facts),
+    rolesVersion: accountVersion(facts, "roles"),
     unlockVersion: accountVersion(facts, "unlock"),
     mfaResetVersion: accountVersion(facts, "mfa_reset"),
   };
@@ -374,11 +414,16 @@ export async function setUserStatus(
  * the new roles need a new link from someone allowed to grant them. So is a pending password-reset or email-change link
  * (fourth review): it was minted for the account as it was.
  *
- * `expected` is the account as the page showed it when the roles were chosen (the roles form sends its fingerprint): if
+ * `expected` is the account as the page showed it when the roles were chosen (the roles form sends its fingerprints): if
  * the account is not that any more under its row lock, the change is refused (`changed`) — so a promotion meant for an
  * invited person never lands on an account someone else has just activated with an older link (A2 Correction 1, fourth
  * review), and a role another Owner has just taken away is never given back by a form that still showed it (fifth
- * review: the form sends the whole set of roles it shows).
+ * review: the form sends the whole set of roles it shows). A change that gives the account anything it did not have
+ * (`addsPrivilege`, judged on the roles it has under the lock, never on the form) is also decided on its credentials as
+ * the page showed them (`rolesVersion`, A2 Correction 2): a password replaced or recovery codes issued after the page
+ * was shown refuse it, whether or not the account has a second factor, so a promotion never goes to whoever took the
+ * account over meanwhile. A change that adds nothing (removing roles, Admin → Editor, Owner → Admin) is not stalled by
+ * them: the account it is meant to contain cannot hold it off.
  */
 export async function setUserRoles(
   deps: AuthDeps,
@@ -386,7 +431,7 @@ export async function setUserRoles(
   targetId: string,
   nextRoles: string[],
   meta: RequestMeta,
-  expected?: Expected,
+  expected?: RolesExpected,
 ): Promise<ManageResult> {
   const action = "user.roles_change";
   const roles = [...new Set(nextRoles)];
@@ -406,6 +451,9 @@ export async function setUserRoles(
     const added = roles.filter((r) => !before.includes(r));
     const removed = before.filter((r) => !roles.includes(r));
     if (added.length === 0 && removed.length === 0) return { kind: "ok" as const, summary: "No change." };
+    if (addsPrivilege(before, roles) && !(await accountUnchanged(tx, locked, expected && { version: expected.rolesVersion }, "roles"))) {
+      return { kind: "refused" as const, reason: "changed" as const };
+    }
     if (!canManageUser(actor, { roles: before })) return { kind: "refused" as const, reason: "rank" as const };
     if (!canGrantRoles(actor, [...added, ...removed])) return { kind: "refused" as const, reason: isOwner(actor) ? ("rank" as const) : ("owner_only" as const) };
     if (removed.includes("owner") && row.status === "active") {

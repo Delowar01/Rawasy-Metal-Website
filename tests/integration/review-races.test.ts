@@ -19,7 +19,8 @@
  *    connection reads at REPEATABLE READ; removing a second factor withdraws pending reset links; a change that signs a
  *    user out ends sessions already past their limit too; a recovery code used for a step-up is recorded and notified.
  *  - The sixth review: an unlock is decided on the lock and the attempts the page showed; the access fingerprint holds
- *    only what the decisions depend on, so the user's own password change or failed sign-ins never block an Owner.
+ *    only what the decisions depend on, so the user's own failed sign-ins never block an Owner, nor does their own
+ *    password change block a removal (since A2 Correction 2 it refuses a change that adds privilege).
  *  - The seventh review: a two-factor reset is also decided on the password and the lock the page showed (it hands the
  *    account to whoever holds the password); an unlock also on the status, roles and second factor.
  *  - The eighth review: a two-factor reset is decided on the password and the failed second steps only (wrong passwords
@@ -471,6 +472,9 @@ const pageOf = async (actor: Actor, userId: string) => {
   return detail;
 };
 
+/** What the roles form on that page sends back with its boxes: both fingerprints it was drawn with (A2 Correction 2). */
+const rolesForm = (page: { version: string; rolesVersion: string }) => ({ version: page.version, rolesVersion: page.rolesVersion });
+
 async function invitedByAdmin(email: string) {
   const owner = await createUser(env, { roles: ["owner"], mfa: true });
   const admin = await createUser(env, { roles: ["admin"], mfa: true });
@@ -569,12 +573,12 @@ describe("fourth review — nothing decided on an older state of an account, and
     assert.equal(shown.status, "invited");
     // ... before the Admin, who still holds the link, activated the account.
     assert.equal((await acceptInvitation(env.deps, { token, password: strongPassword() }, meta())).kind, "ok");
-    assert.deepEqual(await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), rolesForm(shown)), { kind: "denied", reason: "changed" });
     assert.deepEqual(await rolesNow(invited.id), ["editor"]);
     // Decided on the account as it is now (active), the same change is the Owner's to make (positive control).
     const now = await pageOf(ownerActor, invited.id);
     assert.equal(now.status, "active");
-    assert.equal((await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { version: now.version })).kind, "ok");
+    assert.equal((await setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), rolesForm(now))).kind, "ok");
   });
 
   test("... decided again under the account's row lock: an activation committed while the change waits for it wins", async () => {
@@ -585,7 +589,7 @@ describe("fourth review — nothing decided on an older state of an account, and
       await held.query("START TRANSACTION");
       await held.query("UPDATE users SET status = 'active' WHERE id = ?", [invited.id]);
       // Authorised against the invited account it can still see; its transaction then waits for the account's row.
-      const changing = setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), { version: shown.version });
+      const changing = setUserRoles(env.deps, ownerActor, invited.id, ["owner"], meta(), rolesForm(shown));
       await new Promise((resolve) => setTimeout(resolve, 400));
       await held.query("COMMIT");
       assert.deepEqual(await changing, { kind: "denied", reason: "changed" });
@@ -719,11 +723,11 @@ describe("fifth review — decided on the account as the page showed it; a sign-
     later();
     assert.equal((await setUserRoles(env.deps, o2Actor, x.id, ["editor"], meta())).kind, "ok");
     // O1, on the page that still shows Admin ticked, adds Reviewer and saves: refused, X stays an Editor.
-    assert.deepEqual(await setUserRoles(env.deps, o1Actor, x.id, ["admin", "reviewer"], meta(), { version: shown.version }), { kind: "denied", reason: "changed" });
+    assert.deepEqual(await setUserRoles(env.deps, o1Actor, x.id, ["admin", "reviewer"], meta(), rolesForm(shown)), { kind: "denied", reason: "changed" });
     assert.deepEqual(await rolesNow(x.id), ["editor"]);
     // Positive control: decided on the page as it is now.
     const now = await pageOf(o1Actor, x.id);
-    assert.equal((await setUserRoles(env.deps, o1Actor, x.id, ["editor", "reviewer"], meta(), { version: now.version })).kind, "ok");
+    assert.equal((await setUserRoles(env.deps, o1Actor, x.id, ["editor", "reviewer"], meta(), rolesForm(now))).kind, "ok");
     assert.deepEqual(await rolesNow(x.id), ["editor", "reviewer"]);
   });
 
@@ -738,7 +742,7 @@ describe("fifth review — decided on the account as the page showed it; a sign-
       await held.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [x.id]);
       await held.query("DELETE FROM user_roles WHERE user_id = ? AND role_key = 'admin'", [x.id]);
       await held.query("INSERT INTO user_roles (user_id, role_key, granted_at) VALUES (?, 'editor', UTC_TIMESTAMP(3))", [x.id]);
-      const changing = setUserRoles(env.deps, o1Actor, x.id, ["admin", "reviewer"], meta(), { version: shown.version });
+      const changing = setUserRoles(env.deps, o1Actor, x.id, ["admin", "reviewer"], meta(), rolesForm(shown));
       await new Promise((resolve) => setTimeout(resolve, 400));
       await held.query("COMMIT");
       assert.deepEqual(await changing, { kind: "denied", reason: "changed" });
@@ -958,19 +962,29 @@ describe("sixth review — each change is decided on exactly what it depends on,
     assert.equal((await userRow(x.id)).failedLoginCount, 0);
   });
 
-  test("the user's own password change or failed sign-ins do not block an Owner's change decided on the page", async () => {
+  test("the user's own failed sign-ins block no change decided on the page, and their own password change blocks no removal", async () => {
+    // Narrowed by A2 Correction 2: a role change that adds privilege is now refused after a password change (the
+    // "A2 Correction 2" tests below). What this review protected stays: wrong passwords, which anyone who knows the email
+    // can send, refuse nothing — a promotion included — and the account's own password change never holds off a removal.
     const ownerActor = await owner();
     const x = await createUser(env, { roles: ["editor"] });
-    const xActor = await actorFor(env, x);
     const shown = await pageOf(ownerActor, x.id);
     env.clock.advance(1000);
-    // X changes their password, and a wrong password is tried on X's address.
+    // A wrong password is tried on X's address (counted; not enough for a lock).
+    assert.equal((await signIn(env.deps, { email: x.email, password: "wrong-password-here" }, meta("198.51.100.64"))).kind, "failed");
+    assert.equal((await userRow(x.id)).failedLoginCount, 1);
+    // The Owner's promotion, decided on the page, still goes through.
+    assert.equal((await setUserRoles(env.deps, ownerActor, x.id, ["editor", "reviewer"], meta(), rolesForm(shown))).kind, "ok");
+    assert.deepEqual(await rolesNow(x.id), ["editor", "reviewer"]);
+    // The Owner opens the page again; then X (signed out by the change, signed in again) changes their password ...
+    const again = await pageOf(ownerActor, x.id);
+    const xActor = await actorFor(env, x);
+    env.clock.advance(1000);
     const current = { session: xActor.session, user: xActor.user, roles: xActor.roles };
     assert.equal((await changePassword(env.deps, current, { currentPassword: x.password, newPassword: strongPassword() }, meta("198.51.100.63"))).kind, "ok");
-    assert.equal((await signIn(env.deps, { email: x.email, password: "wrong-password-here" }, meta("198.51.100.64"))).kind, "failed");
-    // The Owner's change, decided on the page, still goes through: neither affects what it was decided on.
-    assert.equal((await setUserRoles(env.deps, ownerActor, x.id, ["editor", "reviewer"], meta(), { version: shown.version })).kind, "ok");
-    assert.deepEqual(await rolesNow(x.id), ["editor", "reviewer"]);
+    // ... and the Owner's removal of Reviewer, decided on that page, still goes through.
+    assert.equal((await setUserRoles(env.deps, ownerActor, x.id, ["editor"], meta(), rolesForm(again))).kind, "ok");
+    assert.deepEqual(await rolesNow(x.id), ["editor"]);
   });
 });
 
