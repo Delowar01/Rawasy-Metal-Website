@@ -406,6 +406,42 @@ test.describe("services, machinery and projects", () => {
     await expect(owner.getByRole("dialog").getByRole("alert")).toContainText("This flag was set again after you opened the page.");
     expect(await queryTestDb("SELECT flag FROM project_flags WHERE project_id = ? AND flag = 'hidden'", [ids.project])).toHaveLength(1);
   });
+
+  test("A3 Correction 1: a project can't drop a service that features it — marked before saving, refused on save with the reason", async ({ browser }) => {
+    const editor = await as(browser, "editor");
+    const service = ids["test-laser-service"];
+    // The service features the project (the picker offers it: the project lists the service).
+    await open(editor, `/admin/services/${service}`);
+    await editor.getByLabel("Add to featured projects").selectOption(ids.project);
+    await editor.getByRole("group", { name: /^Featured projects/ }).getByRole("button", { name: "Add", exact: true }).click();
+    await save(editor);
+    // The project's editor shows the dependency before any save: the mark on the service, the hint, the Used-by panel.
+    await open(editor, `/admin/projects/${ids.project}`);
+    const services = editor.getByRole("group", { name: /^Services/ });
+    await expect(services.getByRole("listitem")).toHaveText([/Test Laser Service.*Features this project/]);
+    await expect(services).toContainText("A service marked “Features this project” stays until the project is removed from that service's Featured projects.");
+    await expect(editor.locator("#used-by")).toContainText("Services that feature this project");
+    await expect(editor.locator("#used-by").getByRole("link", { name: "Test Laser Service" })).toBeVisible();
+    // Removing it anyway: refused on save, the reason on the field and in the summary; nothing saved, the form kept.
+    const [{ v }] = await queryTestDb<{ v: number }>("SELECT lock_version AS v FROM projects WHERE id = ?", [ids.project]);
+    await services.getByRole("button", { name: "Remove Test Laser Service" }).click();
+    await expect(services.getByRole("listitem")).toHaveCount(0);
+    await editor.getByRole("button", { name: "Save draft" }).click();
+    const reason = "This project is currently featured by “Test Laser Service”. Remove it from that service's Featured projects first, then remove the service here.";
+    await expect(editor.locator("main").getByRole("alert")).toContainText(reason);
+    await expect(services.locator(".adm-error")).toHaveText(reason);
+    await expect(services.getByRole("listitem")).toHaveCount(0);
+    expect(editor.url()).not.toMatch(/[?&]saved=1/);
+    expect(await queryTestDb("SELECT service_id FROM project_services WHERE project_id = ?", [ids.project])).toEqual([{ service_id: service }]);
+    expect(await queryTestDb("SELECT project_id FROM service_featured_projects WHERE service_id = ?", [service])).toEqual([{ project_id: ids.project }]);
+    const [after] = await queryTestDb<{ v: number }>("SELECT lock_version AS v FROM projects WHERE id = ?", [ids.project]);
+    expect(Number(after.v)).toBe(Number(v));
+    const [event] = await queryTestDb<{ outcome: string; summary: string }>(
+      "SELECT outcome, summary FROM audit_events WHERE entity_id = ? AND action = 'project.update' ORDER BY id DESC LIMIT 1",
+      [ids.project],
+    );
+    expect(event).toEqual({ outcome: "failed", summary: "Refused: removing service “Test Laser Service” (test-laser-service) from this project — it still features the project in its Featured projects." });
+  });
 });
 
 test.describe("lists, archive, search", () => {
