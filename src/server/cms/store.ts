@@ -131,7 +131,8 @@ export async function lockOrdering(tx: Db, key: OrderingKey): Promise<{ lockVers
   return row ? { lockVersion: Number(row.lockVersion) } : null;
 }
 
-const touchOrdering = (tx: Db, key: OrderingKey, actorId: string, now: Date) =>
+/** A new version of a collection's order: any page that showed the order before this change is stale. */
+export const touchOrdering = (tx: Db, key: OrderingKey, actorId: string, now: Date) =>
   tx
     .update(entityOrderings)
     .set({ lockVersion: sql`${entityOrderings.lockVersion} + 1`, updatedAt: now, updatedBy: actorId })
@@ -141,7 +142,9 @@ const touchOrdering = (tx: Db, key: OrderingKey, actorId: string, now: Date) =>
 export async function appendToOrdering(tx: Db, key: OrderingKey, entityId: string, actorId: string, now: Date): Promise<number> {
   const ordering = await lockOrdering(tx, key);
   if (!ordering) throw new Error(`The ordering ${key} is missing (seed migration 0003).`);
-  const [last] = await rowsOf<{ max: number | null }>(tx, sql`SELECT MAX(position) AS max FROM entity_ordering_items WHERE ordering_key = ${key}`);
+  // A locking read: the latest committed position. A plain read would answer from this transaction's snapshot, which
+  // can predate another create that held the ordering's lock first (both then took the same position: A3 review, 4).
+  const [last] = await rowsOf<{ max: number | null }>(tx, sql`SELECT MAX(position) AS max FROM entity_ordering_items WHERE ordering_key = ${key} FOR UPDATE`);
   const position = Number(last?.max ?? 0) + 1;
   await tx.insert(entityOrderingItems).values({ orderingKey: key, entityId, position });
   await touchOrdering(tx, key, actorId, now);
@@ -231,8 +234,13 @@ export async function replaceRelation(tx: Db, relation: RelationTable, ownerId: 
   }
 }
 
-/** The state of candidate targets: which exist (not in the Trash) and which are archived. */
-export async function targetStates(db: Db, type: EntityType, ids: readonly string[]): Promise<Map<string, { archived: boolean }>> {
+/**
+ * The state of candidate targets: which exist (not in the Trash) and which are archived. With `lock`, a locking read
+ * (shared lock) of the latest committed rows: a target being archived at the same moment is then either seen archived,
+ * or kept from being archived until this change commits — never linked anew while it is archived (A3 security review,
+ * finding 3). A plain read would answer from the transaction's snapshot, which can predate that archive.
+ */
+export async function targetStates(db: Db, type: EntityType, ids: readonly string[], options: { lock?: boolean } = {}): Promise<Map<string, { archived: boolean }>> {
   if (ids.length === 0) return new Map();
   const rows = await rowsOf<{ id: string; archived: number }>(
     db,
@@ -240,7 +248,7 @@ export async function targetStates(db: Db, type: EntityType, ids: readonly strin
          WHERE deleted_at IS NULL AND id IN (${sql.join(
            ids.map((id) => sql`${id}`),
            sql`, `,
-         )})`,
+         )})${options.lock ? sql` LOCK IN SHARE MODE` : sql``}`,
   );
   return new Map(rows.map((r) => [r.id, { archived: Boolean(Number(r.archived)) }]));
 }
@@ -259,7 +267,9 @@ export async function checkTargets(
   if (new Set(next).size !== next.length) return "An item is listed twice.";
   if (next.length > options.max) return `Choose at most ${options.max}.`;
   if (options.self && next.includes(options.self)) return "An item can't be related to itself.";
-  const states = await targetStates(db, type, next);
+  // Targets newly linked by this change are read with a share lock (they must be active now); kept ones may be archived.
+  const added = next.filter((id) => !before.includes(id));
+  const states = new Map([...(await targetStates(db, type, next.filter((id) => before.includes(id)))), ...(await targetStates(db, type, added, { lock: true }))]);
   for (const id of next) {
     const state = states.get(id);
     if (!state) return "A chosen item no longer exists. Reload the page.";

@@ -2,9 +2,11 @@
  * Slugs (A1-CONTENT-MODEL §3.4; A3 brief §10–§11): one slug per item, shared by English and Arabic, ASCII lowercase
  * words joined by single hyphens, 1–80 characters. A slug is never silently rewritten: an invalid one is refused with a
  * suggestion the person can accept. Generic pages may not take a reserved address; machines, projects and certificates
- * may not repeat an id of the page their slug anchors on (src/i18n/reserved-slugs.ts, the one source of truth).
+ * may not repeat an id of the page their slug anchors on (src/i18n/reserved-slugs.ts, the one source of truth). A
+ * certificate's slug is its public anchor, so the certificate digit guard applies to it too (A3 security review).
  */
 import { reservedAnchor, reservedPageSlug, type AnchorNamespace } from "../../i18n/reserved-slugs.ts";
+import { hasRegistrationNumber } from "./text.ts";
 
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SLUG_MAX = 80;
@@ -46,6 +48,9 @@ export function checkSlug(raw: string, namespace: "page" | AnchorNamespace | nul
     if (reason) return { ok: false, message: `“${value}” can't be used: ${reason}.`, suggestion: null };
   } else if (namespace && reservedAnchor(namespace, value)) {
     return { ok: false, message: `“${value}” can't be used: the page that shows this item already uses it for one of its own parts.`, suggestion: null };
+  }
+  if (namespace === "certificate" && hasRegistrationNumber(value)) {
+    return { ok: false, message: "A certificate's slug is part of its public address, so it can't hold a registration or certificate number (seven or more digits).", suggestion: null };
   }
   return { ok: true, slug: value };
 }

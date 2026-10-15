@@ -3,7 +3,8 @@
  * names). Record-level rules (A1 §5.2): a legal page is edited with `legal.edit`, a certificate with `certificates.*`;
  * robots, canonical and sitemap fields need `seo.advanced`; a system page record is registered only by someone who may
  * both edit and archive pages (Owner and Admin by the matrix — A1: editors never create system pages); a legal page
- * record by a holder of `legal.edit`.
+ * record by a holder of `legal.edit`. Moving a certificate in its collection's order is a certificate action too
+ * (`orderings.edit` and `certificates.edit`: Owner and Admin), like every other change to a certificate (A3 review).
  *
  * Pure: every Server Action and service calls these with the permissions of the acting session.
  */
@@ -22,7 +23,7 @@ export function requiredPermissions(type: EntityType, action: ContentAction, pag
     case "view":
       return ["content.view"];
     case "reorder":
-      return ["orderings.edit"];
+      return type === "certificate" ? ["orderings.edit", "certificates.edit"] : ["orderings.edit"];
     case "seo_advanced":
       return ["seo.advanced"];
     case "archive":

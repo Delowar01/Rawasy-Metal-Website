@@ -1190,6 +1190,13 @@ body.adm {
   display: none;
 }
 
+/* The stale message's two links are buttons with long labels: on a narrow phone they wrap, centred, instead of pushing
+   the page wider than the screen (the A2 entry cards' rule, for the editor's messages). */
+.adm-editor-alert .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
 .adm-error-list {
   margin: 0;
   padding-left: 1.25rem;

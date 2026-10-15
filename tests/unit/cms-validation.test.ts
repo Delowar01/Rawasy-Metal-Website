@@ -92,6 +92,17 @@ describe("validation names each problem by its field", () => {
     for (const websiteUrl of ["http://example.com", "javascript:alert(1)", "https://localhost"]) assert.equal(parseInput(clientSpec, "create", form({ websiteUrl })).ok, false, websiteUrl);
   });
 
+  test("a client's address is stored as a browser would open it; backslashes and control characters are refused (A3 review, finding 6)", () => {
+    // A browser reads "\\" as "/": the first address opens evil.com, whatever it seems to say.
+    for (const websiteUrl of ["https://evil.com\\@example.com", "https://example.com/a\u0001b", "https://example.com/\u007F"]) {
+      assert.equal(parseInput(clientSpec, "create", form({ websiteUrl })).ok, false, JSON.stringify(websiteUrl));
+    }
+    const upper = parseInput(clientSpec, "create", form({ websiteUrl: "https://EXAMPLE.com" }));
+    assert.ok(upper.ok && upper.input.websiteUrl === "https://example.com/", JSON.stringify(upper));
+    const other = parseInput(clientSpec, "create", form({ websiteUrl: "https://ex\u00E4mple.com/path" }));
+    assert.ok(other.ok && other.input.websiteUrl === "https://xn--exmple-cua.com/path", JSON.stringify(other));
+  });
+
   test("a certificate: the digit guard on title, issuer and facts; the expiry a real date", () => {
     const cases: Record<string, string>[] = [{ "en.title": "Licence 1234567" }, { "ar.issuer": "جهة ١٢٣٤٥٦٧" }, { expiresOn: "2027-02-30" }, { expiresOn: "31/12/2027" }];
     for (const fields of cases) {

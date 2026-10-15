@@ -108,6 +108,32 @@ describe("the certificate digit guard", () => {
     }
     for (const ok of ["2026-01-15", "15/01/2026", "Issued 2026", "Grade A", "سجل تجاري", "123456"]) assert.equal(digitGuardProblem(ok), null, ok);
   });
+
+  test("A3 security review, finding 1: every space, dash and separator groups digits; any digit script; wider expiry wording", () => {
+    const bad = [
+      "1010\u00A0123\u00A0456", // no-break spaces (the public test's own separator, once lost here)
+      "1010\u202F123\u202F456", // narrow no-break spaces
+      "1010\u2013123456", // en dash
+      "1,010,123,456",
+      "1'010'123",
+      "\u0661\u0660\u0661\u0660\u066C\u0661\u0662\u0663\u066C\u0664\u0665\u0666", // Arabic digits, Arabic thousands separator
+      "\uFF11\uFF10\uFF11\uFF10\uFF11\uFF12\uFF13", // full-width digits
+      "\u0967\u0966\u0967\u0966\u0967\u0968\u0969", // Devanagari digits
+      "Valid until 2027-03-31",
+      "validity: one year",
+      "\u0635\u0627\u0644\u062D\u0629 \u062D\u062A\u0649 \u0662\u0660\u0662\u0667", // صالحة حتى ٢٠٢٧
+      "\u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u0634\u0647\u0627\u062F\u0629", // صلاحية الشهادة
+    ];
+    for (const text of bad) assert.notEqual(digitGuardProblem(text), null, JSON.stringify(text));
+    const ok = [
+      "ISO 9001:2015", // a colon separates two numbers
+      "Standards 14001, 9001", // a list, not one number
+      "\u0661\u0664\u0664\u0667/\u0660\u0665/\u0661\u0662", // ١٤٤٧/٠٥/١٢: a date
+      "Valid licence",
+      "123 456",
+    ];
+    for (const text of ok) assert.equal(digitGuardProblem(text), null, JSON.stringify(text));
+  });
 });
 
 describe("search normalization", () => {

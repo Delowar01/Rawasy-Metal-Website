@@ -145,6 +145,7 @@ export async function clearProjectFlag(ctx: ChangeContext, projectId: string, fl
     const refuse = async (summary: string) =>
       contentAudit(tx, actor, meta, now, { action: "project.restriction_clear", type: "project", id: projectId, label: title || state.slug, outcome: "failed", summary });
     if (state.publicationStatus === "archived") {
+      await refuse(`Refused: clearing the flag “${flagLabel(flag)}” on an archived project (read-only until restored).`);
       return { kind: "invalid", message: "This project is archived and read-only. Restore it before clearing a flag." } as const;
     }
     const [current] = await tx

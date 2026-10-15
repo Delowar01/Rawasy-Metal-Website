@@ -52,7 +52,7 @@ import {
 import type { KindSpec, TrField } from "./engine.ts";
 import { LIMITS, SERVICE_ICON_KEYS, type EntityType } from "./registry.ts";
 import { rowsOf, targetStates, type FieldErrors, type RelationTable } from "./store.ts";
-import { httpsUrlProblem } from "./text.ts";
+import { httpsUrlProblem, normalizedHttpsUrl } from "./text.ts";
 
 const T = LIMITS.text;
 const checkbox = z.string().max(16).optional().transform((v) => v !== undefined);
@@ -89,10 +89,13 @@ const rel = <Tab extends AnyMySqlTable & { position: AnyMySqlColumn }>(table: Ta
   row: (ownerId: string, targetId: string, position: number) => ({ [owner]: ownerId, [target]: targetId, position }),
 });
 
-/** A single reference (a primary service, a client record): must exist; archived only if it was already set. */
+/**
+ * A single reference (a primary service, a client record): must exist; archived only if it was already set. A newly
+ * chosen reference is read with a share lock (see `targetStates`), so it can't be archived in the same moment.
+ */
 async function checkReference(db: Db, type: EntityType, id: string | undefined, before: string | null): Promise<string | null> {
   if (!id) return null;
-  const state = (await targetStates(db, type, [id])).get(id);
+  const state = (await targetStates(db, type, [id], { lock: id !== before })).get(id);
   if (!state) return "The chosen item no longer exists. Reload the page.";
   if (state.archived && id !== before) return "Archived items can't be chosen. Restore the item first.";
   return null;
@@ -355,7 +358,12 @@ export const categorySpec: KindSpec = {
   rootLabels: {},
 };
 
-/** A category stays active while an active project uses it (A3 brief §23: no invalid project state). */
+/**
+ * A category stays active while an active project uses it (A3 brief §23: no invalid project state). A plain read is
+ * enough here: the archive holds the category's row lock before its first plain read (its snapshot starts after any
+ * change that was linking the category committed), and every change that links a category reads it with a share lock
+ * first (`targetStates`), so it waits for this archive and then sees the category archived.
+ */
 export async function categoryInUse(db: Db, id: string): Promise<string | null> {
   const [row] = await rowsOf<{ n: number }>(
     db,
@@ -365,6 +373,34 @@ export async function categoryInUse(db: Db, id: string): Promise<string | null> 
   const n = Number(row?.n ?? 0);
   return n ? `${n} active project(s) use this category. Remove it from them first, so no project points to an archived category.` : null;
 }
+
+/**
+ * A project is not restored while one of its categories is archived (A3 brief §23: no active project in an archived
+ * category; the project itself is read-only while archived, so the category is restored first). The categories are
+ * read with a share lock, so one can't be archived in the same moment either (A3 security review, finding 3).
+ */
+export async function projectInArchivedCategory(db: Db, projectId: string): Promise<string | null> {
+  const rows = await rowsOf<{ slug: string; label: string | null }>(
+    db,
+    sql`SELECT c.slug, COALESCE(NULLIF(en.label, ''), ar.label) AS label
+          FROM project_category_assignments a
+          JOIN project_categories c ON c.id = a.category_id
+          LEFT JOIN project_category_translations en ON en.category_id = c.id AND en.locale = 'en'
+          LEFT JOIN project_category_translations ar ON ar.category_id = c.id AND ar.locale = 'ar'
+         WHERE a.project_id = ${projectId} AND c.deleted_at IS NULL AND c.publication_status = 'archived'
+         ORDER BY a.position
+         LOCK IN SHARE MODE`,
+  );
+  if (!rows.length) return null;
+  const names = rows.map((r) => `“${r.label || r.slug}”`).join(", ");
+  return `This project is in ${rows.length === 1 ? "an archived category" : "archived categories"} (${names}). Restore ${rows.length === 1 ? "it" : "them"} first, then the project.`;
+}
+
+/** Rules that can keep an item from being archived or restored, by type (used by the Server Action and the tests). */
+export const LIFECYCLE_RULES: Partial<Record<EntityType, { blockArchive?: (db: Db, id: string) => Promise<string | null>; blockRestore?: (db: Db, id: string) => Promise<string | null> }>> = {
+  project_category: { blockArchive: categoryInUse },
+  project: { blockRestore: projectInArchivedCategory },
+};
 
 // --- Industries --------------------------------------------------------------------------------------------------------
 
@@ -421,7 +457,8 @@ export const clientSpec: KindSpec = {
             const problem = httpsUrlProblem(value);
             if (problem) ctx.addIssue({ code: "custom", message: problem });
           }
-        }),
+        })
+        .transform((value) => (value && !httpsUrlProblem(value) ? normalizedHttpsUrl(value) : value)),
     ),
     isFeatured: checkbox,
   },

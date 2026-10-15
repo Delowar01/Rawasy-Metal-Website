@@ -8,7 +8,7 @@ import type { Db } from "../db/client.ts";
 import { isUlid } from "../security/ids.ts";
 import type { ChangeContext } from "./engine.ts";
 import { refLabel, refsByIds, type ItemRef } from "./lookups.ts";
-import { can } from "./permissions.ts";
+import { can, requiredPermissions } from "./permissions.ts";
 import { ENTITIES, type EntityType, type OrderingKey } from "./registry.ts";
 import type { MoveDirection } from "./reorder.ts";
 import { contentAudit, contentTransaction, moveInOrdering, orderingVersion, readOrder } from "./store.ts";
@@ -60,7 +60,7 @@ export async function moveItem(ctx: ChangeContext, type: EntityType, itemId: str
       type,
       id: itemId,
       outcome: "denied",
-      summary: `Refused: changing the order of ${info.many.toLowerCase()} needs orderings.edit.`,
+      summary: `Refused: changing the order of ${info.many.toLowerCase()} needs ${requiredPermissions(type, "reorder").join(" and ")}.`,
     });
     return { kind: "denied", message: "You don't have permission to change the order." };
   }

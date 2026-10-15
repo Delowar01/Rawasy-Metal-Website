@@ -38,6 +38,7 @@ import {
   replaceRelation,
   setArchived,
   slugTaken,
+  touchOrdering,
   type CmsDeps,
   type FieldErrors,
   type RelationTable,
@@ -640,9 +641,19 @@ export async function createItem(ctx: ChangeContext, spec: KindSpec, form: FormO
     });
   } catch (error) {
     const key = duplicateKey(error);
-    if (key) return { kind: "invalid", errors: key.includes("system_key") ? { systemKey: "That system page already has a record." } : { slug: `The slug “${slug}” is already used.` } };
+    if (key) return duplicateResult(key, slug);
     throw error;
   }
+}
+
+/**
+ * What a duplicate-key error means for the person, by the index it names: only a slug or a system page clash is theirs
+ * to fix; anything else (two changes at the same moment) is told as such, never as a slug problem (A3 review, finding 4).
+ */
+function duplicateResult(key: string, slug: string | null): SaveResult {
+  if (/^uq_[a-z_]+_slug$/.test(key)) return { kind: "invalid", errors: { slug: `The slug “${slug ?? ""}” is already used.` } };
+  if (key === "uq_pages_system_key") return { kind: "invalid", errors: { systemKey: "That system page already has a record." } };
+  return { kind: "invalid", errors: { form: "Another change was saved at the same moment, so nothing was saved. Try again." } };
 }
 
 export interface UpdateOptions {
@@ -672,7 +683,10 @@ export async function updateItem(ctx: ChangeContext, spec: KindSpec, id: string,
         await refuse(`Refused: editing this ${info.one} needs ${pageFacts?.pageType === "legal" ? "legal.edit" : `${info.resource}.edit`}.`, "denied");
         return { kind: "denied", message: `You don't have permission to edit this ${info.one}.` } as const;
       }
-      if (state.publicationStatus === "archived") return { kind: "archived" } as const;
+      if (state.publicationStatus === "archived") {
+        await refuse(`Refused: the ${info.one} is archived (read-only until restored).`, "failed");
+        return { kind: "archived" } as const;
+      }
       if (state.lockVersion !== input.lockVersion) {
         await refuse(`Refused: the ${info.one} changed after the form was opened (version ${input.lockVersion}, now ${state.lockVersion}).`, "failed");
         return { kind: "stale" } as const;
@@ -776,7 +790,8 @@ export async function updateItem(ctx: ChangeContext, spec: KindSpec, id: string,
       return { kind: "ok", id, lockVersion: state.lockVersion + 1, summary: `Saved ${label}.` } as const;
     });
   } catch (error) {
-    if (duplicateKey(error)) return { kind: "invalid", errors: { slug: "That slug is already used." } };
+    const key = duplicateKey(error);
+    if (key) return duplicateResult(key, input.slug?.trim() ?? null);
     throw error;
   }
 }
@@ -789,6 +804,8 @@ export interface LifecycleOptions {
   pageTypeOf?: (root: Record<string, unknown>) => PageType;
   /** A rule that can keep an item from being archived (e.g. a category assigned to active projects). */
   blockArchive?: (db: Db, id: string) => Promise<string | null>;
+  /** A rule that can keep an item from being restored (e.g. a project whose category is archived). */
+  blockRestore?: (db: Db, id: string) => Promise<string | null>;
 }
 
 export async function setItemArchived(
@@ -826,11 +843,17 @@ export async function setItemArchived(
       return { kind: "stale" } as const;
     }
     if ((state.publicationStatus === "archived") === archived) return { kind: "unchanged" } as const;
-    if (archived && options.blockArchive) {
-      const reason = await options.blockArchive(tx, id);
-      if (reason) return { kind: "refused", message: reason } as const;
+    const block = archived ? options.blockArchive : options.blockRestore;
+    if (block) {
+      const reason = await block(tx, id);
+      if (reason) {
+        await audit("failed", `Refused: ${reason}`);
+        return { kind: "refused", message: reason } as const;
+      }
     }
     await setArchived(tx, spec.type, id, archived, actor.user.id, now);
+    // The collection's order shows archived items stepped over: a page that showed it before this change is now stale.
+    if (info.orderingKey) await touchOrdering(tx, info.orderingKey, actor.user.id, now);
     await audit(
       "success",
       archived ? `Archived ${info.one} ${label} (kept with its translations and relations; restorable).` : `Restored ${info.one} ${label} to a draft.`,

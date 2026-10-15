@@ -507,6 +507,16 @@ test.describe("phones, dark mode, accessibility and the CSP", () => {
       await open(phone, path);
       expect(await pageOverflow(phone), path).toBeLessThanOrEqual(0);
     }
+    // The stale message, with its two long button labels, fits 320 px too (they wrap instead of widening the page).
+    await open(phone, `/admin/pages/${ids.page}`);
+    const admin = await as(browser, "admin");
+    await open(admin, `/admin/pages/${ids.page}`);
+    await english(admin).getByLabel(/^Navigation label/).fill("Changed while a phone had the page open");
+    await save(admin);
+    await english(phone).getByLabel(/^Navigation label/).fill("The phone's older form");
+    await phone.getByRole("button", { name: "Save draft" }).click();
+    await expect(phone.locator("main").getByRole("alert")).toContainText("This content changed after you opened it.");
+    expect(await pageOverflow(phone), "the stale message at 320 px").toBeLessThanOrEqual(0);
     await phone.context().close();
   });
 
@@ -599,6 +609,8 @@ function cmsActionRequests() {
       ["setArchivedAction", { type: "service", id: GATE_ID, version: "0", archived: "1" }],
       ["addFlagAction", { project: GATE_ID, flag: "hidden", note: "" }],
       ["clearFlagAction", { project: GATE_ID, flag: "hidden", token: "1", note: "x" }],
+      // Malformed input is answered only after the admin's own checks (A3 security review, finding 5).
+      ["saveContentAction", { _type: "not-a-type" }],
     ] as const
   ).map(([name, fields]) => {
     const multipart = new FormData();
@@ -682,7 +694,9 @@ test.describe("the admin gate", () => {
       for (const { name, options } of cmsActionRequests()) {
         const atAdmin = await client.post("/admin/services", options);
         expect(atAdmin.status(), name).toBe(307);
-        await client.post("/en", options);
+        // Posted to a public page, Next hands the action to the page that has it: the gate stops it before it answers.
+        const forwarded = await client.post("/en", options);
+        expect(await forwarded.text(), name).not.toContain("Unknown content type");
       }
       expect((await client.post("/admin/services/order", moveRequest())).status()).toBe(307);
       await client.post("/en", moveRequest());

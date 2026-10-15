@@ -201,11 +201,14 @@ export const storedLines = (value: unknown): string[] => (Array.isArray(value) ?
 
 /**
  * An external address (A1 §12–§13): `https:` only, a real host name with a dot, no user name or password, no spaces,
- * at most 255 characters. Returned as typed (after trimming), never fetched by the server.
+ * backslashes or control characters, at most 255 characters (as typed and as stored). Never fetched by the server.
  */
 export function httpsUrlProblem(value: string): string | null {
   if (charLength(value) > 255) return "Use at most 255 characters.";
   if (/\s/.test(value)) return "An address has no spaces.";
+  // A backslash reads as "/" to a browser ("https://evil.com\@example.com" opens evil.com), and control characters are
+  // dropped by the parser: neither belongs in an address (A3 security review, finding 6).
+  if (/[\u0000-\u001F\u007F\\]/.test(value)) return "An address may not contain a backslash or control characters.";
   let url: URL;
   try {
     url = new URL(value);
@@ -215,8 +218,15 @@ export function httpsUrlProblem(value: string): string | null {
   if (url.protocol !== "https:") return "Only https:// addresses are accepted.";
   if (url.username || url.password) return "An address may not contain a user name or password.";
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(url.hostname) || url.hostname.includes("..")) return "Enter a public web address (for example https://example.com).";
+  if (charLength(url.href) > 255) return "Use at most 255 characters.";
   return null;
 }
+
+/**
+ * An accepted address as stored: the parser's own form (`URL.href`: lower-case host, punycode for other scripts, a
+ * normalized path), so what is stored is exactly what a browser would open. Call only after `httpsUrlProblem` is null.
+ */
+export const normalizedHttpsUrl = (value: string) => new URL(value).href;
 
 /** A same-site path for a canonical override (A1 §11): `/`, or segments of lowercase letters, digits and hyphens. */
 export function sitePathProblem(value: string): string | null {
@@ -228,28 +238,57 @@ export function sitePathProblem(value: string): string | null {
 }
 
 // --- Certificate digit guard (A1-PUBLISHING-VERSIONS §4.2; e2e/commerce-certificates.spec.ts) ---------------------------
+// Characters beyond ASCII are written as escapes here: a literal no-break space in the separator class was once lost
+// (A3 security review, finding 1), which let "1010 123 456" with no-break spaces through.
 
-const DIGIT_RUN = /[0-9٠-٩۰-۹]{7,}/;
-const GROUPED = /\d(?:\d|[  ./-](?=\d))+/g;
-const DATE = /^(\d{1,2}[./-]\d{1,2}[./-]\d{4}|\d{4}[./-]\d{1,2}[./-]\d{1,2})$/;
-const EXPIRY = /expir|انتهاء/i;
+/** Seven or more digits in a row (read after `guardText`). */
+const DIGIT_RUN = /[0-9]{7,}/;
+/**
+ * Digits written in groups: one separator between two digits — any space (no-break and narrow ones included), any dash
+ * or hyphen, a dot, comma, slash, apostrophe or right single quote, or the Arabic decimal or thousands separator. At
+ * least as strict as the public certificates test (space, no-break space, dot, slash, hyphen). A colon is no separator
+ * ("ISO 9001:2015" holds two numbers), nor are two characters in a row ("14001, 9001" is a list).
+ */
+const GROUPED = /[0-9](?:[0-9]|[\p{Zs}\p{Pd}.,/'’٫٬](?=[0-9]))+/gu;
+/** The documents' own dates (issue and registration dates) are the one grouped exception, as in the public test. */
+const DATE = /^([0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{4}|[0-9]{4}[./-][0-9]{1,2}[./-][0-9]{1,2})$/;
+/**
+ * Expiry wording: "expiry", "expires", "valid until / till / through / to", "validity"; Arabic انتهاء (expiry), صلاحية /
+ * صلاحيته (validity), صالح(ة) or ساري(ة) حتى / لغاية (valid until).
+ */
+const EXPIRY =
+  /expir|\bvalid(?:ity\b|\s+(?:until|till|thru|through|to)\b)|انتهاء|صلاحي[ةت]|(?:صالح|ساري)[ةه]?\s+(?:حتى|لغاية)/iu;
 
 /** Arabic-Indic and Extended Arabic-Indic digits as ASCII digits. */
 export const asciiDigits = (value: string) =>
   value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
 
 /**
- * Why a public certificate text may not be stored, or null: a registration or certificate number (seven or more digits
- * in a row, or in groups that are not a date) or expiry wording. Applied on save (A1 applies it at publication too).
+ * The text the guard reads: NFKC first (full-width and other compatibility digits become ASCII, no-break spaces plain
+ * spaces), then every other decimal digit of any script as "0" — only how many digits there are, and where, matters.
+ */
+const guardText = (value: string) => value.normalize("NFKC").replace(/\p{Nd}/gu, (d) => (d >= "0" && d <= "9" ? d : "0"));
+
+/**
+ * Whether a text holds what would be a registration or certificate number: seven or more digits in a row, or written in
+ * groups, in any digit script — dates aside. Also applied to certificate slugs (the slug is the public anchor).
+ */
+export function hasRegistrationNumber(value: string): boolean {
+  const text = guardText(value);
+  if (DIGIT_RUN.test(text)) return true;
+  for (const match of text.matchAll(GROUPED)) {
+    if (match[0].replace(/[^0-9]/g, "").length >= 7 && !DATE.test(match[0])) return true;
+  }
+  return false;
+}
+
+/**
+ * Why a public certificate text may not be stored, or null: a registration or certificate number or expiry wording.
+ * Applied on save to every public certificate text, facts included (A1 applies it at publication too).
  */
 export function digitGuardProblem(value: string): string | null {
-  if (DIGIT_RUN.test(value)) return "Certificate text can't hold a registration or certificate number (seven or more digits).";
-  for (const match of asciiDigits(value).matchAll(GROUPED)) {
-    if (match[0].replace(/\D/g, "").length >= 7 && !DATE.test(match[0])) {
-      return "Certificate text can't hold a registration or certificate number (digits in groups).";
-    }
-  }
-  if (EXPIRY.test(value)) return "Expiry details stay admin-only: use the expiry date field instead.";
+  if (hasRegistrationNumber(value)) return "Certificate text can't hold a registration or certificate number (seven or more digits, in a row or in groups).";
+  if (EXPIRY.test(value.normalize("NFKC"))) return "Expiry details stay admin-only: use the expiry date field instead.";
   return null;
 }
 

@@ -62,8 +62,12 @@ describe("content permissions by role (the registry decides)", () => {
     assert.equal(canCreateAnyPage(perms.editor), true);
   });
 
-  test("order: everyone who edits general content (orderings.edit), never a Reviewer", () => {
-    for (const type of ENTITY_TYPES) for (const role of ROLES) assert.equal(can(perms[role], type, "reorder"), yes("owner", "admin", "editor")(role), `${role} ${type}`);
+  test("order: everyone who edits general content (orderings.edit), never a Reviewer; certificates only by Owner and Admin", () => {
+    for (const type of ENTITY_TYPES) {
+      const expected = type === "certificate" ? yes("owner", "admin") : yes("owner", "admin", "editor");
+      for (const role of ROLES) assert.equal(can(perms[role], type, "reorder"), expected(role), `${role} ${type}`);
+    }
+    assert.deepEqual(requiredPermissions("certificate", "reorder"), ["orderings.edit", "certificates.edit"]);
   });
 
   test("robots, canonical and sitemap: Owner and Admin (seo.advanced)", () => {

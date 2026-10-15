@@ -37,6 +37,13 @@ describe("slug rules", () => {
     assert.equal(suggestSlug("x".repeat(100))?.length, SLUG_MAX);
     assert.equal(suggestSlug(`${"ab-".repeat(30)}c`)?.endsWith("-"), false);
   });
+
+  test("a certificate's slug is its public anchor: no registration number in it (A3 security review, finding 1)", () => {
+    for (const bad of ["cr-1010123456", "cr-1010-123-456", "licence-10-2034-5678"]) assert.equal(checkSlug(bad, "certificate").ok, false, bad);
+    for (const ok of ["commercial-registration", "iso-9001", "licence-2024"]) assert.equal(checkSlug(ok, "certificate").ok, true, ok);
+    // Only certificates: a project's slug may hold a long number (it is no registration).
+    assert.equal(checkSlug("tower-1010123456", "project").ok, true);
+  });
 });
 
 describe("reserved page slugs — one source of truth, checked against the site", () => {
