@@ -8,7 +8,8 @@
  *   certificate keys follow those two: submit and restore with edit (Owner, Admin); review, publish_reviewed, archive
  *   and delete with publish (Owner only).
  * - `media.view` is not a matrix row: every role may view the media library (reviewers review pages that use media).
- * - "Project flags — add" (all roles) has no key in §5.4; it is left to A3, which builds project editing.
+ * - "Project flags — add" (all roles) has no key in §5.4; A3 adds it as `projects.add_flags` (the Owner's decision
+ *   locked by the A2 Correction 1 brief), seeded by `drizzle/0003_seed_core_cms.sql`.
  * - ⚑ defaults are applied as proposed: Admin may publish directly; Admin may view and manage enquiries; Admin may not
  *   publish certificates or handle private documents; Editors may not see enquiries.
  */
@@ -41,6 +42,8 @@ export interface PermissionDefinition {
   description: string;
   /** Needs a password (and 2FA) confirmation within the last 10 minutes (A1-SECURITY-RBAC §3.7). */
   isSensitive: boolean;
+  /** The phase whose seed migration adds the key (absent: A2's `0001_seed_access_control.sql`). */
+  since?: "A3";
 }
 
 const CONTENT_RESOURCES: Record<string, string> = {
@@ -85,9 +88,9 @@ const SENSITIVE = new Set([
   "cache.clear_images",
 ]);
 
-const permission = (key: string, description: string): PermissionDefinition => {
+const permission = (key: string, description: string, since?: "A3"): PermissionDefinition => {
   const [resource, action] = key.split(".");
-  return { key, resource, action, description, isSensitive: SENSITIVE.has(key) };
+  return { key, resource, action, description, isSensitive: SENSITIVE.has(key), ...(since ? { since } : {}) };
 };
 
 export const PERMISSIONS: readonly PermissionDefinition[] = [
@@ -108,6 +111,7 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   ),
   permission("pages.create_generic", "Create generic pages."),
   permission("projects.clear_flags", "Clear project flags."),
+  permission("projects.add_flags", "Add a restrictive flag to a project (never clears one).", "A3"),
   permission("legal.edit", "Edit the legal pages."),
   permission("legal.publish", "Publish the legal pages (with legal-review confirmation)."),
   permission("media.view", "See the media library."),
@@ -160,6 +164,7 @@ const everyone = [
   "media.view",
   "media.flag",
   "redirects.view",
+  "projects.add_flags",
 ];
 
 const editor = [

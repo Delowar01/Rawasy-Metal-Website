@@ -55,7 +55,7 @@ describe("applying", () => {
     database = await freshDatabase("mig");
   });
 
-  test("an empty database: collation set, both files applied, audit row, then status clean", async () => {
+  test("an empty database: collation set, every file applied, audit row, then status clean", async () => {
     const first = await cli(database, ["up"]);
     assert.equal(first.code, 0, first.stderr);
     assert.match(first.stdout, /Database default set to utf8mb4 \/ utf8mb4_unicode_520_ci\./);
@@ -64,7 +64,7 @@ describe("applying", () => {
     assert.match(first.stdout, /backup hook dormant \(APP_ENV=local\)/);
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, /Applied \(2\): 0000_access_control, 0001_seed_access_control/);
+    assert.match(status.stdout, /Applied \(4\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms/);
     assert.match(status.stdout, /Pending \(0\): none/);
     const c = await serverConnection(database);
     const [audit] = (await c.query("SELECT action, actor_type, outcome FROM audit_events")) as unknown as [{ action: string; actor_type: string; outcome: string }[]];
@@ -143,7 +143,7 @@ describe("journal checks (before any database work)", () => {
   test("the committed migrations pass (check)", async () => {
     const result = await cli("unused_db", ["check"]);
     assert.equal(result.code, 0);
-    assert.match(result.stdout, /Migration files OK: 2/);
+    assert.match(result.stdout, /Migration files OK: 4/);
   });
 });
 
@@ -178,9 +178,12 @@ describe("history and backups", () => {
     const database = await freshDatabase("prod");
     assert.equal((await cli(database, ["up"])).code, 0);
     const dir = folderCopy();
-    writeFileSync(join(dir, "0002_extra.sql"), "CREATE TABLE extra_t (id INT PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;");
     const journal = JSON.parse(readFileSync(join(dir, "meta/_journal.json"), "utf8"));
-    journal.entries.push({ idx: 2, version: "5", when: journal.entries[1].when + 1, tag: "0002_extra", breakpoints: true });
+    // The next migration after the committed ones (A3 added 0002 and 0003).
+    const next = journal.entries.length;
+    const tag = `${String(next).padStart(4, "0")}_extra`;
+    writeFileSync(join(dir, `${tag}.sql`), "CREATE TABLE extra_t (id INT PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;");
+    journal.entries.push({ idx: next, version: "5", when: journal.entries[next - 1].when + 1, tag, breakpoints: true });
     writeFileSync(join(dir, "meta/_journal.json"), JSON.stringify(journal));
     const c = await serverConnection(database);
     await assert.rejects(runMigrations(c, readMigrations(dir), { appEnv: "production" }), (e: unknown) => e instanceof MigrationError && e.kind === "backup");

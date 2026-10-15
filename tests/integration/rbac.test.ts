@@ -66,6 +66,8 @@ const expected: Record<string, string[]> = {
   "theme.edit": [O],
   "theme.publish": [O],
   "seo.advanced": [O, A],
+  // A3: A1 §5.3's row "Project flags — add" (all four roles), which §5.4 left without a key (A3 brief §38).
+  "projects.add_flags": [O, A, E, R],
   "redirects.view": [O, A, E, R],
   "redirects.manage": [O, A],
   "forms.edit": [O, A],
@@ -95,8 +97,8 @@ for (const resource of CONTENT) {
 const LETTER: Record<string, string> = { owner: O, admin: A, editor: E, reviewer: R };
 
 describe("the permission matrix", () => {
-  test("129 keys, exactly A1 §5.4's", () => {
-    assert.equal(PERMISSIONS.length, 129);
+  test("130 keys: A1 §5.4's 129 and A3's projects.add_flags", () => {
+    assert.equal(PERMISSIONS.length, 130);
     assert.deepEqual(new Set(PERMISSIONS.map((p) => p.key)), new Set(Object.keys(expected)));
   });
 

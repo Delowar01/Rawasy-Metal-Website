@@ -15,6 +15,20 @@
       "when": 1791558432578,
       "tag": "0001_seed_access_control",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1792085893443,
+      "tag": "0002_core_cms",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1792086354701,
+      "tag": "0003_seed_core_cms",
+      "breakpoints": true
     }
   ]
 }
