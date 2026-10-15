@@ -19,7 +19,25 @@ const ICONS = {
   security: "M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6zM12 15v2",
   sessions: "M4 5h16v11H4zM8 20h8M12 16v4",
   website: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+  pages: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6",
+  services: "M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z",
+  projects: "M3 7h6l2 2h10v10H3z",
+  machinery: "M4 20h16M6 20V10h12v10M9 10V6h6v4M10 15h4",
+  industries: "M3 20h18M5 20V9l5 3V9l5 3V5h4v15",
+  clients: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M16 8h5M16 12h5M17 16h4",
+  certificates: "M5 3h14v12H5zM9 7h6M9 10h4M10 15l-1 6 3-2 3 2-1-6",
 };
+
+/** The Core CMS areas (A3), in the brief's order. */
+const CONTENT_AREAS = [
+  { href: "/admin/pages", label: "Pages", icon: ICONS.pages },
+  { href: "/admin/services", label: "Services", icon: ICONS.services },
+  { href: "/admin/projects", label: "Projects", icon: ICONS.projects },
+  { href: "/admin/machinery", label: "Machinery", icon: ICONS.machinery },
+  { href: "/admin/industries", label: "Industries", icon: ICONS.industries },
+  { href: "/admin/clients", label: "Clients", icon: ICONS.clients },
+  { href: "/admin/certificates", label: "Certificates", icon: ICONS.certificates },
+];
 
 function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {
   return (
@@ -30,6 +48,17 @@ function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {
           Dashboard
         </NavLink>
       </div>
+      {permissions.has("content.view") ? (
+        <div className="adm-nav-group">
+          <p className="adm-nav-title">Content</p>
+          {CONTENT_AREAS.map((area) => (
+            <NavLink key={area.href} href={area.href}>
+              <Icon d={area.icon} />
+              {area.label}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
       {permissions.has("users.view") ? (
         <div className="adm-nav-group">
           <p className="adm-nav-title">Users &amp; access</p>

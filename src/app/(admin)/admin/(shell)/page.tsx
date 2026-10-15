@@ -7,17 +7,96 @@ import { countLiveSessions } from "@/server/auth/sessions";
 import { remainingRecoveryCodes } from "@/server/auth/sign-in";
 import { accountFacts } from "@/server/auth/user-admin";
 import { auditEvents } from "@/server/db/schema";
+import { countItems, type TypeCounts } from "@/server/cms/list";
+import { ENTITIES, type EntityType } from "@/server/cms/registry";
 import { formatTime, PageHeader, RIYADH_NOTE, RoleBadges } from "../_components/parts";
+
+/** The content areas whose real counts the dashboard shows (A3 brief §16), in the navigation's order. */
+const COUNTED: EntityType[] = ["page", "service", "project", "project_category", "machine", "industry", "client", "certificate"];
+
+/** A count that links to the list filtered to exactly those items (when it is not zero). */
+function CountLink({ type, value, query }: { type: EntityType; value: number; query: string }) {
+  if (!value) return <>0</>;
+  return <Link href={`${ENTITIES[type].path}?${query}`}>{value}</Link>;
+}
+
+function ContentCounts({ counts }: { counts: TypeCounts[] }) {
+  return (
+    <section className="adm-card" aria-labelledby="dash-content">
+      <div className="adm-card-head">
+        <h2 id="dash-content">Content</h2>
+        <span className="adm-hint">Working records only; nothing here is public yet.</span>
+      </div>
+      <div className="adm-table-wrap">
+        <table className="adm-table is-stack adm-stat-table">
+          <caption className="adm-sr-only">Content records by area</caption>
+          <thead>
+            <tr>
+              <th scope="col">Area</th>
+              <th scope="col" className="is-num">
+                Drafts
+              </th>
+              <th scope="col" className="is-num">
+                Archived
+              </th>
+              <th scope="col" className="is-num">
+                English missing
+              </th>
+              <th scope="col" className="is-num">
+                Arabic missing
+              </th>
+              <th scope="col" className="is-num">
+                Needs review
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {counts.map((c) => (
+              <tr key={c.type}>
+                <th scope="row">
+                  <Link href={ENTITIES[c.type].path}>{ENTITIES[c.type].many}</Link>
+                  {c.restricted ? (
+                    <>
+                      {" "}
+                      <Link className="adm-badge is-danger" href={`${ENTITIES[c.type].path}?restricted=1`}>
+                        {c.restricted} restricted
+                      </Link>
+                    </>
+                  ) : null}
+                </th>
+                <td data-label="Drafts" className="is-num">
+                  {c.active}
+                </td>
+                <td data-label="Archived" className="is-num">
+                  <CountLink type={c.type} value={c.archived} query="status=archived" />
+                </td>
+                <td data-label="English missing" className="is-num">
+                  <CountLink type={c.type} value={c.enMissing} query="lang=en-missing" />
+                </td>
+                <td data-label="Arabic missing" className="is-num">
+                  <CountLink type={c.type} value={c.arMissing} query="lang=ar-missing" />
+                </td>
+                <td data-label="Needs review" className="is-num">
+                  <CountLink type={c.type} value={c.needsReview} query="lang=needs-review" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-/** Phase A2 facts only: the account, its security, sessions and recent sign-in events; user counts for managers. */
+/** The account, its security, sessions and recent sign-in events; user counts for managers; real content counts (A3). */
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { actor, mfa } = await requireActor();
   const params = await searchParams;
   const deps = authDeps();
   const now = deps.clock();
-  const [sessions, codes, events, facts] = await guarded(() =>
+  const [sessions, codes, events, facts, counts] = await guarded(() =>
     Promise.all([
       countLiveSessions(deps.db, actor.user.id, now),
       mfa.enrolled ? remainingRecoveryCodes(deps.db, actor.user.id) : Promise.resolve(0),
@@ -28,12 +107,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         .orderBy(desc(auditEvents.id))
         .limit(8),
       actor.permissions.has("users.view") ? accountFacts(deps) : Promise.resolve(null),
+      actor.permissions.has("content.view") ? Promise.all(COUNTED.map((type) => countItems(deps.db, type))) : Promise.resolve(null),
     ]),
   );
   const usedRecovery = typeof params.recovery === "string" && /^\d+$/.test(params.recovery) ? Number(params.recovery) : null;
   return (
     <>
-      <PageHeader title={`Welcome, ${actor.user.displayName}`} lead="RAWASY Metal website administration — accounts and access (Phase A2)." />
+      <PageHeader title={`Welcome, ${actor.user.displayName}`} lead="RAWASY Metal website administration — accounts, access and content records (Phase A3)." />
       {usedRecovery !== null ? (
         <div className={`adm-alert ${usedRecovery <= 3 ? "is-warning" : "is-info"}`} role="status">
           <p>
@@ -98,6 +178,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </section>
         ) : null}
       </div>
+      {counts ? <ContentCounts counts={counts} /> : null}
       <section className="adm-card" aria-labelledby="dash-events">
         <div className="adm-card-head">
           <h2 id="dash-events">Recent activity on your account</h2>
@@ -122,8 +203,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <section className="adm-card" aria-labelledby="dash-site">
         <h2 id="dash-site">Website</h2>
         <p className="adm-muted">
-          The public website is served from its approved static release. Content editing, media and publishing arrive in later phases; nothing in
-          this admin changes the public site yet.
+          The public website is served from its approved static release. Content records are kept here as drafts (Phase A3); media and publishing
+          arrive in later phases, and nothing in this admin changes the public site yet.
         </p>
         <div className="adm-actions">
           <a className="adm-btn" href="/" target="_blank" rel="noopener">
