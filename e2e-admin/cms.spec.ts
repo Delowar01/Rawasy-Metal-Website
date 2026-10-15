@@ -54,6 +54,14 @@ async function open(page: Page, path: string) {
 }
 
 const pageOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+/** List title cells whose lines (the title, the Arabic title, the slug) run together: each must start below the last. */
+const titleCellsRunTogether = (page: Page) =>
+  page.locator("main .adm-cell-title").evaluateAll((cells) =>
+    cells.flatMap((cell) => {
+      const boxes = [...cell.children].map((child) => child.getBoundingClientRect());
+      return boxes.slice(1).some((box, i) => box.top < boxes[i].bottom - 1) ? [cell.textContent ?? ""] : [];
+    }),
+  );
 const english = (page: Page) => page.locator("#english");
 const arabic = (page: Page) => page.locator("#arabic");
 const idFrom = (page: Page) => ULID_IN_URL.exec(page.url())?.[1] ?? "";
@@ -479,6 +487,8 @@ test.describe("phones, dark mode, accessibility and the CSP", () => {
     const phone = await signedIn(browser, "editor", { viewport: { width: 390, height: 844 } });
     await open(phone, "/admin/services");
     expect(await pageOverflow(phone)).toBeLessThanOrEqual(0);
+    expect(await phone.locator("main .adm-cell-title").count()).toBeGreaterThan(0);
+    expect(await titleCellsRunTogether(phone), "the stacked rows' title cells at 390 px").toEqual([]);
     await phone.getByRole("link", { name: "Test Laser Service" }).click();
     await phone.locator("main h1").waitFor();
     await english(phone).getByLabel(/^Tagline/).fill("Saved from a phone");
@@ -506,6 +516,7 @@ test.describe("phones, dark mode, accessibility and the CSP", () => {
     for (const path of paths) {
       await open(phone, path);
       expect(await pageOverflow(phone), path).toBeLessThanOrEqual(0);
+      expect(await titleCellsRunTogether(phone), path).toEqual([]);
     }
     // The stale message, with its two long button labels, fits 320 px too (they wrap instead of widening the page).
     await open(phone, `/admin/pages/${ids.page}`);

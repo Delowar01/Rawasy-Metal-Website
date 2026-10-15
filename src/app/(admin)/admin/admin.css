@@ -1118,6 +1118,14 @@ body.adm {
   overflow-wrap: anywhere;
 }
 
+/* A stacked list row (phones) keeps the title cell's own lines — the title, the Arabic title and the slug — which the
+   stacked table's `th { display: block }` would otherwise run together on one line. */
+@media (max-width: 47.99rem) {
+  .adm-table.is-stack .adm-cell-title {
+    display: grid;
+  }
+}
+
 .adm-pager {
   display: flex;
   flex-wrap: wrap;
