@@ -1902,3 +1902,184 @@ deployed before the Owner's go-ahead.
 ---
 
 A2 CORRECTION 2 STATUS: READY FOR FINAL INDEPENDENT REVIEW
+
+---
+
+## A2 FINAL VISUAL CORRECTION
+
+Date: 2026-10-15 · Branch: `claude/new-session-5eijs6` · Brief: "RAWASY METAL WEBSITE / ADMIN / CMS PROGRAM / PHASE A2 —
+FINAL VISUAL CORRECTION / ENTRY-PAGE MOBILE BUTTON WRAPPING ONLY / LOCAL ONLY — DO NOT START A3".
+
+### Summary and status
+
+A2 Correction 2 passed the independent security review; its code (`f0498dd`) and the Owner's decision on Editor → Reviewer
+(privilege-adding) are locked and unchanged. The one defect left was the one the Correction 2 evidence found: on the entry
+pages, the full-width buttons kept their labels on one line, so on a phone the card grew past the screen and the page
+scrolled sideways. One admin-only CSS rule (`b4bf194`) lets those labels wrap inside the entry card, centred. On the
+same 127 captures, **horizontal overflow went from 8 captures to 0**; on phones the labels that did not fit now take two
+lines, and every other capture — every desktop one included — has identical control boxes and page heights. The public
+website, the security code and everything else are unchanged.
+
+**QA on a fresh clone of `b4bf194`:** `npm ci`; `npm audit --omit=dev` 0 (the full audit unchanged); lint, typecheck and
+build (no database settings) clean; admin browser **47 / 47**; as extras, `db:check` clean, unit **30 / 30**, integration
+**164 / 164**, and the public build output identical to `f0498dd`'s apart from the build id (item 13).
+
+**Final visual evidence:** `rawasy-a2-final-evidence.zip` — 127 captures (24 screens: desktop 1280 × 800 light and dark,
+phone 390 × 844 light and dark, 320 × 640 light, and 320 × 640 dark for the entry pages), 9 contact sheets, `INDEX.md` and
+`shots.json`, captured from a fresh clone of `b4bf194` after its QA passed: **0 horizontal-overflow captures**.
+
+**A2 FINAL VISUAL CORRECTION: READY FOR INDEPENDENT VISUAL SIGNOFF** (not self-approved).
+
+### Report items (brief §8, in order)
+
+#### 1. Starting HEAD
+`4b2085ad4112b5566e688939c944b0c800b41f84` ("Admin A2 Correction 2: report section and project memory (docs only)"), equal
+to `origin/claude/new-session-5eijs6`, its direct parent `f0498dd9c0b30e4951108def629bcd9460962bb2`, the working tree
+clean; `preserve/pre-admin-a2-correction2` at `bca33aad848b84a629de76f6a658a9316408a5d8`, `preserve/pre-admin-a2` at
+`ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0` and `main` at `474f61f10f12981e41f9b7e7fd6065a0ec9da541`, as the brief expected.
+
+#### 2. Implementation SHA
+`b4bf194f0eab9e19aecfbfd4bae23d58432febcf` (`b4bf194`): "Admin A2 final visual correction: entry-page button labels wrap
+on narrow phones" — one file, `src/app/(admin)/admin/admin.css`, + 7 lines.
+
+#### 3. Final docs HEAD
+The commit that adds this section and updates `CLAUDE.md` (docs only) follows `b4bf194` and is the branch's HEAD; its SHA
+is given in the final message (a commit cannot name itself).
+
+#### 4. Exact CSS change
+In the "Entry pages" block of `src/app/(admin)/admin/admin.css`, after `.adm-entry-foot`:
+
+```css
+/* A long button label wraps on a narrow phone, centred like a one-line label (a link styled as a button included),
+   instead of pushing the page wider than the screen (A2 final visual correction). */
+.adm-entry-card .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+```
+
+- **Selector:** the brief's own, `.adm-entry-card .adm-btn`. Every entry page renders inside `.adm-entry-card` (the
+  `(entry)` layout: sign-in, second step, 2FA set-up, recovery codes, invitation, Owner set-up, forgot / reset password),
+  as do the admin's 404 and error pages; no shell page has one. It outranks `.adm-btn { white-space: nowrap }` by
+  specificity, and no other rule sets `white-space` or `text-align` on these buttons. Other admin buttons, the shell
+  and the public site are untouched.
+- **`text-align: center` — one declaration beyond the brief's rule, reported:** a `<button>` centres its lines by the
+  browser's default style, a link does not. The recovery codes' "I saved them — continue" is a link styled as a button;
+  with `white-space: normal` alone it wrapped at 320 px into two **left-aligned** lines inside the centred button (seen in
+  the measured trial), unlike every real button. The declaration makes it wrap like the others ("labels wrap naturally",
+  brief §5) and changes nothing on a one-line label (all desktop boxes identical, item 7).
+
+#### 5. Before: overflow measurements
+On `f0498dd` (the Correction 2 evidence, and this correction's own "before" capture of the same screens, which adds the
+320 px dark variant): **8 of 127 captures** scrolled sideways —
+| Screen | 390 px (light, dark) | 320 px (light, dark) |
+|---|---|---|
+| E05 2FA set-up: scan or type the key | 4 px, 4 px | 74 px, 74 px |
+| E03 First Owner: set-up link | — | 13 px, 13 px |
+| E11 Accept an invitation | — | 13 px, 13 px |
+
+Cause: the one-line labels "Turn on two-factor authentication" and "Set password and activate" did not fit the card, so
+the card grew to fit them — to 378 px on the key step and 317 px on the set-up and invitation pages, instead of 358 px at
+390 and 288 px at 320 — and pushed the page past the screen. One more label made the card grow without moving the page:
+"I saved them — continue" (the recovery codes, card 301 px instead of 288 at 320 px, leaving 3 px of the right-hand margin
+instead of 16).
+
+#### 6. After: overflow measurements
+**0 of 127 captures** on the corrected build (`b4bf194`), and **0 of 127** in the final evidence (item 17). The card keeps
+its width (288 px at 320, 358 px at 390, with the 16 px margins), and the labels that do not fit take two lines.
+
+#### 7. Responsive checks
+A measuring copy of the evidence capture, run on `f0498dd` and on `b4bf194` (the real flows, a throwaway database), at
+1280 × 800, 390 × 844 and 320 × 640, light and dark (every entry screen, E01–E11, in all six; the other screens in their
+evidence variants), records for each capture the page and body width against the window, every visible control's box, each
+button label's lines, clipped text, controls outside the window or the card, overlapping controls, and — on the entry-card
+screens — a keyboard pass over every Tab stop. On `b4bf194`:
+- **Document width ≤ window width, no sideways scroll:** 127 / 127.
+- **Labels wrap naturally:** only where they do not fit, on phones, to two centred lines — "Set password and activate"
+  (E03, E11 at 320 px), "Turn on two-factor authentication" (E05 at 390 and 320 px), "I saved them — continue" (E06 at
+  320 px), each 230 × 64.5 px (300 × 64.5 at 390); at most 2 lines anywhere.
+- **Buttons usable, text not clipped, no overlap:** no clipped label, no control outside the window, no entry-card control
+  outside its card, no two controls overlapping, on every capture.
+- **Focus rings visible:** 292 Tab stops (E01–E11 in all six variants, the 404 in three), each `:focus-visible` with its
+  ring drawn (2 px solid, `#1d4ed8` in light, `#8ab4ff` in dark, offset 2 px; fields 1 px), whole inside the window and not
+  clipped by any ancestor.
+- **No extremely tall or narrow layout:** wrapped buttons are 64.5 px high (two lines) and full card width; no button is
+  taller than it is wide.
+- **Desktop unchanged:** compared capture by capture with `f0498dd`, **117 of 127 captures have identical control boxes and
+  page heights** — all 46 desktop captures among them, and every shell screen. The 10 that differ are E03, E05, E06 and E11
+  on phones, where the label now wraps instead of widening the card (the page gets 24–123 px taller, as the card's text
+  now wraps to the card's own width).
+- Viewed: the wrapped buttons in light and dark at 390 and 320 px (contact sheets, item 16).
+
+#### 8. Lint
+`npm run lint`: exit 0, no warning (fresh clone of `b4bf194`).
+
+#### 9. Typecheck
+`npm run typecheck`: exit 0 (fresh clone).
+
+#### 10. Build
+`npm run build` with no `DB_*`, `APP_ENV` or `ADMIN_ENABLED`: exit 0, no warning (fresh clone).
+
+#### 11. Admin browser result
+**47 / 47** (18.6 min; fresh clone of `b4bf194`; `server.js` on port 3401 with `APP_ENV=local`, a fresh
+`rawasy_e2e_*` database and the mail sink): `admin.spec.ts` 38 and `gate.spec.ts` 9 — the same tests as Correction 2's
+final run, all passing.
+
+#### 12. `npm audit --omit=dev`
+**0 vulnerabilities** (fresh clone). The full audit is byte-identical to Correction 1's and Correction 2's (9
+development-only entries, accepted); no dependency changed.
+
+#### 13. Public / source freeze proof
+- `git diff 4b2085a..b4bf194`: **one file, `src/app/(admin)/admin/admin.css`, + 7 / − 0.** No public path
+  (`src/app/(commerce)/**`, `src/components/commerce/**`, `src/content/**`, `public/**`, `src/i18n/**`, `src/lib/**`,
+  `src/app/global-not-found.tsx`, `server.js`, `scripts/**`, `e2e/**`, `playwright.config.ts`), no package or lockfile.
+- **Public build output** (a clean build of `b4bf194` against `f0498dd`'s clean build): 890 / 890 public files, 0
+  different (114 byte-identical, 601 identical once the build id is normalised); on all 104 prerendered public pages the
+  same stylesheets in the same order, the same script chunks (names and bytes) and the same modules. The admin
+  stylesheet is the only built file that changed.
+- No second public E2E run was needed (brief §6); the last one, on `f0498dd`, was 612 / 612.
+
+#### 14. Security / auth code unchanged
+The diff touches no TypeScript, no Server Action, no component, no `src/server/**` (authentication, sessions, passwords,
+MFA, roles, permissions, `addsPrivilege`, fingerprints, audit), no `ConfirmAction`, no `drizzle/` migration, schema or
+registry, and no test. `npm run db:check` is clean, and the unit (30 / 30) and MariaDB integration (164 / 164) suites,
+run as an extra on the same fresh clone, pass as on `f0498dd`.
+
+#### 15. Evidence ZIP
+`rawasy-a2-final-evidence.zip` (20.9 MB; sent with this report; not committed — the session's scratch folder keeps it).
+
+#### 16. Screenshots and contact sheets
+**127 screenshots** (full pages, `raw/`): the 24 screens in desktop light (23), desktop dark (23), phone
+light (24), phone dark (23), 320 px light (23) and — the entry pages, E01–E11 — 320 px dark (11); and **9 contact sheets**
+(`sheets/`: entry and shell pages, desktop and phone). With them, `INDEX.md` (what each screen shows, the overflow result
+and the layout checks) and `shots.json` (every capture's measurements). Every screen of the Correction 2 package was
+captured again from the corrected code; none is reused.
+
+#### 17. Horizontal overflow
+**0 horizontal-overflow captures** in the final evidence (127 of 127 captures with the page no wider than the window),
+stated in its `INDEX.md`; before the correction the same capture had 8.
+
+#### 18. `main` untouched
+`refs/heads/main` → `474f61f10f12981e41f9b7e7fd6065a0ec9da541`, as at the start: nothing was pushed to `main`.
+
+#### 19. Preservation refs untouched
+`git ls-remote` at the end: `preserve/pre-admin-a2` → `ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0`,
+`preserve/pre-admin-a2-correction1` → `b47d8e533bc59543f9d2de839d10894ba63831cb`, `preserve/pre-admin-a2-correction2` →
+`bca33aad848b84a629de76f6a658a9316408a5d8` — all as at the start; no checkpoint was created or moved (the brief asked for
+none).
+
+#### 20. No A3
+Nothing of A3–A9 was started. The only code change is the CSS rule of item 4.
+
+#### 21. Nothing deployed
+Nothing was uploaded, no Namecheap database was created or connected to, no cPanel, DNS, nameserver, SSL or email setting
+was touched, no production SMTP or secret was used or created. All database work (the admin suite and the captures, each
+on a throwaway database) ran against the local Docker MariaDB 11.4.13.
+
+### Next step
+The Owner's independent visual signoff of A2 with this evidence. A3 starts only when the Owner approves A2 and says so;
+nothing is deployed before the Owner's go-ahead.
+
+---
+
+A2 FINAL VISUAL CORRECTION: READY FOR INDEPENDENT VISUAL SIGNOFF

@@ -11,8 +11,8 @@
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
 - Latest report: `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` (Admin / CMS program, Phase A2 — authentication,
-  RBAC, database foundation and admin shell, local implementation only; its "A2 CORRECTION 1" and "A2 CORRECTION 2"
-  sections are at the end)
+  RBAC, database foundation and admin shell, local implementation only; its "A2 CORRECTION 1", "A2 CORRECTION 2" and
+  "A2 FINAL VISUAL CORRECTION" sections are at the end)
   (earlier: `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
   `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
   `2026-10-09-stage-1j-release-candidate.md`, `2026-10-08-stage-1i-correction-3.md`, `2026-10-06-stage-1i-correction-2.md` with its census `2026-10-06-stage-1i-correction-2-census.md`,
@@ -171,16 +171,25 @@
   611 / 612 then 612 / 612 in a second full run (the one failure a Chromium view-transition timeout under load: 20 / 20 on
   this build and on the baseline), and the public site proven unchanged against `preserve/pre-admin-a2` again (files,
   stylesheets, modules, 102 pages over HTTP in three gate-off settings, 237 screens).
-  **A2 Correction 2 is built** (the user's "PHASE A2 — CORRECTION 2 / STALE PASSWORD / ROLE-PROMOTION BOUNDARY" brief;
-  section "A2 CORRECTION 2" at the end of the A2 report; checkpoint `preserve/pre-admin-a2-correction2` at `bca33aa`) and
-  awaits the final independent review. Its commits: `6ccd43a` a role change that adds privilege is decided on the
-  account's credentials as its page showed them (see "Security invariants from A2 Correction 2"); `f0498dd` the final
-  review's one fix (a confirmation dialog sends the fingerprint it opened with). Final QA on a fresh clone of `f0498dd`:
-  `npm ci`, audit `--omit=dev` 0, lint, typecheck, build with no database settings, `db:check`, unit 30 / 30,
-  integration 164 / 164, admin 47 / 47, public 612 / 612 in the first full run, and the public site proven unchanged
-  against `preserve/pre-admin-a2` (files, stylesheets, modules, 102 pages over HTTP in three gate-off settings, 236
-  screens). Open for the Owner: Editor → Reviewer after a password change (refused until the page is reloaded; the brief
-  listed it as a demotion), and the entry pages' long buttons at 390 / 320 px (a one-rule CSS fix prepared, not applied).
+  **A2 Correction 2 passed the independent security review and is locked** (the user's "PHASE A2 — FINAL VISUAL
+  CORRECTION" brief: `f0498dd`, the role-promotion boundary, `addsPrivilege`, `rolesVersion`, recovery-code protection,
+  role removals, the `ConfirmAction` freeze and every Correction 1 protection approved; do not redesign them) (the
+  "PHASE A2 — CORRECTION 2 / STALE PASSWORD / ROLE-PROMOTION BOUNDARY" brief; section "A2 CORRECTION 2" at the end of
+  the A2 report; checkpoint `preserve/pre-admin-a2-correction2` at `bca33aa`). Its commits: `6ccd43a` a role change that
+  adds privilege is decided on the account's credentials as its page showed them (see "Security invariants from A2
+  Correction 2"); `f0498dd` the final review's one fix (a confirmation dialog sends the fingerprint it opened with).
+  Final QA on a fresh clone of `f0498dd`: `npm ci`, audit `--omit=dev` 0, lint, typecheck, build with no database
+  settings, `db:check`, unit 30 / 30, integration 164 / 164, admin 47 / 47, public 612 / 612 in the first full run, and
+  the public site proven unchanged against `preserve/pre-admin-a2` (files, stylesheets, modules, 102 pages over HTTP in
+  three gate-off settings, 236 screens). Owner decision, final for A2: Editor → Reviewer stays privilege-adding (refused
+  after a password change until the page is reloaded). **The A2 final visual correction is built** (the "PHASE A2 —
+  FINAL VISUAL CORRECTION" brief; section "A2 FINAL VISUAL CORRECTION" at the end of the A2 report; `b4bf194`,
+  `admin.css` only: `.adm-entry-card .adm-btn { white-space: normal; text-align: center }`, so entry-page button labels
+  wrap on phones instead of pushing the card and the page past the screen) and awaits the Owner's independent visual
+  signoff. QA on a fresh clone of `b4bf194`: `npm ci`, audit `--omit=dev` 0, lint, typecheck, build, admin 47 / 47 (and
+  `db:check`, unit 30 / 30, integration 164 / 164; public build output identical to `f0498dd`'s apart from the build id;
+  no second public E2E run, per the brief). Evidence `rawasy-a2-final-evidence.zip` (not committed): 127 captures, 9
+  contact sheets, 0 horizontal overflow (8 before), desktop control boxes identical.
   **Do not start A3** (no CMS editing,
   media, page builder, navigation/settings management, enquiries, publishing, revisions, database-backed public pages,
   content migration, cache handler, projections, redirects, persistent media) until the user approves A2 and says so.
@@ -478,7 +487,7 @@
     `setUserRolesAction` requires both. A change that adds nothing (removing roles, Admin → Editor, Owner → Admin) is
     decided on the access fingerprint only, so the account being contained cannot hold it off by changing its password.
     Editor → Reviewer adds privilege (a Reviewer's `review` / `publish_reviewed`): refused after a password change until
-    the page is reloaded — reported for the Owner's decision (A2 report, Correction 2 item 8). Only real replacements
+    the page is reloaded — the Owner's decision, final for A2 (final visual correction brief). Only real replacements
     move `password_changed_at` (own change, reset link, accepted invitation); the sign-in rehash writes the hash only.
     `addsPrivilege` must read the same authority source as the runtime checks (the static registry today): keep it so if a
     later phase makes the matrix editable. Tests: `tests/unit/privilege.test.ts` (all 256 pairs of role sets against a
@@ -1825,6 +1834,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   take the new props: a form that sends both mixed an older page's role boxes with a newer fingerprint (sixth review).
   Key the uncontrolled part on the state it was rendered for (`<Fragment key={`${version}:${rolesVersion}`}>` in
   `UserRolesForm`).
+- A `<button>` centres wrapped lines by the browser's own style (`text-align: center`); a link styled as a button does
+  not, so where `.adm-btn` labels may wrap give them `text-align: center` too (the entry cards' "I saved them — continue").
 - A modal `<dialog>` (`showModal()`) stays open across `router.refresh()`, and React updates the controlled inputs inside it
   from the new props: freeze what a confirmation sends when it opens (`ConfirmAction`). A Server Action that sets or deletes
   a cookie also re-renders the current page in the same round trip (Next 16 docs, `cookies`), like a refresh.
