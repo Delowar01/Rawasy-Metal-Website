@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { PreviewSection } from "@/server/builder/preview";
+import { HOME_NOTES, HOME_RENDERERS } from "./adapters/home";
 import type { BlockProps, RenderContext } from "./context";
 import { GenericContactDetails, GenericQuoteForm } from "./generic/contact";
 import { GenericDownloads, GenericGallery, GenericImage, GenericLogoStrip, GenericMap, GenericTextImage, GenericVideo } from "./generic/media";
@@ -19,6 +20,7 @@ import {
   GenericTimeline,
 } from "./generic/text";
 import { isRenderedBlock, type RenderedBlock } from "./keys";
+import { InvalidSection } from "./Placeholder";
 import { SectionBoundary } from "./SectionBoundary";
 
 type Renderer = (props: BlockProps) => ReactNode | Promise<ReactNode>;
@@ -30,16 +32,7 @@ function Pending({ section }: BlockProps) {
 
 /** The renderer of every storable block (keys.ts): a missing one fails the typecheck. */
 export const RENDERERS: Record<RenderedBlock, Renderer> = {
-  "home.hero": Pending,
-  "home.capability_strip": Pending,
-  "home.about": Pending,
-  "home.services": Pending,
-  "home.machinery": Pending,
-  "home.projects": Pending,
-  "home.industries": Pending,
-  "home.clients": Pending,
-  "home.compliance": Pending,
-  "home.contact": Pending,
+  ...HOME_RENDERERS,
   "page.hero": Pending,
   "page.closing_cta": Pending,
   "about.overview": Pending,
@@ -118,18 +111,10 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
   "generic.downloads": GenericDownloads,
 };
 
-/** A section the preview cannot draw (unknown type, newer version, invalid data): an admin-only placeholder with its reason. */
-export function InvalidSection({ id, label, problem }: { id: string; label: string; problem: string }) {
-  return (
-    <div className="shell gb-failed" data-section={id} lang="en" dir="ltr">
-      <div className="gb-missing">
-        <span className="gb-note">
-          Preview only — “{label}” ({id}): {problem}
-        </span>
-      </div>
-    </div>
-  );
-}
+/** What a bespoke block's preview leaves out or stands in for, beyond what its declared fields tell (`sectionNotes`). */
+export const BLOCK_NOTES: Partial<Record<RenderedBlock, (props: BlockProps) => string[]>> = {
+  ...HOME_NOTES,
+};
 
 /**
  * One section, drawn by its block's renderer: a renderer that fails while it reads its data shows a placeholder for that

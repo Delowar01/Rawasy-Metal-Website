@@ -964,3 +964,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The homepage's compliance block on its sheet without the clients block above it: the sheet's own top space. */
+.mc .gb-sheet-top {
+  padding-top: var(--sec-y);
+}
