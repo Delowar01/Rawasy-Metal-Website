@@ -184,6 +184,8 @@ test.describe("a generic page", () => {
     expect(Math.abs(boxes[0]!.y - boxes[2]!.y)).toBeLessThan(2);
     const iframe = editor.locator("iframe.adm-bld-frame");
     await expect(iframe).toHaveAttribute("title", "Preview of Test Builder Page");
+    // Sandboxed: scripts and its own origin only, so nothing inside it can navigate the builder (security review F6).
+    await expect(iframe).toHaveAttribute("sandbox", "allow-scripts allow-same-origin");
     await expect(iframe).toHaveAttribute("src", new RegExp(`^/admin/preview/page/${ids.page}\\?locale=en&theme=light&device=desktop&frame=1&v=\\d+$`));
     expect(await pageOverflow(editor)).toBe(0);
   });
