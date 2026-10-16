@@ -13,7 +13,7 @@ import { PageHero } from "../inner/PageHero";
 import type { Tone } from "../types";
 import { delay } from "../ui";
 import { filterOptions, projectView, type ProjectPhoto, type ProjectView } from "./data";
-import { Gallery, ProjectFilterProvider, QuickFilter } from "./Gallery";
+import { Gallery, ProjectFilterProvider, QuickFilter, type FilterOption } from "./Gallery";
 import "./projects.css";
 
 /** The hero's three prints (as before): the tulip, the clock tower and the suspended lantern. */
@@ -32,6 +32,136 @@ function Head({ id, index, label, title, intro, tone, read = false }: { id: stri
       </h2>
       <p className="t-lead mt-4">{intro}</p>
     </div>
+  );
+}
+
+type PartHead = { index: string; label: string; title: string; intro: string };
+
+/** The featured project on the dark panel, linking to its place in the gallery. */
+export function FeaturedProject({ project: featured, label, refLabel, action }: { project: ProjectView; label: string; refLabel: string; action: string }) {
+  return (
+    <section aria-labelledby="featured-title" className="sec pj-featured-sec">
+      <div className="shell">
+        <div className="pj-feature" data-tone={featured.tone} data-reveal>
+          <div className="pj-feature-media">
+            <Prints main={featured.gallery[0]} more={featured.gallery.slice(1, 2)} alt={featured.title} sizes="(min-width: 1024px) 464px, 88vw" />
+          </div>
+          <div className="pj-feature-body">
+            <p className="eyebrow eyebrow-dark">{label}</p>
+            <p className="pj-feature-ref" dir="ltr">
+              {refLabel} {featured.ref}
+            </p>
+            <h2 id="featured-title" className="t-h2 pj-feature-title">
+              {featured.title}
+            </h2>
+            <p className="pj-feature-text">{featured.summary}</p>
+            <ul className="pj-feature-tags">
+              {featured.categories.map((c) => (
+                <li key={c.slug} className="pj-tag-dark" data-tone={c.tone}>
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+            <a href={`#${featured.slug}`} className="btn btn-primary pj-feature-go">
+              {action}
+              <Icon name="arrow" size={17} />
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** The highlights: chosen projects as editorial cards, each linking to its place in the gallery. */
+export function ProjectHighlights({ head, projects, refLabel, action }: { head: PartHead; projects: ProjectView[]; refLabel: string; action: string }) {
+  return (
+    <section aria-labelledby="highlights-title" className="sec sec-sheet sec-muted">
+      <div className="shell">
+        <Head id="highlights-title" index={head.index} label={head.label} title={head.title} intro={head.intro} tone="steel" />
+        <ul className="pj-highlights">
+          {projects.map((p, i) => (
+            <li key={p.slug} data-reveal style={delay(80)}>
+              <a href={`#${p.slug}`} className="card card-link pj-hl" data-tone={p.tone} data-reverse={i % 2 === 1 ? "" : undefined}>
+                <div className="pj-hl-media">
+                  <Prints main={p.gallery[0]} more={p.gallery.slice(1, 3)} alt="" sizes={`(min-width: 1024px) ${Math.min(p.gallery[0].width, 420)}px, 88vw`} />
+                </div>
+                <div className="pj-hl-body">
+                  <p className="pj-ref">
+                    <span aria-hidden className="pj-dot" />
+                    <span dir="ltr">
+                      {refLabel} {p.ref}
+                    </span>
+                  </p>
+                  <h3 className="t-h3 pj-hl-title">{p.title}</h3>
+                  <p className="pj-tags">
+                    {p.categories.slice(0, 3).map((c) => (
+                      <span key={c.slug} className="tag tag-tone" data-tone={c.tone}>
+                        {c.label}
+                      </span>
+                    ))}
+                  </p>
+                  <p className="pj-hl-text">{p.summary}</p>
+                  <span className="ab-go pj-go">
+                    {action}
+                    <Icon name="arrow" size={16} className="go" />
+                  </span>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/** The gallery (`#gallery`): the category bar and every project, each at `#<slug>` (inside the filter's provider). */
+export function GallerySection({
+  head,
+  projects,
+  options,
+  labels,
+}: {
+  head: PartHead;
+  projects: ProjectView[];
+  options: FilterOption[];
+  labels: { group: string; all: string; showing: string; ref: string; view: string };
+}) {
+  return (
+    <section id="gallery" aria-labelledby="gallery-title" className="sec pj-gallery">
+      <div className="shell">
+        <Head id="gallery-title" index={head.index} label={head.label} title={head.title} intro={head.intro} tone="brass" read />
+      </div>
+      <Gallery projects={projects} options={options} labels={labels} />
+    </section>
+  );
+}
+
+/** The index: every project by reference, each linking to its place in the gallery. */
+export function ProjectIndex({ head, projects }: { head: PartHead; projects: ProjectView[] }) {
+  return (
+    <section aria-labelledby="index-title" className="sec sec-sheet sec-raised">
+      <div className="shell">
+        <Head id="index-title" index={head.index} label={head.label} title={head.title} intro={head.intro} tone="teal" />
+        <ol aria-label={head.label} className="pj-index">
+          {projects.map((p) => (
+            <li key={p.slug} data-tone={p.tone}>
+              <a href={`#${p.slug}`} className="pj-index-link">
+                <span className="pj-index-ref" dir="ltr">
+                  {p.ref}
+                </span>
+                <span className="pj-index-name">
+                  <span className="pj-index-title">{p.title}</span>
+                  <span className="pj-index-cats">{p.categories.slice(0, 2).map((c) => c.label).join(" · ")}</span>
+                </span>
+                <Icon name="arrow" size={16} />
+              </a>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
   );
 }
 
@@ -76,125 +206,24 @@ export async function ProjectsPage({ locale }: { locale: Locale }) {
           aside={<Collage items={COLLAGE.map((slug) => bySlug(slug)!)} refLabel={refLabel} />}
         />
 
-        {featured && (
-          <section aria-labelledby="featured-title" className="sec pj-featured-sec">
-            <div className="shell">
-              <div className="pj-feature" data-tone={featured.tone} data-reveal>
-                <div className="pj-feature-media">
-                  <Prints main={featured.gallery[0]} more={featured.gallery.slice(1, 2)} alt={featured.title} sizes="(min-width: 1024px) 464px, 88vw" />
-                </div>
-                <div className="pj-feature-body">
-                  <p className="eyebrow eyebrow-dark">{page.featured.label[locale]}</p>
-                  <p className="pj-feature-ref" dir="ltr">
-                    {refLabel} {featured.ref}
-                  </p>
-                  <h2 id="featured-title" className="t-h2 pj-feature-title">
-                    {featured.title}
-                  </h2>
-                  <p className="pj-feature-text">{featured.summary}</p>
-                  <ul className="pj-feature-tags">
-                    {featured.categories.map((c) => (
-                      <li key={c.slug} className="pj-tag-dark" data-tone={c.tone}>
-                        {c.label}
-                      </li>
-                    ))}
-                  </ul>
-                  <a href={`#${featured.slug}`} className="btn btn-primary pj-feature-go">
-                    {inGallery}
-                    <Icon name="arrow" size={17} />
-                  </a>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+        {featured && <FeaturedProject project={featured} label={page.featured.label[locale]} refLabel={refLabel} action={inGallery} />}
 
-        <section aria-labelledby="highlights-title" className="sec sec-sheet sec-muted">
-          <div className="shell">
-            <Head
-              id="highlights-title"
-              index="01"
-              label={page.editorial.label[locale]}
-              title={page.editorial.title[locale]}
-              intro={page.editorial.intro[locale]}
-              tone="steel"
-            />
-            <ul className="pj-highlights">
-              {highlights.map((p, i) => (
-                <li key={p.slug} data-reveal style={delay(80)}>
-                  <a href={`#${p.slug}`} className="card card-link pj-hl" data-tone={p.tone} data-reverse={i % 2 === 1 ? "" : undefined}>
-                    <div className="pj-hl-media">
-                      <Prints main={p.gallery[0]} more={p.gallery.slice(1, 3)} alt="" sizes={`(min-width: 1024px) ${Math.min(p.gallery[0].width, 420)}px, 88vw`} />
-                    </div>
-                    <div className="pj-hl-body">
-                      <p className="pj-ref">
-                        <span aria-hidden className="pj-dot" />
-                        <span dir="ltr">
-                          {refLabel} {p.ref}
-                        </span>
-                      </p>
-                      <h3 className="t-h3 pj-hl-title">{p.title}</h3>
-                      <p className="pj-tags">
-                        {p.categories.slice(0, 3).map((c) => (
-                          <span key={c.slug} className="tag tag-tone" data-tone={c.tone}>
-                            {c.label}
-                          </span>
-                        ))}
-                      </p>
-                      <p className="pj-hl-text">{p.summary}</p>
-                      <span className="ab-go pj-go">
-                        {inGallery}
-                        <Icon name="arrow" size={16} className="go" />
-                      </span>
-                    </div>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+        <ProjectHighlights
+          head={{ index: "01", label: page.editorial.label[locale], title: page.editorial.title[locale], intro: page.editorial.intro[locale] }}
+          projects={highlights}
+          refLabel={refLabel}
+          action={inGallery}
+        />
 
-        <section id="gallery" aria-labelledby="gallery-title" className="sec pj-gallery">
-          <div className="shell">
-            <Head
-              id="gallery-title"
-              index="02"
-              label={page.gallery.label[locale]}
-              title={page.gallery.title[locale]}
-              intro={page.gallery.intro[locale]}
-              tone="brass"
-              read
-            />
-          </div>
-          <Gallery
-            projects={projects}
-            options={options}
-            labels={{ group: page.gallery.filterLabel[locale], all: page.gallery.all[locale], showing: page.gallery.showing[locale], ref: refLabel, view: page.view[locale] }}
-          />
-        </section>
+        <GallerySection
+          head={{ index: "02", label: page.gallery.label[locale], title: page.gallery.title[locale], intro: page.gallery.intro[locale] }}
+          projects={projects}
+          options={options}
+          labels={{ group: page.gallery.filterLabel[locale], all: page.gallery.all[locale], showing: page.gallery.showing[locale], ref: refLabel, view: page.view[locale] }}
+        />
       </ProjectFilterProvider>
 
-      <section aria-labelledby="index-title" className="sec sec-sheet sec-raised">
-        <div className="shell">
-          <Head id="index-title" index="03" label={page.index.label[locale]} title={page.index.title[locale]} intro={page.index.note[locale]} tone="teal" />
-          <ol aria-label={page.index.label[locale]} className="pj-index">
-            {indexed.map((p) => (
-              <li key={p.slug} data-tone={p.tone}>
-                <a href={`#${p.slug}`} className="pj-index-link">
-                  <span className="pj-index-ref" dir="ltr">
-                    {p.ref}
-                  </span>
-                  <span className="pj-index-name">
-                    <span className="pj-index-title">{p.title}</span>
-                    <span className="pj-index-cats">{p.categories.slice(0, 2).map((c) => c.label).join(" · ")}</span>
-                  </span>
-                  <Icon name="arrow" size={16} />
-                </a>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
+      <ProjectIndex head={{ index: "03", label: page.index.label[locale], title: page.index.title[locale], intro: page.index.note[locale] }} projects={indexed} />
 
       <ClosingCta
         label={page.cta.label[locale]}
@@ -206,7 +235,7 @@ export async function ProjectsPage({ locale }: { locale: Locale }) {
 }
 
 /** The hero's three gallery photos, layered like prints on a plate, each at most at its source size (mirrored in Arabic). */
-function Collage({ items, refLabel }: { items: ProjectView[]; refLabel: string }) {
+export function Collage({ items, refLabel }: { items: ProjectView[]; refLabel: string }) {
   const prints = [
     { className: "pj-print pj-print-main", sizes: "(min-width: 1024px) 370px, 64vw", preload: true },
     { className: "pj-print pj-print-tall", sizes: "(min-width: 1024px) 220px, 38vw", preload: false },
@@ -229,6 +258,7 @@ function Collage({ items, refLabel }: { items: ProjectView[]; refLabel: string }
                 blurDataURL={image.blurDataURL}
                 preload={prints[i].preload}
                 className="pj-print-img"
+                {...(image.unoptimized ? { unoptimized: true } : {})}
               />
             </span>
             {/* The row follows the page's direction (the reference stays clear of the print laid over this one's corner). */}
@@ -248,18 +278,27 @@ function Collage({ items, refLabel }: { items: ProjectView[]; refLabel: string }
  * A project's lead photo with up to two more pinned over its lower corner, each at most at its source size (the extra
  * prints at 78 % of it, as before, and never more than 30 % of the lead photo's width).
  */
-function Prints({ main, more, alt, sizes }: { main: ProjectPhoto; more: ProjectPhoto[]; alt: string; sizes: string }) {
+export function Prints({ main, more, alt, sizes }: { main: ProjectPhoto; more: ProjectPhoto[]; alt: string; sizes: string }) {
   return (
     <div className="pj-prints" style={{ maxWidth: main.width }}>
       <div className="pj-prints-main" style={{ aspectRatio: `${main.width} / ${main.height}` }}>
-        <Image src={main.src} alt={alt} fill sizes={sizes} placeholder="blur" blurDataURL={main.blurDataURL} className="pj-print-img" />
+        <Image src={main.src} alt={alt} fill sizes={sizes} placeholder="blur" blurDataURL={main.blurDataURL} className="pj-print-img" {...(main.unoptimized ? { unoptimized: true } : {})} />
       </div>
       {more.length > 0 && (
         <div className="pj-prints-more">
           {more.map((image) => (
             <div key={image.src} className="pj-prints-pin" style={{ width: `min(${Math.round(image.width * 0.78)}px, 30%)` } as CSSProperties}>
               <div className="pj-prints-pin-photo" style={{ aspectRatio: `${image.width} / ${image.height}` }}>
-                <Image src={image.src} alt="" fill sizes={`${Math.round(image.width * 0.78)}px`} placeholder="blur" blurDataURL={image.blurDataURL} className="pj-print-img" />
+                <Image
+                  src={image.src}
+                  alt=""
+                  fill
+                  sizes={`${Math.round(image.width * 0.78)}px`}
+                  placeholder="blur"
+                  blurDataURL={image.blurDataURL}
+                  className="pj-print-img"
+                  {...(image.unoptimized ? { unoptimized: true } : {})}
+                />
               </div>
             </div>
           ))}

@@ -7,7 +7,7 @@ import { Icon } from "../Icon";
 import type { Crumb } from "../inner/Breadcrumbs";
 import { ClosingCta } from "../inner/ClosingCta";
 import { PageHero } from "../inner/PageHero";
-import type { DetailPhoto, ProjectDetailView } from "./data";
+import type { DetailField, DetailPhoto, ProjectDetailView } from "./data";
 import "./project-detail.css";
 
 /*
@@ -38,111 +38,22 @@ export function ProjectDetailPage({
 }) {
   const dict = getDictionary(locale);
   const t = (text: Localized) => text[locale];
-  const [lead, ...more] = view.photos;
+  const more = view.photos.slice(1);
 
   return (
     <>
-      <PageHero
-        layout="split"
+      <ProjectOpening
+        view={view}
         breadcrumb={breadcrumb}
         breadcrumbLabel={dict.a11y.breadcrumb}
-        eyebrow={t(page.eyebrow)}
-        tone={view.tone}
-        title={view.title}
-        intro={view.summary}
-        facts={[
-          {
-            label: t(page.facts.classification),
-            value: (
-              <ul className="pd-inline">
-                {view.categories.map((c) => (
-                  <li key={c.slug} data-category={c.slug}>
-                    {c.label}
-                  </li>
-                ))}
-              </ul>
-            ),
-          },
-          {
-            label: t(page.facts.services),
-            value: (
-              <ul className="pd-inline">
-                {view.services.map((s) => (
-                  <li key={s.slug}>
-                    <a href={s.href} className="pd-link" data-service={s.slug}>
-                      {s.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ),
-          },
-        ]}
-        actions={
-          <>
-            <a href={href(locale, "contact", { hash: "quote" })} className="btn btn-primary">
-              {t(page.quote)}
-              <Icon name="arrow" size={17} />
-            </a>
-            <a href={href(locale, "projects")} className="btn btn-secondary">
-              {/* Back: the arrow points against the reading direction. */}
-              <span className="inline-flex -scale-x-100">
-                <Icon name="arrow" size={17} />
-              </span>
-              {t(page.back)}
-            </a>
-          </>
-        }
-        aside={lead ? <LeadPhoto photo={lead} view={view} /> : <SourcePlate view={view} />}
+        labels={{ eyebrow: t(page.eyebrow), classification: t(page.facts.classification), services: t(page.facts.services), quote: t(page.quote), back: t(page.back) }}
+        quoteHref={href(locale, "contact", { hash: "quote" })}
+        backHref={href(locale, "projects")}
       />
 
-      {more.length > 0 && (
-        <section aria-labelledby="photos-title" className="sec pd-photos">
-          <div className="shell">
-            <div className="a2-read max-w-[44rem]">
-              <h2 id="photos-title" className="t-h2">
-                {t(page.photos.title)}
-              </h2>
-              <p className="t-lead mt-4">{t(page.photos.intro)}</p>
-            </div>
-            <ul className="pd-gallery">
-              {more.map((photo) => (
-                <li key={photo.id} className="pd-shot">
-                  <Shot photo={photo} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      {more.length > 0 && <ProjectPhotos title={t(page.photos.title)} intro={t(page.photos.intro)} photos={more} />}
 
-      {(view.rows.length > 0 || view.passages.length > 0) && (
-        <section aria-labelledby="details-title" className="sec pd-details-sec">
-          <div className="shell">
-            <div className="a2-read max-w-[44rem]">
-              <h2 id="details-title" className="t-h2">
-                {t(page.details.title)}
-              </h2>
-            </div>
-            {view.rows.length > 0 && (
-              <dl className="pd-details">
-                {view.rows.map((f) => (
-                  <div key={f.key} data-field={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd>{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {view.passages.map((f) => (
-              <div key={f.key} className="pd-passage a2-read" data-field={f.key}>
-                <h3 className="t-h4">{f.label}</h3>
-                <p>{f.value}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {(view.rows.length > 0 || view.passages.length > 0) && <ProjectDetails title={t(page.details.title)} rows={view.rows} passages={view.passages} />}
 
       <ClosingCta
         label={t(page.cta.label)}
@@ -150,6 +61,134 @@ export function ProjectDetailPage({
         links={page.cta.links.map((link) => ({ href: href(locale, link.route, { hash: link.hash }), label: t(link.label) }))}
       />
     </>
+  );
+}
+
+/** The project's opening: the title, the record's summary, its classifications and services, the ways on, the lead photo or the source plate. */
+export function ProjectOpening({
+  view,
+  breadcrumb,
+  breadcrumbLabel,
+  labels,
+  quoteHref,
+  backHref,
+}: {
+  view: ProjectDetailView;
+  breadcrumb: Crumb[];
+  breadcrumbLabel: string;
+  labels: { eyebrow: string; classification: string; services: string; quote: string; back: string };
+  quoteHref: string;
+  backHref: string;
+}) {
+  const [lead] = view.photos;
+  return (
+    <PageHero
+      layout="split"
+      breadcrumb={breadcrumb}
+      breadcrumbLabel={breadcrumbLabel}
+      eyebrow={labels.eyebrow}
+      tone={view.tone}
+      title={view.title}
+      intro={view.summary}
+      facts={[
+        {
+          label: labels.classification,
+          value: (
+            <ul className="pd-inline">
+              {view.categories.map((c) => (
+                <li key={c.slug} data-category={c.slug}>
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+          ),
+        },
+        {
+          label: labels.services,
+          value: (
+            <ul className="pd-inline">
+              {view.services.map((s) => (
+                <li key={s.slug}>
+                  <a href={s.href} className="pd-link" data-service={s.slug}>
+                    {s.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ),
+        },
+      ]}
+      actions={
+        <>
+          <a href={quoteHref} className="btn btn-primary">
+            {labels.quote}
+            <Icon name="arrow" size={17} />
+          </a>
+          <a href={backHref} className="btn btn-secondary">
+            {/* Back: the arrow points against the reading direction. */}
+            <span className="inline-flex -scale-x-100">
+              <Icon name="arrow" size={17} />
+            </span>
+            {labels.back}
+          </a>
+        </>
+      }
+      aside={lead ? <LeadPhoto photo={lead} view={view} /> : <SourcePlate view={view} />}
+    />
+  );
+}
+
+/** "More photographs": the project's other photos, each at most at its own size. */
+export function ProjectPhotos({ title, intro, photos }: { title: string; intro: string; photos: DetailPhoto[] }) {
+  return (
+    <section aria-labelledby="photos-title" className="sec pd-photos">
+      <div className="shell">
+        <div className="a2-read max-w-[44rem]">
+          <h2 id="photos-title" className="t-h2">
+            {title}
+          </h2>
+          <p className="t-lead mt-4">{intro}</p>
+        </div>
+        <ul className="pd-gallery">
+          {photos.map((photo) => (
+            <li key={photo.id} className="pd-shot">
+              <Shot photo={photo} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/** The confirmed details the record holds: short ones as rows, longer ones as passages. */
+export function ProjectDetails({ title, rows, passages }: { title: string; rows: DetailField[]; passages: DetailField[] }) {
+  return (
+    <section aria-labelledby="details-title" className="sec pd-details-sec">
+      <div className="shell">
+        <div className="a2-read max-w-[44rem]">
+          <h2 id="details-title" className="t-h2">
+            {title}
+          </h2>
+        </div>
+        {rows.length > 0 && (
+          <dl className="pd-details">
+            {rows.map((f) => (
+              <div key={f.key} data-field={f.key}>
+                <dt>{f.label}</dt>
+                <dd>{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {passages.map((f) => (
+          <div key={f.key} className="pd-passage a2-read" data-field={f.key}>
+            <h3 className="t-h4">{f.label}</h3>
+            <p>{f.value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -176,6 +215,7 @@ function Shot({ photo, lead = false }: { photo: DetailPhoto; lead?: boolean }) {
       blurDataURL={photo.blurDataURL}
       className="pd-img"
       {...(lead ? { loading: "eager" as const, fetchPriority: "high" as const } : {})}
+      {...(photo.unoptimized ? { unoptimized: true } : {})}
     />
   );
 }

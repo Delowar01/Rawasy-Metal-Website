@@ -11,6 +11,8 @@ export interface ProjectPhoto {
   width: number;
   height: number;
   blurDataURL: string;
+  /** An uploaded media library item (the page builder's preview), drawn as it is: the image optimizer never takes those. */
+  unoptimized?: true;
 }
 
 export interface CategoryView {
@@ -42,7 +44,7 @@ export interface ProjectView {
 }
 
 /** The previous design's colour roles, in this design's names. */
-const TONE: Record<SiteTone, Tone> = { brand: "brand", eng: "steel", proc: "teal", craft: "brass" };
+export const TONE: Record<SiteTone, Tone> = { brand: "brand", eng: "steel", proc: "teal", craft: "brass" };
 
 /** A project's classifications in one language, with their colour roles (the project's own page uses them too). */
 export function categoryList(slugs: ProjectCategory[], locale: Locale): CategoryView[] {

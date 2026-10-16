@@ -27,7 +27,7 @@ export const MACHINE_ORDER: readonly MachineSlug[] = [
  */
 export type SchematicKind = "enclosed" | "tube" | "sheet" | "bend" | "weld";
 
-const SCHEMATIC: Record<MachineSlug, SchematicKind> = {
+export const SCHEMATIC: Record<MachineSlug, SchematicKind> = {
   "fiber-laser-combo-12kw": "enclosed",
   "tube-cutting-12kw": "tube",
   "fiber-laser-6kw": "sheet",

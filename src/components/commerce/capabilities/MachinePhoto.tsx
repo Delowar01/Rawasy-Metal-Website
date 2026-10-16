@@ -26,6 +26,7 @@ export function MachinePhoto({ image, eager = false }: { image: CommerceImage; e
       className="cm-photo"
       style={{ "--w": image.width, "--h": image.height } as React.CSSProperties}
       loading={eager ? "eager" : "lazy"}
+      {...(image.unoptimized ? { unoptimized: true } : {})}
     />
   );
 }

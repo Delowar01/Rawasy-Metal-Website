@@ -244,6 +244,7 @@ function GalleryCard({ project: p, refLabel, viewLabel }: { project: ProjectView
               blurDataURL={image.blurDataURL}
               className="pj-img"
               style={{ flex: `${image.width / image.height} 1 0`, maxWidth: image.width }}
+              {...(image.unoptimized ? { unoptimized: true } : {})}
             />
           ))}
         </div>
@@ -259,6 +260,7 @@ function GalleryCard({ project: p, refLabel, viewLabel }: { project: ProjectView
             blurDataURL={first.blurDataURL}
             className="pj-img"
             style={{ width: `min(100%, ${first.width}px)` }}
+            {...(first.unoptimized ? { unoptimized: true } : {})}
           />
         </div>
       )}

@@ -16,6 +16,8 @@ export interface DetailPhoto {
   height: number;
   blurDataURL: string;
   alt: string;
+  /** An uploaded media library item (the page builder's preview), drawn as it is: the image optimizer never takes those. */
+  unoptimized?: true;
 }
 
 export interface DetailService {
