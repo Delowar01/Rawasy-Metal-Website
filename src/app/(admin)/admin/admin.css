@@ -2560,6 +2560,20 @@ ol.adm-bld-rich-reads {
   text-underline-offset: 0.18em;
 }
 
+/* The repeaters' and the rich text's grids have one column that never grows past their box: an implicit `auto` column
+   takes its widest item's minimum width — a paragraph's kind menu, as wide as its longest choice — and pushed the editor
+   4 px past a 320 px screen. */
+.adm-bld-items,
+.adm-bld-item-list,
+.adm-bld-item,
+.adm-bld-rich,
+.adm-bld-rich-blocks,
+.adm-bld-rich-block,
+.adm-bld-rich-linking,
+.adm-bld-rich-marks {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* Narrow: one panel at a time (the tabs); the preview's controls only with the preview. */
 @container adm-bld (width < 60rem) {
   .adm-bld[data-panel="outline"] .adm-bld-grid > .adm-bld-panel[data-panel]:not([data-panel="outline"]),
