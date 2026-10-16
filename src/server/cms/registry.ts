@@ -271,6 +271,9 @@ export const LIMITS = {
     clearNote: 200,
     url: 255,
     galleryRef: 16,
+    /** A4: a gallery photo's caption, and the alt texts of a content item's photos (columns of 300). */
+    galleryCaption: 300,
+    altText: 300,
   },
   /** SEO lengths above which the editor warns (A1-CONTENT-MODEL §11). */
   seoWarn: { title: 60, description: 160 },
@@ -285,6 +288,8 @@ export const LIMITS = {
   },
   attributes: 20,
   facts: 12,
+  /** A4: a content item's media (a project's photos, a service's gallery, a certificate's redacted previews). */
+  media: { projectPhotos: 40, galleryItems: 24, certificatePreviews: 6 },
   powerWatts: { min: 1, max: 100_000 },
   year: { min: 1900, max: 2100 },
   page: { defaultSize: 25, minSize: 10, maxSize: 100 },

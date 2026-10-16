@@ -33,7 +33,10 @@ export function localeStateSql(type: EntityType, alias: string, locale: Locale):
       ? [
           sql`NOT EXISTS (SELECT 1 FROM ${id(rule.children.table)} c LEFT JOIN ${id(rule.children.tr)} ct
                 ON ct.${id(rule.children.trParent)} = c.id AND ct.locale = ${locale}
-               WHERE c.${id(rule.children.parent)} = r.id AND (ct.${id(rule.children.trParent)} IS NULL OR ct.label = '' OR ct.value = ''))`,
+               WHERE c.${id(rule.children.parent)} = r.id AND (${sql.join(
+                 [sql`ct.${id(rule.children.trParent)} IS NULL`, ...rule.children.required.map((c) => sql`ct.${id(c)} = ''`)],
+                 sql` OR `,
+               )}))`,
         ]
       : []),
   ];

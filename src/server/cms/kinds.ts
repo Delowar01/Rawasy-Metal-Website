@@ -12,15 +12,23 @@
  *   name; featured working flag; the slug is the /projects anchor; safety flags (projects.ts); per-record SEO.
  * - **Project categories** — a label per language; never archived while active projects use them.
  * - **Industries** — classification (profile sector or website classification); services and projects in order.
- * - **Clients** — name per language, optional https website, featured working flag; no claim, no logo (A4).
- * - **Certificates** — document metadata only: title, issuer, ordered facts, an admin-only expiry date; every public
- *   text passes the digit guard; files arrive in A4.
+ * - **Clients** — name per language, optional https website, featured working flag; no claim.
+ * - **Certificates** — document metadata: title, issuer, ordered facts, an admin-only expiry date; every public text
+ *   passes the digit guard.
+ *
+ * A4 (media library) adds only A1's media slots and lists (A4 brief §52–§56; A1-CONTENT-MODEL §8): a share image (pages,
+ * services, projects); a service's cover and supporting photos with their alt texts and its captioned gallery; a
+ * machine's photo; a project's ordered photos; an industry's photo and feature photo; a client's colour and monochrome
+ * logos; a certificate's thumbnail and its redacted public previews, each in a language or both. A certificate's private
+ * originals are never content fields: only the Owner's private-original upload links them (`certificate_documents`
+ * role `private_original`), and no save here reads or writes those rows.
  */
 import { eq, sql } from "drizzle-orm";
 import type { AnyMySqlColumn, AnyMySqlTable } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import type { Db } from "../db/client.ts";
 import {
+  certificateDocuments,
   certificates,
   clients,
   industries,
@@ -30,6 +38,7 @@ import {
   pages,
   projectCategories,
   projectCategoryAssignments,
+  projectMedia,
   projects,
   projectServices,
   serviceFeaturedProjects,
@@ -42,7 +51,7 @@ import { refLabel, refsByIds, type ItemRef } from "./lookups.ts";
 import { LIMITS, SERVICE_ICON_KEYS, type EntityType } from "./registry.ts";
 import { rowsOf, targetStates, type FieldErrors, type RelationTable } from "./store.ts";
 import { httpsUrlProblem, normalizedHttpsUrl } from "./text.ts";
-import { CERTIFICATE_FACT_TABLES, MACHINE_ATTRIBUTE_TABLES, TRANSLATED } from "./translated.ts";
+import { CERTIFICATE_FACT_TABLES, MACHINE_ATTRIBUTE_TABLES, SERVICE_GALLERY_TABLES, TRANSLATED } from "./translated.ts";
 
 const T = LIMITS.text;
 const checkbox = z.string().max(16).optional().transform((v) => v !== undefined);
@@ -84,6 +93,9 @@ async function checkReference(db: Db, type: EntityType, id: string | undefined, 
   return null;
 }
 
+/** The share image of SEO_R (A1-CONTENT-MODEL §11; falls back to the site default). */
+const SHARE_IMAGE = { key: "ogImageMediaId", label: "Share image", kinds: ["image"], hint: "Optional. Empty uses the site's default share image." } as const;
+
 // --- Pages -------------------------------------------------------------------------------------------------------------
 
 export const pageSpec: KindSpec = {
@@ -98,6 +110,7 @@ export const pageSpec: KindSpec = {
   rootColumns: (input, { pageType }) => ({ navHidden: input.navHidden === true, effectiveDate: pageType === "legal" ? ((input.effectiveDate as string) ?? null) : null }),
   rootValues: (row) => ({ navHidden: Boolean(row.navHidden), effectiveDate: row.effectiveDate ?? null }),
   rootLabels: { navHidden: "navigation", effectiveDate: "effective date", robotsIndex: "robots", robotsFollow: "robots", inSitemap: "sitemap", canonicalOverride: "canonical" },
+  mediaSlots: [SHARE_IMAGE],
 };
 
 // --- Services ----------------------------------------------------------------------------------------------------------
@@ -219,6 +232,19 @@ export const serviceSpec: KindSpec = {
       hint: "Only projects whose own record lists this service.",
     },
   ],
+  mediaSlots: [
+    { key: "coverMediaId", label: "Cover photo", kinds: ["image"], hint: "The card and hero photo. Its alt text is written per language below." },
+    { key: "supportingMediaId", label: "Supporting photo", kinds: ["image"], hint: "Its alt text is written per language below." },
+    SHARE_IMAGE,
+  ],
+  children: {
+    key: "gallery",
+    label: "Gallery",
+    one: "photo",
+    ...SERVICE_GALLERY_TABLES,
+    max: LIMITS.media.galleryItems,
+    mediaKinds: ["image"],
+  },
 };
 
 // --- Machinery ---------------------------------------------------------------------------------------------------------
@@ -256,11 +282,11 @@ export const machineSpec: KindSpec = {
   children: {
     key: "attributes",
     label: "Technical attributes",
+    one: "attribute",
     ...MACHINE_ATTRIBUTE_TABLES,
     max: LIMITS.attributes,
-    labelMax: T.attrLabel,
-    valueMax: T.attrValue,
   },
+  mediaSlots: [{ key: "mediaId", label: "Photo", kinds: ["image"], hint: "The machine's cut-out photo." }],
 };
 
 // --- Projects ----------------------------------------------------------------------------------------------------------
@@ -331,6 +357,22 @@ export const projectSpec: KindSpec = {
       max: LIMITS.relations.projectServices,
       check: (db, ownerId, ids, before) => keepsFeaturingServices(db, ownerId, ids, before),
       hint: "The services the project's own record lists.",
+    },
+  ],
+  mediaSlots: [SHARE_IMAGE],
+  mediaLists: [
+    {
+      key: "photos",
+      label: "Photos",
+      one: "photo",
+      table: projectMedia,
+      ownerColumn: projectMedia.projectId,
+      ownerKey: "projectId",
+      mediaKey: "mediaId",
+      positionColumn: projectMedia.position,
+      kinds: ["image"],
+      max: LIMITS.media.projectPhotos,
+      hint: "In the record's order; the first leads the project's page. A photo is never public because it is listed here.",
     },
   ],
 };
@@ -413,6 +455,10 @@ export const industrySpec: KindSpec = {
     { key: "services", label: "Services", target: "service", table: rel(industryServices, "industryId", "serviceId"), max: LIMITS.relations.industryServices },
     { key: "projects", label: "Projects", target: "project", table: rel(industryProjects, "industryId", "projectId"), max: LIMITS.relations.industryProjects },
   ],
+  mediaSlots: [
+    { key: "mediaId", label: "Photo", kinds: ["image"], hint: "The sector's photo." },
+    { key: "featureMediaId", label: "Feature photo", kinds: ["image"], hint: "The sector's larger feature photo." },
+  ],
 };
 
 // --- Clients -----------------------------------------------------------------------------------------------------------
@@ -445,6 +491,10 @@ export const clientSpec: KindSpec = {
   rootColumns: (input) => ({ websiteUrl: (input.websiteUrl as string | undefined) ?? null, isFeatured: input.isFeatured === true }),
   rootValues: (row) => ({ websiteUrl: row.websiteUrl ?? null, isFeatured: Boolean(row.isFeatured) }),
   rootLabels: { websiteUrl: "website", isFeatured: "featured", sourceBasis: "source", sourcePages: "source", sourceNote: "source note" },
+  mediaSlots: [
+    { key: "logoMediaId", label: "Logo (colour)", kinds: ["image"], hint: "A raster logo (no SVG upload). Choosing it has no public effect before publishing (A9)." },
+    { key: "logoMonoMediaId", label: "Logo (monochrome)", kinds: ["image"], hint: "Optional." },
+  ],
 };
 
 // --- Certificates ------------------------------------------------------------------------------------------------------
@@ -464,12 +514,29 @@ export const certificateSpec: KindSpec = {
   children: {
     key: "facts",
     label: "Displayed facts",
+    one: "fact",
     ...CERTIFICATE_FACT_TABLES,
     max: LIMITS.facts,
-    labelMax: T.factLabel,
-    valueMax: T.factValue,
     digitGuard: true,
   },
+  mediaSlots: [{ key: "thumbMediaId", label: "Thumbnail", kinds: ["image"], hint: "A redacted public-class image only. A private original can never be chosen." }],
+  mediaLists: [
+    {
+      key: "previews",
+      label: "Redacted public previews",
+      one: "preview",
+      table: certificateDocuments,
+      ownerColumn: certificateDocuments.certificateId,
+      ownerKey: "certificateId",
+      mediaKey: "mediaId",
+      positionColumn: certificateDocuments.position,
+      scope: { column: certificateDocuments.role, key: "role", value: "public_preview" },
+      localeKey: "locale",
+      kinds: ["image", "document"],
+      max: LIMITS.media.certificatePreviews,
+      hint: "Separately uploaded redacted copies (public-class, pending review until approved). The CMS never redacts a private original.",
+    },
+  ],
 };
 
 export const SPECS: Readonly<Record<EntityType, KindSpec>> = {

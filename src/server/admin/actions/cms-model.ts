@@ -4,6 +4,8 @@
  * code here (like `state.ts`), so client components may import it.
  */
 
+import type { MediaCardModel, MediaEntryValue, MediaListModel, MediaSlotModel } from "./media-model";
+
 export type CmsLocale = "en" | "ar";
 export type CmsLocaleState = "missing" | "incomplete" | "draft" | "complete" | "needs_review";
 
@@ -15,11 +17,11 @@ export const LOCALE_STATE_TEXT: Record<CmsLocaleState, string> = {
   needs_review: "Needs review",
 };
 
-/** A translated field of the form (one input per language). */
+/** A translated field of the form (one input per language; an alt text (A4) has a mode beside it). */
 export interface TextFieldModel {
   key: string;
   label: string;
-  kind: "line" | "text" | "rich" | "lines";
+  kind: "line" | "text" | "rich" | "lines" | "alt";
   max: number;
   maxItems?: number;
   required: boolean;
@@ -59,15 +61,26 @@ export interface RelationModel {
   emptyNote?: string;
 }
 
+/** A child entry's text per language (label and value; a gallery photo's caption and alt text). */
+export interface ChildTextModel {
+  key: string;
+  label: string;
+  max: number;
+  required: boolean;
+  /** An alt text: not written yet (null), decorative (""), or text. */
+  alt: boolean;
+}
+
 export interface ChildrenModel {
-  key: "facts" | "attributes";
+  key: "facts" | "attributes" | "gallery";
   label: string;
   one: string;
   max: number;
-  labelMax: number;
-  valueMax: number;
+  texts: ChildTextModel[];
   digitGuard: boolean;
   hint: string;
+  /** Each entry holds a media item (the service gallery, A4). */
+  media: boolean;
 }
 
 export interface EditorModel {
@@ -83,6 +96,12 @@ export interface EditorModel {
   seo: { canAdvanced: boolean } | null;
   relations: RelationModel[];
   children: ChildrenModel | null;
+  /** Media slots and lists (A4), with the cards of every item the stored record names. */
+  mediaSlots: MediaSlotModel[];
+  mediaLists: MediaListModel[];
+  mediaCards: Record<string, MediaCardModel>;
+  /** May upload public-class media from a picker (media.upload). */
+  canUpload: boolean;
   /** The person may change this item (permission, and not archived). */
   editable: boolean;
   readOnlyReason?: string;
@@ -91,8 +110,10 @@ export interface EditorModel {
 
 export interface ChildValues {
   id: string | null;
-  en: { label: string; value: string };
-  ar: { label: string; value: string };
+  /** Gallery entries: the media item. */
+  media?: string | null;
+  en: Record<string, string | null>;
+  ar: Record<string, string | null>;
 }
 
 export interface EditorValues {
@@ -105,6 +126,9 @@ export interface EditorValues {
   complete: Record<CmsLocale, boolean>;
   rel: Record<string, string[]>;
   children: ChildValues[];
+  /** Media slots (A4): the chosen item's id, or "". */
+  media: Record<string, string>;
+  mediaLists: Record<string, MediaEntryValue[]>;
 }
 
 /** What a content form shows after a save that did not go through (a success redirects to the saved item). */

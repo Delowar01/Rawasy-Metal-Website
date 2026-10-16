@@ -54,6 +54,31 @@ export function plainText(max: number, options: { multiline?: boolean } = {}) {
     });
 }
 
+/**
+ * An alt text (A4; A1-CONTENT-MODEL §8.1, A4 brief §40): `null` = not written yet, `""` = deliberately decorative, otherwise
+ * plain text — never only spaces (that is neither a description nor a decision).
+ */
+export function altText(max: number) {
+  const text = plainText(max);
+  return z
+    .union([z.null(), z.string().max(max * 4)])
+    .optional()
+    .transform((value, ctx): string | null => {
+      if (value === undefined || value === null) return null;
+      if (value === "") return "";
+      const parsed = text.safeParse(value);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) ctx.addIssue({ code: "custom", message: issue.message });
+        return z.NEVER;
+      }
+      if (!parsed.data) {
+        ctx.addIssue({ code: "custom", message: "Write the alt text, or mark the photo decorative." });
+        return z.NEVER;
+      }
+      return parsed.data;
+    });
+}
+
 /** Length in characters as people count them (code points). */
 export const charLength = (value: string) => [...value].length;
 

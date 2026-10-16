@@ -90,7 +90,7 @@ export function ChildRows({
                             className="adm-input"
                             dir={locale === "ar" ? "rtl" : "ltr"}
                             lang={locale}
-                            value={row[locale][part]}
+                            value={row[locale][part] ?? ""}
                             onChange={(e) => update(index, locale, part, e.target.value)}
                             autoComplete="off"
                           />
@@ -128,7 +128,7 @@ export function ChildRows({
             Add {model.one}
           </button>
           <span className="adm-hint">
-            At most {model.max}; labels up to {model.labelMax} characters, values up to {model.valueMax}.
+            At most {model.max}; {model.texts.map((t) => `${t.label}s up to ${t.max} characters`).join(", ")}.
           </span>
         </div>
       ) : null}

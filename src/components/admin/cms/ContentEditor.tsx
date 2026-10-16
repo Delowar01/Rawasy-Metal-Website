@@ -5,6 +5,10 @@
  * was opened with, so a refused save — stale, invalid, denied — keeps every typed value in place for the person to
  * compare or copy (§41); a successful save opens the item again from what is stored. Arabic inputs are right to left;
  * the admin itself stays English (§47). Leaving with unsaved changes asks first (§48).
+ *
+ * A4: the type's media — slots (a cover photo, a logo …), ordered lists (a project's photos, a certificate's redacted
+ * previews) and a service's captioned gallery — are chosen with the media picker and saved with the rest of the form;
+ * choosing an item never approves or publishes it. Alt texts are "not written yet", "decorative" or written.
  */
 import Link from "next/link";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -20,6 +24,9 @@ import {
   type RootFieldModel,
   type TextFieldModel,
 } from "@/server/admin/actions/cms-model";
+import type { MediaCardModel } from "@/server/admin/actions/media-model";
+import { GalleryRows } from "../media/GalleryRows";
+import { MediaListField, MediaSlotField } from "../media/MediaFields";
 import { ChildRows } from "./ChildRows";
 import { RelationPicker } from "./RelationPicker";
 import { useUnsavedChanges } from "./useUnsavedChanges";
@@ -84,6 +91,9 @@ export function ContentEditor({
 }) {
   const [values, setValues] = useState(initial);
   const [otherUnaffected, setOtherUnaffected] = useState(false);
+  // Cards of the media this form shows: the stored ones from the server, plus each item chosen since.
+  const [cards, setCards] = useState<Record<string, MediaCardModel>>(model.mediaCards);
+  const addCard = (card: MediaCardModel) => setCards((c) => ({ ...c, [card.id]: card }));
   const [state, dispatch, pending] = useActionState(saveContentAction, contentIdle);
   const alertRef = useRef<HTMLDivElement>(null);
   const dirty = useMemo(() => JSON.stringify(values) !== JSON.stringify(initial), [values, initial]);
@@ -106,10 +116,28 @@ export function ContentEditor({
 
   const contentFields = model.fields.filter((f) => !f.seo);
   const seoFields = model.fields.filter((f) => f.seo);
+  // The share image belongs with the SEO fields; every other media slot and list goes in the Media section.
+  const shareSlot = model.seo ? model.mediaSlots.find((m) => m.key === "ogImageMediaId") : undefined;
+  const mediaSlots = model.mediaSlots.filter((m) => m !== shareSlot);
+  const hasMedia = mediaSlots.length > 0 || model.mediaLists.length > 0;
+  const slotField = (slot: (typeof model.mediaSlots)[number]) => (
+    <MediaSlotField
+      key={slot.key}
+      model={slot}
+      value={values.media[slot.key] ?? ""}
+      cards={cards}
+      onChange={(mediaId) => set({ media: { ...values.media, [slot.key]: mediaId } })}
+      onCard={addCard}
+      canUpload={model.canUpload}
+      disabled={!editable}
+      error={errors[`media.${slot.key}`]}
+    />
+  );
   const sections: EditorSection[] = [
     { id: "general", label: "General" },
     { id: "english", label: "English" },
     { id: "arabic", label: "العربية" },
+    ...(hasMedia ? [{ id: "media", label: "Media" }] : []),
     ...(model.children ? [{ id: model.children.key, label: model.children.label }] : []),
     ...(model.relations.length ? [{ id: "relations", label: "Relations" }] : []),
     ...(model.seo ? [{ id: "seo", label: "SEO" }] : []),
@@ -280,9 +308,22 @@ export function ContentEditor({
               </h2>
               {states ? <LocaleBadge locale={locale.code} state={states[locale.code]} /> : <LocaleBadge locale={locale.code} state="missing" />}
             </div>
-            {contentFields.map((field) => (
-              <LocaleField key={field.key} field={field} locale={locale.code} value={values[locale.code][field.key] ?? ""} onChange={(t) => setText(locale.code, field.key, t)} error={errors[`${locale.code}.${field.key}`]} />
-            ))}
+            {contentFields.map((field) =>
+              field.kind === "alt" ? (
+                <AltField
+                  key={field.key}
+                  field={field}
+                  locale={locale.code}
+                  mode={(values[locale.code][`${field.key}Mode`] as AltMode | undefined) ?? "unset"}
+                  value={values[locale.code][field.key] ?? ""}
+                  onMode={(mode) => setText(locale.code, `${field.key}Mode`, mode)}
+                  onChange={(t) => setText(locale.code, field.key, t)}
+                  error={errors[`${locale.code}.${field.key}`]}
+                />
+              ) : (
+                <LocaleField key={field.key} field={field} locale={locale.code} value={values[locale.code][field.key] ?? ""} onChange={(t) => setText(locale.code, field.key, t)} error={errors[`${locale.code}.${field.key}`]} />
+              ),
+            )}
             <div className="adm-field">
               <label className="adm-check" htmlFor={fieldId(`${locale.code}.complete`)}>
                 <input
@@ -317,10 +358,47 @@ export function ContentEditor({
           </div>
         ) : null}
 
+        {hasMedia ? (
+          <section className="adm-card" id="media" aria-labelledby="media-title">
+            <h2 id="media-title">Media</h2>
+            <p className="adm-hint">
+              Choosing an item only links it to this draft: it never approves or publishes the item. Items not yet approved show why, and publishing (A8) will refuse
+              them.
+            </p>
+            {mediaSlots.map(slotField)}
+            {model.mediaLists.map((list) => (
+              <MediaListField
+                key={list.key}
+                model={list}
+                value={values.mediaLists[list.key] ?? []}
+                cards={cards}
+                onChange={(entries) => set({ mediaLists: { ...values.mediaLists, [list.key]: entries } })}
+                onCard={addCard}
+                canUpload={model.canUpload}
+                disabled={!editable}
+                error={errors[`mediaList.${list.key}`]}
+              />
+            ))}
+          </section>
+        ) : null}
+
         {model.children ? (
           <section className="adm-card" id={model.children.key} aria-labelledby={`${model.children.key}-title`}>
             <h2 id={`${model.children.key}-title`}>{model.children.label}</h2>
-            <ChildRows model={model.children} value={values.children} onChange={(children: ChildValues[]) => set({ children })} disabled={!editable} error={errors.children} />
+            {model.children.media ? (
+              <GalleryRows
+                model={model.children}
+                value={values.children}
+                cards={cards}
+                onChange={(children: ChildValues[]) => set({ children })}
+                onCard={addCard}
+                canUpload={model.canUpload}
+                disabled={!editable}
+                error={errors.children}
+              />
+            ) : (
+              <ChildRows model={model.children} value={values.children} onChange={(children: ChildValues[]) => set({ children })} disabled={!editable} error={errors.children} />
+            )}
           </section>
         ) : null}
 
@@ -345,6 +423,7 @@ export function ContentEditor({
           <section className="adm-card" id="seo" aria-labelledby="seo-title">
             <h2 id="seo-title">SEO</h2>
             <p className="adm-hint">Per-language titles and descriptions for search and sharing. Empty fields fall back to the title and summary.</p>
+            {shareSlot ? slotField(shareSlot) : null}
             {LOCALES.map((locale) => (
               <fieldset className="adm-subset" key={locale.code}>
                 <legend className="adm-label" lang={locale.code}>
@@ -543,6 +622,62 @@ function TextArea({
 }
 
 const SEO_GUIDE: Record<string, number> = { seoTitle: 60, ogTitle: 60, seoDescription: 160, ogDescription: 160 };
+
+type AltMode = "unset" | "decorative" | "text";
+
+/** An alt text (A4): not written yet, decorative, or written — the mode is sent beside the text (`<field>Mode`). */
+function AltField({
+  field,
+  locale,
+  mode,
+  value,
+  onMode,
+  onChange,
+  error,
+}: {
+  field: TextFieldModel;
+  locale: CmsLocale;
+  mode: AltMode;
+  value: string;
+  onMode: (mode: AltMode) => void;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const name = `${locale}.${field.key}`;
+  const modeName = `${locale}.${field.key}Mode`;
+  return (
+    <fieldset className="adm-subset">
+      <legend className="adm-label">{field.label}</legend>
+      <div className="adm-field">
+        <label className="adm-label" htmlFor={fieldId(modeName)}>
+          Alt text
+        </label>
+        <select id={fieldId(modeName)} name={modeName} className="adm-input" value={mode} onChange={(e) => onMode(e.target.value as AltMode)}>
+          <option value="unset">Not written yet</option>
+          <option value="decorative">Decorative (no alt text)</option>
+          <option value="text">Written</option>
+        </select>
+      </div>
+      {mode === "text" ? (
+        <TextInput
+          name={name}
+          label="Written alt text"
+          value={value}
+          onChange={onChange}
+          hint={[field.hint, `At most ${field.max} characters. Describe what the photo shows; never a number or a name it doesn't show.`].filter(Boolean).join(" ")}
+          error={error}
+          dir={locale === "ar" ? "rtl" : "ltr"}
+          lang={locale}
+        />
+      ) : (
+        <>
+          {field.hint ? <p className="adm-hint">{field.hint}</p> : null}
+          {error ? <p className="adm-hint adm-error">{error}</p> : null}
+        </>
+      )}
+    </fieldset>
+  );
+}
 
 function LocaleField({ field, locale, value, onChange, error }: { field: TextFieldModel; locale: CmsLocale; value: string; onChange: (v: string) => void; error?: string }) {
   const name = `${locale}.${field.key}`;

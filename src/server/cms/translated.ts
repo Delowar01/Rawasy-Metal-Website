@@ -7,7 +7,9 @@
  *
  * A field is required for its language to be complete when `required` is set; its column is the translation table's
  * property of the same name — NOT NULL, holding "" (or an empty document, or an empty list) while missing. Child items
- * (machine attributes, certificate facts) need their label and value in a language for it to be complete.
+ * (machine attributes, certificate facts, and since A4 a service's gallery photos) need their required texts — label
+ * and value, or a photo's caption — in a language for it to be complete. An alt text (A4) is never required: NULL means
+ * not written yet, '' decorative.
  */
 import { getTableName } from "drizzle-orm";
 import type { AnyMySqlColumn, AnyMySqlTable } from "drizzle-orm/mysql-core";
@@ -23,11 +25,14 @@ import {
   pageTranslations,
   projectCategoryTranslations,
   projectTranslations,
+  serviceGalleryItems,
+  serviceGalleryItemTranslations,
   serviceTranslations,
 } from "../db/schema-cms.ts";
 import { ENTITY_TYPES, LIMITS, type EntityType } from "./registry.ts";
 
-export type TextKind = "line" | "text" | "rich" | "lines";
+/** `alt` (A4): a photo's alt text — NULL not written yet, '' decorative, else the text; never required. */
+export type TextKind = "line" | "text" | "rich" | "lines" | "alt";
 
 /** A translated field: its column (property name), how it is edited and checked, and what completeness needs. */
 export interface TrField {
@@ -51,7 +56,18 @@ export interface TrField {
   hint?: string;
 }
 
-/** The tables of a type's child items: ordered label/value pairs per language. */
+/** A translated text of a child item: a column of the child's translation table, by property name. */
+export interface ChildText {
+  key: string;
+  label: string;
+  max: number;
+  /** Needed in a language for the item's language to be complete (a NOT NULL column holding "" while missing). */
+  required?: boolean;
+  /** An alt text (A4): NULL not written yet, '' decorative; never required. */
+  alt?: boolean;
+}
+
+/** The tables of a type's child items: ordered entries with their texts per language (and, for a gallery, a photo). */
 export interface ChildTables {
   table: AnyMySqlTable;
   idColumn: AnyMySqlColumn;
@@ -62,6 +78,9 @@ export interface ChildTables {
   trParentColumn: AnyMySqlColumn;
   trLocaleColumn: AnyMySqlColumn;
   trParentKey: string;
+  texts: readonly ChildText[];
+  /** The child table's media column (property name), when each entry holds one media item (A4: the service gallery). */
+  mediaKey?: string;
 }
 
 /** A type's translations: the table, the field the item is named by, the fields, and the child items if any. */
@@ -96,6 +115,10 @@ export const MACHINE_ATTRIBUTE_TABLES: ChildTables = {
   trParentColumn: machineAttributeTranslations.attributeId,
   trLocaleColumn: machineAttributeTranslations.locale,
   trParentKey: "attributeId",
+  texts: [
+    { key: "label", label: "label", max: T.attrLabel, required: true },
+    { key: "value", label: "value", max: T.attrValue, required: true },
+  ],
 };
 
 export const CERTIFICATE_FACT_TABLES: ChildTables = {
@@ -108,6 +131,28 @@ export const CERTIFICATE_FACT_TABLES: ChildTables = {
   trParentColumn: certificateFactTranslations.factId,
   trLocaleColumn: certificateFactTranslations.locale,
   trParentKey: "factId",
+  texts: [
+    { key: "label", label: "label", max: T.factLabel, required: true },
+    { key: "value", label: "value", max: T.factValue, required: true },
+  ],
+};
+
+/** A service's captioned gallery (A4; A1 `service_gallery_items`): each entry a photo with its caption and alt per language. */
+export const SERVICE_GALLERY_TABLES: ChildTables = {
+  table: serviceGalleryItems,
+  idColumn: serviceGalleryItems.id,
+  parentColumn: serviceGalleryItems.serviceId,
+  positionColumn: serviceGalleryItems.position,
+  parentKey: "serviceId",
+  trTable: serviceGalleryItemTranslations,
+  trParentColumn: serviceGalleryItemTranslations.itemId,
+  trLocaleColumn: serviceGalleryItemTranslations.locale,
+  trParentKey: "itemId",
+  texts: [
+    { key: "caption", label: "caption", max: T.galleryCaption, required: true },
+    { key: "alt", label: "alt text", max: T.altText, alt: true },
+  ],
+  mediaKey: "mediaId",
 };
 
 export const TRANSLATED: Readonly<Record<EntityType, TranslatedSpec>> = {
@@ -142,8 +187,11 @@ export const TRANSLATED: Readonly<Record<EntityType, TranslatedSpec>> = {
         maxItems: T.highlights,
         hint: "The service's key points or benefits.",
       },
+      { key: "coverAlt", label: "Cover photo alt text", kind: "alt", max: T.altText, optional: true, hint: "Describes the cover photo here (A4)." },
+      { key: "supportingAlt", label: "Supporting photo alt text", kind: "alt", max: T.altText, optional: true, hint: "Describes the supporting photo here (A4)." },
       ...SEO_FIELDS,
     ],
+    childTables: SERVICE_GALLERY_TABLES,
   },
   machine: {
     tr: machineTranslations,
@@ -231,6 +279,13 @@ export function columnOf(type: EntityType, key: string): AnyMySqlColumn {
   return column;
 }
 
+/** The child translation table's column of a child text, by the table's own property name. */
+export function childTextColumn(child: ChildTables, key: string): AnyMySqlColumn {
+  const column = (child.trTable as unknown as Record<string, AnyMySqlColumn | undefined>)[key];
+  if (!column) throw new Error(`The child translations of ${getTableName(child.table)} have no column for the text ${key}.`);
+  return column;
+}
+
 /** What the SQL language state of a type tests, as column and table names (from the definition, never from input). */
 export interface CompletenessRule {
   /** The title column. */
@@ -241,8 +296,8 @@ export interface CompletenessRule {
   rich: string[];
   /** Required line lists (an empty list while missing). */
   lines: string[];
-  /** Child items: their table, parent column, translation table and its parent column. */
-  children?: { table: string; parent: string; tr: string; trParent: string };
+  /** Child items: their table, parent column, translation table, its parent column and the texts each child needs. */
+  children?: { table: string; parent: string; tr: string; trParent: string; required: string[] };
 }
 
 export function completenessRule(type: EntityType): CompletenessRule {
@@ -255,7 +310,15 @@ export function completenessRule(type: EntityType): CompletenessRule {
     rich: required(["rich"]),
     lines: required(["lines"]),
     ...(child
-      ? { children: { table: getTableName(child.table), parent: sqlName(child.parentColumn), tr: getTableName(child.trTable), trParent: sqlName(child.trParentColumn) } }
+      ? {
+          children: {
+            table: getTableName(child.table),
+            parent: sqlName(child.parentColumn),
+            tr: getTableName(child.trTable),
+            trParent: sqlName(child.trParentColumn),
+            required: child.texts.filter((t) => t.required).map((t) => sqlName(childTextColumn(child, t.key))),
+          },
+        }
       : {}),
   };
 }

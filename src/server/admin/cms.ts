@@ -9,6 +9,7 @@ import type { Actor } from "@/server/auth/types";
 import type { Db } from "@/server/db/client";
 import { users } from "@/server/db/schema";
 import type { EditorItem, KindSpec } from "@/server/cms/engine";
+import { mediaCards } from "@/server/media/cards";
 import { projectsListingService, servicesFeaturingProject, SPECS } from "@/server/cms/kinds";
 import { pickerOptions, refLabel, type ItemRef } from "@/server/cms/lookups";
 import { routeIntent, pageTypeOf } from "@/server/cms/pages";
@@ -66,7 +67,7 @@ async function rootFields(db: Db, type: EntityType, pageType: PageType | null): 
           label: "Icon / drawing",
           required: true,
           options: SERVICE_ICON_KEYS.map((value) => ({ value, label: ICON_LABELS[value] ?? value })),
-          hint: "From the site's own icon set. Images arrive with the media library (A4).",
+          hint: "From the site's own icon set (the service's drawing; its photos are chosen in Media below).",
         },
       ];
     case "machine":
@@ -197,17 +198,26 @@ export async function editorModel({ db, actor, type, item, newPageType, newSyste
     ? {
         key: spec.children.key,
         label: spec.children.label,
-        one: spec.children.key === "facts" ? "fact" : "attribute",
+        one: spec.children.one,
         max: spec.children.max,
-        labelMax: spec.children.labelMax,
-        valueMax: spec.children.valueMax,
+        texts: spec.children.texts.map((t) => ({ key: t.key, label: t.label, max: t.max, required: Boolean(t.required), alt: Boolean(t.alt) })),
         digitGuard: Boolean(spec.children.digitGuard),
+        media: Boolean(spec.children.mediaKey),
         hint:
           spec.children.key === "facts"
             ? "Displayed facts such as type, issued or status, as label and value per language. Never a registration or certificate number."
-            : "Only what the source states, as label and value per language. Plain text only.",
+            : spec.children.key === "gallery"
+              ? "Photos for the service's gallery, in order, each with its caption per language (the caption names the photo). Listing a photo never approves or publishes it."
+              : "Only what the source states, as label and value per language. Plain text only.",
       }
     : null;
+  const mediaIds = item
+    ? [
+        ...Object.values(item.media).filter((v): v is string => Boolean(v)),
+        ...Object.values(item.mediaLists).flatMap((entries) => entries.map((e) => e.media)),
+        ...item.children.map((c) => c.media).filter((v): v is string => Boolean(v)),
+      ]
+    : [];
   const fixed = pageType ? isFixedPage(pageType) : false;
   const systemKey = item ? ((item.root.systemKey as string | null) ?? null) : (newSystemKey ?? null);
   return {
@@ -222,6 +232,10 @@ export async function editorModel({ db, actor, type, item, newPageType, newSyste
     seo: spec.hasSeo ? { canAdvanced: can(actor.permissions, type, "seo_advanced") } : null,
     relations,
     children,
+    mediaSlots: (spec.mediaSlots ?? []).map((m) => ({ key: m.key, label: m.label, kinds: [...m.kinds], hint: m.hint })),
+    mediaLists: (spec.mediaLists ?? []).map((m) => ({ key: m.key, label: m.label, one: m.one, kinds: [...m.kinds], max: m.max, hint: m.hint, locales: Boolean(m.localeKey) })),
+    mediaCards: await mediaCards(db, actor.permissions, mediaIds),
+    canUpload: actor.permissions.has("media.upload"),
     editable,
     readOnlyReason,
     ...(pageType
@@ -247,7 +261,7 @@ export function editorValues(type: EntityType, item: EditorItem | null): EditorV
   const root = item?.root ?? {};
   const rootValues: Record<string, string | boolean> = {};
   for (const key of Object.keys(spec.rootShape)) rootValues[key] = CHECKBOXES.has(key) ? Boolean(root[key]) : str(root[key]);
-  const empty = Object.fromEntries(spec.fields.map((f) => [f.key, ""]));
+  const empty = Object.fromEntries(spec.fields.flatMap((f) => (f.kind === "alt" ? [[f.key, ""], [`${f.key}Mode`, "unset"]] : [[f.key, ""]])));
   return {
     slug: item?.slug ?? "",
     root: rootValues,
@@ -262,7 +276,9 @@ export function editorValues(type: EntityType, item: EditorItem | null): EditorV
     ar: item ? item.values.ar : { ...empty },
     complete: item ? item.complete : { en: false, ar: false },
     rel: item ? item.rel : Object.fromEntries((spec.relations ?? []).map((r) => [r.key, []])),
-    children: item ? item.children.map((c) => ({ id: c.id, en: c.en, ar: c.ar })) : [],
+    children: item ? item.children.map((c) => ({ id: c.id, media: c.media, en: c.en, ar: c.ar })) : [],
+    media: Object.fromEntries((spec.mediaSlots ?? []).map((m) => [m.key, item?.media[m.key] ?? ""])),
+    mediaLists: Object.fromEntries((spec.mediaLists ?? []).map((m) => [m.key, (item?.mediaLists[m.key] ?? []).map((e) => ({ media: e.media, locale: e.locale }))])),
   };
 }
 
