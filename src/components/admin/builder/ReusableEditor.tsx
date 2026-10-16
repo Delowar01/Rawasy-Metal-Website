@@ -51,7 +51,8 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
     canUpload: model.canUpload,
     // A reusable section can be linked into any page: it names no in-page anchor of its own.
     anchors: [],
-    disabled: !model.can.edit || save.status === "saving",
+    // Nothing more is edited between a save and the stored version replacing this one (it would be dropped).
+    disabled: !model.can.edit || save.status === "saving" || save.status === "saved",
     issues: save.status === "error" ? save.issues : [],
   };
 
@@ -61,9 +62,19 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
     try {
       const result = await saveReusableAction(JSON.stringify({ id: model.id, expectedVersion: model.lockVersion, name, data }));
       if (result.status === "ok") {
-        // The editor opens again on the stored version (its new version number remounts it); the screen confirms.
+        // The editor opens again on the stored version (its new version number remounts it, and puts it in the address so
+        // the version is always read again); the screen confirms.
+        if (result.lockVersion === model.lockVersion) {
+          // Nothing was stored (the same as before): this editor stays as it is.
+          setChanged(false);
+          setSave({ status: "idle" });
+          return;
+        }
         setSave({ status: "saved", message: result.message });
-        router.replace(`${window.location.pathname}?done=saved`, { scroll: false });
+        // Should the reload not arrive (a lost connection), editing comes back rather than staying locked; a save from
+        // this older version is then refused as changed elsewhere, never stored over the new one.
+        window.setTimeout(() => setSave((s) => (s.status === "saved" ? { status: "idle" } : s)), 20_000);
+        router.replace(`${window.location.pathname}?done=saved&v=${result.lockVersion}`, { scroll: false });
       } else if (result.status === "stale") setSave({ status: "stale", message: result.message });
       else setSave({ status: "error", message: result.message, issues: result.issues ?? [] });
     } catch {
@@ -82,9 +93,19 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
       <div className="adm-bld-top" role="group" aria-label="Reusable section controls" ref={bar}>
         <div className="adm-bld-top-group">
           <span className="adm-bld-save" data-state={save.status === "idle" ? (dirty ? "dirty" : "saved") : save.status} role="status" aria-live="polite">
-            {save.status === "saving" ? "Saving…" : save.status === "error" ? "Error: not saved" : save.status === "stale" ? "Changed elsewhere: not saved" : dirty ? "Unsaved changes" : "Saved"}
+            {save.status === "saving"
+              ? "Saving…"
+              : save.status === "saved"
+                ? "Saved: loading it…"
+                : save.status === "error"
+                  ? "Error: not saved"
+                  : save.status === "stale"
+                    ? "Changed elsewhere: not saved"
+                    : dirty
+                      ? "Unsaved changes"
+                      : "Saved"}
           </span>
-          <button type="button" className="adm-btn is-primary" onClick={() => void saveNow()} disabled={!dirty || !model.can.edit || save.status === "saving" || !data}>
+          <button type="button" className="adm-btn is-primary" onClick={() => void saveNow()} disabled={!dirty || !model.can.edit || save.status === "saving" || save.status === "saved" || !data}>
             {save.status === "saving" ? "Saving…" : "Save"}
           </button>
         </div>
@@ -154,7 +175,7 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
             <label className="adm-label" htmlFor={`${id}-name`}>
               Name (shown in the admin only)
             </label>
-            <input id={`${id}-name`} className="adm-input" value={name} maxLength={240} disabled={!model.can.edit} onChange={(e) => setName(e.target.value)} aria-invalid={nameIssue ? true : undefined} />
+            <input id={`${id}-name`} className="adm-input" value={name} maxLength={240} disabled={!model.can.edit || save.status === "saving" || save.status === "saved"} onChange={(e) => setName(e.target.value)} aria-invalid={nameIssue ? true : undefined} />
             {nameIssue ? <p className="adm-hint adm-error">{nameIssue}</p> : null}
           </div>
           {data && model.block ? (
