@@ -3,9 +3,10 @@
  *   1. a fresh local MariaDB database (rawasy_e2e_*), from TEST_DB_HOST / TEST_DB_PORT / TEST_DB_USER / TEST_DB_PASSWORD;
  *   2. the reviewed migrations, applied by scripts/db-migrate.mjs;
  *   3. a disposable encryption key generated for this run (never written to the repository);
- *   4. `node server.js` on port 3401 with APP_ENV=local and the mail sink in a temporary folder.
- * The run's facts (database name, mail folder, key) go to a 0600 file in the temporary folder for the tests. On SIGTERM
- * the server stops and the database is dropped.
+ *   4. `node server.js` on port 3401 with APP_ENV=local, the mail sink in a temporary folder and (A4) a temporary media
+ *      data folder (RAWASY_DATA_DIR) outside the application.
+ * The run's facts (database name, mail folder, data folder, key) go to a 0600 file in the temporary folder for the tests.
+ * On SIGTERM the server stops, the database is dropped and the temporary folders are removed.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -25,6 +26,7 @@ if (!TEST_DB_USER) {
 
 const database = `rawasy_e2e_${randomBytes(4).toString("hex")}`;
 const mailDir = mkdtempSync(join(tmpdir(), "rawasy-admin-e2e-mail-"));
+const dataDir = mkdtempSync(join(tmpdir(), "rawasy-admin-e2e-data-"));
 const authKey = randomBytes(32).toString("base64");
 const env = {
   PATH: process.env.PATH,
@@ -44,6 +46,7 @@ const env = {
   ADMIN_BASE_URL: `http://localhost:${PORT}`,
   MAIL_TRANSPORT: "sink",
   MAIL_SINK_DIR: mailDir,
+  RAWASY_DATA_DIR: dataDir,
 };
 
 const mysql = await import("mysql2/promise");
@@ -56,7 +59,7 @@ if (migrated.status !== 0) {
   console.error(migrated.stdout, migrated.stderr);
   process.exit(1);
 }
-writeFileSync(STATE_FILE, JSON.stringify({ database, mailDir, authKey, port: PORT }), { mode: 0o600 });
+writeFileSync(STATE_FILE, JSON.stringify({ database, mailDir, dataDir, authKey, port: PORT }), { mode: 0o600 });
 
 const server = spawn(process.execPath, [join(ROOT, "server.js")], { env, cwd: ROOT, stdio: "inherit" });
 
@@ -73,6 +76,7 @@ async function stop() {
     // The database is a disposable local one; a failed drop leaves only test data behind.
   }
   rmSync(mailDir, { recursive: true, force: true });
+  rmSync(dataDir, { recursive: true, force: true });
   rmSync(STATE_FILE, { force: true });
   process.exit(0);
 }

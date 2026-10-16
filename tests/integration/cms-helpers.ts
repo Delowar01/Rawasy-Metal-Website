@@ -3,12 +3,15 @@
  * sends them (through `formToObject`, the Server Actions' own reader) and audit lookups. Test data only: every name
  * here is an obvious fictional example ("Test Laser Service", "Demo Project"), never RAWASY content.
  */
+import { createHash } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import type { Actor } from "../../src/server/auth/types.ts";
 import type { ChangeContext } from "../../src/server/cms/engine.ts";
 import { formToObject, type FormObject } from "../../src/server/cms/form.ts";
 import { dbFor } from "../../src/server/db/client.ts";
 import { auditEvents } from "../../src/server/db/schema.ts";
+import { rebuildMediaSearch } from "../../src/server/media/service.ts";
+import { ulid } from "../../src/server/security/ids.ts";
 import { actorFor, createUser, meta, type TestEnv } from "./helpers.ts";
 
 export type Fields = Record<string, string | string[] | undefined | null>;
@@ -66,4 +69,54 @@ export async function query<T = Record<string, unknown>>(env: TestEnv, statement
 export function expectOk<T extends { kind: string }>(result: T): Extract<T, { kind: "ok" }> {
   if (result.kind !== "ok") throw new Error(`Expected ok, got ${JSON.stringify(result)}`);
   return result as Extract<T, { kind: "ok" }>;
+}
+
+export interface SeedMediaOptions {
+  kind?: "image" | "document";
+  visibility?: "public" | "private";
+  status?: "pending_review" | "approved" | "restricted" | "internal" | "archived";
+  /** A current, ready file (default); false = the first upload has not finished. */
+  ready?: boolean;
+  trashed?: boolean;
+  flags?: string[];
+  title?: string;
+}
+
+/**
+ * A media item made directly in the database for content tests (A4): a row and, unless `ready: false`, a current file
+ * row (no bytes on disk: content saves and pickers never read a file). Synthetic names only.
+ */
+export async function seedMedia(env: TestEnv, options: SeedMediaOptions = {}): Promise<string> {
+  const id = ulid();
+  const kind = options.kind ?? "image";
+  const visibility = options.visibility ?? "public";
+  const status = options.status ?? (visibility === "private" ? "internal" : "pending_review");
+  await query(env, "INSERT INTO media_assets (id, kind, visibility, usage_status, deleted_at) VALUES (?, ?, ?, ?, ?)", [id, kind, visibility, status, options.trashed ? new Date() : null]);
+  if (options.ready !== false) {
+    const fileId = ulid();
+    const extension = kind === "document" ? "pdf" : "webp";
+    await query(
+      env,
+      `INSERT INTO media_files (id, media_id, version, storage_area, storage_key, original_filename, mime_type, extension, byte_size, sha256, width, height, processing_status, uploaded_at)
+       VALUES (?, ?, 1, ?, ?, ?, ?, ?, 1000, ?, ?, ?, 'ready', ?)`,
+      [
+        fileId,
+        id,
+        visibility === "private" ? "private" : "originals",
+        visibility === "private" ? `${id}/${fileId}.${extension}` : `2026/10/${fileId}.${extension}`,
+        `synthetic-${id.slice(-6).toLowerCase()}.${extension}`,
+        kind === "document" ? "application/pdf" : "image/webp",
+        extension,
+        createHash("sha256").update(id).digest(),
+        kind === "image" ? 1200 : null,
+        kind === "image" ? 800 : null,
+        new Date(),
+      ],
+    );
+    await query(env, "UPDATE media_assets SET current_file_id = ? WHERE id = ?", [fileId, id]);
+  }
+  for (const flag of options.flags ?? []) await query(env, "INSERT INTO media_flags (media_id, flag, created_at) VALUES (?, ?, ?)", [id, flag, new Date()]);
+  if (options.title) await query(env, "INSERT INTO media_translations (media_id, locale, title) VALUES (?, 'en', ?)", [id, options.title]);
+  await rebuildMediaSearch(dbFor(env.pool), id, new Date());
+  return id;
 }

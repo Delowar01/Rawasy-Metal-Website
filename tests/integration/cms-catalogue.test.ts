@@ -75,14 +75,15 @@ describe("clients", () => {
   let id = "";
   const client = (extra: Fields = {}): Fields => ({ slug: "demo-client", "en.name": "Demo Client Co.", "ar.name": "شركة عميل تجريبية", ...extra });
 
-  test("metadata CRUD: name per language, featured working flag, no logo field (A4)", async () => {
+  test("metadata CRUD: name per language, featured working flag; logos only as A1's media references (A4)", async () => {
     id = expectOk(await createItem(ctxOf(env, t.editor), clientSpec, formOf(client({ isFeatured: "1" })))).id;
-    const [row] = await query(env, "SELECT is_featured, website_url, publication_status FROM clients WHERE id = ?", [id]);
-    assert.deepEqual(row, { is_featured: 1, website_url: null, publication_status: "unpublished" });
+    const [row] = await query(env, "SELECT is_featured, website_url, publication_status, logo_media_id, logo_mono_media_id FROM clients WHERE id = ?", [id]);
+    assert.deepEqual(row, { is_featured: 1, website_url: null, publication_status: "unpublished", logo_media_id: null, logo_mono_media_id: null });
     const columns = (await query<{ c: string }>(env, "SELECT COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clients'")).map(
       (r) => r.c,
     );
-    assert.ok(!columns.some((c) => /logo|media|file|upload/.test(c)), columns.join(","));
+    // A3 had no logo; A4 adds exactly A1's two media references (ids of media items), never a file, path or upload column.
+    assert.deepEqual(columns.filter((c) => /logo|media|file|upload|path/.test(c)).sort(), ["logo_media_id", "logo_mono_media_id"], columns.join(","));
   });
 
   test("the website address: https only, a public host, no credentials, no script", async () => {
@@ -123,12 +124,16 @@ describe("certificates (document metadata only)", () => {
     expectOk(await setItemArchived(ctxOf(env, t.owner), certificateSpec, id, false, 1));
   });
 
-  test("no file, document, address or number column exists; the expiry date is a plain admin-only date", async () => {
+  test("no file, address or number column exists — files only as A1's media references (A4); the expiry date is a plain admin-only date", async () => {
     const columns = (await query<{ t: string; c: string }>(
       env,
       "SELECT TABLE_NAME AS t, COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'certificate%'",
     )).map((r) => `${r.t}.${r.c}`);
-    assert.ok(!columns.some((c) => /url|file|document|media|path|number|qr|thumb/.test(c)), columns.join(","));
+    // A4 adds exactly A1's references to media items: the thumbnail and the documents table (previews and the private
+    // original, by role). Never a URL, a path, a stored file, a number or a QR column.
+    const media = ["certificates.thumb_media_id", "certificate_documents.certificate_id", "certificate_documents.media_id", "certificate_documents.role", "certificate_documents.locale", "certificate_documents.position"];
+    assert.deepEqual(columns.filter((c) => /url|file|document|media|path|number|qr|thumb/.test(c)).sort(), [...media].sort(), columns.join(","));
+    assert.ok(!columns.some((c) => /url|file|path|number|qr/.test(c.replace(/^certificate_documents\./, ""))), columns.join(","));
     assert.deepEqual((await query(env, "SELECT CAST(expires_on AS CHAR) AS d FROM certificates WHERE id = ?", [id]))[0], { d: "2028-06-30" });
   });
 

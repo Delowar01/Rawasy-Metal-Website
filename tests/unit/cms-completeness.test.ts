@@ -6,6 +6,9 @@
  * fields with the right emptiness test per kind, required columns are NOT NULL (a NULL would read as filled in SQL),
  * child items match, the title column is valid, and the registry's table names match the schema. A drift on either
  * side fails here; `tests/integration/cms-completeness.test.ts` compares the two states on real rows.
+ *
+ * A4: child items carry their own list of texts (label and value; a service gallery photo's caption and alt text), and
+ * an alt text (`alt`) is a nullable column that is never required (NULL = not written yet, '' = decorative).
  */
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
@@ -77,7 +80,7 @@ describe("language completeness has one definition, used by the editor and the l
         }
       });
 
-      test("child items: the same tables in the editor and the SQL rule, label and value required", () => {
+      test("child items: the same tables in the editor and the SQL rule, each child's required texts required", () => {
         const rule = COMPLETENESS[type];
         const tables = shared.childTables;
         if (!tables) {
@@ -86,20 +89,40 @@ describe("language completeness has one definition, used by the editor and the l
           return;
         }
         assert.ok(spec.children, "the editor has the child items");
-        for (const key of ["table", "idColumn", "parentColumn", "positionColumn", "parentKey", "trTable", "trParentColumn", "trLocaleColumn", "trParentKey"] as const) {
+        for (const key of ["table", "idColumn", "parentColumn", "positionColumn", "parentKey", "trTable", "trParentColumn", "trLocaleColumn", "trParentKey", "texts", "mediaKey"] as const) {
           assert.equal(spec.children[key], tables[key], `children.${key}`);
         }
+        const trCols = columns(spec.children.trTable);
+        const required = tables.texts.filter((t) => t.required);
+        assert.ok(required.length > 0, "every child needs at least one text (an empty OR would be invalid SQL)");
         assert.deepEqual(rule.children, {
           table: getTableName(spec.children.table),
           parent: (spec.children.parentColumn as unknown as ColumnInfo).name,
           tr: getTableName(spec.children.trTable),
           trParent: (spec.children.trParentColumn as unknown as ColumnInfo).name,
+          required: required.map((t) => trCols[t.key]?.name),
         });
-        const trCols = columns(spec.children.trTable);
-        assert.equal(trCols.label?.notNull, true, "the child label is NOT NULL");
-        assert.equal(trCols.value?.notNull, true, "the child value is NOT NULL");
+        for (const t of tables.texts) {
+          assert.ok(trCols[t.key], `the child text ${t.key} has a column`);
+          if (t.required) {
+            assert.equal(trCols[t.key].notNull, true, `the child text ${t.key} is NOT NULL`);
+            assert.notEqual(t.alt, true, `${t.key} is not both required and an alt text`);
+          }
+          if (t.alt) assert.equal(trCols[t.key].notNull, false, `the alt text ${t.key} is NULL until written`);
+        }
+        if (tables.mediaKey) assert.equal(columns(tables.table)[tables.mediaKey]?.notNull, true, "each entry names a media item");
         const text = sqlOf(type);
-        assert.ok(text.includes(`ct.\`${rule.children!.trParent}\` IS NULL OR ct.label = '' OR ct.value = ''`), "the SQL requires each child's label and value");
+        const expected = [`ct.\`${rule.children!.trParent}\` IS NULL`, ...rule.children!.required.map((c) => `ct.\`${c}\` = ''`)].join(" OR ");
+        assert.ok(text.includes(expected), "the SQL requires each child's required texts, and nothing else");
+      });
+
+      test("alt texts (A4) are nullable columns and never required", () => {
+        const cols = columns(spec.tr);
+        for (const field of spec.fields.filter((f) => f.kind === "alt")) {
+          assert.notEqual(field.required, true, `${field.key} is never required`);
+          assert.ok(cols[field.key], `${field.key} has a column`);
+          assert.equal(cols[field.key].notNull, false, `${field.key} is NULL until written`);
+        }
       });
 
       test("the registry's table and column names are the schema's", () => {
@@ -110,10 +133,12 @@ describe("language completeness has one definition, used by the editor and the l
     });
   }
 
-  test("only machinery and certificates have child items", () => {
+  test("child items: machinery attributes, certificate facts and (A4) a service's gallery", () => {
+    assert.deepEqual(ENTITY_TYPES.filter((type) => TRANSLATED[type].childTables).sort(), ["certificate", "machine", "service"]);
     assert.deepEqual(
-      ENTITY_TYPES.filter((type) => TRANSLATED[type].childTables),
-      ["machine", "certificate"],
+      ENTITY_TYPES.filter((type) => TRANSLATED[type].childTables?.mediaKey),
+      ["service"],
+      "only the gallery's entries hold a media item",
     );
   });
 });

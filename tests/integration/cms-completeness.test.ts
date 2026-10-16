@@ -1,8 +1,8 @@
 /**
  * Core CMS (A3 Correction 1) — one rule of language completeness, on a real MariaDB. For every one of the eight types,
  * items are saved with each required field missing in turn, with every required field filled, marked complete, with
- * the other language partly written, needing review, and (machinery, certificates) with child items missing a label or
- * a value in one language; the state the lists and pickers compute in SQL (`localeStateSql`, read through `listItems`
+ * the other language partly written, needing review, and (machinery, certificates, and since A4 a service's gallery)
+ * with child items missing a required text in one language; the state the lists and pickers compute in SQL (`localeStateSql`, read through `listItems`
  * and `refsByIds`) must equal the editor's own (`loadEditorItem` → `requiredFilled`) for every item and language, and
  * the editor's state is checked against the expected one. A field definition, a SQL test or a child rule that drifts on
  * either side makes them disagree here. Test data only ("Demo …").
@@ -17,7 +17,7 @@ import { createPage, updatePage } from "../../src/server/cms/pages.ts";
 import { ENTITIES, ENTITY_TYPES, type EntityType } from "../../src/server/cms/registry.ts";
 import type { TrField } from "../../src/server/cms/translated.ts";
 import { dbFor } from "../../src/server/db/client.ts";
-import { ctxOf, expectOk, formOf, query, team, type Fields, type Team } from "./cms-helpers.ts";
+import { ctxOf, expectOk, formOf, query, seedMedia, team, type Fields, type Team } from "./cms-helpers.ts";
 import { setupTestEnv, type TestEnv } from "./helpers.ts";
 
 let env: TestEnv;
@@ -47,7 +47,16 @@ function textsWithout(type: EntityType, locale: "en" | "ar", tag: string, missin
   const optional = SPECS[type].fields.find((f) => !f.required && (f.kind === "line" || f.kind === "text"));
   return optional ? { [`${locale}.${optional.key}`]: valueOf(optional, tag) } : null;
 }
-const child = (en: [string, string], ar: [string, string]) => ({ id: null, en: { label: en[0], value: en[1] }, ar: { label: ar[0], value: ar[1] } });
+/**
+ * A child entry from the type's own child texts: `en` / `ar` give the required texts in order ("" = missing); optional
+ * texts (an alt) stay unwritten. A gallery entry gets its own fresh media item.
+ */
+async function child(type: EntityType, en: string[], ar: string[]) {
+  const spec = SPECS[type].children!;
+  const required = spec.texts.filter((t) => t.required);
+  const texts = (values: string[]) => Object.fromEntries(spec.texts.map((t) => [t.key, t.required ? (values[required.indexOf(t)] ?? "") : null]));
+  return { id: null, ...(spec.mediaKey ? { media: await seedMedia(env) } : {}), en: texts(en), ar: texts(ar) };
+}
 
 async function create(type: EntityType, slug: string, fields: Fields): Promise<string> {
   const form = formOf({ slug, ...ROOT[type], ...fields });
@@ -95,14 +104,21 @@ describe("the lists' SQL state equals the editor's state, for every type", () =>
       });
       if (spec.children) {
         const full = { ...texts(type, "en", "foxtrot"), ...texts(type, "ar", "foxtrot") };
+        const needed = spec.children.texts.filter((t) => t.required).length;
+        const en = ["Demo label", "Demo value"].slice(0, needed);
+        const ar = ["تسمية", "قيمة"].slice(0, needed);
+        const blank = Array<string>(needed).fill("");
+        const one = async (enTexts: string[], arTexts: string[]) => JSON.stringify([await child(type, enTexts, arTexts)]);
         // A child item with both languages: both drafts.
-        cases.push({ slug: slug(), fields: { ...full, children: JSON.stringify([child(["Demo label", "Demo value"], ["تسمية", "قيمة"])]) }, expect: { en: "draft", ar: "draft" } });
-        // A child item without its Arabic label and value: Arabic incomplete.
-        cases.push({ slug: slug(), fields: { ...full, children: JSON.stringify([child(["Demo label", "Demo value"], ["", ""])]) }, expect: { en: "draft", ar: "incomplete" } });
-        // A child item with an Arabic label but no Arabic value: Arabic incomplete.
-        cases.push({ slug: slug(), fields: { ...full, children: JSON.stringify([child(["Demo label", "Demo value"], ["تسمية", ""])]) }, expect: { en: "draft", ar: "incomplete" } });
-        // English without its value: English incomplete.
-        cases.push({ slug: slug(), fields: { ...full, children: JSON.stringify([child(["Demo label", ""], ["تسمية", "قيمة"])]) }, expect: { en: "incomplete", ar: "draft" } });
+        cases.push({ slug: slug(), fields: { ...full, children: await one(en, ar) }, expect: { en: "draft", ar: "draft" } });
+        // A child item without its Arabic texts: Arabic incomplete.
+        cases.push({ slug: slug(), fields: { ...full, children: await one(en, blank) }, expect: { en: "draft", ar: "incomplete" } });
+        if (needed > 1) {
+          // A child item with an Arabic label but no Arabic value: Arabic incomplete.
+          cases.push({ slug: slug(), fields: { ...full, children: await one(en, [ar[0], ...blank.slice(1)]) }, expect: { en: "draft", ar: "incomplete" } });
+        }
+        // English without its last required text: English incomplete.
+        cases.push({ slug: slug(), fields: { ...full, children: await one([...en.slice(0, -1), ""], ar) }, expect: { en: "incomplete", ar: "draft" } });
       }
       assert.ok(cases.length >= 3);
       for (const c of cases) {
