@@ -133,7 +133,8 @@ test.describe("anonymous visitors", () => {
     }
     expect((await request.get("/en/admin")).status()).toBe(404);
     // The namespaces of every planned API endpoint (A1: uploads, private files, preview, cron) get the static API headers.
-    for (const path of ["/api/admin", "/api/admin/media/uploads/x", "/api/internal/scheduler"]) {
+    // (A4 added the upload routes; an address under them that no route answers is still a 404.)
+    for (const path of ["/api/admin", "/api/admin/media/uploads/x/unknown", "/api/internal/scheduler"]) {
       const api = await request.get(path);
       expect(api.status(), path).toBe(404);
       expect(api.headers()["cache-control"], path).toBe("no-store");

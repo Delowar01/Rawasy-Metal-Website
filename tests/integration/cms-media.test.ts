@@ -5,10 +5,11 @@
  * read under a share lock, so a Trash or archive at the same moment can't slip between the check and the save; project
  * photos keep their order and stale saves are refused; client logos, a service's gallery and cover alt texts, and a
  * certificate's thumbnail and redacted previews follow the same rules, and a save never touches a certificate's private
- * original. Choosing never approves or publishes: `public_media` does not change. Synthetic media rows only.
+ * original. Choosing never approves or publishes: `public_media` does not change, and its invariant holds after every test.
+ * Synthetic media rows only.
  */
 import assert from "node:assert/strict";
-import { after, before, describe, test } from "node:test";
+import { after, afterEach, before, describe, test } from "node:test";
 import { cardWarnings } from "../../src/server/admin/actions/media-model.ts";
 import { createItem, loadEditorItem, updateItem } from "../../src/server/cms/engine.ts";
 import { certificateSpec, clientSpec, projectSpec, serviceSpec } from "../../src/server/cms/kinds.ts";
@@ -19,6 +20,7 @@ import { archiveMedia, trashMedia, type MediaContext } from "../../src/server/me
 import type { Actor } from "../../src/server/auth/types.ts";
 import { auditOf, ctxOf, expectOk, formOf, query, seedMedia, team, type Fields, type Team } from "./cms-helpers.ts";
 import { meta, setupTestEnv, type TestEnv } from "./helpers.ts";
+import { assertPublicMediaInvariant } from "./media-helpers.ts";
 
 let env: TestEnv;
 let t: Team;
@@ -27,6 +29,8 @@ before(async () => {
   t = await team(env);
 });
 after(async () => env?.close());
+// public_media agrees with every item after each test (A4 brief §68): choosing media in content never publishes.
+afterEach(async () => assertPublicMediaInvariant(env));
 
 const db = () => dbFor(env.pool);
 const mediaCtx = (actor: Actor): MediaContext => ({ deps: { ...env.deps, store: async () => null, releaseDir: "/nonexistent-release" }, actor, meta: meta() });

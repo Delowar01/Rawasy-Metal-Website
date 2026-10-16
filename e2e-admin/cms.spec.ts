@@ -169,7 +169,9 @@ test.describe("navigation and dashboard", () => {
       const row = table.getByRole("row").filter({ has: owner.getByRole("rowheader", { name: area, exact: true }) });
       await expect(row.getByRole("cell")).toHaveText(["0", "0", "0", "0", "0"]);
     }
-    await expect(owner.locator("main")).not.toContainText(/views|leads|SEO score|storage/i);
+    // Nothing invented (A3). A4's media card shows recorded storage sizes, checked against the database in media.spec.ts.
+    await expect(owner.locator("main")).not.toContainText(/views|leads|SEO score/i);
+    await expect(owner.locator("main section").filter({ has: table })).not.toContainText(/storage/i);
   });
 });
 
@@ -499,10 +501,10 @@ test.describe("lists, archive, search", () => {
 });
 
 test.describe("certificates and the media boundary", () => {
-  test("certificate metadata only: the A4 note, no file input anywhere in the CMS, the digit guard", async ({ browser }) => {
+  test("certificate metadata: the files note (A4), uploads only inside the media pickers, no publishing, the digit guard", async ({ browser }) => {
     const owner = await as(browser, "owner");
     await open(owner, "/admin/certificates/new");
-    await expect(owner.getByText("Document upload and public/private file management arrives in A4.")).toBeVisible();
+    await expect(owner.getByText("Public and private files are kept apart.")).toBeVisible();
     await owner.getByLabel("Slug", { exact: true }).fill("test-licence");
     await english(owner).getByLabel(/^Title/).fill("Test Licence 1234567");
     await english(owner).getByLabel(/^Issuer/).fill("Test Body");
@@ -512,7 +514,9 @@ test.describe("certificates and the media boundary", () => {
     await save(owner, "Create certificate");
     for (const path of ["/admin/certificates/new", `/admin/certificates/${idFrom(owner)}`, "/admin/projects/new", "/admin/clients/new", "/admin/services/new"]) {
       await open(owner, path);
-      await expect(owner.locator('input[type="file"]'), path).toHaveCount(0);
+      // A4: a file input exists only inside a media picker's dialog (closed until asked for) — none on the page itself.
+      await expect(owner.locator('input[type="file"]:visible'), path).toHaveCount(0);
+      for (const input of await owner.locator('input[type="file"]').all()) expect(await input.evaluate((el) => !!el.closest("dialog.adm-picker")), path).toBe(true);
       await expect(owner.getByRole("button", { name: /upload|download|publish/i }), path).toHaveCount(0);
     }
   });

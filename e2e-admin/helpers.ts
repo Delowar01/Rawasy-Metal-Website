@@ -11,6 +11,8 @@ const ROOT = resolve(__dirname, "..");
 export interface RunState {
   database: string;
   mailDir: string;
+  /** The run's temporary RAWASY_DATA_DIR (A4): uploaded originals, private originals and derived files. */
+  dataDir: string;
   authKey: string;
   port: number;
 }
