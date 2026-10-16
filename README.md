@@ -374,11 +374,13 @@ in one terminal and `npm run test:e2e` in another (Playwright reuses a server al
 
 ## Admin (local development)
 
-Phases A2 and A3 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md` and
-`docs/reports/2026-10-15-admin-a3-core-cms.md`; design in `docs/admin/`): sign-in, two-factor authentication, sessions,
-invitations, password reset, users and roles (A2), and the core content records — pages, services, projects and their
-categories, machinery, industries, clients and certificate metadata — as working copies in the database (A3), at
-`/admin` (English, `noindex`). Media, the visual editor, site settings, enquiries and publishing come in later phases.
+Phases A2–A4 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`,
+`docs/reports/2026-10-15-admin-a3-core-cms.md` and `docs/reports/2026-10-16-admin-a4-media-library.md`; design in
+`docs/admin/`): sign-in, two-factor authentication, sessions, invitations, password reset, users and roles (A2), the core
+content records — pages, services, projects and their categories, machinery, industries, clients and certificate
+metadata — as working copies in the database (A3), and the media library — uploads, versions, rights and approval,
+certificate documents and the media pickers of those records (A4), at `/admin` (English, `noindex`). The visual editor,
+site settings, enquiries and publishing come in later phases.
 It runs **locally only**, against a local MariaDB: never point it at the hosting account's database, and nothing of it
 is deployed until the user decides. The public website is unaffected: it never reads the database (the content records
 are not shown on it before the A9 cutover) and builds without one.
@@ -429,8 +431,9 @@ node --env-file=.env.local scripts/db-migrate.mjs up          # applies every pe
 ```
 
 The files: `drizzle/0000` (13 access-control tables) and `0001` (roles, permissions), from A2; `0002` (the 32 content
-tables) and `0003` (the collections' orderings and the permission "Project flags — add"), from A3. A database migrated
-during A2 takes the two A3 files with the same `up`. The runner takes a named lock, checks the journal order and the hash
+tables) and `0003` (the collections' orderings and the permission "Project flags — add"), from A3; `0004` (11 tables: the
+media library, `public_media` and the content records' media relations; the records' media columns), from A4. A database migrated earlier takes the newer files with the same
+`up`. The runner takes a named lock, checks the journal order and the hash
 of every applied file, sets the database's default collation (`utf8mb4_unicode_520_ci`) while it is empty and verifies
 every table's character set; outside
 `APP_ENV=local` it also requires `--backup-file=<a backup less than 60 minutes old>` once tables exist. Exit codes are
@@ -462,7 +465,44 @@ Editor edit general content, Owner and Admin archive, restore and register the s
 edit certificates and legal pages (the Owner alone archives certificates), and a Reviewer reads and may add a project
 restriction; only an Owner or Admin clears one, with a reason. A service features only projects that list it: a project's
 editor marks such a service ("Features this project"), and removing it there is refused until the project is taken out of
-that service's Featured projects. Test content only ("Test …", "Demo …").
+that service's Featured projects. Test content only ("Test …", "Demo …"). Since A4 each editor also has a Media section
+(below).
+
+**6. Media (A4).** Uploaded files live in one folder outside the application, set by `RAWASY_DATA_DIR` (absolute, never
+inside the app folder, `public/` or `public_html`; created with owner-only permissions on first use):
+
+```bash
+RAWASY_DATA_DIR=/home/you/rawasy-data       # in .env.local; holds media/originals, media/derived, media/private, tmp/uploads
+```
+
+- **Today's site media.** `node --env-file=.env.local scripts/media-import-release.mjs` (`npm run media:import-release`)
+  registers the 143 files of `public/media` from the committed baseline (`src/server/media/release-baseline.json`): 108
+  used files approved as the working baseline, 22 unused files pending review, and the 13 held-back files (the packaging
+  script's exclusions) restricted with their reasons. It never moves, rewrites or deletes a file, is safe to repeat (a
+  second run changes nothing) and stops with nothing written when a file differs from the baseline. `--dry-run` shows
+  what would happen. After a build, `node scripts/media-release-baseline.mjs --check` confirms the baseline still
+  matches the repository (`--write` regenerates it when release media change on purpose).
+- **The library** (sidebar MEDIA: Media library, Folders): upload (JPEG, PNG, WebP, AVIF or PDF, at most 20 MB and 40
+  megapixels; the bytes decide the type, never the name; SVG is not accepted), search and filter (in the address), grid
+  or list, folders, English and Arabic titles, alt texts (written, decorative or not decided yet — nothing is translated
+  automatically) and captions, a focal point, rights notes, flags, versions (replace; an Owner or Admin restores an older
+  one), Used by and the Trash (nothing is deleted). Every upload starts **pending review**; approval is a separate
+  action for an Owner or Admin, with a note, and needs the alt decision (or a document's title) in both languages and no
+  blocking flag. Saving details never approves anything. Choosing an item in a content record never approves or
+  publishes it either: a picker offers public-class items only, with their status written out.
+- **Certificate documents.** A certificate's redacted public preview is its own public-class upload (pending review).
+  The **private original** is uploaded by the Owner alone, in the certificate editor's "Private original" section: it
+  goes to `media/private`, can never be published, approved, previewed or chosen anywhere, and its download needs a
+  fresh confirmation (step-up within 10 minutes). To every other role it does not exist.
+- **Delivery.** An approved uploaded image is served at `/media/u/<id>/<width>-<hash>.webp` (a PDF at
+  `/media/u/<id>/document-<hash>.pdf`): only while it is approved, unflagged, not in the Trash and current; never its
+  original. Nothing on today's public site uses these addresses before the A9 cutover, and with the admin gate off
+  they answer 404 without reading the database.
+- **Maintenance** (by hand; nothing runs on a schedule): `node --env-file=.env.local scripts/media-maintenance.mjs`
+  reports missing files, unknown files on disk, stuck or failed processing, `public_media` drift and old versions past
+  30 days, and saves the report for the dashboard. Repairs only when asked: `--clean-tmp`, `--fail-stuck`,
+  `--regenerate=<id>`, `--regenerate-all`, `--rebuild-public`. It never deletes a media file (`--purge-dry-run` only
+  lists candidates). Exit code 2 means the report lists problems.
 
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
@@ -474,8 +514,9 @@ TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=rawasy TEST_DB_PASSWORD='<
 ```
 
 `test:admin` (`playwright.admin.config.ts`, `e2e-admin/`) starts `server.js` on port 3401 with a fresh `rawasy_e2e_*`
-database, a throwaway key and the mail sink, and drops the database afterwards. The public suite (`npm run test:e2e`)
-needs no database.
+database, a throwaway key, the mail sink and a temporary `RAWASY_DATA_DIR` (A4), and removes them afterwards. The media
+integration tests use their own temporary folders and synthetic files only. The public suite (`npm run test:e2e`) needs
+no database.
 
 ### Admin: keys
 
