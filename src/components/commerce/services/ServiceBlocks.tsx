@@ -177,6 +177,7 @@ export function Scope({
                     blurDataURL={item.image.blurDataURL}
                     className="sv-stage-img"
                     style={{ width: `min(100%, ${item.image.width}px)`, height: `min(100%, ${item.image.height}px)` }}
+                    {...(item.image.unoptimized ? { unoptimized: true } : {})}
                   />
                 </div>
               )}
@@ -400,6 +401,7 @@ function MachineStage({ image, sizes }: { image: CommerceImage; sizes: string })
         blurDataURL={image.blurDataURL}
         className="sv-machine-img"
         style={{ width: `min(100%, ${image.width}px)`, height: `min(100%, ${image.height}px)` }}
+        {...(image.unoptimized ? { unoptimized: true } : {})}
       />
     </div>
   );
@@ -572,6 +574,7 @@ export function Gallery({ layout, photos, read }: { layout: ServiceLook["gallery
                 placeholder="blur"
                 blurDataURL={photo.blurDataURL}
                 className="object-cover"
+                {...(photo.unoptimized ? { unoptimized: true } : {})}
               />
             </div>
             <figcaption className={zone(read, "sv-print-caption")}>{photo.caption}</figcaption>
@@ -693,6 +696,7 @@ export function Projects({
             blurDataURL={p.images[0].blurDataURL}
             className="ab-proj-img"
             style={{ width: `min(100%, ${p.images[0].width}px)`, height: `min(100%, ${p.images[0].height}px)` }}
+            {...(p.images[0].unoptimized ? { unoptimized: true } : {})}
           />
         ) : (
           <span className="sv-proj-pair">
@@ -708,6 +712,7 @@ export function Projects({
                 blurDataURL={image.blurDataURL}
                 className="sv-proj-pair-img"
                 style={{ width: `min(100%, ${image.width}px)`, height: `min(100%, ${image.height}px)` }}
+                {...(image.unoptimized ? { unoptimized: true } : {})}
               />
             ))}
           </span>
