@@ -104,7 +104,9 @@ export function Canvas({
 
   return (
     <div className="adm-bld-canvas" ref={box} data-device={device}>
-      <iframe ref={frame} key={src} src={src} title={title} className="adm-bld-frame" />
+      {/* Sandboxed (scripts and its own origin only): nothing in the preview — the third-party map and player frames it
+          holds included — can navigate the builder, submit a form or open a window (A5 security review, F6). */}
+      <iframe ref={frame} key={src} src={src} title={title} className="adm-bld-frame" sandbox="allow-scripts allow-same-origin" />
     </div>
   );
 }

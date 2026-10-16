@@ -264,6 +264,7 @@ export function GenericMap({ section, ctx }: BlockProps) {
                 loading="lazy"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
+                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               />
             ) : (
               <div className="gb-missing">
