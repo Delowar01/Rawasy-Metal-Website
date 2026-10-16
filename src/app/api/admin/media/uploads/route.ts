@@ -4,6 +4,7 @@
  * metadata first (`adminRouteContext`); the permission and limits in the upload service.
  */
 import { adminRouteContext, jsonResponse, readJsonBody, storeOrAnswer } from "@/server/admin/routes";
+import { mayUploadPrivate, mayUploadPublic } from "@/server/media/access";
 import { openUpload } from "@/server/media/uploads";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export async function POST(request: Request) {
   if (!route.ok) return route.response;
   const store = await storeOrAnswer();
   if (!store.ok) return store.response;
+  // Someone who may upload nothing is refused before the body is read (each purpose is decided again by openUpload).
+  const { permissions } = route.context.actor;
+  if (!mayUploadPublic(permissions) && !mayUploadPrivate(permissions)) return jsonResponse(403, { error: "You don't have permission to upload this file." });
   const body = await readJsonBody(request);
   if (body === null) return jsonResponse(400, { error: "The upload request is not valid." });
   const result = await openUpload(route.context, store.store, body);
