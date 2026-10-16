@@ -95,6 +95,9 @@ describe("language completeness has one definition, used by the editor and the l
         const trCols = columns(spec.children.trTable);
         const required = tables.texts.filter((t) => t.required);
         assert.ok(required.length > 0, "every child needs at least one text (an empty OR would be invalid SQL)");
+        // A3's rule stays pinned by name: an attribute or a fact needs its label and value; a gallery photo its caption.
+        const pinned: Partial<Record<string, string[]>> = { machine: ["label", "value"], certificate: ["label", "value"], service: ["caption"] };
+        assert.deepEqual(required.map((t) => t.key), pinned[type], "the required texts of each child");
         assert.deepEqual(rule.children, {
           table: getTableName(spec.children.table),
           parent: (spec.children.parentColumn as unknown as ColumnInfo).name,
