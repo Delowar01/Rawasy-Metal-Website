@@ -12,7 +12,7 @@ import type { RenderContext } from "./context";
  * React from plain strings — never HTML. Links come from their structured targets (`resolveLink`); a link whose target no
  * longer exists keeps its words without the link. A language mark sets `lang` and the direction.
  */
-export function RichText({ value, ctx, className = "" }: { value: unknown; ctx: RenderContext; className?: string }) {
+export function RichText({ value, ctx, className = "", prose = "gb-prose" }: { value: unknown; ctx: RenderContext; className?: string; prose?: string }) {
   // The structure check only: the field's own rules (which links, headings, lists, lengths) were applied when it was saved.
   const doc = readRich(value, { links: LINK_KINDS });
   if (!doc.content.length) return null;
@@ -44,7 +44,7 @@ export function RichText({ value, ctx, className = "" }: { value: unknown; ctx: 
     });
 
   return (
-    <div className={`gb-prose ${className}`.trim()}>
+    <div className={`${prose} ${className}`.trim()}>
       {doc.content.map((block, i) => {
         if (isListBlock(block)) {
           const items = block.content.map((item, j) => <li key={j}>{inline(item.content)}</li>);

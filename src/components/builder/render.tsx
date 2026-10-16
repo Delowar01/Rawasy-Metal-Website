@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { HOME_NOTES, HOME_RENDERERS } from "./adapters/home";
+import { PAGE_GROUPS, PAGE_NOTES, PAGE_RENDERERS, PAGE_SELECTORS } from "./adapters/pages";
 import { SERVICE_ABSENT, SERVICE_NOTES, SERVICE_RENDERERS } from "./adapters/service";
 import type { BlockProps, RenderContext } from "./context";
 import { GenericContactDetails, GenericQuoteForm } from "./generic/contact";
@@ -34,8 +35,6 @@ function Pending({ section }: BlockProps) {
 /** The renderer of every storable block (keys.ts): a missing one fails the typecheck. */
 export const RENDERERS: Record<RenderedBlock, Renderer> = {
   ...HOME_RENDERERS,
-  "page.hero": Pending,
-  "page.closing_cta": Pending,
   "about.overview": Pending,
   "about.what": Pending,
   "about.metal": Pending,
@@ -49,8 +48,8 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
   "about.work": Pending,
   "about.clients": Pending,
   "about.compliance": Pending,
-  "services.index": Pending,
   ...SERVICE_RENDERERS,
+  ...PAGE_RENDERERS,
   "capabilities.power": Pending,
   "capabilities.console": Pending,
   "capabilities.register": Pending,
@@ -63,15 +62,6 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
   "project.hero": Pending,
   "project.photos": Pending,
   "project.details": Pending,
-  "industries.sectors": Pending,
-  "industries.index": Pending,
-  "clients.wall": Pending,
-  "certificates.register": Pending,
-  "certificates.redaction": Pending,
-  "contact.quote": Pending,
-  "contact.location": Pending,
-  "legal.contents": Pending,
-  "legal.section": Pending,
   "not_found.view": Pending,
   "generic.hero": GenericHero,
   "generic.heading": GenericHeading,
@@ -106,6 +96,7 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
 export const BLOCK_NOTES: Partial<Record<RenderedBlock, (props: BlockProps) => string[]>> = {
   ...HOME_NOTES,
   ...SERVICE_NOTES,
+  ...PAGE_NOTES,
 };
 
 /** Blocks that show nothing where their content is missing (as today's pages leave such a section out): the reason. */
@@ -117,12 +108,15 @@ export const BLOCK_ABSENT: Partial<Record<RenderedBlock, Presence>> = {
  * Where the preview finds a block that renders neither its anchor nor an id of its own (the builder's outline and the
  * pointer's picks), as a selector of the approved component's markup.
  */
-export const BLOCK_SELECTORS: Partial<Record<RenderedBlock, string>> = {};
+export const BLOCK_SELECTORS: Partial<Record<RenderedBlock, string>> = {
+  ...PAGE_SELECTORS,
+};
 
 /** Frames that hold several sections (`compose.tsx`): drawn by one renderer each. */
 export type GroupRenderer = (props: { items: Placed[]; ctx: RenderContext }) => ReactNode | Promise<ReactNode>;
 
 export const GROUP_RENDERERS: Record<string, GroupRenderer> = {
+  ...PAGE_GROUPS,
   // The homepage's clients and compliance share one muted sheet (the sheet's own top space when compliance comes first).
   "home-sheet": ({ items, ctx }) => (
     <div className={items[0].section.blockType === "home.compliance" ? "sec-sheet sec-muted gb-sheet-top" : "sec-sheet sec-muted"}>

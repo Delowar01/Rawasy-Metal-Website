@@ -100,6 +100,8 @@ export interface PreviewCertificate extends Base {
   title: Loc<string>;
   issuer: Loc<string>;
   previews: { media: string; locale: Locale | null }[];
+  /** The displayed facts (entity type, issued, status …), in order. */
+  facts: { label: Loc<string>; value: Loc<string> }[];
 }
 
 export interface PreviewIndustry extends Base {
@@ -254,6 +256,8 @@ export async function loadPreviewRecords(db: Db): Promise<PreviewRecords> {
   const certificateTexts = await texts(db, "certificate_translations", "certificate_id", ["title", "issuer"]);
   // Only the redacted public previews: a private original never reaches a preview (A4).
   const previews = await rowsOf<Row>(db, sql`SELECT certificate_id, media_id, locale FROM certificate_documents WHERE role = 'public_preview' ORDER BY certificate_id, position`);
+  const factRows = await rowsOf<Row>(db, sql`SELECT id, certificate_id FROM certificate_facts ORDER BY certificate_id, position`);
+  const factTexts = await texts(db, "certificate_fact_translations", "fact_id", ["label", "value"]);
   const certificates = (await rowsOf<Row>(db, ordered("certificates", "certificates", "r.thumb_media_id"))).map((r): PreviewCertificate => {
     const t = certificateTexts.get(String(r.id));
     return {
@@ -264,6 +268,9 @@ export async function loadPreviewRecords(db: Db): Promise<PreviewRecords> {
       title: loc(t, "title", String),
       issuer: loc(t, "issuer", String),
       previews: previews.filter((p) => p.certificate_id === r.id).map((p) => ({ media: String(p.media_id), locale: (p.locale as Locale | null) ?? null })),
+      facts: factRows
+        .filter((f) => f.certificate_id === r.id)
+        .map((f) => ({ label: loc(factTexts.get(String(f.id)), "label", String), value: loc(factTexts.get(String(f.id)), "value", String) })),
     };
   });
 

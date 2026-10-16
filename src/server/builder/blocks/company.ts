@@ -93,6 +93,8 @@ export const COMPANY_BLOCKS: BlockDefinition[] = [
       english: text("Label: English version", 60),
       arabic: text("Label: Arabic version", 60),
       dialogNote: textarea("Dialog note", 300),
+      referenceLabel: text("Reference label (on each card)", 60),
+      reference: text("Reference shown instead of numbers (on each card)", 160),
     },
     note: "Only the redacted previews are shown; private originals never reach a page. Each document's place is #<document>.",
   },
