@@ -10,7 +10,8 @@ import { Icon } from "../Icon";
 import { PageHero } from "../inner/PageHero";
 import { ContactRow, breakableEmail, type ContactRowData } from "./ContactRows";
 import { Location } from "./Location";
-import { QuoteForm, type QuoteFormText } from "./QuoteForm";
+import { QuoteForm } from "./QuoteForm";
+import { quoteFormText } from "./quote-text";
 
 /**
  * Contact / request a quote in the Modern Commerce design (Stage TM-2.2). The hero sets the verified direct contact
@@ -25,36 +26,7 @@ export async function ContactPage({ locale }: { locale: Locale }) {
   const { methods, form } = page;
   const contact = href(locale, "contact");
 
-  const text: QuoteFormText = {
-    requiredNote: form.requiredNote[locale],
-    groups: { details: form.groups.details[locale], project: form.groups.project[locale], message: form.groups.message[locale] },
-    noscript: form.noscript[locale],
-    fields: Object.fromEntries(
-      Object.entries(form.fields).map(([name, field]) => [
-        name,
-        { label: field.label[locale], hint: field.hint?.[locale], placeholder: field.placeholder?.[locale] },
-      ]),
-    ) as QuoteFormText["fields"],
-    services: [
-      ...services.map((s) => ({ value: s.slug, label: s.name[locale] })),
-      { value: "not-sure", label: form.serviceOther[locale] },
-    ],
-    projectTypes: form.projectTypes.map((t) => ({ value: t.value, label: t.label[locale] })),
-    files: {
-      accept: form.files.accept,
-      maxFiles: form.files.maxFiles,
-      maxSizeMb: form.files.maxSizeMb,
-      choose: form.files.choose[locale],
-      drop: form.files.drop[locale],
-      remove: form.files.remove[locale],
-      note: form.files.note[locale],
-      units: { kb: form.files.units.kb[locale], mb: form.files.units.mb[locale] },
-    },
-    submit: form.submit[locale],
-    errors: Object.fromEntries(Object.entries(form.errors).map(([k, v]) => [k, v[locale]])) as QuoteFormText["errors"],
-    ready: Object.fromEntries(Object.entries(form.ready).map(([k, v]) => [k, v[locale]])) as QuoteFormText["ready"],
-    privacy: { text: form.privacy.text[locale], link: form.privacy.link[locale] },
-  };
+  const text = quoteFormText(locale, page, services);
 
   // Every way to reach RAWASY, in the homepage's contact-row language: phones, WhatsApp, email, then the address.
   const rows: ContactRowData[] = [
