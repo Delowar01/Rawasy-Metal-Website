@@ -1,0 +1,263 @@
+"use client";
+/**
+ * A reusable section's editor (A5 brief §44–§45): its name, its block's settings and texts (the same section editor as
+ * the page builder), its "Used by" list with links to those pages' builders, its preview, archive and restore. Saving
+ * changes only the working copy that the linking pages' previews show; no visitor sees it (publishing is A8). An edit is
+ * decided on the version this editor opened ("This reusable section changed after you opened it…"); nothing is merged.
+ */
+import { useRouter } from "next/navigation";
+import { useActionState, useId, useRef, useState } from "react";
+import { createReusableAction, saveReusableAction, setReusableArchivedAction } from "@/server/admin/actions/builder";
+import type { BuilderLocale, ReusableEditorModel, SectionData } from "@/server/admin/actions/builder-model";
+import type { MediaCardModel } from "@/server/admin/actions/media-model";
+import type { PreviewToBuilder } from "@/server/admin/actions/preview-protocol";
+import { idle } from "@/server/admin/actions/state";
+import { ConfirmAction } from "../ConfirmAction";
+import { FormAlert, SubmitButton } from "../forms";
+import { useUnsavedChanges } from "../cms/useUnsavedChanges";
+import { Canvas, DEVICES, previewUrl, type PreviewDevice } from "./Canvas";
+import { FieldEnvProvider, type FieldEnv } from "./env";
+import { fillLanguages } from "./model";
+import { SectionEditor } from "./SectionEditor";
+import { useStickyBar } from "./useStickyBar";
+
+type Issue = { path?: string; message: string };
+type SaveView = { status: "idle" } | { status: "saving" } | { status: "saved"; message: string } | { status: "stale"; message: string } | { status: "error"; message: string; issues: Issue[] };
+
+export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
+  const router = useRouter();
+  const id = useId();
+  const openedData = model.data && model.block ? fillLanguages(model.block, model.data) : null;
+  const [name, setName] = useState(model.name);
+  const [data, setData] = useState<SectionData | null>(openedData);
+  const [changed, setChanged] = useState(false);
+  const [locale, setLocale] = useState<BuilderLocale>("en");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [device, setDevice] = useState<PreviewDevice>("desktop");
+  const [save, setSave] = useState<SaveView>({ status: "idle" });
+  const [media, setMedia] = useState<Record<string, MediaCardModel>>(model.media);
+  const [notes, setNotes] = useState<string[]>([]);
+  const dirty = changed || name !== model.name;
+  useUnsavedChanges(dirty);
+  const root = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  useStickyBar(root, bar);
+
+  const env: FieldEnv = {
+    options: model.options,
+    links: model.links,
+    media,
+    remember: (card) => setMedia((m) => ({ ...m, [card.id]: card })),
+    canUpload: model.canUpload,
+    // A reusable section can be linked into any page: it names no in-page anchor of its own.
+    anchors: [],
+    disabled: !model.can.edit || save.status === "saving",
+    issues: save.status === "error" ? save.issues : [],
+  };
+
+  const saveNow = async () => {
+    if (!data || !dirty) return;
+    setSave({ status: "saving" });
+    try {
+      const result = await saveReusableAction(JSON.stringify({ id: model.id, expectedVersion: model.lockVersion, name, data }));
+      if (result.status === "ok") {
+        // The editor opens again on the stored version (its new version number remounts it); the screen confirms.
+        setSave({ status: "saved", message: result.message });
+        router.replace(`${window.location.pathname}?done=saved`, { scroll: false });
+      } else if (result.status === "stale") setSave({ status: "stale", message: result.message });
+      else setSave({ status: "error", message: result.message, issues: result.issues ?? [] });
+    } catch {
+      setSave({ status: "error", message: "The save didn't reach the server. Try again; your changes are still here.", issues: [] });
+    }
+  };
+  const onFrame = (message: PreviewToBuilder) => {
+    if (message.type === "ready") setNotes(Object.values(message.notes).flat());
+    if (message.type === "locale") setLocale(message.locale);
+    if (message.type === "theme") setTheme(message.theme);
+  };
+  const nameIssue = save.status === "error" ? save.issues.find((i) => i.path === "name")?.message : undefined;
+
+  return (
+    <div className="adm-bld adm-bld-reusable" ref={root}>
+      <div className="adm-bld-top" role="group" aria-label="Reusable section controls" ref={bar}>
+        <div className="adm-bld-top-group">
+          <span className="adm-bld-save" data-state={save.status === "idle" ? (dirty ? "dirty" : "saved") : save.status} role="status" aria-live="polite">
+            {save.status === "saving" ? "Saving…" : save.status === "error" ? "Error: not saved" : save.status === "stale" ? "Changed elsewhere: not saved" : dirty ? "Unsaved changes" : "Saved"}
+          </span>
+          <button type="button" className="adm-btn is-primary" onClick={() => void saveNow()} disabled={!dirty || !model.can.edit || save.status === "saving" || !data}>
+            {save.status === "saving" ? "Saving…" : "Save"}
+          </button>
+        </div>
+        <div className="adm-bld-top-group">
+          <label className="adm-sr-only" htmlFor={`${id}-device`}>
+            Preview width
+          </label>
+          <select id={`${id}-device`} className="adm-input adm-bld-select" value={device} onChange={(e) => setDevice(e.target.value as PreviewDevice)}>
+            {DEVICES.map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+          <label className="adm-sr-only" htmlFor={`${id}-theme`}>
+            Preview theme
+          </label>
+          <select id={`${id}-theme`} className="adm-input adm-bld-select" value={theme} onChange={(e) => setTheme(e.target.value as "light" | "dark")}>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+          <a className="adm-btn is-small" href={previewUrl(model.previewHref, locale, theme, device, false)} target="_blank" rel="noopener">
+            Open preview in a new tab
+          </a>
+        </div>
+      </div>
+      {save.status === "stale" ? (
+        <div className="adm-alert is-warning" role="alert">
+          <p>{save.message}</p>
+          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version and drop the edits made here?") && window.location.reload()}>
+            Reload the latest version
+          </button>
+        </div>
+      ) : null}
+      {save.status === "error" ? (
+        <div className="adm-alert is-error" role="alert">
+          <p>{save.message}</p>
+        </div>
+      ) : null}
+
+      <div className="adm-bld-grid is-two">
+        <section className="adm-bld-panel adm-bld-inspector" aria-labelledby={`${id}-edit`}>
+          <h2 id={`${id}-edit`}>{model.block?.label ?? model.blockType}</h2>
+          <div className="adm-alert is-info" role="note">
+            <p>
+              <strong>
+                Used by {model.uses.length} section{model.uses.length === 1 ? "" : "s"}.
+              </strong>{" "}
+              Saving changes the working preview of every page and service that links it; no visitor sees it until publishing exists (A8).
+            </p>
+            {model.uses.length ? (
+              <ul>
+                {model.uses.map((u, i) => (
+                  <li key={i}>
+                    <a href={u.builderHref}>{u.label}</a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          {model.problem ? (
+            <div className="adm-alert is-warning" role="note">
+              <p>{model.problem}</p>
+            </div>
+          ) : null}
+          <div className="adm-field">
+            <label className="adm-label" htmlFor={`${id}-name`}>
+              Name (shown in the admin only)
+            </label>
+            <input id={`${id}-name`} className="adm-input" value={name} maxLength={240} disabled={!model.can.edit} onChange={(e) => setName(e.target.value)} aria-invalid={nameIssue ? true : undefined} />
+            {nameIssue ? <p className="adm-hint adm-error">{nameIssue}</p> : null}
+          </div>
+          {data && model.block ? (
+            <FieldEnvProvider env={env}>
+              <SectionEditor
+                block={model.block}
+                data={data}
+                status={model.status}
+                locale={locale}
+                setLocale={setLocale}
+                update={(recipe) => {
+                  setData((d) => (d ? recipe(d) : d));
+                  setChanged(true);
+                  if (save.status === "saved") setSave({ status: "idle" });
+                }}
+                changed={changed}
+              />
+            </FieldEnvProvider>
+          ) : (
+            <p className="adm-hint">This reusable section&apos;s data can&apos;t be edited here.</p>
+          )}
+          {model.missing.length || model.warnings.length || notes.length ? (
+            <section className="adm-bld-group" aria-labelledby={`${id}-notes`}>
+              <h3 id={`${id}-notes`}>Notes</h3>
+              <ul className="adm-bld-warnings">
+                {model.missing.length ? <li>Not set yet: {model.missing.join(", ")}.</li> : null}
+                {model.warnings.map((w, i) => (
+                  <li key={`w${i}`}>{w}</li>
+                ))}
+                {notes.map((n, i) => (
+                  <li key={`n${i}`}>In the preview: {n}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {model.can.archive ? (
+            <section className="adm-bld-group" aria-label="Archive">
+              {model.archived ? (
+                <ConfirmAction
+                  action={setReusableArchivedAction}
+                  label="Restore"
+                  title={`Restore “${model.name}”?`}
+                  confirmLabel="Restore"
+                  fields={{ id: model.id, version: String(model.lockVersion), archived: "0" }}
+                >
+                  <p>It can be linked again and edited.</p>
+                </ConfirmAction>
+              ) : (
+                <ConfirmAction
+                  action={setReusableArchivedAction}
+                  label="Archive"
+                  title={`Archive “${model.name}”?`}
+                  confirmLabel="Archive"
+                  fields={{ id: model.id, version: String(model.lockVersion), archived: "1" }}
+                  danger
+                >
+                  <p>
+                    {model.uses.length
+                      ? `It is still used by ${model.uses.length} section${model.uses.length === 1 ? "" : "s"}: detach or remove them first, or the archive is refused.`
+                      : "Nobody links it. It leaves the library and becomes read-only; it can be restored."}
+                  </p>
+                </ConfirmAction>
+              )}
+            </section>
+          ) : null}
+        </section>
+        <section className="adm-bld-panel adm-bld-preview" aria-label="Preview">
+          {dirty ? <p className="adm-hint adm-bld-warn">The preview shows the last saved version. Save to see your changes in it.</p> : null}
+          <Canvas href={model.previewHref} title={`Preview of ${model.name}`} locale={locale} theme={theme} device={device} version={model.lockVersion} selected={null} hovered={null} onMessage={onFrame} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** A new reusable section: a name and one of the generic blocks that may be reused. */
+export function ReusableCreateForm({ blocks }: { blocks: { key: string; label: string; description: string }[] }) {
+  const [state, action] = useActionState(createReusableAction, idle);
+  const id = useId();
+  return (
+    <form action={action} className="adm-card adm-form" autoComplete="off">
+      <FormAlert state={state} />
+      <div className="adm-field">
+        <label className="adm-label" htmlFor={`${id}-name`}>
+          Name (shown in the admin only)
+        </label>
+        <input id={`${id}-name`} name="name" className="adm-input" required maxLength={120} defaultValue={state.fields?.name ?? ""} />
+      </div>
+      <fieldset className="adm-field">
+        <legend className="adm-label">Block</legend>
+        <div className="adm-choice-list">
+          {blocks.map((b, i) => (
+            <label key={b.key} className="adm-choice">
+              <input type="radio" name="blockType" value={b.key} required defaultChecked={i === 0} />
+              <span>
+                <strong>{b.label}</strong>
+                <span className="adm-hint">{b.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <SubmitButton pending="Creating…">Create the reusable section</SubmitButton>
+    </form>
+  );
+}
