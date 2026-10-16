@@ -11,15 +11,22 @@
  * - I3: an email target carries no percent-escape or fragment into its mailto: address.
  * - I5: a parse never hands out a default object another parse shares.
  * - I6: a question's answer holding a link inside a list item is not "nested too deeply".
+ *
+ * The final security pass (each test failed on 96c3ebb): certificate copy is read as a visitor reads it — each text piece
+ * as it is drawn (a line break inside a field no longer splits a number or an expiry phrase past the guard), digits
+ * separated by invisible format characters as one number, and every link target's address, anchor, email and phone.
  */
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import { REGISTRY } from "../../src/server/builder/registry.ts";
+import { defaultsOf, type Content } from "../../src/server/builder/fields.ts";
 import { reusableNameSchema } from "../../src/server/builder/input.ts";
-import { EMAIL_RE } from "../../src/server/builder/links.ts";
+import { EMAIL_RE, type LinkTarget } from "../../src/server/builder/links.ts";
+import { CERTIFICATE_LINK, certificateIssues } from "../../src/server/builder/references.ts";
 import { EMPTY_RICH } from "../../src/server/builder/richtext.ts";
+import { digitGuardProblem, hasRegistrationNumber, textProblem } from "../../src/server/cms/text.ts";
 import { allowedOn, CONTRACTS, HERO_VARIANT_OF, layoutIssues, libraryFor, type LayoutSection } from "../../src/server/builder/structure.ts";
 import type { OwnerKind } from "../../src/server/builder/block.ts";
 
@@ -173,5 +180,78 @@ describe("I6 — nesting", () => {
     };
     const result = REGISTRY.validate(faq, { questions: [{ id: "q1" }] }, { en: { questions: { q1: { question: "Test question?", answer } } } });
     assert.equal(result.ok, true, JSON.stringify(result));
+  });
+});
+
+describe("Final review — certificate copy as a visitor reads it", () => {
+  /** A block's default data with English texts (and settings) changed. */
+  function dataOf(key: string, en: Content, settings: Record<string, unknown> = {}) {
+    const def = REGISTRY.get(key)!;
+    const defaults = defaultsOf(def.settings, def.content, () => "i1");
+    return { def, data: { settings: { ...defaults.settings, ...settings }, content: { en: { ...defaults.content, ...en } } } };
+  }
+  const issuesOf = (key: string, en: Content, settings: Record<string, unknown> = {}) => {
+    const { def, data } = dataOf(key, en, settings);
+    return certificateIssues(def, data);
+  };
+
+  test("a line break inside a field splits no number or expiry phrase past the guard; separate fields stay separate", () => {
+    for (const intro of ["Registration 1010\n123\n456", "This licence is valid\nuntil 1447 AH", "Valid\nthrough 2027", "\u0635\u0627\u0644\u062D\u0629\n\u062D\u062A\u0649 \u0662\u0660\u0662\u0667"]) {
+      const issues = issuesOf("generic.heading", { title: "Test heading", intro });
+      assert.equal(issues.length, 1, JSON.stringify(intro));
+      assert.equal(issues[0].path, "content.en.intro", "reported at the field that holds it");
+    }
+    // A line break inside a rich text's paragraph (here a repeated item's answer) likewise.
+    const answer = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Registration 1010" }, { type: "hard_break" }, { type: "text", text: "123 456" }] }] };
+    assert.equal(issuesOf("generic.faq", { questions: { i1: { question: "Test question?", answer } } }).length, 1);
+    // Controls: two fields are two pieces of the page (never read as one number), and ordinary text passes.
+    assert.deepEqual(issuesOf("generic.heading", { title: "Test 1010", intro: "123 456" }), []);
+    assert.deepEqual(issuesOf("generic.heading", { title: "Test heading", intro: "ISO 9001:2015\nIssued 2026" }), []);
+  });
+
+  test("digits separated by invisible format characters are one number; the characters themselves are plain text", () => {
+    const formats = ["\u200B", "\u200C", "\u200D", "\u200E", "\u200F", "\u061C", "\u00AD", "\u2060", "\uFEFF"];
+    for (const c of formats) {
+      assert.equal(textProblem(`Test${c}text`, { multiline: false }), null, `U+${c.codePointAt(0)!.toString(16)} is accepted as plain text`);
+      assert.equal(hasRegistrationNumber(`1010${c}123${c}456`), true, `grouped, U+${c.codePointAt(0)!.toString(16)}`);
+      assert.equal(hasRegistrationNumber([..."1010123"].join(c)), true, `between every digit, U+${c.codePointAt(0)!.toString(16)}`);
+      assert.notEqual(digitGuardProblem(`Test exp${c}iry`), null, `expiry wording, U+${c.codePointAt(0)!.toString(16)}`);
+      assert.equal(issuesOf("generic.heading", { title: `Registration 1010${c}123${c}456` }).length, 1);
+    }
+    assert.notEqual(digitGuardProblem("\u0635\u0644\u0627\u062D\u064A\u200C\u0629"), null, "صلاحية with a zero-width non-joiner");
+    // Controls: six digits stay six digits, a date stays a date.
+    for (const ok of ["123\u200B456", "Issued\u200B2026", "2026\u200B-01-15"]) assert.equal(digitGuardProblem(ok), null, JSON.stringify(ok));
+  });
+
+  test("a link's address, anchor, email or phone number holds no registration number; record links and ordinary addresses pass", () => {
+    const button = (target: LinkTarget) => ({ actions: [{ id: "i1", target, style: "primary" }] });
+    const cta = (target: LinkTarget) => issuesOf("generic.cta", { title: "Test call", actions: { i1: { label: "Test button" } } }, button(target));
+    for (const target of [
+      { type: "external", url: "https://verify.example.org/?no=1010123456" },
+      { type: "external", url: "https://verify.example.org/c/1010-123-456" },
+      { type: "anchor", anchor: "doc-1010123456" },
+      { type: "system", key: "certificates", anchor: "c1010123456" },
+    ] satisfies LinkTarget[]) {
+      assert.deepEqual(cta(target), [{ path: "settings.actions.0.target", message: CERTIFICATE_LINK }], JSON.stringify(target));
+    }
+    for (const target of [
+      { type: "external", url: "https://www.iso.org/iso-9001-quality-management.html" },
+      { type: "system", key: "certificates" },
+      { type: "service", id: "01HZY1234567890ABCDEFGHJKM" },
+      { type: "anchor", anchor: "iso-9001" },
+    ] satisfies LinkTarget[]) {
+      assert.deepEqual(cta(target), [], JSON.stringify(target));
+    }
+    // A link inside a rich text (an answer).
+    const answer = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Test link", marks: [{ type: "link", target: { type: "external", url: "https://example.org/1010123456" } }] }] }] };
+    assert.deepEqual(issuesOf("generic.faq", { questions: { i1: { question: "Test question?", answer } } }), [{ path: "content.en.questions.i1.answer", message: CERTIFICATE_LINK }]);
+    // Email and phone targets (only legal sections take contact links today) are read too.
+    for (const target of [
+      { type: "phone", number: "+966 1010 123 456" },
+      { type: "email", address: "c1010123456@example.com" },
+    ] satisfies LinkTarget[]) {
+      const body = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Test contact", marks: [{ type: "link", target }] }] }] };
+      assert.deepEqual(issuesOf("legal.section", { title: "Test section", body }), [{ path: "content.en.body", message: CERTIFICATE_LINK }], target.type);
+    }
   });
 });

@@ -11,6 +11,9 @@
  * - F3: a settings-only save of a section stored at an older block version stores its texts at the new version too.
  * - F5: a layout change the page's structure refuses and a stale archive are audited.
  *
+ * The final security pass (failed on 96c3ebb): on the Certificates page a number or an expiry phrase split over lines of
+ * one field, digits split by invisible format characters and a number in a button's address are refused.
+ *
  * Races are made deterministic with a row held FOR UPDATE on a third connection (A3 Correction 1's pattern). Test data
  * only ("Test …").
  */
@@ -272,5 +275,51 @@ describe("F5 — refusals are audited", () => {
     assert.equal((await setReusableArchived(changeOf(env, t.admin), { id: reusable, expectedVersion: v - 1, archived: true })).kind, "stale");
     const [event] = await auditOf(env, "reusable_section", reusable);
     assert.deepEqual([event.action, event.outcome], ["reusable_section.archive", "failed"]);
+  });
+});
+
+describe("Final review — certificate copy as a visitor reads it", () => {
+  const heading = (title: string, intro = ""): SectionInput => ({
+    ref: "new:1",
+    blockType: "generic.heading",
+    visible: true,
+    devices: all,
+    anchor: null,
+    data: dataFor("generic.heading", { texts: { en: { title, intro } } }),
+  });
+  const call = (url: string): SectionInput => ({
+    ref: "new:1",
+    blockType: "generic.cta",
+    visible: true,
+    devices: all,
+    anchor: null,
+    data: dataFor("generic.cta", {
+      settings: { actions: [{ id: "b1", target: { type: "external", url }, style: "primary" }] },
+      texts: { en: { title: "Test call", actions: { b1: { label: "Test button" } } } },
+    }),
+  });
+
+  test("a number or expiry phrase split over lines, digits split by invisible characters and a number in a button's address: refused there, accepted on a generic page", async () => {
+    const cases: [string, SectionInput, RegExp][] = [
+      ["a number over three lines", heading("Test heading", "Registration 1010\n123\n456"), NUMBER],
+      ["an expiry phrase over two lines", heading("Test heading", "This licence is valid\nuntil next year"), /Expiry details stay admin-only/],
+      ["zero-width spaces between the digits", heading("Registration 1010\u200B123\u200B456"), NUMBER],
+      ["a word joiner between every digit", heading(`Test ${[..."1010123456"].join("\u2060")}`), NUMBER],
+      ["a number in a button's address", call("https://verify.example.org/?no=1010123456"), /A link on certificate copy can't hold a registration or certificate number/],
+    ];
+    const there: string[] = [];
+    for (const [name, section, message] of cases) {
+      const result = await save(env, t.owner, certificates, beforeLast(await layoutOf(env, certificates), section));
+      there.push(`${name}: ${result.kind}`);
+      if (result.kind === "invalid") expectInvalid(result, message);
+    }
+    assert.deepEqual(there, cases.map(([name]) => `${name}: invalid`));
+    const page = await genericPage(env, t.editor);
+    let sections = await initialized(page, t.editor);
+    for (const [name, section] of cases) {
+      const result = await save(env, t.editor, page, [...sections.map(entryOf), section]);
+      assert.equal(result.kind, "ok", `${name}: ${JSON.stringify(result)}`);
+      sections = await layoutOf(env, page);
+    }
   });
 });
