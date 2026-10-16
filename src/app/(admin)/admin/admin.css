@@ -1552,6 +1552,16 @@ body.adm {
   min-width: 0;
 }
 
+/* "Choose logo (monochrome)…" and the other pickers' labels wrap on a narrow phone, centred, instead of pushing the
+   page wider than the screen (the A2 entry cards' rule, for the media fields and the uploader). */
+.adm-media-slot .adm-btn,
+.adm-media-list .adm-btn,
+.adm-children .adm-btn,
+.adm-uploader .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
 .adm-media-slot + .adm-media-slot,
 .adm-media-slot + .adm-media-list,
 .adm-media-list + .adm-media-list,
