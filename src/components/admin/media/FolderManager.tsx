@@ -59,7 +59,7 @@ function FolderRow({ folder, folders, canEdit, first, last }: { folder: FolderVi
             <label className="adm-sr-only" htmlFor={`${uid}-name`}>
               New name for {folder.name}
             </label>
-            <input id={`${uid}-name`} name="name" className="adm-input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+            <input id={`${uid}-name`} name="name" className="adm-input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoComplete="off" />
             <SubmitButton variant="secondary" pending="Renaming…">
               Rename
             </SubmitButton>
@@ -136,7 +136,7 @@ export function FolderManager({ folders, canEdit }: { folders: FolderView[]; can
             <label className="adm-label" htmlFor={`${uid}-new`}>
               New folder name
             </label>
-            <input id={`${uid}-new`} name="name" className="adm-input" maxLength={200} required autoComplete="off" aria-describedby={`${uid}-new-hint`} />
+            <input id={`${uid}-new`} name="name" className="adm-input" maxLength={120} required autoComplete="off" aria-describedby={`${uid}-new-hint`} />
             <p className="adm-hint" id={`${uid}-new-hint`}>
               Plain text on one line, without / or \. Unique among its neighbours.
             </p>

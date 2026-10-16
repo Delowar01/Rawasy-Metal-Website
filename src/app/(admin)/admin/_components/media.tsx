@@ -411,7 +411,8 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
         <div className="adm-media-overview">
           <div className="adm-media-preview-box">
             {preview ? (
-              <RevealPreview src={preview} label={label} blocked={blocked} width={current?.width ?? null} height={current?.height ?? null} />
+              // Keyed on the flag state: a blocking flag added on this page hides the preview again at once.
+              <RevealPreview key={blocked ? "blocked" : "clear"} src={preview} label={label} blocked={blocked} width={current?.width ?? null} height={current?.height ?? null} />
             ) : (
               <span className="adm-media-thumb is-lg is-doc" aria-hidden="true">
                 {detail.kind === "document" ? "PDF" : isPrivate ? "Private" : "No preview"}

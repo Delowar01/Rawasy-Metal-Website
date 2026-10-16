@@ -459,7 +459,7 @@ export async function approveMedia(ctx: MediaContext, id: string, expectedVersio
     const label = await mediaLabel(tx, asset);
     const refuse = async (message: string, outcome: "failed" = "failed") => {
       await mediaAudit(tx, actor, meta, now, { action: "media.approve", id, label, outcome, summary: `Refused: ${message}` });
-      return { kind: "refused", message } as const;
+      return { kind: "refused", message: `This item can't be approved yet: ${message}` } as const;
     };
     if (asset.lockVersion !== expectedVersion) {
       await mediaAudit(tx, actor, meta, now, {

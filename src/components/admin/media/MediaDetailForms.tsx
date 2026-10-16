@@ -195,7 +195,7 @@ export function MediaMetadataForm({
                   dir={dir}
                   lang={locale.code}
                   value={v.title}
-                  maxLength={400}
+                  maxLength={200}
                   onChange={(e) => setLocale(locale.code, { title: e.target.value })}
                   autoComplete="off"
                 />
@@ -234,7 +234,7 @@ export function MediaMetadataForm({
                         dir={dir}
                         lang={locale.code}
                         value={v.alt}
-                        maxLength={1000}
+                        maxLength={500}
                         onChange={(e) => setLocale(locale.code, { alt: e.target.value })}
                         autoComplete="off"
                       />
@@ -254,7 +254,7 @@ export function MediaMetadataForm({
                   dir={dir}
                   lang={locale.code}
                   value={v.caption}
-                  maxLength={1000}
+                  maxLength={500}
                   onChange={(e) => setLocale(locale.code, { caption: e.target.value })}
                 />
               </div>
@@ -287,7 +287,7 @@ export function MediaMetadataForm({
             <label className="adm-label" htmlFor="f-rightsHolder">
               Rights holder
             </label>
-            <input id="f-rightsHolder" name="rightsHolder" className="adm-input" value={values.rightsHolder} maxLength={400} onChange={(e) => setValues((v) => ({ ...v, rightsHolder: e.target.value }))} autoComplete="off" />
+            <input id="f-rightsHolder" name="rightsHolder" className="adm-input" value={values.rightsHolder} maxLength={200} onChange={(e) => setValues((v) => ({ ...v, rightsHolder: e.target.value }))} autoComplete="off" />
           </div>
           <div className="adm-field">
             <label className="adm-label" htmlFor="f-licenceExpiresOn">
