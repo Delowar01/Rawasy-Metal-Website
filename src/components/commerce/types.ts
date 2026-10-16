@@ -1,7 +1,10 @@
 import type { MediaAsset } from "@/content/media";
 
-/** A photo, cut-out or logo from the media registry, with the alt text for the place it is shown. */
-export type CommerceImage = MediaAsset & { alt: string };
+/**
+ * A photo, cut-out or logo from the media registry, with the alt text for the place it is shown. `unoptimized`: an
+ * uploaded media library item (the page builder's preview), drawn as it is — the image optimizer never takes those.
+ */
+export type CommerceImage = MediaAsset & { alt: string; unoptimized?: true };
 
 /** Colour roles: brand orange for actions, steel for engineering, teal for process and site support, brass for craft. */
 export type Tone = "brand" | "steel" | "teal" | "brass";

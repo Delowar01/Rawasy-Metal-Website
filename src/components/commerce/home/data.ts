@@ -29,6 +29,15 @@ import type { CommerceImage, MachineItem } from "../types";
 
 const image = (id: MediaId, alt: string): CommerceImage => ({ ...getMedia(id), alt });
 
+/** The machinery showcase's order: the flagship lasers first, then bending and welding. */
+const MACHINE_ORDER = ["fiber-laser-combo-12kw", "tube-cutting-12kw", "fiber-laser-6kw", "fiber-laser-3kw", "cnc-press-brake", "laser-welding"];
+
+/** The homepage's selected work, in this order (showcased projects only; see projects.ts). */
+const PROJECT_ORDER = ["tulip-roundabout-sculpture", "clock-tower-landmark", "geometric-lanterns", "wave-form-sculpture", "suspended-lantern", "palm-leaf-shade-canopies"];
+
+/** The records named in `slugs`, in that order (any other is left out). */
+const inOrder = <T extends { slug: string }>(slugs: string[], records: T[]) => slugs.map((slug) => records.find((r) => r.slug === slug)).filter((r): r is T => r !== undefined);
+
 export async function getHomeView(locale: Locale) {
   const [home, company, services, machines, featured, industries, metricData, pillars, clients, certificates, about, clientsPage, industriesPage] =
     await Promise.all([
@@ -128,7 +137,7 @@ export async function getHomeView(locale: Locale) {
       power: home.machinery.power[locale],
       service: home.machinery.service[locale],
       all: home.machinery.all[locale],
-      items: machines.map(
+      items: inOrder(MACHINE_ORDER, machines).map(
         (m): MachineItem => ({
           slug: m.slug,
           name: m.name[locale],
@@ -151,7 +160,7 @@ export async function getHomeView(locale: Locale) {
       // Until the project pages (Stage 1F) exist, a card opens the Projects overview at its gallery, where every
       // showcased project is shown; the label says so.
       cta: home.projects.inGallery[locale],
-      items: featured.map((p) => ({
+      items: inOrder(PROJECT_ORDER, featured).map((p) => ({
         slug: p.slug,
         title: p.title[locale],
         categories: p.categories.slice(0, 2).map(category),

@@ -5,8 +5,6 @@ import { SectionHead } from "./SectionHead";
 
 type ProjectItem = HomeView["projects"]["items"][number];
 
-/** The homepage selection, in this order (showcased projects only; see projects.ts). */
-const ORDER = ["tulip-roundabout-sculpture", "clock-tower-landmark", "geometric-lanterns", "wave-form-sculpture", "suspended-lantern", "palm-leaf-shade-canopies"];
 /** Bento on desktop: the first spans two columns, the second two rows. */
 const LAYOUT = ["lg:col-span-2", "lg:row-span-2", "", "", "", ""];
 
@@ -29,10 +27,10 @@ function ProjectCard({ project: p, cta, sizes }: { project: ProjectItem; cta: st
   );
 }
 
-/** Selected work: an image-led bento (a swipe rail on phones and tablets); each card opens the Projects gallery. */
+/** Selected work: an image-led bento (a swipe rail on phones and tablets); each card opens the Projects gallery. The projects come in the view's order. */
 export function Projects({ view }: { view: HomeView }) {
   const { projects, links } = view;
-  const items = ORDER.map((slug) => projects.items.find((p) => p.slug === slug)!).filter(Boolean);
+  const items = projects.items;
   return (
     <section id="projects" className="sec" aria-labelledby="projects-title">
       <div className="shell">

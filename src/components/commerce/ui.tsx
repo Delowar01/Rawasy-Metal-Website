@@ -42,6 +42,7 @@ export function Photo({
       blurDataURL={image.blurDataURL}
       priority={priority}
       className={className ?? "object-cover"}
+      {...(image.unoptimized ? { unoptimized: true } : {})}
     />
   );
 }
@@ -57,6 +58,7 @@ export function Cutout({ image, className, sizes }: { image: CommerceImage; clas
       sizes={sizes}
       className={className}
       style={{ maxWidth: image.width }}
+      {...(image.unoptimized ? { unoptimized: true } : {})}
     />
   );
 }
@@ -71,6 +73,7 @@ export function Logo({ image, className }: { image: CommerceImage; className?: s
       height={image.height}
       sizes="160px"
       className={className ?? "h-full w-auto object-contain"}
+      {...(image.unoptimized ? { unoptimized: true } : {})}
     />
   );
 }
