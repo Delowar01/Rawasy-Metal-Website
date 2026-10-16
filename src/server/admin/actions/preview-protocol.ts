@@ -26,14 +26,43 @@ export type BuilderToPreview =
   | { source: "rawasy-builder"; type: "hover"; id: string | null };
 
 export type PreviewToBuilder =
-  | { source: "rawasy-preview"; type: "ready"; found: string[]; missing: string[] }
+  | { source: "rawasy-preview"; type: "ready"; found: string[]; missing: string[]; notes: Record<string, string[]> }
   | { source: "rawasy-preview"; type: "pick"; id: string }
   | { source: "rawasy-preview"; type: "locale"; locale: "en" | "ar" }
   | { source: "rawasy-preview"; type: "theme"; theme: "light" | "dark" }
   | { source: "rawasy-preview"; type: "link"; href: string };
 
-export const isBuilderMessage = (data: unknown): data is BuilderToPreview =>
-  typeof data === "object" && data !== null && (data as { source?: unknown }).source === "rawasy-builder";
+// Each side checks a message's whole shape before it uses it (the sender is already checked: this window's frame or
+// parent, this origin).
+const record = (data: unknown): Record<string, unknown> | null => (typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : null);
+const strings = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 1000 && value.every((v) => typeof v === "string");
+const idOrNull = (value: unknown) => value === null || typeof value === "string";
 
-export const isPreviewMessage = (data: unknown): data is PreviewToBuilder =>
-  typeof data === "object" && data !== null && (data as { source?: unknown }).source === "rawasy-preview";
+export const isBuilderMessage = (data: unknown): data is BuilderToPreview => {
+  const m = record(data);
+  if (!m || m.source !== "rawasy-builder") return false;
+  if (m.type === "select") return idOrNull(m.id) && typeof m.scroll === "boolean";
+  if (m.type === "hover") return idOrNull(m.id);
+  return false;
+};
+
+export const isPreviewMessage = (data: unknown): data is PreviewToBuilder => {
+  const m = record(data);
+  if (!m || m.source !== "rawasy-preview") return false;
+  switch (m.type) {
+    case "ready": {
+      const notes = record(m.notes);
+      return strings(m.found) && strings(m.missing) && notes !== null && Object.values(notes).every(strings);
+    }
+    case "pick":
+      return typeof m.id === "string";
+    case "locale":
+      return m.locale === "en" || m.locale === "ar";
+    case "theme":
+      return m.theme === "light" || m.theme === "dark";
+    case "link":
+      return typeof m.href === "string";
+    default:
+      return false;
+  }
+};

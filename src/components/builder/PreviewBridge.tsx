@@ -86,7 +86,7 @@ export function PreviewBridge({ map, frame }: { map: PreviewMapEntry[]; frame: b
     found.current = locate(map);
     if (frame && window.parent !== window) {
       const ids = new Set(found.current.map((f) => f.id));
-      post({ source: "rawasy-preview", type: "ready", found: [...ids], missing: map.filter((m) => !ids.has(m.id)).map((m) => m.id) });
+      post({ source: "rawasy-preview", type: "ready", found: [...ids], missing: map.filter((m) => !ids.has(m.id)).map((m) => m.id), notes: Object.fromEntries(map.map((m) => [m.id, m.notes])) });
     }
   }, [map, frame]);
 

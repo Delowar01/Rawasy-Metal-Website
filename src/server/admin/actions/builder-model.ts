@@ -139,6 +139,10 @@ export interface ReusableOptionModel {
 }
 
 export interface LinkTargetsModel {
+  /** The kinds of link target, with their names, in the order the editor offers them. */
+  kinds: Choice<LinkKindName>[];
+  /** The automatic selections' names. */
+  sources: Record<SelectionSourceName, string>;
   system: { key: string; label: string }[];
   pages: OptionModel[];
   services: OptionModel[];
@@ -173,6 +177,32 @@ export interface BuilderModel {
   links: LinkTargetsModel;
   media: Record<string, MediaCardModel>;
   canUpload: boolean;
+}
+
+/** The reusable section editor's model (A5 brief §44–§45). */
+export interface ReusableEditorModel {
+  id: string;
+  name: string;
+  blockType: string;
+  /** The block (null when this admin doesn't know the stored type). */
+  block: BlockModel | null;
+  archived: boolean;
+  lockVersion: number;
+  /** "ok", or why the stored data can't be edited. */
+  state: string;
+  problem: string | null;
+  data: SectionData | null;
+  status: Record<BuilderLocale, CmsLocaleState>;
+  missing: string[];
+  warnings: string[];
+  /** "Used by": the pages and services whose sections link it. */
+  uses: { label: string; builderHref: string }[];
+  can: { edit: boolean; archive: boolean };
+  options: BuilderModel["options"];
+  links: LinkTargetsModel;
+  media: Record<string, MediaCardModel>;
+  canUpload: boolean;
+  previewHref: string;
 }
 
 export type BuilderSaveState =

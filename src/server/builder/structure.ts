@@ -525,6 +525,8 @@ export interface ChangeContext {
 
 /** The reason a person without the structure permission sees. */
 export const NO_STRUCTURE_PERMISSION = "You can edit this page's sections, but changing its structure (adding, moving, hiding or removing sections, anchors, reusable links) needs a permission you don't hold.";
+/** The same note for someone who may only look at the layout (no content permission either). */
+export const VIEW_ONLY_LAYOUT = "You can view this layout but not change it.";
 
 /**
  * Issues of a layout change (stored → proposed), section by section. Structure is anything but texts and settings:

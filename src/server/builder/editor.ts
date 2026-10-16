@@ -9,7 +9,7 @@
  * exactly like an unknown one (a section can't name one anyway).
  */
 import { inArray } from "drizzle-orm";
-import type { BlockModel, BuilderModel, DesignControls, FieldModel, LinkKindName, OperationModel, SectionData, SectionModel } from "../admin/actions/builder-model.ts";
+import type { BlockModel, BuilderModel, DesignControls, FieldModel, LinkKindName, OperationModel, ReusableEditorModel, SectionData, SectionModel } from "../admin/actions/builder-model.ts";
 import type { CmsLocaleState, OptionModel } from "../admin/actions/cms-model.ts";
 import { cardWarnings, type MediaCardModel } from "../admin/actions/media-model.ts";
 import type { Db } from "../db/client.ts";
@@ -22,9 +22,11 @@ import { appearanceAllowed, DELAYS, DURATIONS, LABELS, motionPresetsFor, narrowe
 import {
   defaultsOf,
   ENTITY_SOURCES,
+  SOURCE_LABELS,
   LOCALES,
   missingSettings,
   referencesOf,
+  type BlockReferences,
   type ContentFields,
   type Locale,
   type SettingsField,
@@ -32,10 +34,10 @@ import {
   type ContentField,
   type SettingsFields,
 } from "./fields.ts";
-import { DEFAULT_LINK_KINDS, SYSTEM_LINK_KEYS, SYSTEM_LINK_LABELS } from "./links.ts";
+import { DEFAULT_LINK_KINDS, LINK_KIND_LABELS, LINK_KINDS, SYSTEM_LINK_KEYS, SYSTEM_LINK_LABELS } from "./links.ts";
 import { DEFAULT_RICH_LIMITS } from "./richtext.ts";
 import { readProblem, REGISTRY } from "./registry.ts";
-import { listReusables } from "./reusable.ts";
+import { listReusables, reusableUseViews } from "./reusable.ts";
 import { readSectionData } from "./sections.ts";
 import { readOwner, readReusable, readSections, type OwnerRef, type StoredSection } from "./store.ts";
 import {
@@ -48,6 +50,7 @@ import {
   mayInitialize,
   NO_STRUCTURE_PERMISSION,
   OWNER_LABELS,
+  VIEW_ONLY_LAYOUT,
   type LayoutSection,
 } from "./structure.ts";
 import { sectionLocaleState } from "./texts.ts";
@@ -187,7 +190,9 @@ export async function loadBuilder(db: Db, permissions: ReadonlySet<string>, ref:
   const contract = CONTRACTS[kind];
   const content = mayEditContent(permissions, kind) && !owner.archived;
   const structure = mayChangeStructure(permissions, kind) && !owner.archived;
-  const structureNote = owner.archived ? "This record is archived: restore it before changing its layout." : (contract.lockedReason ?? (structure ? null : NO_STRUCTURE_PERMISSION));
+  const structureNote = owner.archived
+    ? "This record is archived: restore it before changing its layout."
+    : (contract.lockedReason ?? (structure ? null : content ? NO_STRUCTURE_PERMISSION : VIEW_ONLY_LAYOUT));
   const stored = await readSections(db, ref, { lock: false });
 
   // Linked reusable sections (their data is shown read-only).
@@ -215,24 +220,10 @@ export async function loadBuilder(db: Db, permissions: ReadonlySet<string>, ref:
     refs.media.forEach((m) => mediaIds.add(m.id));
     refs.records.filter((r) => r.type === "project").forEach((r) => projectIds.add(r.id));
   }
-  const cards = await mediaCards(db, new Set<string>(), [...mediaIds]);
-  const flagRows = projectIds.size ? await db.select({ projectId: projectFlags.projectId, flag: projectFlags.flag }).from(projectFlags).where(inArray(projectFlags.projectId, [...projectIds])) : [];
-  const blockingFlags = new Map<string, string[]>();
-  for (const row of flagRows) if (isBlockingFlag(row.flag)) blockingFlags.set(row.projectId, [...(blockingFlags.get(row.projectId) ?? []), flagLabel(row.flag)]);
+  const cards = (await mediaCards(db, new Set<string>(), [...mediaIds])) as Record<string, MediaCardModel>;
+  const blockingFlags = await blockingFlagsOf(db, [...projectIds]);
 
-  const options = {
-    service: await pickerOptions(db, "service"),
-    project: await pickerOptions(db, "project"),
-    machine: await pickerOptions(db, "machine"),
-    client: await pickerOptions(db, "client"),
-    certificate: await pickerOptions(db, "certificate"),
-    industry: await pickerOptions(db, "industry"),
-    project_category: await pickerOptions(db, "project_category"),
-  };
-  const genericPages = (await pickerOptions(db, "page")).filter((p) => p.slug !== null);
-  const known = new Map<string, ItemRef>();
-  for (const [type, list] of Object.entries({ ...options, page: genericPages })) for (const item of list) known.set(`${type}:${item.id}`, item);
-  const toOption = (item: ItemRef): OptionModel => ({ id: item.id, label: refLabel(item), slug: item.slug, archived: item.archived });
+  const { options, genericPages, known, toOption } = await pickerSources(db);
 
   const layout: LayoutSection[] = stored.map((s) => ({ id: s.id, blockType: s.blockType, anchor: s.anchor, visible: s.visible, devices: s.devices, locked: s.locked, reusableId: s.reusableId }));
   const blocks: Record<string, BlockModel> = {};
@@ -252,23 +243,8 @@ export async function loadBuilder(db: Db, permissions: ReadonlySet<string>, ref:
       LOCALES.map((l) => [l, def && effective?.state === "ok" ? asState(sectionLocaleState(def, settings, texts[l], statusSource[l]?.status ?? null)) : "missing"]),
     ) as Record<Locale, CmsLocaleState>;
 
-    const warnings: string[] = [];
     const refs = refsOf.get(s.id);
-    for (const media of refs?.media ?? []) {
-      const card = cards[media.id];
-      const problems = card ? cardWarnings(card) : ["Not available"];
-      if (problems.length) warnings.push(`Media “${card?.label ?? media.id}”: ${problems.join(", ")}. It shows as a placeholder in the preview until it is approved and deliverable.`);
-    }
-    for (const record of refs?.records ?? []) {
-      const item = known.get(`${record.type}:${record.id}`);
-      if (!item) warnings.push(`A chosen ${record.type.replace("_", " ")} no longer exists.`);
-      else {
-        if (item.archived) warnings.push(`${refLabel(item)} is archived.`);
-        const incomplete = LOCALES.filter((l) => item.state[l] !== "complete");
-        if (incomplete.length) warnings.push(`${refLabel(item)}: ${incomplete.map((l) => (l === "en" ? "English" : "Arabic")).join(" and ")} not complete.`);
-        if (record.type === "project" && blockingFlags.has(record.id)) warnings.push(`${refLabel(item)} has a restriction (${blockingFlags.get(record.id)!.join(", ")}): its photos are not shown.`);
-      }
-    }
+    const warnings = refs ? referenceWarnings(refs, cards, known, blockingFlags) : [];
     if (reusable?.archived) warnings.push("The linked reusable section is archived.");
     const missing = def && effective?.state === "ok" ? missingSettings(def.settings, settings) : [];
     const problem = !def ? readProblem({ state: "unknown_type" }) : effective && effective.state !== "ok" ? readProblem(effective) : null;
@@ -345,15 +321,110 @@ export async function loadBuilder(db: Db, permissions: ReadonlySet<string>, ref:
     sections,
     reusables: linkable,
     warnings: layoutWarnings(kind, layout).map((w) => ({ sectionId: w.sectionId, message: w.message })),
+    ...pickerModels({ options, genericPages, toOption }),
+    media: cards,
+    canUpload: permissions.has("media.upload"),
+  };
+}
+
+// --- The pickers' choices (records, link targets) -------------------------------------------------------------------------------
+
+async function pickerSources(db: Db) {
+  const options = {
+    service: await pickerOptions(db, "service"),
+    project: await pickerOptions(db, "project"),
+    machine: await pickerOptions(db, "machine"),
+    client: await pickerOptions(db, "client"),
+    certificate: await pickerOptions(db, "certificate"),
+    industry: await pickerOptions(db, "industry"),
+    project_category: await pickerOptions(db, "project_category"),
+  };
+  const genericPages = (await pickerOptions(db, "page")).filter((p) => p.slug !== null);
+  const known = new Map<string, ItemRef>();
+  for (const [type, list] of Object.entries({ ...options, page: genericPages })) for (const item of list) known.set(`${type}:${item.id}`, item);
+  const toOption = (item: ItemRef): OptionModel => ({ id: item.id, label: refLabel(item), slug: item.slug, archived: item.archived });
+  return { options, genericPages, known, toOption };
+}
+
+function pickerModels({ options, genericPages, toOption }: Pick<Awaited<ReturnType<typeof pickerSources>>, "options" | "genericPages" | "toOption">): Pick<BuilderModel, "options" | "links"> {
+  return {
     options: Object.fromEntries(Object.entries(options).map(([k, list]) => [k, list.map(toOption)])) as BuilderModel["options"],
     links: {
+      kinds: LINK_KINDS.map((value) => ({ value, label: LINK_KIND_LABELS[value] })),
+      sources: { ...SOURCE_LABELS },
       system: SYSTEM_LINK_KEYS.map((key) => ({ key, label: SYSTEM_LINK_LABELS[key] })),
       pages: genericPages.map(toOption),
       services: options.service.map(toOption),
       projects: options.project.map(toOption),
       machines: options.machine.map(toOption),
     },
-    media: cards as Record<string, MediaCardModel>,
+  };
+}
+
+/** The blocking flags of projects (labels by project id): their photos are never shown. */
+async function blockingFlagsOf(db: Db, projectIds: string[]): Promise<Map<string, string[]>> {
+  const rows = projectIds.length ? await db.select({ projectId: projectFlags.projectId, flag: projectFlags.flag }).from(projectFlags).where(inArray(projectFlags.projectId, projectIds)) : [];
+  const out = new Map<string, string[]>();
+  for (const row of rows) if (isBlockingFlag(row.flag)) out.set(row.projectId, [...(out.get(row.projectId) ?? []), flagLabel(row.flag)]);
+  return out;
+}
+
+/** What a section's data names that the editor warns about: media that can't be delivered, records gone, archived or incomplete, restricted projects. */
+function referenceWarnings(refs: BlockReferences, cards: Record<string, MediaCardModel>, known: Map<string, ItemRef>, blocking: Map<string, string[]>): string[] {
+  const warnings: string[] = [];
+  for (const media of refs.media) {
+    const card = cards[media.id];
+    const problems = card ? cardWarnings(card) : ["Not available"];
+    if (problems.length) warnings.push(`Media “${card?.label ?? media.id}”: ${problems.join(", ")}. It shows as a placeholder in the preview until it is approved and deliverable.`);
+  }
+  for (const record of refs.records) {
+    const item = known.get(`${record.type}:${record.id}`);
+    if (!item) warnings.push(`A chosen ${record.type.replace("_", " ")} no longer exists.`);
+    else {
+      if (item.archived) warnings.push(`${refLabel(item)} is archived.`);
+      const incomplete = LOCALES.filter((l) => item.state[l] !== "complete");
+      if (incomplete.length) warnings.push(`${refLabel(item)}: ${incomplete.map((l) => (l === "en" ? "English" : "Arabic")).join(" and ")} not complete.`);
+      if (record.type === "project" && blocking.has(record.id)) warnings.push(`${refLabel(item)} has a restriction (${blocking.get(record.id)!.join(", ")}): its photos are not shown.`);
+    }
+  }
+  return warnings;
+}
+
+// --- The reusable section editor -------------------------------------------------------------------------------------------------
+
+/** One reusable section as its editor shows it, or null when it does not exist (A5 brief §44–§45). */
+export async function loadReusableEditor(db: Db, permissions: ReadonlySet<string>, id: string): Promise<ReusableEditorModel | null> {
+  const stored = await readReusable(db, id);
+  if (!stored) return null;
+  const def = REGISTRY.get(stored.blockType);
+  const read = readSectionData({ blockType: stored.blockType, schemaVersion: stored.schemaVersion, settings: stored.settings, translations: stored.translations });
+  const sources = await pickerSources(db);
+  const refs: BlockReferences = def && read.state === "ok" ? referencesOf(def.settings, def.content, read.settings, read.content) : { media: [], records: [], links: [] };
+  const cards = (await mediaCards(db, new Set<string>(), refs.media.map((m) => m.id))) as Record<string, MediaCardModel>;
+  const blocking = await blockingFlagsOf(db, refs.records.filter((r) => r.type === "project").map((r) => r.id));
+  const warnings = referenceWarnings(refs, cards, sources.known, blocking);
+  const settings = read.state === "ok" ? read.settings : {};
+  const texts = read.state === "ok" ? read.content : {};
+  return {
+    id: stored.id,
+    name: stored.name,
+    blockType: stored.blockType,
+    block: def ? blockModel(def) : null,
+    archived: stored.archived,
+    lockVersion: stored.lockVersion,
+    state: def ? read.state : "unknown_type",
+    problem: !def ? readProblem({ state: "unknown_type" }) : read.state !== "ok" ? readProblem(read) : null,
+    data: def ? sectionData(read, stored.translations) : null,
+    status: Object.fromEntries(
+      LOCALES.map((l) => [l, def && read.state === "ok" ? asState(sectionLocaleState(def, settings, texts[l], stored.translations[l]?.status ?? null)) : "missing"]),
+    ) as ReusableEditorModel["status"],
+    missing: def && read.state === "ok" ? missingSettings(def.settings, settings) : [],
+    warnings,
+    uses: (await reusableUseViews(db, id)).map((u) => ({ label: u.label, builderHref: u.builderHref })),
+    can: { edit: permissions.has("reusable_sections.edit") && !stored.archived, archive: permissions.has("reusable_sections.archive") },
+    ...pickerModels(sources),
+    media: cards,
     canUpload: permissions.has("media.upload"),
+    previewHref: `/admin/preview/reusable/${id}`,
   };
 }
