@@ -1889,3 +1889,761 @@ body.adm {
     fill: Highlight;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* Page builder (Phase A5): the outline, the live preview and the inspector side by side when the builder is at least
+   60rem wide (a container query: the admin's side navigation takes its share), one of them at a time with tabs below
+   that. The same tokens, buttons, fields and badges as A2–A4; nothing above this block changed. */
+
+/* The builder uses the main area's whole width (the other admin pages keep their 72rem measure). */
+.adm-main-inner:has(.adm-bld) {
+  max-width: none;
+}
+
+.adm-bld {
+  container: adm-bld / inline-size;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Long labels wrap, centred, on narrow screens instead of widening the page (the A2–A4 rule, for the whole builder). */
+.adm-bld .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
+/* A closed disclosure's content is still laid out by Chromium (sideways overflow): leave it out. */
+.adm-bld details:not([open]) > :not(summary) {
+  display: none;
+}
+
+/* The controls: history, save state and save; the preview's language, width and theme. */
+.adm-bld-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface);
+  box-shadow: var(--adm-shadow);
+}
+
+.adm-bld-top-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.adm-bld .adm-bld-select {
+  width: auto;
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.875rem;
+}
+
+.adm-bld-save {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--adm-muted);
+  background: var(--adm-surface-2);
+}
+
+.adm-bld-save[data-state="saved"] {
+  color: var(--adm-success);
+  background: var(--adm-success-bg);
+}
+
+.adm-bld-save[data-state="dirty"] {
+  color: var(--adm-warning);
+  background: var(--adm-warning-bg);
+}
+
+.adm-bld-save[data-state="saving"] {
+  color: var(--adm-info);
+  background: var(--adm-info-bg);
+}
+
+.adm-bld-save[data-state="error"],
+.adm-bld-save[data-state="stale"] {
+  color: var(--adm-danger);
+  background: var(--adm-danger-bg);
+}
+
+.adm-bld-status {
+  color: var(--adm-text);
+}
+
+.adm-bld-warn {
+  color: var(--adm-warning);
+}
+
+/* Tabs (the narrow screens' views, a section's languages): pressed buttons. */
+.adm-bld-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.adm-bld-tabs .adm-btn[aria-pressed="true"] {
+  border-color: var(--adm-primary);
+  background: var(--adm-surface-2);
+  box-shadow: inset 0 -3px 0 var(--adm-primary);
+}
+
+/* The three panels */
+.adm-bld-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.adm-bld-panel {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface);
+}
+
+.adm-bld-panel > h2 {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+/* The preview: the page in a frame of its own width, scaled down to the canvas (sizes set by script through the CSS
+   object model: no style attributes under the admin's CSP). */
+.adm-bld-canvas {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: min(80vh, 56rem);
+  min-height: 20rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface-2);
+}
+
+.adm-bld-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  transform-origin: 0 0;
+  background: var(--adm-surface);
+}
+
+/* The outline */
+.adm-bld-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.adm-bld-card {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface);
+}
+
+.adm-bld-card[data-hidden] {
+  background: var(--adm-surface-2);
+}
+
+.adm-bld-card[data-selected] {
+  border-color: var(--adm-primary);
+  box-shadow: inset 3px 0 0 var(--adm-primary);
+}
+
+.adm-bld-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.adm-bld-card-pos {
+  flex: none;
+  min-width: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-muted);
+}
+
+.adm-bld-card-title {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.adm-bld-card-title .adm-link-btn {
+  font-weight: 650;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-card-type {
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-card .adm-badges {
+  gap: 0.25rem;
+}
+
+.adm-bld-card .adm-badge {
+  white-space: normal;
+}
+
+.adm-bld-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.adm-bld-card-actions .adm-btn.is-small {
+  padding-inline: 0.55rem;
+}
+
+.adm-bld-lock {
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  background: var(--adm-surface-2);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-warnings {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-warnings li::marker {
+  color: var(--adm-warning);
+}
+
+/* The block library */
+.adm-bld-library {
+  border-top: 1px solid var(--adm-border);
+  padding-top: 0.75rem;
+  min-width: 0;
+}
+
+.adm-bld-library > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--adm-border-strong);
+  border-radius: 8px;
+  background: var(--adm-surface);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.adm-bld-library > summary::-webkit-details-marker {
+  display: none;
+}
+
+.adm-bld-library > summary::after {
+  content: "+";
+  margin-inline-start: 0.5rem;
+  font-weight: 700;
+}
+
+.adm-bld-library[open] > summary::after {
+  content: "−";
+}
+
+.adm-bld-library > * + * {
+  margin-top: 0.75rem;
+}
+
+.adm-bld-library section {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.adm-bld-library h3 {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--adm-muted);
+}
+
+.adm-bld-lib-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.adm-bld-lib-list > li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--adm-border);
+  min-width: 0;
+}
+
+.adm-bld-lib-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-lib-name {
+  font-weight: 600;
+}
+
+/* The inspector */
+.adm-bld-inspect,
+.adm-bld-editor {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.adm-bld-group {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--adm-border);
+}
+
+.adm-bld-group h3 {
+  font-size: 0.9375rem;
+}
+
+.adm-bld-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.adm-bld-note {
+  padding-inline-start: 0.6rem;
+  border-inline-start: 3px solid var(--adm-info);
+}
+
+.adm-bld-devices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.adm-bld-devices > legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+}
+
+.adm-bld-devices > .adm-hint {
+  flex: 1 1 100%;
+}
+
+.adm-bld-lang {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-bld-field {
+  min-width: 0;
+}
+
+.adm-bld-count {
+  margin-inline-start: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-muted);
+}
+
+.adm-bld-media,
+.adm-bld-selection,
+.adm-bld-auto,
+.adm-bld-link {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.adm-bld-media-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.adm-bld-media-text {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.adm-bld-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.adm-bld-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.adm-bld-list-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  flex: 1 1 9rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-list-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* The design inspector: typed choices in groups. */
+.adm-bld-design {
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  margin: 0;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.adm-bld-design > legend {
+  padding: 0 0.35rem;
+}
+
+.adm-bld-design-group {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--adm-muted);
+}
+
+.adm-bld-design-row {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.adm-bld-responsive > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+
+.adm-bld-responsive[open] {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.adm-bld-design-bp {
+  display: grid;
+  gap: 0.5rem;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 2px solid var(--adm-border);
+}
+
+/* Repeated items */
+.adm-bld-items {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.adm-bld-items > legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+}
+
+.adm-bld-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.adm-bld-item {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface);
+}
+
+.adm-bld-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.adm-bld-item-name {
+  font-weight: 650;
+}
+
+/* Structured rich text: blocks of plain text, formatting chosen with buttons. */
+.adm-bld-rich {
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  margin: 0;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.adm-bld-rich > legend {
+  padding: 0 0.35rem;
+}
+
+.adm-bld-rich-blocks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.adm-bld-rich-block {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.6rem;
+  border-radius: 6px;
+  background: var(--adm-surface-2);
+}
+
+.adm-bld-rich-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.adm-bld .adm-bld-rich-kind {
+  width: auto;
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.adm-bld-rich-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.adm-bld-rich-linking {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--adm-info);
+  border-radius: 6px;
+  background: var(--adm-surface);
+}
+
+.adm-bld-rich-marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+}
+
+.adm-bld-rich-marks > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-rich-preview {
+  padding: 0.45rem 0.6rem;
+  border-inline-start: 3px solid var(--adm-border-strong);
+  background: var(--adm-surface);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-bld-rich-reads {
+  margin: 0;
+}
+
+ul.adm-bld-rich-reads,
+ol.adm-bld-rich-reads {
+  padding-inline-start: 1.2rem;
+}
+
+.adm-bld-rich-link {
+  color: var(--adm-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+/* Narrow: one panel at a time (the tabs); the preview's controls only with the preview. */
+@container adm-bld (width < 60rem) {
+  .adm-bld[data-panel="outline"] .adm-bld-grid > .adm-bld-panel[data-panel]:not([data-panel="outline"]),
+  .adm-bld[data-panel="preview"] .adm-bld-grid > .adm-bld-panel[data-panel]:not([data-panel="preview"]),
+  .adm-bld[data-panel="edit"] .adm-bld-grid > .adm-bld-panel[data-panel]:not([data-panel="edit"]) {
+    display: none;
+  }
+
+  .adm-bld[data-panel]:not([data-panel="preview"]) .adm-bld-top-group.is-preview {
+    display: none;
+  }
+}
+
+/* Wide: the three panels side by side; the controls and the preview stay in view while the page scrolls (the preview's
+   offset follows the controls' measured height, `--adm-bld-bar`). */
+@container adm-bld (width >= 60rem) {
+  .adm-bld-panels-tabs {
+    display: none;
+  }
+
+  .adm-bld-top {
+    position: sticky;
+    top: calc(3.5rem + 1px);
+    z-index: 5;
+  }
+
+  .adm-bld-grid {
+    grid-template-columns: 16rem minmax(0, 1fr) 20rem;
+    align-items: start;
+  }
+
+  .adm-bld-grid.is-two {
+    grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+  }
+
+  .adm-bld-grid > .adm-bld-preview {
+    position: sticky;
+    top: calc(3.5rem + var(--adm-bld-bar, 3.5rem) + 1rem);
+    height: calc(100vh - 3.5rem - var(--adm-bld-bar, 3.5rem) - 2rem);
+    min-height: 22rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .adm-bld-grid > .adm-bld-preview > .adm-bld-canvas {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 16rem;
+  }
+}
+
+@container adm-bld (width >= 70rem) {
+  .adm-bld-grid {
+    grid-template-columns: 18rem minmax(0, 1fr) 23rem;
+  }
+}
+
+@container adm-bld (width >= 85rem) {
+  .adm-bld-grid {
+    grid-template-columns: 19rem minmax(0, 1fr) 26rem;
+  }
+
+  .adm-bld-grid.is-two {
+    grid-template-columns: minmax(0, 28rem) minmax(0, 1fr);
+  }
+}
+
+@media (forced-colors: active) {
+  .adm-bld-card,
+  .adm-bld-item,
+  .adm-bld-design,
+  .adm-bld-rich,
+  .adm-bld-panel,
+  .adm-bld-canvas {
+    border: 1px solid CanvasText;
+  }
+
+  .adm-bld-card[data-selected],
+  .adm-bld-tabs .adm-btn[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+
+  .adm-bld-save {
+    border-color: CanvasText;
+  }
+}
