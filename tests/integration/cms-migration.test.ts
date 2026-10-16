@@ -105,14 +105,15 @@ async function a2Snapshot(c: Conn, tables: string[]) {
 }
 
 describe("A. an empty database", () => {
-  test("takes all four migrations, then reports nothing pending", async () => {
+  // A4 added 0004_media_library after the A3 files: every committed migration applies, the A3 files among them.
+  test("takes every migration (the A3 files and A4's 0004), then reports nothing pending", async () => {
     const database = await freshDatabase("a3mig_a");
     const up = await cli(database, ["up"]);
     assert.equal(up.code, 0, up.stderr);
-    for (const tag of ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms"]) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
+    for (const tag of ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library"]) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, /Applied \(4\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms/);
+    assert.match(status.stdout, /Applied \(5\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library/);
     assert.match(status.stdout, /Pending \(0\): none/);
   });
 });

@@ -6,13 +6,22 @@
  * the A9 cutover).
  *
  * Column groups follow A1 §5: TS (timestamps and actors), SD (soft delete), PUB (publication), SRC (provenance,
- * admin-only), SEO_R / SEO_T (per-record SEO), TR (translation status). Left out until the phase that builds them:
- * every media reference and alt text (A4: media library), the section/block tables (A5: page builder), and the public
- * read model, references index, cache and redirect tables (A8/A9: publishing and the cutover).
+ * admin-only), SEO_R / SEO_T (per-record SEO), TR (translation status). Left out until the phase that builds them: the
+ * section/block tables (A5: page builder), and the public read model, references index, cache and redirect tables
+ * (A8/A9: publishing and the cutover).
  *
  * Three additions the A3 brief asks for go beyond A1's catalogue, each following an A1 pattern (A3 report):
  * `machine_attributes` (+ translations) like `certificate_facts`, `industry_projects` like `industry_services`, and
  * `clients.is_featured` like `projects.is_featured`.
+ *
+ * A4 (media library) adds A1's media references that A3 left out, unchanged from A1 except where noted: the share
+ * image of SEO_R (pages, services, projects), a service's cover and supporting photos with their alt texts and its
+ * captioned gallery (`service_gallery_items` + translations), a machine's photo, a project's photos (`project_media`),
+ * an industry's photo and feature photo, a client's colour and monochrome logos, a certificate's thumbnail and its
+ * documents (`certificate_documents`). Every one is a foreign key to `media_assets` (ON DELETE RESTRICT); which items a
+ * slot may take is decided by the content services (public items only, never private ones). Deviation: A1 declares
+ * `clients.logo_media_id` NOT NULL, but A3's client records exist without a logo, so the column is nullable and a logo
+ * becomes a publication requirement (A8).
  *
  * Source of truth for `drizzle-kit generate`; queries use Drizzle's core builder only (no relations declared).
  */
@@ -36,6 +45,7 @@ import {
 } from "drizzle-orm/mysql-core";
 import { asciiColumn, hashColumn, instant, jsonColumn, localeColumn, ulidColumn } from "./columns.ts";
 import { locales, users } from "./schema.ts";
+import { mediaAssets } from "./schema-media.ts";
 
 const now3 = sql`CURRENT_TIMESTAMP(3)`;
 
@@ -89,12 +99,13 @@ const src = () => ({
   sourceNote: text("source_note"),
 });
 
-/** SEO_R — per-record SEO on the root (the share-image column arrives with the media library, A4). */
+/** SEO_R — per-record SEO on the root, with the share image (A4: a media item; falls back to the site default). */
 const seoRoot = () => ({
   robotsIndex: boolean("robots_index").notNull().default(true),
   robotsFollow: boolean("robots_follow").notNull().default(true),
   inSitemap: boolean("in_sitemap").notNull().default(true),
   canonicalOverride: varchar("canonical_override", { length: 255 }),
+  ogImageMediaId: ulidColumn("og_image_media_id"),
 });
 
 /** SEO_T — per-record SEO per language. */
@@ -119,6 +130,10 @@ type Columns = Record<string, AnyMySqlColumn>;
 /** Actor foreign keys (users, ON DELETE SET NULL) for the given columns. */
 const actorKeys = (table: string, t: Columns, columns: string[]) =>
   columns.map((c) => foreignKey({ name: `fk_${table}_${snake(c)}`, columns: [t[c]], foreignColumns: [users.id] }).onDelete("set null"));
+
+/** Media references (A4): foreign keys to media_assets, ON DELETE RESTRICT across aggregates (A1 §3.7). */
+const mediaKeys = (table: string, t: Columns, columns: string[]) =>
+  columns.map((c) => foreignKey({ name: `fk_${table}_${snake(c)}`, columns: [t[c]], foreignColumns: [mediaAssets.id] }).onDelete("restrict"));
 
 const snake = (name: string) => name.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
 
@@ -252,6 +267,7 @@ export const pages = mysqlTable(
     index("ix_pages_type").on(t.pageType),
     foreignKey({ name: "fk_pages_parent", columns: [t.parentId], foreignColumns: [t.id] }).onDelete("restrict"),
     ...rootConstraints("pages", t),
+    ...mediaKeys("pages", t, ["ogImageMediaId"]),
     check("ck_pages_generic_slug", sql`(${t.pageType} = 'generic') = (${t.slug} IS NOT NULL)`),
     check("ck_pages_system_key", sql`(${t.pageType} <> 'generic') = (${t.systemKey} IS NOT NULL)`),
     check("ck_pages_legal_review", sql`${t.pageType} <> 'legal' OR ${t.requiresLegalReview} = 1`),
@@ -280,13 +296,20 @@ export const services = mysqlTable(
     slug: asciiColumn("slug", { length: 80 }).notNull(),
     serviceGroup: mysqlEnum("service_group", SERVICE_GROUPS).notNull(),
     iconKey: asciiColumn("icon_key", { length: 32 }).notNull(),
+    /** Card and hero photo (A4). */
+    coverMediaId: ulidColumn("cover_media_id"),
+    supportingMediaId: ulidColumn("supporting_media_id"),
     ...src(),
     ...seoRoot(),
     ...pub(),
     ...ts(),
     ...sd(),
   },
-  (t) => [uniqueIndex("uq_services_slug").on(t.slug), ...rootConstraints("services", t)],
+  (t) => [
+    uniqueIndex("uq_services_slug").on(t.slug),
+    ...rootConstraints("services", t),
+    ...mediaKeys("services", t, ["coverMediaId", "supportingMediaId", "ogImageMediaId"]),
+  ],
 );
 
 export const serviceTranslations = mysqlTable(
@@ -301,10 +324,44 @@ export const serviceTranslations = mysqlTable(
     body: jsonColumn("body").notNull(),
     /** Ordered list of short strings (≤ 8). */
     highlights: jsonColumn("highlights").notNull(),
+    /** Alt texts of the cover and supporting photos (A4): '' = decorative, NULL = not written. */
+    coverAlt: varchar("cover_alt", { length: 300 }),
+    supportingAlt: varchar("supporting_alt", { length: 300 }),
     ...seoText(),
     ...tr(),
   },
   (t) => translationConstraints("service_translations", t, "serviceId", services.id),
+);
+
+/** A service's captioned gallery, in order (A4; A1 `service_gallery_items`). */
+export const serviceGalleryItems = mysqlTable(
+  "service_gallery_items",
+  {
+    id: ulidColumn("id").primaryKey(),
+    serviceId: ulidColumn("service_id").notNull(),
+    mediaId: ulidColumn("media_id").notNull(),
+    position: int("position", { unsigned: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("uq_service_gallery_items_media").on(t.serviceId, t.mediaId),
+    uniqueIndex("uq_service_gallery_items_position").on(t.serviceId, t.position),
+    foreignKey({ name: "fk_service_gallery_items_service", columns: [t.serviceId], foreignColumns: [services.id] }).onDelete("cascade"),
+    ...mediaKeys("service_gallery_items", t, ["mediaId"]),
+  ],
+);
+
+/** A gallery photo's caption (it names the photo) and an optional alt text, per language. */
+export const serviceGalleryItemTranslations = mysqlTable(
+  "service_gallery_item_translations",
+  {
+    itemId: ulidColumn("item_id").notNull(),
+    locale: localeColumn("locale").notNull(),
+    caption: varchar("caption", { length: 300 }).notNull(),
+    /** Empty = decorative (the caption describes the photo). */
+    alt: varchar("alt", { length: 300 }),
+    ...tr(),
+  },
+  (t) => translationConstraints("service_gallery_item_translations", t, "itemId", serviceGalleryItems.id),
 );
 
 // --- Machines --------------------------------------------------------------------------------------------------------
@@ -317,6 +374,8 @@ export const machines = mysqlTable(
     /** NULL = not stated (never a default). */
     powerWatts: int("power_watts", { unsigned: true }),
     primaryServiceId: ulidColumn("primary_service_id"),
+    /** The cut-out photo (A4). */
+    mediaId: ulidColumn("media_id"),
     ...src(),
     ...pub(),
     ...ts(),
@@ -326,6 +385,7 @@ export const machines = mysqlTable(
     uniqueIndex("uq_machines_slug").on(t.slug),
     foreignKey({ name: "fk_machines_primary_service", columns: [t.primaryServiceId], foreignColumns: [services.id] }).onDelete("restrict"),
     ...rootConstraints("machines", t),
+    ...mediaKeys("machines", t, ["mediaId"]),
   ],
 );
 
@@ -380,12 +440,15 @@ export const clients = mysqlTable(
     websiteUrl: varchar("website_url", { length: 255 }),
     /** A3 brief §29 (like `projects.is_featured`): a working flag for future selections; no public effect. */
     isFeatured: boolean("is_featured").notNull().default(false),
+    /** The colour logo (A4; nullable here, required for publication: see the file's note). */
+    logoMediaId: ulidColumn("logo_media_id"),
+    logoMonoMediaId: ulidColumn("logo_mono_media_id"),
     ...src(),
     ...pub(),
     ...ts(),
     ...sd(),
   },
-  (t) => [uniqueIndex("uq_clients_slug").on(t.slug), ...rootConstraints("clients", t)],
+  (t) => [uniqueIndex("uq_clients_slug").on(t.slug), ...rootConstraints("clients", t), ...mediaKeys("clients", t, ["logoMediaId", "logoMonoMediaId"])],
 );
 
 export const clientTranslations = mysqlTable(
@@ -420,6 +483,7 @@ export const projects = mysqlTable(
     uniqueIndex("uq_projects_slug").on(t.slug),
     foreignKey({ name: "fk_projects_client", columns: [t.clientId], foreignColumns: [clients.id] }).onDelete("restrict"),
     ...rootConstraints("projects", t),
+    ...mediaKeys("projects", t, ["ogImageMediaId"]),
   ],
 );
 
@@ -499,6 +563,22 @@ export const projectServices = mysqlTable(
   ],
 );
 
+/** A project's photos in record order, the first leading its page (A4; A1 `project_media`). */
+export const projectMedia = mysqlTable(
+  "project_media",
+  {
+    projectId: ulidColumn("project_id").notNull(),
+    mediaId: ulidColumn("media_id").notNull(),
+    position: int("position", { unsigned: true }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.mediaId] }),
+    uniqueIndex("uq_project_media_position").on(t.projectId, t.position),
+    foreignKey({ name: "fk_project_media_project", columns: [t.projectId], foreignColumns: [projects.id] }).onDelete("cascade"),
+    ...mediaKeys("project_media", t, ["mediaId"]),
+  ],
+);
+
 /** Open questions that restrict a project (A1): the policy lives in code; an unknown flag restricts. */
 export const projectFlags = mysqlTable(
   "project_flags",
@@ -571,12 +651,15 @@ export const industries = mysqlTable(
     slug: asciiColumn("slug", { length: 80 }).notNull(),
     /** PUBLIC: the page distinguishes sectors named in the profile from website classifications. */
     classification: mysqlEnum("classification", INDUSTRY_CLASSIFICATIONS).notNull(),
+    /** The sector's photo and its feature photo (A4; A1-CONTENT-MODEL §8.4). */
+    mediaId: ulidColumn("media_id"),
+    featureMediaId: ulidColumn("feature_media_id"),
     ...src(),
     ...pub(),
     ...ts(),
     ...sd(),
   },
-  (t) => [uniqueIndex("uq_industries_slug").on(t.slug), ...rootConstraints("industries", t)],
+  (t) => [uniqueIndex("uq_industries_slug").on(t.slug), ...rootConstraints("industries", t), ...mediaKeys("industries", t, ["mediaId", "featureMediaId"])],
 );
 
 export const industryTranslations = mysqlTable(
@@ -622,7 +705,9 @@ export const industryProjects = mysqlTable(
   ],
 );
 
-// --- Certificates (document metadata; files arrive in A4) -----------------------------------------------------------
+// --- Certificates (document metadata, and since A4 their files) -----------------------------------------------------
+
+export const CERTIFICATE_DOCUMENT_ROLES = ["public_preview", "private_original"] as const;
 
 export const certificates = mysqlTable(
   "certificates",
@@ -631,12 +716,14 @@ export const certificates = mysqlTable(
     slug: asciiColumn("slug", { length: 80 }).notNull(),
     /** ADMIN-ONLY renewal reminder; never rendered. */
     expiresOn: date("expires_on", { mode: "string" }),
+    /** The public redacted thumbnail (A4). */
+    thumbMediaId: ulidColumn("thumb_media_id"),
     ...src(),
     ...pub(),
     ...ts(),
     ...sd(),
   },
-  (t) => [uniqueIndex("uq_certificates_slug").on(t.slug), ...rootConstraints("certificates", t)],
+  (t) => [uniqueIndex("uq_certificates_slug").on(t.slug), ...rootConstraints("certificates", t), ...mediaKeys("certificates", t, ["thumbMediaId"])],
 );
 
 export const certificateTranslations = mysqlTable(
@@ -675,4 +762,29 @@ export const certificateFactTranslations = mysqlTable(
     ...tr(),
   },
   (t) => translationConstraints("certificate_fact_translations", t, "factId", certificateFacts.id),
+);
+
+/**
+ * A certificate's files (A4; A1 `certificate_documents`): its public redacted previews, in order and each in a language
+ * (or none), and — separately — the private original, a private media item that no public projection can include. The
+ * role rules (a private original is a private item; a preview is a public one) are kept by the services in the same
+ * transaction (A1 §3.8): MariaDB checks cannot read another table.
+ */
+export const certificateDocuments = mysqlTable(
+  "certificate_documents",
+  {
+    certificateId: ulidColumn("certificate_id").notNull(),
+    mediaId: ulidColumn("media_id").notNull(),
+    role: mysqlEnum("role", CERTIFICATE_DOCUMENT_ROLES).notNull(),
+    /** The document's language (NULL: a single document for both languages). */
+    locale: localeColumn("locale"),
+    position: int("position", { unsigned: true }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.certificateId, t.mediaId] }),
+    uniqueIndex("uq_certificate_documents_position").on(t.certificateId, t.role, t.position),
+    foreignKey({ name: "fk_certificate_documents_certificate", columns: [t.certificateId], foreignColumns: [certificates.id] }).onDelete("cascade"),
+    foreignKey({ name: "fk_certificate_documents_locale", columns: [t.locale], foreignColumns: [locales.code] }).onDelete("restrict"),
+    ...mediaKeys("certificate_documents", t, ["mediaId"]),
+  ],
 );
