@@ -29,9 +29,6 @@ import type { CommerceImage, MachineItem } from "../types";
 
 const image = (id: MediaId, alt: string): CommerceImage => ({ ...getMedia(id), alt });
 
-/** The machinery showcase's order: the flagship lasers first, then bending and welding. */
-const MACHINE_ORDER = ["fiber-laser-combo-12kw", "tube-cutting-12kw", "fiber-laser-6kw", "fiber-laser-3kw", "cnc-press-brake", "laser-welding"];
-
 /** The homepage's selected work, in this order (showcased projects only; see projects.ts). */
 const PROJECT_ORDER = ["tulip-roundabout-sculpture", "clock-tower-landmark", "geometric-lanterns", "wave-form-sculpture", "suspended-lantern", "palm-leaf-shade-canopies"];
 
@@ -137,7 +134,7 @@ export async function getHomeView(locale: Locale) {
       power: home.machinery.power[locale],
       service: home.machinery.service[locale],
       all: home.machinery.all[locale],
-      items: inOrder(MACHINE_ORDER, machines).map(
+      items: machines.map(
         (m): MachineItem => ({
           slug: m.slug,
           name: m.name[locale],
