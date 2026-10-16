@@ -574,7 +574,7 @@ export async function ContentNew({ type, searchParams }: { type: EntityType; sea
           {choices.generic ? (
             <section className="adm-card" aria-labelledby="new-generic">
               <h2 id="new-generic">A new page</h2>
-              <p className="adm-hint">A generic page with its own address (/en/&lt;slug&gt;). Its sections arrive with the page builder (A5).</p>
+              <p className="adm-hint">A generic page with its own address (/en/&lt;slug&gt;). Once it is created, its sections are composed in the page builder.</p>
               <div className="adm-actions">
                 <Link className="adm-btn is-primary" href={`${info.path}/new?kind=generic`}>
                   New generic page

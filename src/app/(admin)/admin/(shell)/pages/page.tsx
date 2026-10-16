@@ -8,7 +8,7 @@ export default async function PagesListPage({ searchParams }: { searchParams: Pr
     <ContentList
       type="page"
       searchParams={await searchParams}
-      intro="Page records: their type, address, titles and SEO. Sections arrive with the page builder (A5)."
+      intro="Page records: their type, address, titles and SEO. Their sections are composed in the page builder (Edit page layout)."
     />
   );
 }
