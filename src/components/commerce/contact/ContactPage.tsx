@@ -10,8 +10,152 @@ import { Icon } from "../Icon";
 import { PageHero } from "../inner/PageHero";
 import { ContactRow, breakableEmail, type ContactRowData } from "./ContactRows";
 import { Location } from "./Location";
-import { QuoteForm } from "./QuoteForm";
+import { QuoteForm, type QuoteFormText } from "./QuoteForm";
 import { quoteFormText } from "./quote-text";
+
+export interface ContactRowLabels {
+  phone: string;
+  call: string;
+  whatsapp: string;
+  chat: string;
+  email: string;
+  send: string;
+  address: string;
+  viewMap: string;
+}
+
+/** Every way to reach RAWASY (company.ts, profile p.16): phones, WhatsApp, email, then the address (a jump to the map). */
+export function contactRows(contact: string, labels: ContactRowLabels, locale: Locale): ContactRowData[] {
+  return [
+    ...company.phones.map(
+      (phone): ContactRowData => ({
+        icon: "phone",
+        tone: "steel",
+        label: labels.phone,
+        value: phone.display,
+        href: `tel:${phone.e164}`,
+        action: labels.call,
+        ltr: true,
+      }),
+    ),
+    {
+      icon: "chat",
+      tone: "teal",
+      label: labels.whatsapp,
+      value: primaryWhatsApp.display,
+      href: whatsappUrl(),
+      action: labels.chat,
+      external: true,
+      ltr: true,
+    },
+    {
+      icon: "mail",
+      tone: "steel",
+      label: labels.email,
+      value: breakableEmail(company.email),
+      href: `mailto:${company.email}`,
+      action: labels.send,
+      ltr: true,
+    },
+    {
+      icon: "pin",
+      tone: "brass",
+      label: labels.address,
+      value: company.address[locale].full,
+      href: `${contact}#location`,
+      action: labels.viewMap,
+      down: true,
+    },
+  ];
+}
+
+/** The hero's actions: down to the quotation form, and to the map. */
+export function ContactActions({ contact, quote, findUs }: { contact: string; quote: string; findUs: string }) {
+  return (
+    <>
+      <a href={`${contact}#quote`} className="btn btn-primary btn-lg">
+        {quote}
+        <span className="cp-down">
+          <Icon name="arrow" size={18} />
+        </span>
+      </a>
+      <a href={`${contact}#location`} className="btn btn-secondary btn-lg">
+        <Icon name="pin" size={18} />
+        {findUs}
+      </a>
+    </>
+  );
+}
+
+/** The hero's "Direct contact" card: the contact rows as actions. */
+export function DirectContact({ title, rows, externalLabel }: { title: string; rows: ContactRowData[]; externalLabel: string }) {
+  return (
+    <div role="group" aria-labelledby="direct-contact" className="card cp-direct" data-reveal="fade" style={{ "--d": "120ms" } as CSSProperties}>
+      <p id="direct-contact" className="cp-direct-title">
+        {title}
+      </p>
+      <div className="cp-direct-rows">
+        {rows.map((row) => (
+          <ContactRow key={row.href} row={row} externalLabel={externalLabel} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The quote section (`#quote`): how a request works, the note that it is prepared for the visitor to send, and the form.
+ * No reveal here: every quote action lands on it, and the form must be there at once.
+ */
+export function QuoteSection({
+  head,
+  text,
+  privacyHref,
+}: {
+  head: { label: string; title: string; intro: string; stepsLabel: string; steps: string[]; status: string };
+  text: QuoteFormText;
+  privacyHref: string;
+}) {
+  return (
+    <section id="quote" aria-labelledby="quote-title" className="sec sec-sheet sec-muted cp-quote">
+      <div className="shell grid gap-10 lg:grid-cols-12 lg:gap-12">
+        <div className="lg:col-span-4">
+          {/* No reveal in this section: every quote action lands here, and the form must be there at once. */}
+          <div className="cp-quote-intro">
+            <p className="eyebrow">{head.label}</p>
+            <h2 id="quote-title" className="t-h2 mt-4">
+              {head.title}
+            </h2>
+            <p className="t-lead mt-4">{head.intro}</p>
+
+            <div className="cp-steps">
+              <p className="cp-label">{head.stepsLabel}</p>
+              <ol>
+                {head.steps.map((step, i) => (
+                  <li key={i}>
+                    <span aria-hidden className="step-num">
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <p className="cp-status">
+              <Icon name="shield" size={18} />
+              <span>{head.status}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="card cp-form lg:col-span-8">
+          <QuoteForm text={text} email={company.email} whatsapp={whatsappUrl()} privacyHref={privacyHref} />
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /**
  * Contact / request a quote in the Modern Commerce design (Stage TM-2.2). The hero sets the verified direct contact
@@ -29,47 +173,16 @@ export async function ContactPage({ locale }: { locale: Locale }) {
   const text = quoteFormText(locale, page, services);
 
   // Every way to reach RAWASY, in the homepage's contact-row language: phones, WhatsApp, email, then the address.
-  const rows: ContactRowData[] = [
-    ...company.phones.map(
-      (phone): ContactRowData => ({
-        icon: "phone",
-        tone: "steel",
-        label: methods.phone[locale],
-        value: phone.display,
-        href: `tel:${phone.e164}`,
-        action: page.actions.call[locale],
-        ltr: true,
-      }),
-    ),
-    {
-      icon: "chat",
-      tone: "teal",
-      label: methods.whatsapp[locale],
-      value: primaryWhatsApp.display,
-      href: whatsappUrl(),
-      action: methods.chat[locale],
-      external: true,
-      ltr: true,
-    },
-    {
-      icon: "mail",
-      tone: "steel",
-      label: methods.email[locale],
-      value: breakableEmail(company.email),
-      href: `mailto:${company.email}`,
-      action: methods.send[locale],
-      ltr: true,
-    },
-    {
-      icon: "pin",
-      tone: "brass",
-      label: methods.address[locale],
-      value: company.address[locale].full,
-      href: `${contact}#location`,
-      action: methods.viewMap[locale],
-      down: true,
-    },
-  ];
+  const rows = contactRows(contact, {
+    phone: methods.phone[locale],
+    call: page.actions.call[locale],
+    whatsapp: methods.whatsapp[locale],
+    chat: methods.chat[locale],
+    email: methods.email[locale],
+    send: methods.send[locale],
+    address: methods.address[locale],
+    viewMap: methods.viewMap[locale],
+  }, locale);
 
   return (
     <>
@@ -85,77 +198,15 @@ export async function ContactPage({ locale }: { locale: Locale }) {
         eyebrow={page.hero.eyebrow[locale]}
         title={page.hero.title[locale]}
         intro={page.hero.intro[locale]}
-        actions={
-          <>
-            <a href={`${contact}#quote`} className="btn btn-primary btn-lg">
-              {page.actions.quote[locale]}
-              <span className="cp-down">
-                <Icon name="arrow" size={18} />
-              </span>
-            </a>
-            <a href={`${contact}#location`} className="btn btn-secondary btn-lg">
-              <Icon name="pin" size={18} />
-              {page.actions.findUs[locale]}
-            </a>
-          </>
-        }
-        aside={
-          <div
-            role="group"
-            aria-labelledby="direct-contact"
-            className="card cp-direct"
-            data-reveal="fade"
-            style={{ "--d": "120ms" } as CSSProperties}
-          >
-            <p id="direct-contact" className="cp-direct-title">
-              {methods.label[locale]}
-            </p>
-            <div className="cp-direct-rows">
-              {rows.map((row) => (
-                <ContactRow key={row.href} row={row} externalLabel={dict.a11y.externalLink} />
-              ))}
-            </div>
-          </div>
-        }
+        actions={<ContactActions contact={contact} quote={page.actions.quote[locale]} findUs={page.actions.findUs[locale]} />}
+        aside={<DirectContact title={methods.label[locale]} rows={rows} externalLabel={dict.a11y.externalLink} />}
       />
 
-      <section id="quote" aria-labelledby="quote-title" className="sec sec-sheet sec-muted cp-quote">
-        <div className="shell grid gap-10 lg:grid-cols-12 lg:gap-12">
-          <div className="lg:col-span-4">
-            {/* No reveal in this section: every quote action lands here, and the form must be there at once. */}
-            <div className="cp-quote-intro">
-              <p className="eyebrow">{form.label[locale]}</p>
-              <h2 id="quote-title" className="t-h2 mt-4">
-                {form.title[locale]}
-              </h2>
-              <p className="t-lead mt-4">{form.intro[locale]}</p>
-
-              <div className="cp-steps">
-                <p className="cp-label">{methods.stepsLabel[locale]}</p>
-                <ol>
-                  {form.steps[locale].map((step, i) => (
-                    <li key={i}>
-                      <span aria-hidden className="step-num">
-                        {i + 1}
-                      </span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <p className="cp-status">
-                <Icon name="shield" size={18} />
-                <span>{form.status[locale]}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="card cp-form lg:col-span-8">
-            <QuoteForm text={text} email={company.email} whatsapp={whatsappUrl()} privacyHref={href(locale, "privacy")} />
-          </div>
-        </div>
-      </section>
+      <QuoteSection
+        head={{ label: form.label[locale], title: form.title[locale], intro: form.intro[locale], stepsLabel: methods.stepsLabel[locale], steps: form.steps[locale], status: form.status[locale] }}
+        text={text}
+        privacyHref={href(locale, "privacy")}
+      />
 
       <Location
         locale={locale}

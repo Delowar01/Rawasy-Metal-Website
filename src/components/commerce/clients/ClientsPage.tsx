@@ -10,7 +10,53 @@ import { JsonLd } from "@/lib/seo";
 import { Icon } from "../Icon";
 import { ClosingCta } from "../inner/ClosingCta";
 import { PageHero } from "../inner/PageHero";
+import type { CommerceImage } from "../types";
 import { Logo, delay } from "../ui";
+
+/**
+ * The wall: every logo in the homepage's tiles with the client's name under it, greyscale at rest and in colour with the
+ * switch. Wide logos take double tiles, planned per breakpoint so every row is full, in the given order.
+ */
+export function ClientsWall({ listLabel, colours, note, logos }: { listLabel: string; colours: string; note: string; logos: { slug: string; name: string; image: CommerceImage }[] }) {
+  const ratios = logos.map((l) => l.image.width / l.image.height);
+  const spans = { sm: planSpans(ratios, 2, 3), md: planSpans(ratios, 4, 7), lg: planSpans(ratios, 6, 9) };
+  return (
+    <section aria-labelledby="clients-list-title" className="sec sec-sheet sec-raised">
+      <div className="shell">
+        <div className="cl-head">
+          <h2 id="clients-list-title" className="eyebrow" data-tone="teal">
+            {listLabel}
+          </h2>
+          <button type="button" className="a2-toggle cl-toggle" data-toggle="colour" aria-pressed="false" aria-controls="clients-wall" data-js-only>
+            <span className="knob" aria-hidden />
+            <Icon name="colour" size={16} className="text-teal" />
+            {colours}
+          </button>
+        </div>
+        <ul id="clients-wall" aria-labelledby="clients-list-title" className="cl-wall">
+          {logos.map((logo, i) => (
+            <li
+              key={logo.slug}
+              style={{ "--span-sm": spans.sm[i], "--span-md": spans.md[i], "--span-lg": spans.lg[i], ...delay((i % 6) * 40) } as CSSProperties}
+              data-reveal="fade"
+            >
+              <div className="logo-tile cl-tile">
+                <span className="cl-logo">
+                  <Logo image={logo.image} />
+                </span>
+                {/* The name, as the previous wall showed it under each logo (the image's alt text carries it for screen readers). */}
+                <span aria-hidden className="cl-name">
+                  {logo.name}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="cl-note">{note}</p>
+      </div>
+    </section>
+  );
+}
 
 /**
  * Clients in the Modern Commerce design (Stage TM-2.3): every logo from the company profile on one curated wall, in the
@@ -23,8 +69,6 @@ export async function ClientsPage({ locale }: { locale: Locale }) {
   const [page, clients] = await Promise.all([getClientsPageContent(), getClients()]);
   const dict = getDictionary(locale);
   const logos = clients.map((c) => ({ slug: c.slug, name: c.name[locale], image: { ...getMedia(c.logo), alt: c.name[locale] } }));
-  const ratios = logos.map((l) => l.image.width / l.image.height);
-  const spans = { sm: planSpans(ratios, 2, 3), md: planSpans(ratios, 4, 7), lg: planSpans(ratios, 6, 9) };
 
   return (
     <>
@@ -41,40 +85,7 @@ export async function ClientsPage({ locale }: { locale: Locale }) {
         intro={page.hero.intro[locale]}
       />
 
-      <section aria-labelledby="clients-list-title" className="sec sec-sheet sec-raised">
-        <div className="shell">
-          <div className="cl-head">
-            <h2 id="clients-list-title" className="eyebrow" data-tone="teal">
-              {page.listLabel[locale]}
-            </h2>
-            <button type="button" className="a2-toggle cl-toggle" data-toggle="colour" aria-pressed="false" aria-controls="clients-wall" data-js-only>
-              <span className="knob" aria-hidden />
-              <Icon name="colour" size={16} className="text-teal" />
-              {page.colours[locale]}
-            </button>
-          </div>
-          <ul id="clients-wall" aria-labelledby="clients-list-title" className="cl-wall">
-            {logos.map((logo, i) => (
-              <li
-                key={logo.slug}
-                style={{ "--span-sm": spans.sm[i], "--span-md": spans.md[i], "--span-lg": spans.lg[i], ...delay((i % 6) * 40) } as CSSProperties}
-                data-reveal="fade"
-              >
-                <div className="logo-tile cl-tile">
-                  <span className="cl-logo">
-                    <Logo image={logo.image} />
-                  </span>
-                  {/* The name, as the previous wall showed it under each logo (the image's alt text carries it for screen readers). */}
-                  <span aria-hidden className="cl-name">
-                    {logo.name}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="cl-note">{page.note[locale]}</p>
-        </div>
-      </section>
+      <ClientsWall listLabel={page.listLabel[locale]} colours={page.colours[locale]} note={page.note[locale]} logos={logos} />
 
       {/* No numbered rows here: the clients page shows no numbering or counts at all. */}
       <ClosingCta

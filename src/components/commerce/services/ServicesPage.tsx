@@ -6,14 +6,66 @@ import { href } from "@/i18n/routes";
 import { breadcrumbTrail, innerPageJsonLd } from "@/lib/inner-page";
 import { JsonLd } from "@/lib/seo";
 import { formatPower } from "@/lib/utils";
-import { Icon } from "../Icon";
+import { Icon, type IconName } from "../Icon";
 import { ClosingCta } from "../inner/ClosingCta";
 import { ContentsNav } from "../inner/ContentsNav";
 import { PageHero } from "../inner/PageHero";
 import { serviceTone } from "../tones";
 import { delay, serviceIcon } from "../ui";
-import { ServiceRow } from "./ServiceRow";
+import type { Tone } from "../types";
+import { ServiceRow, type ServiceRowView } from "./ServiceRow";
 import "./services.css";
+
+export interface ServiceTile {
+  slug: string;
+  index: string;
+  name: string;
+  tone: Tone;
+  icon: IconName;
+}
+
+/** The hero's tiles: every service at a glance, each a jump to its row below. */
+export function ServiceTiles({ label, tiles }: { label: string; tiles: ServiceTile[] }) {
+  return (
+    <nav aria-label={label} className="sv-tiles-nav" data-reveal="fade" style={delay(160)}>
+      <ol className="sv-tiles">
+        {tiles.map((s) => (
+          <li key={s.slug}>
+            <a href={`#${s.slug}`} className="card card-link sv-tile" data-tone={s.tone}>
+              <span className="flex items-start justify-between gap-3">
+                <span className="icon-chip">
+                  <Icon name={s.icon} size={22} />
+                </span>
+                <span className="ip-index text-[0.75rem]" dir="ltr">
+                  {s.index}
+                </span>
+              </span>
+              <span className="sv-tile-name">{s.name}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+/** The services in order, each a row, beside the index that marks the one being read. */
+export function ServicesIndex({ label, labels, rows }: { label: string; labels: { includes: string; equipment: string; open: string }; rows: ServiceRowView[] }) {
+  return (
+    <section aria-label={label} className="sv-index">
+      <div className="shell grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="lg:col-span-3">
+          <ContentsNav label={label} items={rows.map((s) => ({ id: s.slug, title: s.name }))} />
+        </div>
+        <div className="grid gap-5 lg:col-span-9 lg:gap-6">
+          {rows.map((s, i) => (
+            <ServiceRow key={s.slug} reverse={i % 2 === 1} labels={labels} service={s} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /**
  * The services overview in the Modern Commerce design (Stage TM-2.4): the six services in their order, each with more
@@ -42,67 +94,37 @@ export async function ServicesPage({ locale }: { locale: Locale }) {
         facts={page.hero.meta.map((m) => ({ label: m.label[locale], value: m.value[locale] }))}
         aside={
           // The six services at a glance, each a jump to its row below.
-          <nav aria-label={page.plateLabel[locale]} className="sv-tiles-nav" data-reveal="fade" style={delay(160)}>
-            <ol className="sv-tiles">
-              {services.map((s) => (
-                <li key={s.slug}>
-                  <a href={`#${s.slug}`} className="card card-link sv-tile" data-tone={serviceTone[s.slug]}>
-                    <span className="flex items-start justify-between gap-3">
-                      <span className="icon-chip">
-                        <Icon name={serviceIcon[s.slug]} size={22} />
-                      </span>
-                      <span className="ip-index text-[0.75rem]" dir="ltr">
-                        {s.index}
-                      </span>
-                    </span>
-                    <span className="sv-tile-name">{s.name[locale]}</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          <ServiceTiles label={page.plateLabel[locale]} tiles={services.map((s) => ({ slug: s.slug, index: s.index, name: s.name[locale], tone: serviceTone[s.slug], icon: serviceIcon[s.slug] }))} />
         }
       />
 
-      <section aria-label={page.indexLabel[locale]} className="sv-index">
-        <div className="shell grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
-          <div className="lg:col-span-3">
-            <ContentsNav label={page.indexLabel[locale]} items={services.map((s) => ({ id: s.slug, title: s.name[locale] }))} />
-          </div>
-          <div className="grid gap-5 lg:col-span-9 lg:gap-6">
-            {services.map((s, i) => {
-              const engraving = s.slug === "laser-engraving";
-              return (
-                <ServiceRow
-                  key={s.slug}
-                  reverse={i % 2 === 1}
-                  labels={{ includes: page.includesLabel[locale], equipment: page.equipmentLabel[locale], open: page.open[locale] }}
-                  service={{
-                    slug: s.slug,
-                    index: s.index,
-                    name: s.name[locale],
-                    tagline: s.tagline[locale],
-                    summary: s.summary[locale],
-                    highlights: s.highlights[locale],
-                    equipment: machines
-                      .filter((m) => m.service === s.slug)
-                      .map((m) => (m.powerWatts ? `${m.shortName[locale]} · ${formatPower(m.powerWatts, locale)}` : m.shortName[locale])),
-                    href: href(locale, "service", { slug: s.slug }),
-                    tone: serviceTone[s.slug],
-                    // Laser Engraving: no photographs (the nameplates photo and the wood render stay off; decision D6).
-                    photos: engraving
-                      ? undefined
-                      : {
-                          cover: { ...getMedia(s.cover), alt: s.coverAlt[locale] },
-                          supporting: { ...getMedia(s.supporting.media), alt: s.supporting.alt[locale] },
-                        },
-                  }}
-                />
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <ServicesIndex
+        label={page.indexLabel[locale]}
+        labels={{ includes: page.includesLabel[locale], equipment: page.equipmentLabel[locale], open: page.open[locale] }}
+        rows={services.map((s) => {
+          const engraving = s.slug === "laser-engraving";
+          return {
+            slug: s.slug,
+            index: s.index,
+            name: s.name[locale],
+            tagline: s.tagline[locale],
+            summary: s.summary[locale],
+            highlights: s.highlights[locale],
+            equipment: machines
+              .filter((m) => m.service === s.slug)
+              .map((m) => (m.powerWatts ? `${m.shortName[locale]} · ${formatPower(m.powerWatts, locale)}` : m.shortName[locale])),
+            href: href(locale, "service", { slug: s.slug }),
+            tone: serviceTone[s.slug],
+            // Laser Engraving: no photographs (the nameplates photo and the wood render stay off; decision D6).
+            photos: engraving
+              ? undefined
+              : {
+                  cover: { ...getMedia(s.cover), alt: s.coverAlt[locale] },
+                  supporting: { ...getMedia(s.supporting.media), alt: s.supporting.alt[locale] },
+                },
+          };
+        })}
+      />
 
       <ClosingCta
         label={page.cta.label[locale]}

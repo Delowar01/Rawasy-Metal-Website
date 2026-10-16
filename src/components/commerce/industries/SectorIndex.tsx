@@ -15,7 +15,8 @@ export interface SectorItem {
   icon: IconName;
   tone: Tone;
   services: { href: string; label: string }[];
-  image: { src: string; width: number; height: number; blurDataURL: string };
+  /** `unoptimized`: an uploaded media library item (the page builder's preview), drawn as it is (never optimized, A4). */
+  image: { src: string; width: number; height: number; blurDataURL: string; unoptimized?: true };
 }
 
 /**
@@ -51,7 +52,16 @@ export function SectorIndex({
               <Icon name={item.icon} size={22} />
             </span>
             <div className="in-thumb">
-              <Image src={item.image.src} alt="" fill sizes="80px" placeholder="blur" blurDataURL={item.image.blurDataURL} className="object-cover" />
+              <Image
+                src={item.image.src}
+                alt=""
+                fill
+                sizes="80px"
+                placeholder="blur"
+                blurDataURL={item.image.blurDataURL}
+                className="object-cover"
+                {...(item.image.unoptimized ? { unoptimized: true } : {})}
+              />
             </div>
             <div className="in-name">
               <span className="in-index">{item.index}</span>
@@ -92,6 +102,7 @@ export function SectorIndex({
                 blurDataURL={item.image.blurDataURL}
                 className="in-preview-img"
                 style={{ width: `min(100%, ${item.image.width}px)`, height: `min(100%, ${item.image.height}px)` }}
+                {...(item.image.unoptimized ? { unoptimized: true } : {})}
               />
             </div>
           ))}

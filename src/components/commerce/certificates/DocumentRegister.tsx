@@ -10,6 +10,8 @@ interface Picture {
   width: number;
   height: number;
   blurDataURL: string;
+  /** An uploaded media library item (the page builder's preview), drawn as it is: the image optimizer never takes those. */
+  unoptimized?: true;
 }
 
 export interface CertificateDocument {
@@ -81,6 +83,7 @@ export function DocumentRegister({
                     className="ct-plate-img"
                     // A portrait preview: 82 % of the 4:3 plate's height (61.5 % of its width), set as a width.
                     style={portrait ? { width: `${((61.5 * cover.width) / cover.height).toFixed(2)}%` } : undefined}
+                    {...(cover.unoptimized ? { unoptimized: true } : {})}
                   />
                   <span className="ct-plate-open" aria-hidden>
                     <Icon name="plus" size={18} />
@@ -153,6 +156,7 @@ export function DocumentRegister({
                     placeholder="blur"
                     blurDataURL={preview.blurDataURL}
                     className="ct-preview-img"
+                    {...(preview.unoptimized ? { unoptimized: true } : {})}
                   />
                   {preview.label && <figcaption className="ct-preview-label">{preview.label}</figcaption>}
                 </figure>
