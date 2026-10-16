@@ -72,17 +72,18 @@ export const LABELS = {
 // --- Contrast (WCAG 2.x) -----------------------------------------------------------------------------------------------
 
 /**
- * The tokens the appearance controls use, per theme, as system.css defines them (a unit test reads system.css and
- * fails when they drift). On the dark panel the tones use their on-dark values (the dark theme's), as blocks.css does.
+ * The tokens the appearance controls use, per theme, as system.css defines them (`tests/unit/builder-tokens.test.ts`
+ * reads system.css and blocks.css and fails when they drift). The dark panel is the closing call to action's (`--navy`);
+ * on it the tones use their on-dark values (the dark theme's), as blocks.css does.
  */
 export const TOKENS = {
   light: {
-    surface: { plain: "#f4f4f1", muted: "#ecece8", raised: "#fdfdfb", raised2: "#f7f7f4", dark: "#111c30" },
+    surface: { plain: "#f4f4f1", muted: "#ecece8", raised: "#fdfdfb", raised2: "#f7f7f4", dark: "#132039" },
     text: { ink: "#15171a", ink2: "#454a50", onDark: "#f5f7fa", onDark2: "#b8c2d0" },
     tone: { steel: "#2c5e86", teal: "#1b6f65", brass: "#7b5c24", "orange-accent": "#b3410d" },
   },
   dark: {
-    surface: { plain: "#131820", muted: "#171d26", raised: "#1c232d", raised2: "#222a35", dark: "#0c1016" },
+    surface: { plain: "#131820", muted: "#171d26", raised: "#1c232d", raised2: "#222a35", dark: "#17243b" },
     text: { ink: "#eef1f4", ink2: "#b8c0ca", onDark: "#f5f7fa", onDark2: "#b8c2d0" },
     tone: { steel: "#7fb0d8", teal: "#5cc0b0", brass: "#d7b273", "orange-accent": "#ff9466" },
   },

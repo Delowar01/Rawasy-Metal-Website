@@ -28,6 +28,37 @@ export function adminContentSecurityPolicy(nonce: string, options: { dev: boolea
   ].join("; ");
 }
 
+/** The page builder's private preview (A5): `/admin/preview/…` — its own policy below; every other admin page keeps the one above. */
+export const isPreviewPath = (pathname: string) => pathname.startsWith("/admin/preview/");
+
+/** The players and maps a preview may frame (A5 brief §19–§20): typed ids and address searches only, never an embed code. */
+export const PREVIEW_FRAME_SOURCES = ["https://www.youtube-nocookie.com", "https://player.vimeo.com", "https://www.google.com"] as const;
+
+/**
+ * The preview's policy (A5 brief §37–§38): the admin's nonce-based script and style rules, plus what the real public
+ * components need to render as they will — inline style attributes (the components set custom properties such as a
+ * reveal's delay; never a person's CSS: block settings are typed tokens), the allowlisted video and map frames, the quote
+ * form's `mailto:` hand-off — and framing by the admin itself only (`frame-ancestors 'self'`). The admin's own pages are
+ * not loosened: they keep `adminContentSecurityPolicy`.
+ */
+export function previewContentSecurityPolicy(nonce: string, options: { dev: boolean; https: boolean }): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${options.dev ? " 'unsafe-eval'" : ""}`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "style-src-attr 'unsafe-inline'",
+    "img-src 'self' blob: data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    `frame-src ${PREVIEW_FRAME_SOURCES.join(" ")}`,
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self' mailto:",
+    "frame-ancestors 'self'",
+    ...(options.https ? ["upgrade-insecure-requests"] : []),
+  ].join("; ");
+}
+
 export const ADMIN_PAGE_HEADERS: Readonly<Record<string, string>> = {
   "X-Robots-Tag": "noindex, nofollow",
   "Cache-Control": "no-store",
@@ -45,3 +76,9 @@ export function createNonce(): string {
   for (const byte of bytes) text += String.fromCharCode(byte);
   return btoa(text);
 }
+
+/** The preview's headers: the admin's, framed by the same origin only (the builder's canvas). */
+export const PREVIEW_PAGE_HEADERS: Readonly<Record<string, string>> = { ...ADMIN_PAGE_HEADERS, "X-Frame-Options": "SAMEORIGIN" };
+
+/** The preview's view settings, taken from its address by the proxy and handed to the root layout as request headers. */
+export const PREVIEW_HEADERS = { locale: "x-preview-locale", theme: "x-preview-theme" } as const;

@@ -1,6 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminEnabled } from "@/lib/admin-gate";
-import { ADMIN_PAGE_HEADERS, adminContentSecurityPolicy, createNonce, isAdminPath } from "@/lib/admin-headers";
+import {
+  ADMIN_PAGE_HEADERS,
+  adminContentSecurityPolicy,
+  createNonce,
+  isAdminPath,
+  isPreviewPath,
+  PREVIEW_HEADERS,
+  PREVIEW_PAGE_HEADERS,
+  previewContentSecurityPolicy,
+} from "@/lib/admin-headers";
 import { defaultLocale, isLocale, LOCALE_COOKIE, locales, type Locale } from "@/i18n/config";
 
 /** Pick the best supported locale from an Accept-Language header. */
@@ -32,13 +41,20 @@ function negotiate(header: string | null): Locale {
 function admin(request: NextRequest) {
   const nonce = createNonce();
   const https = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto")?.split(",")[0].trim() === "https";
-  const policy = adminContentSecurityPolicy(nonce, { dev: process.env.NODE_ENV === "development", https });
+  const options = { dev: process.env.NODE_ENV === "development", https };
+  // The page builder's preview (A5) has its own policy (framed by the admin only; video and map frames); every other
+  // admin page keeps the admin's.
+  const preview = isPreviewPath(request.nextUrl.pathname);
+  const policy = preview ? previewContentSecurityPolicy(nonce, options) : adminContentSecurityPolicy(nonce, options);
   const headers = new Headers(request.headers);
   headers.set("x-nonce", nonce);
   headers.set("Content-Security-Policy", policy);
+  // The preview's language and theme, from its address, always set here (a header a client sent is replaced).
+  headers.set(PREVIEW_HEADERS.locale, request.nextUrl.searchParams.get("locale") === "ar" ? "ar" : "en");
+  headers.set(PREVIEW_HEADERS.theme, request.nextUrl.searchParams.get("theme") === "dark" ? "dark" : "light");
   const response = NextResponse.next({ request: { headers } });
   response.headers.set("Content-Security-Policy", policy);
-  for (const [name, value] of Object.entries(ADMIN_PAGE_HEADERS)) response.headers.set(name, value);
+  for (const [name, value] of Object.entries(preview ? PREVIEW_PAGE_HEADERS : ADMIN_PAGE_HEADERS)) response.headers.set(name, value);
   return response;
 }
 
