@@ -64,7 +64,7 @@ describe("applying", () => {
     assert.match(first.stdout, /backup hook dormant \(APP_ENV=local\)/);
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, /Applied \(5\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library/);
+    assert.match(status.stdout, /Applied \(6\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library, 0005_page_builder/);
     assert.match(status.stdout, /Pending \(0\): none/);
     const c = await serverConnection(database);
     const [audit] = (await c.query("SELECT action, actor_type, outcome FROM audit_events")) as unknown as [{ action: string; actor_type: string; outcome: string }[]];
@@ -143,7 +143,7 @@ describe("journal checks (before any database work)", () => {
   test("the committed migrations pass (check)", async () => {
     const result = await cli("unused_db", ["check"]);
     assert.equal(result.code, 0);
-    assert.match(result.stdout, /Migration files OK: 5/);
+    assert.match(result.stdout, /Migration files OK: 6/);
   });
 });
 
@@ -179,7 +179,7 @@ describe("history and backups", () => {
     assert.equal((await cli(database, ["up"])).code, 0);
     const dir = folderCopy();
     const journal = JSON.parse(readFileSync(join(dir, "meta/_journal.json"), "utf8"));
-    // The next migration after the committed ones (A3 added 0002 and 0003, A4 0004).
+    // The next migration after the committed ones (A3 added 0002 and 0003, A4 0004, A5 0005).
     const next = journal.entries.length;
     const tag = `${String(next).padStart(4, "0")}_extra`;
     writeFileSync(join(dir, `${tag}.sql`), "CREATE TABLE extra_t (id INT PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;");

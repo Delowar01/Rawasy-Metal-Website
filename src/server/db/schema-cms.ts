@@ -63,9 +63,10 @@ export const INDUSTRY_CLASSIFICATIONS = ["profile_sector", "website_classificati
 const SLUG_CHECK = "^[a-z0-9]+(-[a-z0-9]+)*$";
 
 // --- Shared column groups (A1-DATABASE-SCHEMA §5); each call makes fresh builders ------------------------------------
+// Exported for the A5 section tables (schema-builder.ts), which follow the same groups.
 
 /** TS — timestamps and actors. */
-const ts = () => ({
+export const ts = () => ({
   createdAt: instant("created_at").notNull().default(now3),
   createdBy: ulidColumn("created_by"),
   updatedAt: instant("updated_at").notNull().default(now3),
@@ -73,13 +74,13 @@ const ts = () => ({
 });
 
 /** SD — soft delete (the Trash; not used by A3's actions, kept for A8). */
-const sd = () => ({
+export const sd = () => ({
   deletedAt: instant("deleted_at"),
   deletedBy: ulidColumn("deleted_by"),
 });
 
 /** PUB — publication (aggregate roots). A3 writes only unpublished/draft and archived/none. */
-const pub = () => ({
+export const pub = () => ({
   publicationStatus: mysqlEnum("publication_status", PUBLICATION_STATUSES).notNull().default("unpublished"),
   draftStatus: mysqlEnum("draft_status", DRAFT_STATUSES).notNull().default("draft"),
   publishedRevisionId: ulidColumn("published_revision_id"),
@@ -117,7 +118,7 @@ const seoText = () => ({
 });
 
 /** TR — translation status. */
-const tr = () => ({
+export const tr = () => ({
   translationStatus: mysqlEnum("translation_status", TRANSLATION_STATUSES).notNull().default("draft"),
   completedAt: instant("completed_at"),
   completedBy: ulidColumn("completed_by"),
@@ -128,7 +129,7 @@ const tr = () => ({
 type Columns = Record<string, AnyMySqlColumn>;
 
 /** Actor foreign keys (users, ON DELETE SET NULL) for the given columns. */
-const actorKeys = (table: string, t: Columns, columns: string[]) =>
+export const actorKeys = (table: string, t: Columns, columns: string[]) =>
   columns.map((c) => foreignKey({ name: `fk_${table}_${snake(c)}`, columns: [t[c]], foreignColumns: [users.id] }).onDelete("set null"));
 
 /** Media references (A4): foreign keys to media_assets, ON DELETE RESTRICT across aggregates (A1 §3.7). */
@@ -138,7 +139,7 @@ const mediaKeys = (table: string, t: Columns, columns: string[]) =>
 const snake = (name: string) => name.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
 
 /** The constraints of an aggregate root: state index, actors, revision links and A1's two publication checks. */
-const rootConstraints = (table: string, t: Columns, options: { slug?: boolean; softDelete?: boolean } = {}) => [
+export const rootConstraints = (table: string, t: Columns, options: { slug?: boolean; softDelete?: boolean } = {}) => [
   index(`ix_${table}_state`).on(t.publicationStatus, t.draftStatus),
   ...(options.softDelete === false ? [] : [index(`ix_${table}_deleted`).on(t.deletedAt)]),
   ...actorKeys(table, t, ["createdBy", "updatedBy", "publishedBy", "archivedBy", ...(options.softDelete === false ? [] : ["deletedBy"])]),
@@ -152,7 +153,7 @@ const rootConstraints = (table: string, t: Columns, options: { slug?: boolean; s
 const slugCheck = (column: AnyMySqlColumn): SQL => sql`${column} REGEXP ${sql.raw(`'${SLUG_CHECK}'`)}`;
 
 /** The constraints of a translation table: parent (CASCADE), locale (RESTRICT), actors. */
-const translationConstraints = (table: string, t: Columns, parentColumn: string, parent: AnyMySqlColumn) => [
+export const translationConstraints = (table: string, t: Columns, parentColumn: string, parent: AnyMySqlColumn) => [
   primaryKey({ columns: [t[parentColumn], t.locale] }),
   foreignKey({ name: `fk_${table}_parent`, columns: [t[parentColumn]], foreignColumns: [parent] }).onDelete("cascade"),
   foreignKey({ name: `fk_${table}_locale`, columns: [t.locale], foreignColumns: [locales.code] }).onDelete("restrict"),
