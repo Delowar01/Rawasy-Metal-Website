@@ -608,6 +608,7 @@ export function lockReason(kind: OwnerKind, def: BlockDefinition | undefined, se
   const contract = CONTRACTS[kind];
   if (contract.lockedReason) return contract.lockedReason;
   if (!def) return operation === "remove" ? null : "This section's block type is not known to this version of the admin.";
+  if (operation === "anchor" && def.anchor !== "editable") return def.anchor === "fixed" ? "This section's anchor is set by its block (other pages link to it)." : "This block takes no anchor.";
   if (def.key === contract.h1) return kind === "home" && operation === "move" ? "Homepage hero must remain first." : "This block provides the page's required main heading.";
   if (section.anchor && contract.protectedAnchors.includes(section.anchor) && operation !== "duplicate") return "This anchor is required by this page.";
   if (section.locked) return requiredBlocks(kind).includes(def.key) ? "This section is a required part of this page." : "This section's structure is locked.";
