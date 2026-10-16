@@ -289,10 +289,22 @@ export const asciiDigits = (value: string) =>
   value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
 
 /**
- * The text the guard reads: NFKC first (full-width and other compatibility digits become ASCII, no-break spaces plain
- * spaces), then every other decimal digit of any script as "0" — only how many digits there are, and where, matters.
+ * Invisible format characters (Unicode category Cf: zero-width spaces and joiners, direction marks, the soft hyphen, the
+ * word joiner, the byte-order mark): plain text may hold them, and a number written with them between its digits shows
+ * as one number, so the guard reads past them (A5 final security review).
  */
-const guardText = (value: string) => value.normalize("NFKC").replace(/\p{Nd}/gu, (d) => (d >= "0" && d <= "9" ? d : "0"));
+const FORMAT = /\p{Cf}/gu;
+
+/**
+ * The text the guard reads: NFKC first (full-width and other compatibility digits become ASCII, no-break spaces plain
+ * spaces), format characters removed, then every other decimal digit of any script as "0" — only how many digits there
+ * are, and where, matters.
+ */
+const guardText = (value: string) =>
+  value
+    .normalize("NFKC")
+    .replace(FORMAT, "")
+    .replace(/\p{Nd}/gu, (d) => (d >= "0" && d <= "9" ? d : "0"));
 
 /**
  * Whether a text holds what would be a registration or certificate number: seven or more digits in a row, or written in
@@ -313,7 +325,7 @@ export function hasRegistrationNumber(value: string): boolean {
  */
 export function digitGuardProblem(value: string): string | null {
   if (hasRegistrationNumber(value)) return "Certificate text can't hold a registration or certificate number (seven or more digits, in a row or in groups).";
-  if (EXPIRY.test(value.normalize("NFKC"))) return "Expiry details stay admin-only: use the expiry date field instead.";
+  if (EXPIRY.test(value.normalize("NFKC").replace(FORMAT, ""))) return "Expiry details stay admin-only: use the expiry date field instead.";
   return null;
 }
 

@@ -9,9 +9,10 @@
  * - Records follow A3's relation rule (`cms/store.ts` `checkTargets`): they exist, and only active ones are added anew
  *   (archived ones may stay where they are); new ones share-locked.
  * - Certificate copy keeps A3's digit guard: no registration or certificate number, no expiry wording — in every text of
- *   both languages and in every value shown as text (a figure), wherever the section shows: on the Certificates page, or
- *   a certificate block on any page (A5 security review, F1). A reusable section is checked for every page that links
- *   it; a section's anchor there is checked too (it is part of the page's address).
+ *   both languages (each piece as it is drawn), in every value shown as text (a figure) and in every link target's
+ *   address, wherever the section shows: on the Certificates page, or a certificate block on any page (A5 security
+ *   review, F1; final review). A reusable section is checked for every page that links it; a section's anchor there is
+ *   checked too (it is part of the page's address).
  *
  * Choosing never approves or publishes anything (A8 refuses non-deliverable references at publication).
  */
@@ -21,7 +22,8 @@ import { mediaChoiceProblem, mediaTargetStates, type ContentMediaKind } from "..
 import { rowsOf, targetStates } from "../cms/store.ts";
 import { digitGuardProblem, hasRegistrationNumber } from "../cms/text.ts";
 import type { BlockDefinition, OwnerKind } from "./block.ts";
-import { plainTextOf, referencesOf, shownValuesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type RecordType, type Settings } from "./fields.ts";
+import { referencesOf, shownTextsOf, shownValuesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type RecordType, type Settings } from "./fields.ts";
+import type { LinkTarget } from "./links.ts";
 
 /** Blocks whose texts are certificate copy wherever they appear (A3's guard: no numbers, no expiry wording). */
 const CERTIFICATE_BLOCKS = new Set(["home.compliance", "about.compliance", "generic.certificates"]);
@@ -34,22 +36,50 @@ export const isCertificateCopy = (kinds: OwnerKind | readonly OwnerKind[], def: 
   CERTIFICATE_BLOCKS.has(def.key) || (typeof kinds === "string" ? kinds === "system:certificates" : kinds.includes("system:certificates"));
 
 export const CERTIFICATE_ANCHOR = "An anchor on certificate copy can't hold a registration or certificate number (seven or more digits): it is part of the page's address.";
+export const CERTIFICATE_LINK =
+  "A link on certificate copy can't hold a registration or certificate number (seven or more digits) in its address, anchor, email or phone number.";
 
-/** A3's digit guard on a section's data: every text of both languages and every value shown as text. */
+/** A piece of text as the page draws it: runs of spaces and line breaks become one space (a line break in a paragraph field is not drawn). */
+const asDrawn = (text: string) => text.replace(/\s+/g, " ").trim();
+
+/** The parts of a link target a visitor's page carries (addresses, anchors, email, phone); record ids are not shown. */
+function linkText(target: LinkTarget): string {
+  switch (target.type) {
+    case "external":
+      return target.url;
+    case "email":
+      return target.address;
+    case "phone":
+      return target.number;
+    case "anchor":
+      return target.anchor;
+    case "system":
+    case "page":
+    case "service":
+      return target.anchor ?? "";
+    default:
+      return "";
+  }
+}
+
+/**
+ * A3's digit guard on a section's data: each text piece of both languages as it is drawn (a text or paragraph field, a
+ * line, a paragraph or list item — never texts joined across fields, so a line break can't split a number or a phrase
+ * past the guard: A5 final security review), every value shown as text, and every link target's address.
+ */
 export function certificateIssues(def: BlockDefinition, data: SectionData): FieldIssue[] {
   const issues: FieldIssue[] = [];
-  for (const { path, value } of shownValuesOf(def.settings, data.settings)) {
-    const problem = digitGuardProblem(value);
-    if (problem) issues.push({ path, message: problem });
-  }
+  const check = (path: string, value: string) => {
+    const problem = digitGuardProblem(asDrawn(value));
+    if (problem && !issues.some((issue) => issue.path === path && issue.message === problem)) issues.push({ path, message: problem });
+  };
+  for (const { path, value } of shownValuesOf(def.settings, data.settings)) check(path, value);
   for (const locale of ["en", "ar"] as const) {
-    const text = plainTextOf(def.content, def.settings, data.content[locale]);
-    for (const line of text.split("\n")) {
-      const problem = line ? digitGuardProblem(line) : null;
-      if (problem) {
-        issues.push({ path: `content.${locale}`, message: problem });
-        break;
-      }
+    for (const { path, text } of shownTextsOf(def.content, def.settings, data.content[locale], locale)) check(path, text);
+  }
+  for (const { target, path } of referencesOf(def.settings, def.content, data.settings, data.content).links) {
+    if (hasRegistrationNumber(linkText(target)) && !issues.some((issue) => issue.path === path && issue.message === CERTIFICATE_LINK)) {
+      issues.push({ path, message: CERTIFICATE_LINK });
     }
   }
   return issues;

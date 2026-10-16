@@ -18,7 +18,7 @@ import { z } from "zod";
 import { charLength, plainText } from "../cms/text.ts";
 import { designSchema, type DesignSpec, type DesignValues } from "./design.ts";
 import { DEFAULT_LINK_KINDS, linkField, targetRecord, ULID_RE, type LinkKind, type LinkTarget } from "./links.ts";
-import { EMPTY_RICH, isRichEmpty, richLinks, richTextSchema, richToPlain, type RichDocument, type RichLimits } from "./richtext.ts";
+import { EMPTY_RICH, isRichEmpty, richBlocksPlain, richLinks, richTextSchema, type RichDocument, type RichLimits } from "./richtext.ts";
 
 export const LOCALES = ["en", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -588,21 +588,33 @@ export function shownValuesOf(settings: SettingsFields, values: Settings): { pat
 
 // --- Text measures -------------------------------------------------------------------------------------------------------------
 
-/** All text of one language, for search and the audit's lengths (never stored in the audit). */
-export function plainTextOf(content: ContentFields, settings: SettingsFields, text: Content | undefined): string {
-  if (!text) return "";
-  const parts: string[] = [];
-  const add = (field: ContentField, value: unknown) => {
-    if (field.kind === "rich" && value) parts.push(richToPlain(value as RichDocument));
-    else if (field.kind === "lines" && Array.isArray(value)) parts.push(...(value as string[]));
-    else if (typeof value === "string") parts.push(value);
+/**
+ * Every text of one language as the page shows it, one entry per piece shown on its own: a text or paragraph field whole,
+ * each line of a lines field, each paragraph, heading or list item of a rich-text field — in repeated items too. Checks of
+ * what a visitor reads (the certificate guard) look at each piece, never at texts joined across fields.
+ */
+export function shownTextsOf(content: ContentFields, settings: SettingsFields, text: Content | undefined, locale: Locale): { path: string; text: string }[] {
+  if (!text) return [];
+  const out: { path: string; text: string }[] = [];
+  const add = (field: ContentField, value: unknown, path: string) => {
+    if (field.kind === "rich" && value) for (const block of richBlocksPlain(value as RichDocument)) out.push({ path, text: block });
+    else if (field.kind === "lines" && Array.isArray(value)) for (const line of value as string[]) out.push({ path, text: line });
+    else if (typeof value === "string") out.push({ path, text: value });
   };
-  for (const [key, field] of Object.entries(content)) add(field, text[key]);
+  for (const [key, field] of Object.entries(content)) add(field, text[key], `content.${locale}.${key}`);
   for (const [key, field] of Object.entries(settings)) {
     if (field.kind !== "items") continue;
-    for (const item of Object.values((text[key] as Record<string, Content> | undefined) ?? {})) for (const [k, sub] of Object.entries(field.content)) add(sub, item?.[k]);
+    for (const [id, item] of Object.entries((text[key] as Record<string, Content> | undefined) ?? {})) {
+      for (const [k, sub] of Object.entries(field.content)) add(sub, item?.[k], `content.${locale}.${key}.${id}.${k}`);
+    }
   }
-  return parts.filter(Boolean).join("\n");
+  return out.filter((piece) => piece.text.trim() !== "");
 }
+
+/** All text of one language, one shown piece a line. */
+export const plainTextOf = (content: ContentFields, settings: SettingsFields, text: Content | undefined): string =>
+  shownTextsOf(content, settings, text, "en")
+    .map((piece) => piece.text)
+    .join("\n");
 
 export const textChars = (value: string) => charLength(value);

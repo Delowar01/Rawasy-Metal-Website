@@ -13,7 +13,9 @@
  * - Archive / restore: `reusable_sections.archive` (Owner, Admin). Archive only while no page section links it (decided
  *   on a locking read under the reusable row's lock; a link share-locks that row, with locking reads of every column it
  *   decides on, before it locks the page's sections — so the two never cross, F2). The database's RESTRICT foreign key
- *   backs it: a linked reusable section can never be removed.
+ *   backs it: a linked reusable section can never be removed. (An edit that newly links a page or service share-locks
+ *   that root after this row, the reverse of a layout save linking this section there: the two can deadlock and are
+ *   retried once; nothing is decided on an older state — A5 final review.)
  */
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";

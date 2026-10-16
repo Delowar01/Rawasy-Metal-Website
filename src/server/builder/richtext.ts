@@ -105,13 +105,14 @@ export function nodeCount(doc: RichDocument): number {
 /** Characters of text in a document. */
 export const textLength = (doc: RichDocument) => inlineNodes(doc).reduce((n, node) => n + (node.type === "text" ? charLength(node.text) : 0), 0);
 
-/** The document's text, one block per line (search, audit lengths, completeness). */
-export function richToPlain(doc: RichDocument): string {
+/** Each paragraph, heading and list item as plain text (a line break as a space): the pieces the page shows on their own. */
+export function richBlocksPlain(doc: RichDocument): string[] {
   const line = (content: RichInlineNode[]) => content.map((node) => (node.type === "text" ? node.text : " ")).join("");
-  return doc.content
-    .flatMap((block) => (isListBlock(block) ? block.content.map((item) => line(item.content)) : [line(block.content)]))
-    .join("\n");
+  return doc.content.flatMap((block) => (isListBlock(block) ? block.content.map((item) => line(item.content)) : [line(block.content)]));
 }
+
+/** The document's text, one block per line (search, audit lengths, completeness). */
+export const richToPlain = (doc: RichDocument): string => richBlocksPlain(doc).join("\n");
 
 export const isRichEmpty = (doc: RichDocument) => richToPlain(doc).trim() === "";
 

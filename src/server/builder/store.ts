@@ -331,8 +331,10 @@ const jsonOf = (value: unknown): unknown => (typeof value === "string" ? JSON.pa
 /**
  * The reusable sections that new sections of a save will show (A5 security review, F1/F2): direct links, and duplicates
  * of linked sections (their link is read here; the owner's root lock, held already, keeps it as stored). Read with share
- * locks in id order, before the owner's sections are locked — the order a reusable section's own changes take (the
- * reusable row, then the sections linking it), so the two never wait for each other in a cycle.
+ * locks in id order, before the owner's sections are locked — the order an archive takes (the reusable row, then the
+ * sections linking it), so a link and an archive never wait for each other in a cycle. A reusable section's edit that
+ * newly links this owner's own page or service share-locks that root after the reusable row, the reverse of a save:
+ * the two can deadlock, and `inTransaction`'s retry decides again (A5 final review; see `sections.ts`).
  */
 export async function lockLinkedReusables(tx: Db, ref: OwnerRef, entries: readonly { reusableId?: string | null; duplicateOf?: string }[]): Promise<Map<string, StoredReusable | null>> {
   const ids = new Set(entries.flatMap((e) => (e.reusableId ? [e.reusableId] : [])));

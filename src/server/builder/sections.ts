@@ -9,8 +9,11 @@
  * 2. decides the permission from the session's keys (`structure.ts`: content and structure separately);
  * 3. share-locks the reusable sections the change will show anew (links, duplicated links, a detach's source), then
  *    locks the owner's sections FOR UPDATE and resolves every input reference against them (a section of another owner
- *    is "no longer on this page", never touched). A reusable section's own changes lock its row and then the sections
- *    linking it, so this order never meets theirs in a cycle;
+ *    is "no longer on this page", never touched). A reusable section's archive locks its row and then the sections
+ *    linking it, which never meets this order in a cycle. An edit of a reusable section that newly links this very page
+ *    or service (a button to it) locks the reusable row, then share-locks the page's row: overlapping that with a save
+ *    of the page that links the reusable section can deadlock — InnoDB ends one, `inTransaction` retries it once, and
+ *    every attempt decides again under its locks (the A3 class of overlapping saves of related records; A5 final review);
  * 4. validates each changed section completely with the block registry (strict schemas, language parity, sizes), its
  *    references (A4 media, A3 records: new ones share-locked) and its languages' states;
  * 5. checks the change (structure permission, locks, the blocks' policies) and the final layout (the owner's contract);
