@@ -70,8 +70,11 @@ export type LinkTarget =
 const anchor = z.string().max(ANCHOR_MAX).regex(ANCHOR_RE, "Use lowercase letters, digits and single hyphens, starting with a letter.");
 const ulid = z.string().regex(ULID_RE, "Choose an item from the list.");
 
-/** An email address as a mailto target: plain, one address, no parameters (no `?subject=…` injection). */
-export const EMAIL_RE = /^[A-Za-z0-9.!#$%&'*+/=^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
+/**
+ * An email address as a mailto target: plain, one address, no parameters (no `?subject=…` injection), and no `%` or `#`
+ * in its local part (a percent-escape such as %0A, which some mail programs decode, or a fragment that cuts the address).
+ */
+export const EMAIL_RE = /^[A-Za-z0-9.!$&'*+/=^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 /** A phone number as a tel target: an optional +, then 6 to 15 digits (spaces and hyphens allowed between them). */
 export const PHONE_RE = /^\+?[0-9](?:[ -]?[0-9]){5,14}$/;
 

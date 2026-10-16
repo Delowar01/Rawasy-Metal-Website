@@ -20,7 +20,7 @@
  * exercise every rule. Authority comes from permission keys (`structurePermissions`), never from role names.
  */
 import { legalDocuments } from "../../content/legal.ts";
-import type { BlockDefinition, OwnerKind } from "./block.ts";
+import type { BlockDefinition, OwnerKind, RecordCollection } from "./block.ts";
 import { GENERIC_BLOCKS, SAFE_ADDITIONS } from "./blocks/generic.ts";
 import type { HeroVariant } from "./blocks/page.ts";
 import { BUILDER_LIMITS } from "./fields.ts";
@@ -115,6 +115,11 @@ const SERVICE_INITIAL: InitialSection[] = [
 ].map((blockType) => ({ blockType }));
 
 const list = (...keys: string[]): InitialSection[] => keys.map((blockType) => ({ blockType }));
+/**
+ * The Certificates page takes the other pages' additions except "Contact details": phone numbers are long digit groups,
+ * and that page shows nothing that reads as a registration or certificate number (A3's digit guard; A5 security review F1).
+ */
+const CERTIFICATES_ADDITIONS = SAFE_ADDITIONS.filter((key) => key !== "generic.contact_details");
 const STORABLE_GENERIC = GENERIC_BLOCKS.filter((def) => def.storable).map((def) => def.key);
 
 export const CONTRACTS: Record<OwnerKind, OwnerContract> = {
@@ -205,7 +210,7 @@ export const CONTRACTS: Record<OwnerKind, OwnerContract> = {
     h1: "page.hero",
     initial: list("page.hero", "certificates.register", "certificates.redaction", "page.closing_cta"),
     last: "page.closing_cta",
-    additions: SAFE_ADDITIONS,
+    additions: CERTIFICATES_ADDITIONS,
     protectedAnchors: [],
   },
   "system:contact": {
@@ -382,8 +387,8 @@ export function anchorProblem(anchor: string): string | null {
 }
 
 export interface LayoutContext {
-  /** Slugs of the records whose ids bespoke blocks render (`recordAnchors`), by collection. */
-  recordSlugs?: Partial<Record<NonNullable<BlockDefinition["recordAnchors"]>, readonly string[]>>;
+  /** Slugs of the records whose ids bespoke blocks render (`recordIds`), by collection. */
+  recordSlugs?: Partial<Record<RecordCollection, readonly string[]>>;
 }
 
 /**
@@ -448,8 +453,8 @@ export function layoutIssues(kind: OwnerKind, sections: readonly LayoutSection[]
   // Anchors: the fixed ones as the components render them, editable ones valid, and every id on the page unique.
   const seen = new Map<string, string>();
   const reserved = new Set(SHELL_IDS);
-  for (const [collection, slugs] of Object.entries(context.recordSlugs ?? {})) {
-    if (sections.some((s, i) => defs[i]?.recordAnchors === collection)) for (const slug of slugs ?? []) reserved.add(slug);
+  for (const def of defs) {
+    for (const pattern of def?.recordIds ?? []) for (const slug of context.recordSlugs?.[pattern.collection] ?? []) reserved.add(`${pattern.prefix ?? ""}${slug}${pattern.suffix ?? ""}`);
   }
   sections.forEach((section, i) => {
     const def = defs[i];

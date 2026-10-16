@@ -7,12 +7,12 @@
  */
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "../db/client.ts";
-import { pageSections, pageSectionTranslations, reusableSections, reusableSectionTranslations } from "../db/schema-builder.ts";
+import { pageSections, pageSectionTranslations, reusableSectionTranslations } from "../db/schema-builder.ts";
 import { pages, services } from "../db/schema-cms.ts";
 import type { TranslationStatus } from "../cms/completeness.ts";
 import { refLabel, refsByIds } from "../cms/lookups.ts";
-import { rowsOf } from "../cms/store.ts";
-import type { OwnerKind } from "./block.ts";
+import { instantOf, rowsOf } from "../cms/store.ts";
+import type { OwnerKind, RecordCollection } from "./block.ts";
 import { LOCALES, type Content, type Locale, type Settings } from "./fields.ts";
 import { ownerKindOf } from "./structure.ts";
 
@@ -288,31 +288,68 @@ export interface StoredReusable {
 }
 
 /**
- * A reusable section (not in the Trash), or null. `lock`: "update" (its own changes), "share" (a page section linking or
- * copying it: it can't be archived or changed meanwhile, A3's share-lock pattern) or none.
+ * A reusable section (not in the Trash), or null. `lock`: "update" (its own changes), "share" (a page section linking,
+ * duplicating or detaching it: it can't be archived or changed meanwhile, A3's share-lock pattern) or none (display).
+ * A locked read takes every column it returns in the locking statements themselves — the row, then its translations —
+ * so a decision never rests on the transaction's older snapshot (A5 security review, F2: a link that read "archived" with
+ * a plain select after its snapshot began could link a reusable section archived in between, and a detach could copy
+ * texts older than an edit committed before it).
  */
 export async function readReusable(db: Db, id: string, options: { lock?: "update" | "share" } = {}): Promise<StoredReusable | null> {
   const lock = options.lock === "update" ? sql` FOR UPDATE` : options.lock === "share" ? sql` LOCK IN SHARE MODE` : sql``;
-  const [row] = await rowsOf<{ id: string }>(db, sql`SELECT id FROM reusable_sections WHERE id = ${id} AND deleted_at IS NULL${lock}`);
-  if (!row) return null;
-  const [r] = await db.select().from(reusableSections).where(eq(reusableSections.id, id));
+  const [r] = await rowsOf<{ id: string; name: string; block_type: string; schema_version: number; settings: unknown; lock_version: number; publication_status: string; updated_at: unknown }>(
+    db,
+    sql`SELECT id, name, block_type, schema_version, settings, lock_version, publication_status, updated_at
+          FROM reusable_sections WHERE id = ${id} AND deleted_at IS NULL${lock}`,
+  );
   if (!r) return null;
-  const translations = await db.select().from(reusableSectionTranslations).where(eq(reusableSectionTranslations.reusableSectionId, id));
-  const out: Partial<Record<Locale, StoredTranslation>> = {};
-  for (const t of translations) {
-    if (LOCALES.includes(t.locale as Locale)) out[t.locale as Locale] = { content: t.content, status: t.translationStatus, completedAt: t.completedAt, completedBy: t.completedBy };
+  const rows = await rowsOf<{ locale: string; content: unknown; translation_status: TranslationStatus; completed_at: unknown; completed_by: string | null }>(
+    db,
+    sql`SELECT locale, content, translation_status, completed_at, completed_by
+          FROM reusable_section_translations WHERE reusable_section_id = ${id} ORDER BY locale${lock}`,
+  );
+  const translations: Partial<Record<Locale, StoredTranslation>> = {};
+  for (const t of rows) {
+    if (LOCALES.includes(t.locale as Locale)) translations[t.locale as Locale] = { content: jsonOf(t.content), status: t.translation_status, completedAt: instantOf(t.completed_at), completedBy: t.completed_by };
   }
   return {
     id: r.id,
     name: r.name,
-    blockType: r.blockType,
-    schemaVersion: Number(r.schemaVersion),
-    settings: r.settings,
-    lockVersion: Number(r.lockVersion),
-    archived: r.publicationStatus === "archived",
-    translations: out,
-    updatedAt: r.updatedAt,
+    blockType: r.block_type,
+    schemaVersion: Number(r.schema_version),
+    settings: jsonOf(r.settings),
+    lockVersion: Number(r.lock_version),
+    archived: r.publication_status === "archived",
+    translations,
+    updatedAt: instantOf(r.updated_at) ?? new Date(0),
   };
+}
+
+/** A JSON column of a raw query (MariaDB returns its JSON as text). */
+const jsonOf = (value: unknown): unknown => (typeof value === "string" ? JSON.parse(value) : value);
+
+/**
+ * The reusable sections that new sections of a save will show (A5 security review, F1/F2): direct links, and duplicates
+ * of linked sections (their link is read here; the owner's root lock, held already, keeps it as stored). Read with share
+ * locks in id order, before the owner's sections are locked — the order a reusable section's own changes take (the
+ * reusable row, then the sections linking it), so the two never wait for each other in a cycle.
+ */
+export async function lockLinkedReusables(tx: Db, ref: OwnerRef, entries: readonly { reusableId?: string | null; duplicateOf?: string }[]): Promise<Map<string, StoredReusable | null>> {
+  const ids = new Set(entries.flatMap((e) => (e.reusableId ? [e.reusableId] : [])));
+  const duplicated = [...new Set(entries.flatMap((e) => (e.duplicateOf ? [e.duplicateOf] : [])))];
+  if (duplicated.length) {
+    const rows = await rowsOf<{ reusable_section_id: string | null }>(
+      tx,
+      sql`SELECT reusable_section_id FROM page_sections WHERE ${ref.type === "page" ? sql`page_id` : sql`service_id`} = ${ref.id} AND id IN (${sql.join(
+        duplicated.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
+    );
+    for (const row of rows) if (row.reusable_section_id) ids.add(row.reusable_section_id);
+  }
+  const out = new Map<string, StoredReusable | null>();
+  for (const id of [...ids].sort()) out.set(id, await readReusable(tx, id, { lock: "share" }));
+  return out;
 }
 
 /** Replaces a reusable section's translations (as `writeSectionTranslations`). */
@@ -349,9 +386,34 @@ export async function reusableUses(db: Db, reusableId: string, options: { lock: 
   return rows.map((r) => ({ sectionId: r.id, owner: r.page_id ? { type: "page", id: r.page_id } : { type: "service", id: r.service_id! } }));
 }
 
-/** The slugs of the records whose ids bespoke blocks render on a page (`recordAnchors`), for anchor collisions. */
-export async function recordSlugs(db: Db): Promise<{ machine: string[]; project: string[]; certificate: string[] }> {
-  const slugs = async (table: "machines" | "projects" | "certificates") =>
+/** The slugs of the records whose ids bespoke blocks render on a page (`recordIds`), for anchor collisions. */
+export async function recordSlugs(db: Db): Promise<Record<RecordCollection, string[]>> {
+  const slugs = async (table: "machines" | "projects" | "certificates" | "services") =>
     (await rowsOf<{ slug: string | null }>(db, sql`SELECT slug FROM ${sql.identifier(table)} WHERE slug IS NOT NULL`)).map((r) => r.slug!).filter(Boolean);
-  return { machine: await slugs("machines"), project: await slugs("projects"), certificate: await slugs("certificates") };
+  return { machine: await slugs("machines"), project: await slugs("projects"), certificate: await slugs("certificates"), service: await slugs("services") };
+}
+
+/**
+ * The kinds of the owners whose sections link a reusable section (A5 security review, F1): where its texts are shown,
+ * so an edit is checked as the copy of every one of those pages (the Certificates page keeps A3's digit guard). `uses`
+ * comes from a locking read under the reusable row's lock; a page's kind never changes.
+ */
+export async function ownerKindsOf(db: Db, uses: readonly ReusableUse[]): Promise<OwnerKind[]> {
+  const kinds = new Set<OwnerKind>();
+  if (uses.some((u) => u.owner.type === "service")) kinds.add("service");
+  const pageIds = [...new Set(uses.filter((u) => u.owner.type === "page").map((u) => u.owner.id))];
+  if (pageIds.length) {
+    const rows = await rowsOf<{ page_type: string; system_key: string | null }>(
+      db,
+      sql`SELECT page_type, system_key FROM pages WHERE id IN (${sql.join(
+        pageIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
+    );
+    for (const row of rows) {
+      const kind = ownerKindOf({ pageType: row.page_type as never, systemKey: row.system_key });
+      if (kind) kinds.add(kind);
+    }
+  }
+  return [...kinds];
 }

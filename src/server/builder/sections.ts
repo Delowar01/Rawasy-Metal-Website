@@ -7,8 +7,10 @@
  * 1. locks the owner's root row (a page or a service) FOR UPDATE and refuses a version other than the one the builder
  *    opened ("This page layout changed after you opened it…"): the root's lock_version is the layout's version;
  * 2. decides the permission from the session's keys (`structure.ts`: content and structure separately);
- * 3. locks the owner's sections FOR UPDATE and resolves every input reference against them (a section of another owner
- *    is "no longer on this page", never touched);
+ * 3. share-locks the reusable sections the change will show anew (links, duplicated links, a detach's source), then
+ *    locks the owner's sections FOR UPDATE and resolves every input reference against them (a section of another owner
+ *    is "no longer on this page", never touched). A reusable section's own changes lock its row and then the sections
+ *    linking it, so this order never meets theirs in a cycle;
  * 4. validates each changed section completely with the block registry (strict schemas, language parity, sizes), its
  *    references (A4 media, A3 records: new ones share-locked) and its languages' states;
  * 5. checks the change (structure permission, locks, the blocks' policies) and the final layout (the owner's contract);
@@ -27,10 +29,11 @@ import { ulid } from "../security/ids.ts";
 import type { BlockDefinition, OwnerKind } from "./block.ts";
 import { cloneWithNewIds, defaultsOf, LOCALES, referencesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type Settings } from "./fields.ts";
 import { layoutInputSchema, NEW_REF, reusableNameSchema, sectionActionSchema, type SectionInput } from "./input.ts";
-import { referenceIssues } from "./references.ts";
+import { certificateAnchorProblem, certificateIssues, isCertificateCopy, referenceIssues } from "./references.ts";
 import { REGISTRY, type ReadResult } from "./registry.ts";
 import {
   bumpOwner,
+  lockLinkedReusables,
   lockSection,
   readOwner,
   readReusable,
@@ -42,6 +45,7 @@ import {
   type OwnerRef,
   type OwnerState,
   type SectionWrite,
+  type StoredReusable,
   type StoredSection,
   type TranslationWrite,
 } from "./store.ts";
@@ -117,7 +121,8 @@ interface Planned {
   stored?: StoredSection;
   duplicateOf?: string;
   linked?: string;
-  changed?: { settings: boolean; en: boolean; ar: boolean; statuses: Record<string, unknown> };
+  /** `upcast`: the stored data was an older block version, so its texts are rewritten at the new one (F3). */
+  changed?: { settings: boolean; en: boolean; ar: boolean; statuses: Record<string, unknown>; upcast: boolean };
 }
 
 const ownerTag = (ref: OwnerRef) => `${ref.type}:${ref.id}`;
@@ -140,6 +145,40 @@ async function audit(tx: Db, change: BuilderChange, now: Date, event: { action: 
 async function refuse(tx: Db, change: BuilderChange, now: Date, owner: OwnerRef, action: string, message: string): Promise<LayoutResult> {
   await audit(tx, change, now, { action, type: owner.type, id: owner.id, outcome: "denied", summary: `Refused: ${message}`.slice(0, 250), changes: { owner: ownerTag(owner) } });
   return { kind: "denied", message };
+}
+
+/**
+ * A layout change the owner's structure policy refuses (a part removed, moved or hidden that may not be, a block the page
+ * can't hold …), audited as a failed change in the change's transaction (A5 security review, F5): the first reason and
+ * how many there are — fixed messages and block names, never texts.
+ */
+async function refused(tx: Db, change: BuilderChange, now: Date, owner: OwnerState, action: string, message: string, issues: SectionIssue[]): Promise<LayoutResult> {
+  const first = issues[0]?.message ?? message;
+  await audit(tx, change, now, {
+    action,
+    type: owner.ref.type,
+    id: owner.ref.id,
+    label: owner.label,
+    outcome: "failed",
+    summary: `Refused: ${first}${issues.length > 1 ? ` (+${issues.length - 1} more)` : ""}`.slice(0, 250),
+    changes: { owner: ownerTag(owner.ref), count: issues.length },
+  });
+  return { kind: "invalid", message, issues };
+}
+
+/**
+ * Why a new section can't show a reusable section here, or no issues: it must exist and not be archived (read with the
+ * share lock taken before the owner's sections), and on certificate copy its settings and texts pass A3's digit guard
+ * (A5 security review, F1/F2) — whether the section links it or duplicates a link to it.
+ */
+function linkIssues(kind: OwnerState["kind"], reusable: StoredReusable | null | undefined): FieldIssue[] {
+  if (!reusable) return [{ path: "reusableId", message: "This reusable section no longer exists." }];
+  if (reusable.archived) return [{ path: "reusableId", message: "This reusable section is archived: restore it before linking it." }];
+  const def = REGISTRY.get(reusable.blockType);
+  if (!def || !isCertificateCopy(kind, def)) return [];
+  const read = readSectionData({ blockType: reusable.blockType, schemaVersion: reusable.schemaVersion, settings: reusable.settings, translations: reusable.translations });
+  if (read.state !== "ok") return [{ path: "reusableId", message: "This reusable section's texts can't be read, so they can't be checked for this page." }];
+  return certificateIssues(def, read);
 }
 
 /** A stale editor, audited as a failed change (A3's pattern): the version it opened and the one stored. */
@@ -183,7 +222,12 @@ async function checkData(
   const issues = [...refIssues, ...plan.issues].map((i: FieldIssue) => ({ ref, path: i.path, message: i.message }));
   if (issues.length) return { ok: false, issues };
   const settingsChanged = !storedOk || JSON.stringify(storedOk.settings) !== JSON.stringify(checked.settings);
-  return { ok: true, settings: checked.settings, texts: plan.rows, changed: { settings: settingsChanged, en: plan.changed.en, ar: plan.changed.ar, statuses: plan.statusChanges } };
+  return {
+    ok: true,
+    settings: checked.settings,
+    texts: plan.rows,
+    changed: { settings: settingsChanged, en: plan.changed.en, ar: plan.changed.ar, statuses: plan.statusChanges, upcast: Boolean(storedOk?.upcast) },
+  };
 }
 
 /** One layout save (A5 brief §31–§35). `raw` is the parsed JSON the action received; it is validated here. */
@@ -199,6 +243,7 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
     if (owner.archived) return { kind: "archived" };
     if (owner.lockVersion !== input.expectedVersion) return stale(tx, change, now, owner, "layout.save", input.expectedVersion);
     const structure = mayChangeStructure(actor.permissions, owner.kind);
+    const linked = await lockLinkedReusables(tx, owner.ref, input.sections.filter((entry) => NEW_REF.test(entry.ref)));
     const stored = await readSections(tx, owner.ref, { lock: true });
     const byId = new Map(stored.map((s) => [s.id, s]));
     const reads = new Map(stored.map((s) => [s.id, readSectionData(s)]));
@@ -291,8 +336,13 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
             issues.push({ ref: entry.ref, message: "A linked section shows the reusable section's own settings and texts." });
             continue;
           }
+          const reusable = linked.get(original.reusableId);
+          if (!reusable || reusable.archived) {
+            issues.push({ ref: entry.ref, message: reusable ? "This reusable section is archived: restore it before linking it." : "This reusable section no longer exists." });
+            continue;
+          }
           reusableId = original.reusableId;
-          linkedVersion = original.schemaVersion;
+          linkedVersion = reusable.schemaVersion;
         } else if (!data) {
           const read = reads.get(original.id)!;
           if (read.state !== "ok") {
@@ -304,7 +354,7 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
           data = { settings: copy.settings, content: copy.content, complete: marks, otherUnaffected: true };
         }
       } else if (entry.reusableId) {
-        const reusable = await readReusable(tx, entry.reusableId, { lock: "share" });
+        const reusable = linked.get(entry.reusableId);
         if (!reusable || reusable.archived) {
           issues.push({ ref: entry.ref, message: reusable ? "This reusable section is archived: restore it before linking it." : "This reusable section no longer exists." });
           continue;
@@ -325,6 +375,13 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
       if (!def || !def.storable) {
         issues.push({ ref: entry.ref, message: "Unknown block type." });
         continue;
+      }
+      if (reusableId) {
+        const problems = linkIssues(owner.kind, linked.get(reusableId));
+        if (problems.length) {
+          issues.push(...problems.map((i) => ({ ref: entry.ref, path: i.path, message: i.message })));
+          continue;
+        }
       }
       let settings: Settings = {};
       let texts: Planned["texts"];
@@ -367,21 +424,25 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
         },
       });
     }
+    // Certificate copy: an anchor is part of the page's address, so it holds no registration-like number either (F1).
+    for (const p of planned) {
+      const problem = p.def && isCertificateCopy(owner.kind, p.def) ? certificateAnchorProblem(p.write.anchor) : null;
+      if (problem) issues.push({ ref: p.ref, path: "anchor", message: problem });
+    }
     if (issues.length) return { kind: "invalid", message: "Some sections need attention. Nothing was saved.", issues };
 
     // The change against the stored layout, then the final layout against the owner's contract.
     const before = stored.map((s) => layoutSection(s, s.settings));
     const after = planned.map((p) => layoutSection(p.write, p.write.settings));
+    const refOf = (sectionId?: string) => planned.find((p) => p.id === sectionId)?.ref ?? sectionId;
     const changeProblems = changeIssues(owner.kind, before, after, { structure, duplicates });
     if (changeProblems.length) {
-      const refOf = (sectionId?: string) => planned.find((p) => p.id === sectionId)?.ref ?? sectionId;
       if (!structure) return refuse(tx, change, now, owner.ref, "layout.save", CONTRACTS[owner.kind].lockedReason ?? NO_STRUCTURE_PERMISSION);
-      return { kind: "invalid", message: "This layout change isn't allowed. Nothing was saved.", issues: changeProblems.map((p) => ({ ref: refOf(p.sectionId), message: p.message })) };
+      return refused(tx, change, now, owner, "layout.save", "This layout change isn't allowed. Nothing was saved.", changeProblems.map((p) => ({ ref: refOf(p.sectionId), message: p.message })));
     }
     const layoutProblems = layoutIssues(owner.kind, after, { recordSlugs: await recordSlugs(tx) });
     if (layoutProblems.length) {
-      const refOf = (sectionId?: string) => planned.find((p) => p.id === sectionId)?.ref ?? sectionId;
-      return { kind: "invalid", message: "The page's structure would not be valid. Nothing was saved.", issues: layoutProblems.map((p) => ({ ref: refOf(p.sectionId), message: p.message })) };
+      return refused(tx, change, now, owner, "layout.save", "The page's structure would not be valid. Nothing was saved.", layoutProblems.map((p) => ({ ref: refOf(p.sectionId), message: p.message })));
     }
 
     // What this save changes, operation by operation (A5 brief §64): names, ids and states only — never texts or JSON.
@@ -444,7 +505,8 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
       now,
     );
     for (const p of planned) {
-      const textsChanged = p.changed && (p.isNew || p.changed.en || p.changed.ar || Object.keys(p.changed.statuses).length > 0);
+      // Texts stored at an older block version are rewritten whenever the section is saved at the new one (F3).
+      const textsChanged = p.changed && (p.isNew || p.changed.en || p.changed.ar || Object.keys(p.changed.statuses).length > 0 || p.changed.upcast);
       if (p.texts && textsChanged) await writeSectionTranslations(tx, p.id, p.texts, actor.user.id, now);
     }
     await bumpOwner(tx, owner.ref, actor.user.id, now);
@@ -473,6 +535,11 @@ export async function initializeLayout(change: BuilderChange, rawOwner: unknown,
     const writes: SectionWrite[] = [];
     const texts = new Map<string, Record<Locale, TranslationWrite | null>>();
     const template = owner.kind === "service" ? await templateSections(tx) : [];
+    // The template's links are copied: each reusable section is share-locked and must still exist, unarchived (F2).
+    for (const id of [...new Set(template.flatMap((source) => (source.reusableId ? [source.reusableId] : [])))].sort()) {
+      const reusable = await readReusable(tx, id, { lock: "share" });
+      if (!reusable || reusable.archived) return { kind: "invalid", message: "The service page template links a reusable section that is archived or no longer exists. Fix the template first.", issues: [] };
+    }
     if (template.length) {
       for (const source of template) {
         const id = ulid(now.getTime());
@@ -543,7 +610,10 @@ async function templateSections(tx: Db): Promise<StoredSection[]> {
 
 /**
  * Detach (A5 brief §44): the section becomes a local copy of the reusable section's current working settings and texts
- * (new item ids), keeps where it came from (`detached_from_id`) and no longer follows it. A structure change.
+ * (new item ids), keeps where it came from (`detached_from_id`) and no longer follows it. A structure change. The
+ * reusable section is share-locked before the section (the order of `saveLayout`), so the copy holds its texts as they
+ * are when the detach commits; the copy is checked as the page's own section would be: its references (it now names
+ * them itself) and, on certificate copy, A3's digit guard (A5 security review, F1/F2).
  */
 export async function detachSection(change: BuilderChange, raw: unknown): Promise<LayoutResult> {
   const parsed = sectionActionSchema.safeParse(raw);
@@ -556,16 +626,23 @@ export async function detachSection(change: BuilderChange, raw: unknown): Promis
     if (!mayChangeStructure(actor.permissions, owner.kind)) return refuse(tx, change, now, owner.ref, "section.detach_reusable", CONTRACTS[owner.kind].lockedReason ?? NO_STRUCTURE_PERMISSION);
     if (owner.archived) return { kind: "archived" };
     if (owner.lockVersion !== parsed.data.expectedVersion) return stale(tx, change, now, owner, "section.detach_reusable", parsed.data.expectedVersion);
+    // The reusable section first (share lock), then the section: the link read here is the stored one (the owner's root
+    // lock, held, is what every change of the owner's sections takes first).
+    const linked = await lockLinkedReusables(tx, owner.ref, [{ duplicateOf: parsed.data.sectionId }]);
     const section = await lockSection(tx, owner.ref, parsed.data.sectionId);
     if (!section) return { kind: "invalid", message: SECTION_GONE, issues: [] };
     if (!section.reusableId) return { kind: "invalid", message: "This section isn't linked to a reusable section.", issues: [] };
     const reason = lockReason(owner.kind, REGISTRY.get(section.blockType), section, "detach");
-    if (reason) return { kind: "denied", message: reason };
-    const reusable = await readReusable(tx, section.reusableId, { lock: "share" });
+    if (reason) return refuse(tx, change, now, owner.ref, "section.detach_reusable", reason);
+    const reusable = linked.get(section.reusableId) ?? null;
     const def = reusable ? REGISTRY.get(reusable.blockType) : undefined;
     const read = reusable ? readSectionData({ blockType: reusable.blockType, schemaVersion: reusable.schemaVersion, settings: reusable.settings, translations: reusable.translations }) : null;
     if (!reusable || !def || !read || read.state !== "ok") return { kind: "invalid", message: "The reusable section's settings and texts can't be read, so it can't be detached.", issues: [] };
     const copy = cloneWithNewIds(def.settings, read.settings, read.content);
+    // The copy names what the reusable section named (kept references), now as this page's own section.
+    const kept = referencesOf(def.settings, def.content, read.settings, read.content);
+    const problems = await referenceIssues(tx, owner.kind, def, { settings: copy.settings, content: copy.content }, kept);
+    if (problems.length) return { kind: "invalid", message: "This reusable section can't become a local copy here. Nothing was changed.", issues: problems.map((i) => ({ ref: section.id, path: i.path, message: i.message })) };
     const rows = Object.fromEntries(
       LOCALES.map((locale) => {
         const t = reusable.translations[locale];

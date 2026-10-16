@@ -202,7 +202,7 @@ const GENERIC: BlockDefinition[] = [
         ],
         "youtube",
       ),
-      videoId: value("Video id", 20, { ltr: true, hint: "YouTube: the 11 characters after v= ; Vimeo: the number at the end of the address." }),
+      videoId: value("Video id", 20, { ltr: true, technical: true, hint: "YouTube: the 11 characters after v= ; Vimeo: the number at the end of the address." }),
       aspect: choice(
         "Shape",
         [
@@ -484,7 +484,7 @@ const GENERIC: BlockDefinition[] = [
     max: 2,
     settings: {
       query: value("Address to search", 200),
-      placeLink: value("Google Maps place link (optional)", 400, { ltr: true, check: mapPlaceLinkProblem }),
+      placeLink: value("Google Maps place link (optional)", 400, { ltr: true, technical: true, check: mapPlaceLinkProblem }),
       aspect: choice(
         "Shape",
         [

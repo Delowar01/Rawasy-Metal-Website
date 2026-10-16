@@ -83,7 +83,7 @@ export const COMPANY_BLOCKS: BlockDefinition[] = [
     icon: "certificate",
     owners: ["system:certificates"],
     anchor: "none",
-    recordAnchors: "certificate",
+    recordIds: [{ collection: "certificate" }],
     renderedIds: ["register-dialog-title"],
     settings: { certificates: selection("Documents", "certificate", 6, automatic("all", 6)) },
     content: {

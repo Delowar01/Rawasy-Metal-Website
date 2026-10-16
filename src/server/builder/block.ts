@@ -82,6 +82,16 @@ export type BlockIcon =
   | "legal"
   | "notice";
 
+/** The collections whose records' slugs approved components render as ids. */
+export type RecordCollection = "machine" | "project" | "certificate" | "service";
+
+/** An id rendered per record: `${prefix}${slug}${suffix}`. */
+export interface RecordIdPattern {
+  collection: RecordCollection;
+  prefix?: string;
+  suffix?: string;
+}
+
 /** One step of a block's schema history: the stored data of version n, made version n + 1. */
 export type Upcaster = (old: { settings: unknown; content: Partial<Record<Locale, unknown>> }) => { settings: unknown; content: Partial<Record<Locale, unknown>> };
 
@@ -115,8 +125,11 @@ export interface BlockDefinition {
   anchor: "fixed" | "editable" | "none";
   /** Ids the approved component renders besides its anchor (a generic anchor may not repeat them). */
   renderedIds?: readonly string[];
-  /** Renders an id per record of this collection, its slug (`#<machine>`, `#<project>`, `#<document>`): a set anchor may not take one. */
-  recordAnchors?: "machine" | "project" | "certificate";
+  /**
+   * Ids the approved component renders per record of a collection — the slug, or the slug with a prefix or suffix
+   * (`#<machine>`, `#m-<machine>`, `#line-<service>`, `#<service>-title` …): a set anchor may not take one on that page.
+   */
+  recordIds?: readonly RecordIdPattern[];
   /** Anchors of the same page the approved component links to (warned about when they are hidden or missing). */
   linksTo?: readonly string[];
   /** May be kept as a reusable section. */

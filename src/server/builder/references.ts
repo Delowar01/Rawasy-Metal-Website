@@ -8,7 +8,10 @@
  *   share-locked inside the save's transaction (they can't be trashed or archived in the same moment).
  * - Records follow A3's relation rule (`cms/store.ts` `checkTargets`): they exist, and only active ones are added anew
  *   (archived ones may stay where they are); new ones share-locked.
- * - Certificate copy keeps A3's digit guard: no registration or certificate number, no expiry wording.
+ * - Certificate copy keeps A3's digit guard: no registration or certificate number, no expiry wording — in every text of
+ *   both languages and in every value shown as text (a figure), wherever the section shows: on the Certificates page, or
+ *   a certificate block on any page (A5 security review, F1). A reusable section is checked for every page that links
+ *   it; a section's anchor there is checked too (it is part of the page's address).
  *
  * Choosing never approves or publishes anything (A8 refuses non-deliverable references at publication).
  */
@@ -16,14 +19,44 @@ import { sql } from "drizzle-orm";
 import type { Db } from "../db/client.ts";
 import { mediaChoiceProblem, mediaTargetStates, type ContentMediaKind } from "../cms/media-refs.ts";
 import { rowsOf, targetStates } from "../cms/store.ts";
-import { digitGuardProblem } from "../cms/text.ts";
+import { digitGuardProblem, hasRegistrationNumber } from "../cms/text.ts";
 import type { BlockDefinition, OwnerKind } from "./block.ts";
-import { plainTextOf, referencesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type RecordType, type Settings } from "./fields.ts";
+import { plainTextOf, referencesOf, shownValuesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type RecordType, type Settings } from "./fields.ts";
 
 /** Blocks whose texts are certificate copy wherever they appear (A3's guard: no numbers, no expiry wording). */
 const CERTIFICATE_BLOCKS = new Set(["home.compliance", "about.compliance", "generic.certificates"]);
 
-export const isCertificateCopy = (kind: OwnerKind, def: BlockDefinition) => kind === "system:certificates" || CERTIFICATE_BLOCKS.has(def.key);
+/**
+ * Whether a block's texts are certificate copy where it shows: on the Certificates page, or a certificate block on any
+ * page. `kinds`: the owner the section belongs to, or every owner that links a reusable section.
+ */
+export const isCertificateCopy = (kinds: OwnerKind | readonly OwnerKind[], def: BlockDefinition) =>
+  CERTIFICATE_BLOCKS.has(def.key) || (typeof kinds === "string" ? kinds === "system:certificates" : kinds.includes("system:certificates"));
+
+export const CERTIFICATE_ANCHOR = "An anchor on certificate copy can't hold a registration or certificate number (seven or more digits): it is part of the page's address.";
+
+/** A3's digit guard on a section's data: every text of both languages and every value shown as text. */
+export function certificateIssues(def: BlockDefinition, data: SectionData): FieldIssue[] {
+  const issues: FieldIssue[] = [];
+  for (const { path, value } of shownValuesOf(def.settings, data.settings)) {
+    const problem = digitGuardProblem(value);
+    if (problem) issues.push({ path, message: problem });
+  }
+  for (const locale of ["en", "ar"] as const) {
+    const text = plainTextOf(def.content, def.settings, data.content[locale]);
+    for (const line of text.split("\n")) {
+      const problem = line ? digitGuardProblem(line) : null;
+      if (problem) {
+        issues.push({ path: `content.${locale}`, message: problem });
+        break;
+      }
+    }
+  }
+  return issues;
+}
+
+/** Why an anchor can't be used on certificate copy, or null (A3 guards certificate slugs, the page's anchors, alike). */
+export const certificateAnchorProblem = (anchor: string | null) => (anchor && hasRegistrationNumber(anchor) ? CERTIFICATE_ANCHOR : null);
 
 export interface SectionData {
   settings: Settings;
@@ -43,9 +76,10 @@ const RECORD_LABELS: Record<RecordType, string> = {
 
 /**
  * The problems of a section's references, or an empty list. `before`: the same section's references as stored (empty for
- * a new section): what it already named may stay even if it is now archived or trashed.
+ * a new section): what it already named may stay even if it is now archived or trashed. `kinds`: where the section shows
+ * (its owner, or the owners linking a reusable section), for the certificate guard.
  */
-export async function referenceIssues(tx: Db, kind: OwnerKind, def: BlockDefinition, data: SectionData, before: BlockReferences | null): Promise<FieldIssue[]> {
+export async function referenceIssues(tx: Db, kinds: OwnerKind | readonly OwnerKind[], def: BlockDefinition, data: SectionData, before: BlockReferences | null): Promise<FieldIssue[]> {
   const issues: FieldIssue[] = [];
   const refs = referencesOf(def.settings, def.content, data.settings, data.content);
 
@@ -78,19 +112,8 @@ export async function referenceIssues(tx: Db, kind: OwnerKind, def: BlockDefinit
     }
   }
 
-  // Certificate copy: A3's digit guard on every text of both languages.
-  if (isCertificateCopy(kind, def)) {
-    for (const locale of ["en", "ar"] as const) {
-      const text = plainTextOf(def.content, def.settings, data.content[locale]);
-      for (const line of text.split("\n")) {
-        const problem = line ? digitGuardProblem(line) : null;
-        if (problem) {
-          issues.push({ path: `content.${locale}`, message: problem });
-          break;
-        }
-      }
-    }
-  }
+  // Certificate copy: A3's digit guard on every text of both languages and every value shown as text.
+  if (isCertificateCopy(kinds, def)) issues.push(...certificateIssues(def, data));
   return issues;
 }
 

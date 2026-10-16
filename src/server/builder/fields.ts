@@ -117,6 +117,12 @@ export interface ValueField extends Base {
   /** Written left to right in both languages (digits, ids, addresses). */
   ltr?: boolean;
   adminOnly?: boolean;
+  /**
+   * Never shown as text: an id or an address the block builds its player, map or link from (a video id, a map place
+   * link). Every other value a visitor would read (a figure, a phone number, an email address) is part of the section's
+   * public text — certificate copy reads it (`shownValuesOf`).
+   */
+  technical?: boolean;
 }
 /** One A4 media item (its id). */
 export interface MediaField extends Base {
@@ -177,8 +183,12 @@ export const BUILDER_LIMITS = {
   sectionsPerOwner: 60,
   /** The whole layout save, as sent (the action refuses a longer body before parsing it). */
   saveBytes: 900_000,
-  /** Nesting depth of any JSON the builder accepts. */
-  jsonDepth: 12,
+  /**
+   * Nesting depth of any JSON the builder accepts. The deepest valid value is 13 levels: a link's target in a mark of a
+   * text in a list item of a rich-text answer inside a repeated item's texts (content → item map → item → document →
+   * blocks → list → items → list item → inline nodes → text → marks → mark → target); 16 leaves room for that and no more.
+   */
+  jsonDepth: 16,
   itemId: 40,
 } as const;
 
@@ -217,9 +227,11 @@ export function contentFieldSchema(field: ContentField): z.ZodType {
         .transform((lines) => lines.filter((line) => line !== ""))
         .refine((lines) => lines.length <= field.maxItems, { message: `Use at most ${field.maxItems} lines.` })
         .optional()
-        .default([]);
+        .default(() => []);
     case "rich":
-      return richTextSchema(field.limits).optional().default(EMPTY_RICH);
+      return richTextSchema(field.limits)
+        .optional()
+        .default(() => structuredClone(EMPTY_RICH));
   }
 }
 
@@ -247,7 +259,10 @@ function selectionSchema(field: SelectionField) {
     });
 }
 
-/** A settings field's schema (missing → its default). */
+/**
+ * A settings field's schema (missing → its default). Object defaults are built afresh for every parse (a function
+ * default): Zod copies an object default one level deep only, so a nested array would be shared by every parse.
+ */
 export function settingsFieldSchema(field: SettingsField): z.ZodType {
   switch (field.kind) {
     case "enum":
@@ -270,7 +285,9 @@ export function settingsFieldSchema(field: SettingsField): z.ZodType {
     case "media":
       return ulid.nullable().optional().default(null as never);
     case "selection":
-      return selectionSchema(field).optional().default(field.default);
+      return selectionSchema(field)
+        .optional()
+        .default(() => structuredClone(field.default));
     case "link":
       return linkField(field.kinds ?? DEFAULT_LINK_KINDS).optional().default(null as never);
     case "items": {
@@ -285,10 +302,12 @@ export function settingsFieldSchema(field: SettingsField): z.ZodType {
           if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", message: `Two ${field.one}s have the same id.` });
         })
         .optional()
-        .default([]);
+        .default(() => []);
     }
     case "design":
-      return designSchema(field.spec).optional().default(field.default as never);
+      return designSchema(field.spec)
+        .optional()
+        .default(() => structuredClone(field.default) as never);
   }
 }
 
@@ -308,7 +327,7 @@ export function contentSchemaOf(settings: SettingsFields, content: ContentFields
       .record(z.string().regex(ITEM_ID_RE), item)
       .refine((map) => Object.keys(map).length <= field.max, { message: `Use at most ${field.max} ${field.one}s.` })
       .optional()
-      .default({});
+      .default(() => ({}));
   }
   return z.object(shape).strict();
 }
@@ -543,6 +562,26 @@ export function projectSettings(settings: SettingsFields, values: Settings): Set
         Object.fromEntries(Object.entries(item).filter(([k]) => k === "id" || !("adminOnly" in (field.settings[k] ?? {}) && (field.settings[k] as { adminOnly?: boolean }).adminOnly))),
       );
     } else out[key] = values[key];
+  }
+  return out;
+}
+
+// --- Shown values --------------------------------------------------------------------------------------------------------------
+
+/**
+ * Every value a visitor would read as text (A5 security review, F1): the `value` settings — inside repeated items too —
+ * that are neither admin-only (provenance) nor technical (an id or address the block only builds an embed or a link
+ * from). A figure, a phone number or an email address is shown, so certificate copy reads it like the section's texts.
+ */
+export function shownValuesOf(settings: SettingsFields, values: Settings): { path: string; value: string }[] {
+  const out: { path: string; value: string }[] = [];
+  const shown = (field: SettingsField | ItemSettingsField): field is ValueField => field.kind === "value" && !field.adminOnly && !field.technical;
+  for (const [key, field] of Object.entries(settings)) {
+    if (field.kind === "items") {
+      ((values[key] as Record<string, unknown>[] | undefined) ?? []).forEach((item, i) => {
+        for (const [k, sub] of Object.entries(field.settings)) if (shown(sub) && typeof item[k] === "string" && item[k]) out.push({ path: `settings.${key}.${i}.${k}`, value: item[k] as string });
+      });
+    } else if (shown(field) && typeof values[key] === "string" && values[key]) out.push({ path: `settings.${key}`, value: values[key] as string });
   }
   return out;
 }

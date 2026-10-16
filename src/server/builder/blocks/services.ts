@@ -52,6 +52,7 @@ export const SERVICE_BLOCKS: BlockDefinition[] = [
     storable: true,
     upcasters: {},
     structure: FIXED,
+    recordIds: [{ collection: "service" }, { collection: "service", suffix: "-title" }],
     settings: { services: selection("Services", "service", 12, automatic("all", 12)) },
     content: { indexLabel: text("Index name (announced to screen readers)", 120), includesLabel: text("“Includes” label", 60), equipmentLabel: text("“Equipment” label", 60), open: text("Row link text", 60) },
   },

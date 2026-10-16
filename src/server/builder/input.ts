@@ -6,6 +6,7 @@
  * structure lock, block versions and translation statuses are never read from input.
  */
 import { z } from "zod";
+import { plainText } from "../cms/text.ts";
 import { BUILDER_LIMITS } from "./fields.ts";
 import { ANCHOR_MAX, ULID_RE } from "./links.ts";
 
@@ -67,12 +68,11 @@ export const sectionActionSchema = z
   .object({ owner: ownerRefSchema, expectedVersion: z.number().int().min(0).max(2_147_483_647), sectionId: ulid })
   .strict();
 
-export const reusableNameSchema = z
-  .string()
-  .max(480)
-  .transform((v) => v.trim())
-  .refine((v) => v.length > 0, { message: "Give the reusable section a name." })
-  .refine((v) => [...v].length <= 120, { message: "Use at most 120 characters." });
+/**
+ * A reusable section's name: A3's plain text (one line, no markup, no control or direction-override characters — it is
+ * shown in lists, badges and audit summaries), 1 to 120 characters.
+ */
+export const reusableNameSchema = plainText(120).refine((v) => v.length > 0, { message: "Give the reusable section a name." });
 
 /** Parses a JSON body the action received as text, bounded before parsing (never more than the save limit). */
 export function parseBoundedJson(raw: unknown, limit: number = BUILDER_LIMITS.saveBytes): { ok: true; value: unknown } | { ok: false } {

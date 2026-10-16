@@ -120,6 +120,7 @@ export const HOME_BLOCKS: BlockDefinition[] = [
     icon: "machine",
     fixedAnchor: "machinery",
     renderedIds: ["machinery-title"],
+    recordIds: [{ collection: "machine", prefix: "m-" }],
     settings: { machines: selection("Machines", "machine", 12, automatic("all", 6)) },
     content: {
       label: text("Label", 80),

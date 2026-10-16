@@ -7,10 +7,13 @@
  *
  * - Create: `reusable_sections.edit` (Owner, Admin, Editor); a generic block marked reusable, from its defaults.
  * - Edit: `reusable_sections.edit`; strict validation, references (A4 media, A3 records) and language states as for a
- *   page section; an archived one is read-only until restored.
+ *   page section, checked as the copy of every page that links it (a locking read of its links under its own row lock:
+ *   on the Certificates page it keeps A3's digit guard, A5 security review F1); an archived one is read-only until
+ *   restored.
  * - Archive / restore: `reusable_sections.archive` (Owner, Admin). Archive only while no page section links it (decided
- *   on a locking read under the reusable row's lock; a link share-locks that row first, so the two never cross). The
- *   database's RESTRICT foreign key backs it: a linked reusable section can never be removed.
+ *   on a locking read under the reusable row's lock; a link share-locks that row, with locking reads of every column it
+ *   decides on, before it locks the page's sections — so the two never cross, F2). The database's RESTRICT foreign key
+ *   backs it: a linked reusable section can never be removed.
  */
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -27,7 +30,7 @@ import { ULID_RE } from "./links.ts";
 import { referenceIssues } from "./references.ts";
 import { REGISTRY } from "./registry.ts";
 import { readSectionData, type BuilderChange, type SectionIssue } from "./sections.ts";
-import { readReusable, reusableUses, writeReusableTranslations, type OwnerRef, type TranslationWrite } from "./store.ts";
+import { ownerKindsOf, readReusable, reusableUses, writeReusableTranslations, type OwnerRef, type TranslationWrite } from "./store.ts";
 import { planTexts } from "./texts.ts";
 
 export const REUSABLE_STALE = "This reusable section changed after you opened it. Reload and review the latest version before saving.";
@@ -126,7 +129,9 @@ export async function updateReusable(change: BuilderChange, raw: unknown): Promi
     if (!checked.ok) return { kind: "invalid", message: "Some fields need attention. Nothing was saved.", issues: checked.issues.map((i) => ({ path: i.path, message: i.message })) };
     const storedOk = read.state === "ok" ? read : null;
     const before = storedOk ? referencesOf(def.settings, def.content, storedOk.settings, storedOk.content) : null;
-    const refIssues = await referenceIssues(tx, "generic", def, { settings: checked.settings, content: checked.content }, before);
+    // Where its texts show: every page linking it, read with a lock (a new link waits for this edit, or this edit sees it).
+    const uses = await reusableUses(tx, id, { lock: true });
+    const refIssues = await referenceIssues(tx, await ownerKindsOf(tx, uses), def, { settings: checked.settings, content: checked.content }, before);
     const plan = planTexts({
       def,
       settings: checked.settings,
@@ -151,7 +156,6 @@ export async function updateReusable(change: BuilderChange, raw: unknown): Promi
       .where(eq(reusableSections.id, id));
     await writeReusableTranslations(tx, id, plan.rows as Record<Locale, TranslationWrite | null>, actor.user.id, now);
     const parts = [renamed && "name", settingsChanged && "settings", plan.changed.en && "English", plan.changed.ar && "Arabic"].filter(Boolean);
-    const uses = await reusableUses(tx, id);
     await audit(tx, change, now, {
       action: "reusable_section.update",
       id,
@@ -174,7 +178,10 @@ export async function setReusableArchived(change: BuilderChange, raw: { id: unkn
     const stored = await readReusable(tx, id, { lock: "update" });
     if (!stored) return { kind: "not_found" };
     if (!actor.permissions.has("reusable_sections.archive")) return refuse(tx, change, now, action, id, "Archiving and restoring reusable sections needs a permission you don't hold.");
-    if (stored.lockVersion !== expectedVersion) return { kind: "stale" };
+    if (stored.lockVersion !== expectedVersion) {
+      await audit(tx, change, now, { action, id, label: stored.name, outcome: "failed", summary: `Refused: the reusable section changed after it was opened (version ${expectedVersion}, now ${stored.lockVersion}).` });
+      return { kind: "stale" };
+    }
     if (stored.archived === raw.archived) return { kind: "ok", id, lockVersion: stored.lockVersion, summary: raw.archived ? "It was already archived." : "It was already restored." };
     if (raw.archived) {
       const uses = await reusableUses(tx, id, { lock: true });
