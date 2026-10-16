@@ -1,4 +1,5 @@
 import { getShellView } from "@/components/commerce/data";
+import { ProjectFilterProvider } from "@/components/commerce/projects/Gallery";
 import { PageShell } from "@/components/commerce/shell/PageShell";
 import type { RouteKey } from "@/i18n/routes";
 import type { PreviewMapEntry } from "@/server/admin/actions/preview-protocol";
@@ -26,6 +27,9 @@ const ROUTE_OF: Partial<Record<string, RouteKey>> = {
   "system:contact": "contact",
   "legal:privacy": "privacy",
   "legal:terms": "terms",
+  service: "service",
+  "template:service_detail_default": "service",
+  "template:project_detail": "project",
 };
 
 /** A bespoke block's own notes (records left out, photos stood in for); a block whose notes fail to work out says so. */
@@ -58,6 +62,7 @@ export async function PreviewCanvas({ model, frame }: { model: PreviewModel; fra
     records: model.records,
     media: model.media,
     service: model.service,
+    project: model.sample?.type === "project" ? (model.records.projects.find((p) => p.id === model.sample?.id) ?? null) : null,
     page: model.page,
     shell,
     hrefOf: routeHref,
@@ -86,7 +91,7 @@ export async function PreviewCanvas({ model, frame }: { model: PreviewModel; fra
       linked: section.linked,
     };
   });
-  const sections = (
+  const drawn = (
     <>
       {runs(placed).map((run) =>
         run.group ? (
@@ -104,6 +109,8 @@ export async function PreviewCanvas({ model, frame }: { model: PreviewModel; fra
       )}
     </>
   );
+  // The Projects overview's opening (its quick toggles) and gallery share one choice, as today's page does.
+  const sections = model.ownerKind === "system:projects" ? <ProjectFilterProvider>{drawn}</ProjectFilterProvider> : drawn;
   if (model.kind === "reusable") {
     return (
       <>

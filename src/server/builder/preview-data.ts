@@ -70,8 +70,13 @@ export interface PreviewService extends Base {
 export interface PreviewProject extends Base {
   ref: string | null;
   featured: boolean;
+  year: number | null;
+  /** The client record named as the project's client (A3), if any. */
+  client: string | null;
   title: Loc<string>;
   summary: Loc<string>;
+  /** The confirmed details a record may hold (none does today): only those it holds are ever shown. */
+  details: { clientName: Loc<string>; location: Loc<string>; materials: Loc<string>; scope: Loc<string>; description: Loc<string[]>; challenge: Loc<string>; solution: Loc<string> };
   categories: string[];
   services: string[];
   media: string[];
@@ -81,6 +86,8 @@ export interface PreviewProject extends Base {
 
 export interface PreviewMachine extends Base {
   powerWatts: number | null;
+  /** The company profile's pages the record cites ("7"), as stored. */
+  sourcePages: string | null;
   service: string | null;
   media: string | null;
   name: Loc<string>;
@@ -202,12 +209,12 @@ export async function loadPreviewRecords(db: Db): Promise<PreviewRecords> {
     };
   });
 
-  const projectTexts = await texts(db, "project_translations", "project_id", ["title", "summary"]);
+  const projectTexts = await texts(db, "project_translations", "project_id", ["title", "summary", "scope", "description", "materials", "location", "client_name", "challenge", "solution"]);
   const categoriesOf = await relation(db, "project_category_assignments", "project_id", "category_id");
   const servicesOf = await relation(db, "project_services", "project_id", "service_id");
   const mediaOf = await relation(db, "project_media", "project_id", "media_id");
   const flags = await rowsOf<Row>(db, sql`SELECT project_id, flag FROM project_flags`);
-  const projects = (await rowsOf<Row>(db, ordered("projects", "projects", "r.gallery_ref, r.is_featured"))).map((r): PreviewProject => {
+  const projects = (await rowsOf<Row>(db, ordered("projects", "projects", "r.gallery_ref, r.is_featured, r.year, r.client_id"))).map((r): PreviewProject => {
     const t = projectTexts.get(String(r.id));
     return {
       id: String(r.id),
@@ -215,8 +222,19 @@ export async function loadPreviewRecords(db: Db): Promise<PreviewRecords> {
       archived: Boolean(Number(r.archived)),
       ref: (r.gallery_ref as string | null) ?? null,
       featured: Boolean(Number(r.is_featured)),
+      year: r.year === null || r.year === undefined ? null : Number(r.year),
+      client: (r.client_id as string | null) ?? null,
       title: loc(t, "title", String),
       summary: loc(t, "summary", String),
+      details: {
+        clientName: loc(t, "client_name", String),
+        location: loc(t, "location", String),
+        materials: loc(t, "materials", String),
+        scope: loc(t, "scope", String),
+        description: loc(t, "description", (v) => paragraphsOf(parseJson(v))),
+        challenge: loc(t, "challenge", String),
+        solution: loc(t, "solution", String),
+      },
       categories: categoriesOf.get(String(r.id)) ?? [],
       services: servicesOf.get(String(r.id)) ?? [],
       media: mediaOf.get(String(r.id)) ?? [],
@@ -225,13 +243,14 @@ export async function loadPreviewRecords(db: Db): Promise<PreviewRecords> {
   });
 
   const machineTexts = await texts(db, "machine_translations", "machine_id", ["name", "short_name", "category", "capability"]);
-  const machines = (await rowsOf<Row>(db, ordered("machines", "machines", "r.power_watts, r.primary_service_id, r.media_id"))).map((r): PreviewMachine => {
+  const machines = (await rowsOf<Row>(db, ordered("machines", "machines", "r.power_watts, r.primary_service_id, r.media_id, r.source_pages"))).map((r): PreviewMachine => {
     const t = machineTexts.get(String(r.id));
     return {
       id: String(r.id),
       slug: String(r.slug),
       archived: Boolean(Number(r.archived)),
       powerWatts: r.power_watts === null || r.power_watts === undefined ? null : Number(r.power_watts),
+      sourcePages: (r.source_pages as string | null) ?? null,
       service: (r.primary_service_id as string | null) ?? null,
       media: (r.media_id as string | null) ?? null,
       name: loc(t, "name", String),

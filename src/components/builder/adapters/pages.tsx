@@ -1,3 +1,6 @@
+import { AboutHeroAside } from "@/components/commerce/about/AboutPage";
+import { CapabilitiesActions, capabilityFacts } from "@/components/commerce/capabilities/CapabilitiesPage";
+import { FleetPlate } from "@/components/commerce/capabilities/FleetPlate";
 import { CertificateDocuments, CertificateTable, RedactionNote } from "@/components/commerce/certificates/CertificatesPage";
 import { ClientsWall } from "@/components/commerce/clients/ClientsPage";
 import { ContactActions, contactRows, DirectContact, QuoteSection } from "@/components/commerce/contact/ContactPage";
@@ -6,14 +9,17 @@ import { quoteFormText } from "@/components/commerce/contact/quote-text";
 import { IndustryStrip, SectorsSection } from "@/components/commerce/industries/IndustriesPage";
 import { ClosingCta } from "@/components/commerce/inner/ClosingCta";
 import { PendingNote } from "@/components/commerce/inner/Document";
+import { NotFoundPanel } from "@/components/commerce/inner/NotFound";
 import { PageHero } from "@/components/commerce/inner/PageHero";
 import { LegalBand, LegalContact, legalDate } from "@/components/commerce/legal/LegalPage";
+import { QuickFilter } from "@/components/commerce/projects/Gallery";
+import { Collage } from "@/components/commerce/projects/ProjectsPage";
 import { ServicesIndex, ServiceTiles } from "@/components/commerce/services/ServicesPage";
 import type { ServiceRowView } from "@/components/commerce/services/ServiceRow";
 import { industryIcon, industryTone, serviceTone } from "@/components/commerce/tones";
 import type { CommerceImage, Tone } from "@/components/commerce/types";
 import { serviceIcon } from "@/components/commerce/ui";
-import { getContactContent, getServices } from "@/content/repository";
+import { getCompany, getContactContent, getServices } from "@/content/repository";
 import type { ServiceSlug } from "@/content/types";
 import { getDictionary } from "@/i18n/dictionaries";
 import { breadcrumbTrail, type InnerRoute } from "@/lib/inner-page";
@@ -27,7 +33,9 @@ import type { BlockProps, BlockSection, RenderContext } from "../context";
 import { PreviewNote } from "../frame";
 import { InvalidSection } from "../Placeholder";
 import { RichText } from "../RichText";
+import { machineFacts, machineNotes, machinesOf } from "./capabilities";
 import { commerceImage, imageProblem, placeholderImage } from "./images";
+import { filterOptionsOf, projectNotes, projectView, showcasedProjects } from "./projects";
 
 /*
  * The inner pages' blocks (A5 brief §11, §41): the kit's page opening in each page's own composition, the closing call
@@ -79,7 +87,7 @@ function factsOf(section: BlockSection) {
     .filter((fact) => fact.label || fact.value);
 }
 
-function PageOpening({ section, ctx }: BlockProps) {
+async function PageOpening({ section, ctx }: BlockProps) {
   const route = ctx.ownerKind ? ROUTE[ctx.ownerKind] : undefined;
   if (!route) return <InvalidSection id={section.id} label="Page opening" problem="this opening belongs to one of the site's own pages." />;
   const { locale } = ctx;
@@ -196,9 +204,73 @@ function PageOpening({ section, ctx }: BlockProps) {
       );
     }
 
+    case "about": {
+      // The registered names are the company's current ones (read-only until Site settings, A6).
+      const company = await getCompany();
+      return (
+        <PageHero
+          layout="split"
+          {...base}
+          tone="steel"
+          facts={factsOf(section)}
+          aside={
+            <AboutHeroAside
+              image={commerceImage(section.settings.media as string | undefined, ctx, textOf(c, "photoAlt"))}
+              caption={textOf(c, "caption")}
+              nameplate={textOf(c, "nameplate")}
+              legalName={{ en: company.legalName.en, ar: company.legalName.ar }}
+            />
+          }
+        />
+      );
+    }
+
+    case "capabilities": {
+      const unit = textOf(c, "powerUnit");
+      const machines = machinesOf(section, ctx, { unit });
+      return (
+        <PageHero
+          layout="split"
+          tone="steel"
+          {...base}
+          facts={capabilityFacts(machineFacts(machines, unit), { machines: textOf(c, "factMachines"), laser: textOf(c, "factLaser"), peak: textOf(c, "factPeak") })}
+          actions={<CapabilitiesActions explore={textOf(c, "explore")} quote={ctx.hrefOf(locale, "contact", { hash: "quote" })} quoteLabel={textOf(c, "quote")} />}
+          aside={<FleetPlate machines={machines} label={textOf(c, "fleet")} />}
+        />
+      );
+    }
+
+    case "projects": {
+      const shown = showcasedProjects(ctx).map((p) => projectView(p, ctx));
+      const { items: prints } = resolveSelection("project", section.settings.prints as SelectionValue | undefined, ctx.records);
+      return (
+        <PageHero
+          layout="split"
+          {...base}
+          tone="brass"
+          facts={factsOf(section)}
+          actions={<QuickFilter label={textOf(c, "quickFilter")} options={filterOptionsOf(shown, ctx)} allLabel={textOf(c, "allLabel")} />}
+          aside={<Collage items={prints.slice(0, 3).map((p) => projectView(p, ctx))} refLabel={textOf(c, "refLabel")} />}
+        />
+      );
+    }
+
     default:
       return <PageHero layout="split" {...base} facts={factsOf(section)} />;
   }
+}
+
+// --- The 404 ---------------------------------------------------------------------------------------------------------------
+
+function NotFoundBlock({ section, ctx }: BlockProps) {
+  const c = section.content;
+  return (
+    <NotFoundPanel
+      text={{ code: textOf(c, "code"), note: textOf(c, "note"), title: textOf(c, "title"), body: textOf(c, "body"), home: textOf(c, "home"), contact: textOf(c, "contact") }}
+      homeHref={ctx.hrefOf(ctx.locale, "home")}
+      contactHref={ctx.hrefOf(ctx.locale, "contact")}
+    />
+  );
 }
 
 // --- The closing call to action --------------------------------------------------------------------------------------
@@ -258,7 +330,8 @@ function ServicesIndexBlock({ section, ctx }: BlockProps) {
 
 // --- Clients -------------------------------------------------------------------------------------------------------------------
 
-function clientLogos(section: BlockSection, ctx: RenderContext, notes: string[]) {
+/** The chosen clients whose logo may be shown (the others are left out, each with a note). */
+export function clientLogos(section: BlockSection, ctx: RenderContext, notes: string[]) {
   const { items } = resolveSelection("client", section.settings.clients as SelectionValue | undefined, ctx.records);
   return items.flatMap((record) => {
     const problem = imageProblem(record.logo, ctx);
@@ -446,6 +519,7 @@ export const PAGE_RENDERERS = {
   "contact.location": LocationBlock,
   "legal.contents": ({ section, ctx }: BlockProps) => <LegalBandBlocks contents={section.content} items={[]} ctx={ctx} />,
   "legal.section": ({ section, ctx }: BlockProps) => <LegalBandBlocks contents={null} items={[section]} ctx={ctx} />,
+  "not_found.view": NotFoundBlock,
 } as const;
 
 export const PAGE_GROUPS = {
@@ -490,6 +564,11 @@ export const PAGE_NOTES = {
   },
   "page.hero": ({ section, ctx }: BlockProps) => {
     if (section.settings.variant === "legal" && !ctx.page?.effectiveDate) return ["The page record has no effective date yet."];
+    if (section.settings.variant === "capabilities") return machineNotes(section, ctx, false);
+    if (section.settings.variant === "projects") {
+      const { items } = resolveSelection("project", section.settings.prints as SelectionValue | undefined, ctx.records);
+      return projectNotes(items, ctx);
+    }
     if (section.settings.variant === "industries") {
       const { items } = resolveSelection("industry", section.settings.strip as SelectionValue | undefined, ctx.records);
       return items.flatMap((i) => (imageProblem(i.media, ctx) ? [`The sector “${label(i.name, i.slug)}”: its strip photo is shown as a placeholder (${imageProblem(i.media, ctx)}).`] : []));

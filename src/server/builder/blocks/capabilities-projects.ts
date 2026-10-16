@@ -21,6 +21,8 @@ const base = {
 
 const head = () => ({ label: text("Label", 80), title: text("Title", 200), intro: textarea("Introduction", 600) });
 const machines = () => selection("Machines", "machine", 12, automatic("all", 12));
+// A power unit is short ("W", "واط"): the fleet plate and the selector set each figure on one line, so a long unit would
+// push them past a 320 px screen.
 
 export const CAPABILITIES_BLOCKS: BlockDefinition[] = [
   {
@@ -34,7 +36,7 @@ export const CAPABILITIES_BLOCKS: BlockDefinition[] = [
     fixedAnchor: "power",
     renderedIds: ["power-title"],
     settings: { machines: machines() },
-    content: { ...head(), chart: text("Chart caption", 200), notStated: text("“Not stated” text", 120), unit: text("Power unit", 20) },
+    content: { ...head(), chart: text("Chart caption", 200), notStated: text("“Not stated” text", 120), unit: text("Power unit", 10) },
   },
   {
     ...base,
@@ -62,7 +64,7 @@ export const CAPABILITIES_BLOCKS: BlockDefinition[] = [
       quote: text("Quote action text", 60),
       serviceLink: text("Service link text ({service} = the service's name)", 120),
       sourceLine: text("Source line (e.g. Company profile · p.{n})", 120),
-      unit: text("Power unit", 20),
+      unit: text("Power unit", 10),
     },
   },
   {
@@ -87,7 +89,7 @@ export const CAPABILITIES_BLOCKS: BlockDefinition[] = [
       source: text("Column: source", 60),
       notStated: text("“Not stated” text", 120),
       sourceLine: text("Source line (e.g. Company profile · p.{n})", 120),
-      unit: text("Power unit", 20),
+      unit: text("Power unit", 10),
     },
   },
   {

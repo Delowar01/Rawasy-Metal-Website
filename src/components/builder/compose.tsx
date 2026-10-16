@@ -26,8 +26,21 @@ export interface Placed {
 
 /** The kinds of numbered sections: a service page's sections, the About parts, the legal sections. */
 const SERVICE_NUMBERED = new Set(["service.overview", "service.scope", "service.process", "service.machines", "service.applications", "service.gallery", "service.why", "service.related", "service.projects"]);
+/** The Projects overview numbers its highlights, gallery and index (01–03); the featured project carries no number. */
+const PROJECTS_NUMBERED = new Set(["projects.highlights", "projects.gallery", "projects.index"]);
 const family = (blockType: string): string | null =>
-  SERVICE_NUMBERED.has(blockType) ? "service" : blockType.startsWith("about.") ? "about" : blockType === "legal.section" ? "legal" : null;
+  SERVICE_NUMBERED.has(blockType)
+    ? "service"
+    : PROJECTS_NUMBERED.has(blockType)
+      ? "projects"
+      : blockType.startsWith("about.")
+        ? "about"
+        : blockType === "legal.section"
+          ? "legal"
+          : null;
+
+/** The page openings whose texts other sections of the page may need (`LayoutFacts.opening`). */
+const OPENINGS = new Set(["page.hero", "service.hero", "project.hero"]);
 
 const TONES: ReadonlySet<string> = new Set(["brand", "steel", "teal", "brass"]);
 
@@ -50,7 +63,8 @@ export function compose(sections: PreviewSection[], base: Omit<RenderContext, "l
   const chosen = hero?.settings.tone;
   const fallback = base.service ? (SERVICE_TONES as Record<string, Tone>)[base.service.slug] : undefined;
   const serviceTone: Tone | null = typeof chosen === "string" && TONES.has(chosen) ? (chosen as Tone) : base.service ? (fallback ?? "steel") : null;
-  const provisional: RenderContext = { ...base, layout: { present: new Set(), serviceTone } };
+  const opening = sections.find((s) => OPENINGS.has(s.blockType) && s.state === "ok")?.content ?? null;
+  const provisional: RenderContext = { ...base, layout: { present: new Set(), serviceTone, opening } };
   const counters = new Map<string, number>();
   const present = new Set<string>();
   const placed = sections.map((section): Placed => {
@@ -72,7 +86,7 @@ export function compose(sections: PreviewSection[], base: Omit<RenderContext, "l
     if (section.state === "ok" && !absent) present.add(section.blockType);
     return { section, absent, ordinal };
   });
-  return { placed, layout: { present, serviceTone } };
+  return { placed, layout: { present, serviceTone, opening } };
 }
 
 /** Sections that share one approved frame when they follow each other. */

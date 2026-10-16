@@ -10,7 +10,7 @@ import type { Tone } from "@/components/commerce/types";
 import { href } from "@/i18n/routes";
 import type { OwnerKind } from "@/server/builder/block";
 import type { Content, Locale, Settings } from "@/server/builder/fields";
-import type { PreviewMedia, PreviewRecords, PreviewService } from "@/server/builder/preview-data";
+import type { PreviewMedia, PreviewProject, PreviewRecords, PreviewService } from "@/server/builder/preview-data";
 import type { PreviewKind } from "@/server/builder/preview";
 import type { RouteHref } from "@/server/builder/view";
 
@@ -24,6 +24,8 @@ export interface RenderContext {
   records: PreviewRecords;
   media: ReadonlyMap<string, PreviewMedia>;
   service: PreviewService | null;
+  /** The project a project page template is shown with (the first in the collection with photos), or null. */
+  project: PreviewProject | null;
   page: { systemKey: string | null; effectiveDate: string | null } | null;
   shell: ShellView;
   hrefOf: RouteHref;
@@ -33,12 +35,14 @@ export interface RenderContext {
 
 /**
  * Facts about the whole layout a block may need: which block types the page shows (a service opening's "See the work"
- * goes to the gallery or the projects only where the page has them), and a service page's colour role, set on its
- * opening (every section of the page takes it, as today's pages take their service's).
+ * goes to the gallery or the projects only where the page has them), a service page's colour role, set on its opening
+ * (every section of the page takes it, as today's pages take their service's), and the opening's texts (a project page's
+ * photographs take their alt text rule from its opening, as today's page takes one rule for all its photos).
  */
 export interface LayoutFacts {
   present: ReadonlySet<string>;
   serviceTone: Tone | null;
+  opening: Content | null;
 }
 
 export interface BlockSection {

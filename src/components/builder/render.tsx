@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
+import { ABOUT_ABSENT, ABOUT_NOTES, ABOUT_RENDERERS } from "./adapters/about";
+import { CAPABILITIES_ABSENT, CAPABILITIES_NOTES, CAPABILITIES_RENDERERS } from "./adapters/capabilities";
 import { HOME_NOTES, HOME_RENDERERS } from "./adapters/home";
 import { PAGE_GROUPS, PAGE_NOTES, PAGE_RENDERERS, PAGE_SELECTORS } from "./adapters/pages";
+import { PROJECTS_ABSENT, PROJECTS_NOTES, PROJECTS_RENDERERS } from "./adapters/projects";
 import { SERVICE_ABSENT, SERVICE_NOTES, SERVICE_RENDERERS } from "./adapters/service";
 import type { BlockProps, RenderContext } from "./context";
 import { GenericContactDetails, GenericQuoteForm } from "./generic/contact";
@@ -27,42 +30,14 @@ import { SectionBoundary } from "./SectionBoundary";
 
 type Renderer = (props: BlockProps) => ReactNode | Promise<ReactNode>;
 
-/** Until a block's adapter is written: an admin-only note in its place. */
-function Pending({ section }: BlockProps) {
-  return <InvalidSection id={section.id} label={section.blockType} problem="This block's preview is not available yet." />;
-}
-
 /** The renderer of every storable block (keys.ts): a missing one fails the typecheck. */
 export const RENDERERS: Record<RenderedBlock, Renderer> = {
   ...HOME_RENDERERS,
-  "about.overview": Pending,
-  "about.what": Pending,
-  "about.metal": Pending,
-  "about.beyond": Pending,
-  "about.vision": Pending,
-  "about.approach": Pending,
-  "about.process": Pending,
-  "about.why": Pending,
-  "about.workshop": Pending,
-  "about.machinery": Pending,
-  "about.work": Pending,
-  "about.clients": Pending,
-  "about.compliance": Pending,
+  ...ABOUT_RENDERERS,
   ...SERVICE_RENDERERS,
   ...PAGE_RENDERERS,
-  "capabilities.power": Pending,
-  "capabilities.console": Pending,
-  "capabilities.register": Pending,
-  "capabilities.service_lines": Pending,
-  "capabilities.source": Pending,
-  "projects.featured": Pending,
-  "projects.highlights": Pending,
-  "projects.gallery": Pending,
-  "projects.index": Pending,
-  "project.hero": Pending,
-  "project.photos": Pending,
-  "project.details": Pending,
-  "not_found.view": Pending,
+  ...CAPABILITIES_RENDERERS,
+  ...PROJECTS_RENDERERS,
   "generic.hero": GenericHero,
   "generic.heading": GenericHeading,
   "generic.rich_text": GenericRichText,
@@ -95,13 +70,19 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
 /** What a bespoke block's preview leaves out or stands in for, beyond what its declared fields tell (`sectionNotes`). */
 export const BLOCK_NOTES: Partial<Record<RenderedBlock, (props: BlockProps) => string[]>> = {
   ...HOME_NOTES,
+  ...ABOUT_NOTES,
   ...SERVICE_NOTES,
   ...PAGE_NOTES,
+  ...CAPABILITIES_NOTES,
+  ...PROJECTS_NOTES,
 };
 
 /** Blocks that show nothing where their content is missing (as today's pages leave such a section out): the reason. */
 export const BLOCK_ABSENT: Partial<Record<RenderedBlock, Presence>> = {
+  ...ABOUT_ABSENT,
   ...SERVICE_ABSENT,
+  ...CAPABILITIES_ABSENT,
+  ...PROJECTS_ABSENT,
 };
 
 /**

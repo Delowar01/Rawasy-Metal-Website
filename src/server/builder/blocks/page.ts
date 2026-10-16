@@ -77,7 +77,7 @@ export const PAGE_BLOCKS: BlockDefinition[] = [
       factMachines: text("Fact label: machines", 80, only("capabilities")),
       factLaser: text("Fact label: laser cutting systems", 80, only("capabilities")),
       factPeak: text("Fact label: peak power", 80, only("capabilities")),
-      powerUnit: text("Power unit", 20, only("capabilities")),
+      powerUnit: text("Power unit", 10, only("capabilities")),
       quickFilter: text("Quick filter label", 120, only("projects")),
       allLabel: text("“All” filter text", 60, only("projects")),
       refLabel: text("Reference label", 40, only("projects")),
