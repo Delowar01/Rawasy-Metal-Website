@@ -1484,3 +1484,391 @@ body.adm {
     border: 1px solid CanvasText;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* Media library (Phase A4)                                                                                           */
+
+.adm-badge.is-info {
+  color: var(--adm-info);
+  background: var(--adm-info-bg);
+  border-color: currentColor;
+}
+
+/* Thumbnails: admin previews only; never wider than their box, never stretched. */
+.adm-media-thumb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--adm-border);
+  border-radius: 6px;
+  background: var(--adm-surface-2);
+  object-fit: contain;
+  color: var(--adm-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  overflow: hidden;
+}
+
+.adm-media-thumb.is-sm {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.adm-media-thumb.is-md {
+  width: 100%;
+  max-width: 9rem;
+  height: 6.5rem;
+}
+
+.adm-media-thumb.is-lg {
+  width: 100%;
+  height: 9rem;
+}
+
+.adm-media-summary {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.adm-media-summary-text {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-media-warning {
+  color: var(--adm-warning);
+}
+
+.adm-media-slot,
+.adm-media-list {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.adm-media-slot + .adm-media-slot,
+.adm-media-slot + .adm-media-list,
+.adm-media-list + .adm-media-list,
+.adm-media-list + .adm-media-slot {
+  margin-top: 1rem;
+}
+
+.adm-media-chosen:focus {
+  outline: none;
+}
+
+.adm-media-entry {
+  align-items: flex-start;
+}
+
+.adm-media-locale {
+  flex: 0 1 12rem;
+  min-width: 0;
+}
+
+/* The picker: a wider dialog with a grid of choices (each one button). */
+.adm-dialog.adm-picker {
+  width: min(56rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1rem;
+}
+
+.adm-picker-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.adm-picker-head h2 {
+  margin: 0;
+}
+
+.adm-picker-search {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.adm-picker-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+}
+
+.adm-pick {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+  width: 100%;
+  height: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.adm-pick:hover {
+  border-color: var(--adm-border-strong);
+  background: var(--adm-surface-2);
+}
+
+.adm-pick .adm-media-thumb.is-md {
+  max-width: none;
+}
+
+.adm-pick-text {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-pick-label {
+  font-weight: 600;
+}
+
+.adm-picker-upload {
+  border-top: 1px solid var(--adm-border);
+  padding-top: 1rem;
+}
+
+/* Uploads */
+.adm-uploader {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.adm-input.adm-file {
+  padding: 0.45rem;
+  max-width: 100%;
+}
+
+.adm-progress {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--adm-primary);
+}
+
+/* A service's gallery: one language's caption and alt text per column. */
+.adm-gallery-locale {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+  min-width: 0;
+}
+
+/* The library */
+.adm-media-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+}
+
+.adm-media-tile {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+  padding: 0.75rem;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface);
+  min-width: 0;
+}
+
+.adm-media-tile-text {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-media-tile-title {
+  font-weight: 600;
+}
+
+/* One item */
+.adm-media-overview {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  align-items: start;
+  container-type: inline-size;
+}
+
+.adm-media-preview-box {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.adm-media-preview {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface-2);
+}
+
+.adm-media-hidden {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px dashed var(--adm-border-strong);
+  border-radius: 8px;
+  background: var(--adm-surface-2);
+}
+
+.adm-media-hidden p {
+  margin: 0;
+}
+
+/* The focal point: a click on the preview or the two sliders; the mark is SVG (no inline styles under the CSP). */
+.adm-focal {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.adm-focal-box {
+  position: relative;
+  justify-self: start;
+  max-width: min(100%, 28rem);
+  cursor: crosshair;
+  line-height: 0;
+}
+
+.adm-focal-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.adm-focal-mark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.adm-focal-mark circle {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.adm-focal-mark circle + circle {
+  fill: var(--adm-primary);
+  stroke-width: 1.5;
+}
+
+.adm-focal input[type="range"] {
+  width: 100%;
+  max-width: 28rem;
+  accent-color: var(--adm-primary);
+}
+
+.adm-versions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Folders */
+.adm-folders {
+  display: grid;
+  gap: 1rem;
+}
+
+.adm-folder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.adm-folder {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface);
+  min-width: 0;
+}
+
+.adm-folder.is-depth-1 {
+  margin-inline-start: 1rem;
+}
+
+.adm-folder.is-depth-2 {
+  margin-inline-start: 2rem;
+}
+
+.adm-folder.is-depth-3,
+.adm-folder.is-depth-4,
+.adm-folder.is-depth-5 {
+  margin-inline-start: 2.5rem;
+}
+
+.adm-folder-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-folder-tools {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+@media (max-width: 30rem) {
+  .adm-folder.is-depth-1,
+  .adm-folder.is-depth-2,
+  .adm-folder.is-depth-3,
+  .adm-folder.is-depth-4,
+  .adm-folder.is-depth-5 {
+    margin-inline-start: 0.5rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .adm-pick,
+  .adm-media-tile,
+  .adm-folder,
+  .adm-media-thumb {
+    border: 1px solid CanvasText;
+  }
+
+  .adm-focal-mark circle {
+    stroke: Highlight;
+  }
+
+  .adm-focal-mark circle + circle {
+    fill: Highlight;
+  }
+}

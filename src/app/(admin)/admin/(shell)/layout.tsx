@@ -26,6 +26,8 @@ const ICONS = {
   industries: "M3 20h18M5 20V9l5 3V9l5 3V5h4v15",
   clients: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M16 8h5M16 12h5M17 16h4",
   certificates: "M5 3h14v12H5zM9 7h6M9 10h4M10 15l-1 6 3-2 3 2-1-6",
+  media: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9.5a1.5 1.5 0 1 0 0-.01",
+  folders: "M3 6h6l2 2h10v11H3zM3 10h18",
 };
 
 /** The Core CMS areas (A3), in the brief's order. */
@@ -57,6 +59,19 @@ function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {
               {area.label}
             </NavLink>
           ))}
+        </div>
+      ) : null}
+      {permissions.has("media.view") ? (
+        <div className="adm-nav-group">
+          <p className="adm-nav-title">Media</p>
+          <NavLink href="/admin/media" exact>
+            <Icon d={ICONS.media} />
+            Media library
+          </NavLink>
+          <NavLink href="/admin/media/folders">
+            <Icon d={ICONS.folders} />
+            Folders
+          </NavLink>
         </div>
       ) : null}
       {permissions.has("users.view") ? (

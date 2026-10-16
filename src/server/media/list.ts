@@ -113,6 +113,8 @@ export interface LibraryRow {
   mime: string | null;
   storageArea: "release" | "originals" | "private" | null;
   processing: "uploaded" | "processing" | "ready" | "failed" | null;
+  /** The current (ready) file; null while the first upload is processing, or after it failed. */
+  currentFileId: string | null;
   flags: string[];
   blocking: boolean;
   createdAt: Date | null;
@@ -141,21 +143,29 @@ function conditions(query: LibraryQuery, permissions: ReadonlySet<string>): SQL[
   if (query.missingAlt) where.push(sql`a.kind = 'image' AND (te.alt_text IS NULL OR ta.alt_text IS NULL)`);
   if (query.unused) where.push(sql`NOT ${usedSql(sql`a.id`)}`);
   if (query.uploader) where.push(sql`a.created_by = ${query.uploader}`);
-  const q = normalizeForSearch(query.q);
-  if (q) {
-    const pattern = likePattern(q);
-    const raw = likePattern(query.q.toLowerCase());
-    const words: SQL[] = [
-      sql`EXISTS (SELECT 1 FROM search_documents s WHERE s.entity_type = 'media' AND s.entity_id = a.id AND s.scope = 'working' AND (s.title LIKE ${pattern} OR s.body LIKE ${pattern}))`,
-      sql`mf.name LIKE ${raw}`,
-    ];
-    const flags = MEDIA_FLAG_KEYS.filter((k) => k.includes(q.replace(/\s+/g, "_")) || mediaFlagLabel(k).toLowerCase().includes(q));
-    if (flags.length) words.push(sql`EXISTS (SELECT 1 FROM media_flags x WHERE x.media_id = a.id AND x.flag IN (${sql.join(flags.map((k) => sql`${k}`), sql`, `)}))`);
-    const statuses = STATUSES.filter((s) => s.includes(q.replace(/\s+/g, "_")) || USAGE_STATUS_LABELS[s].toLowerCase().includes(q));
-    if (statuses.length) words.push(sql`a.usage_status IN (${sql.join(statuses.map((s) => sql`${s}`), sql`, `)})`);
-    where.push(sql`(${sql.join(words, sql` OR `)})`);
-  }
+  const search = searchCondition(query.q);
+  if (search) where.push(search);
   return where;
+}
+
+/**
+ * The search part of a query: the item's search rows (titles, alt texts, captions, file names and legacy key, both
+ * languages, Arabic-normalized), its folder's name, and flag or status names typed as words. Null for an empty query.
+ */
+function searchCondition(text: string): SQL | null {
+  const q = normalizeForSearch(text);
+  if (!q) return null;
+  const pattern = likePattern(q);
+  const raw = likePattern(text.toLowerCase());
+  const words: SQL[] = [
+    sql`EXISTS (SELECT 1 FROM search_documents s WHERE s.entity_type = 'media' AND s.entity_id = a.id AND s.scope = 'working' AND (s.title LIKE ${pattern} OR s.body LIKE ${pattern}))`,
+    sql`mf.name LIKE ${raw}`,
+  ];
+  const flags = MEDIA_FLAG_KEYS.filter((k) => k.includes(q.replace(/\s+/g, "_")) || mediaFlagLabel(k).toLowerCase().includes(q));
+  if (flags.length) words.push(sql`EXISTS (SELECT 1 FROM media_flags x WHERE x.media_id = a.id AND x.flag IN (${sql.join(flags.map((k) => sql`${k}`), sql`, `)}))`);
+  const statuses = STATUSES.filter((s) => s.includes(q.replace(/\s+/g, "_")) || USAGE_STATUS_LABELS[s].toLowerCase().includes(q));
+  if (statuses.length) words.push(sql`a.usage_status IN (${sql.join(statuses.map((s) => sql`${s}`), sql`, `)})`);
+  return sql`(${sql.join(words, sql` OR `)})`;
 }
 
 const FROM = sql`FROM media_assets a
@@ -164,6 +174,12 @@ const FROM = sql`FROM media_assets a
   LEFT JOIN media_translations ta ON ta.media_id = a.id AND ta.locale = 'ar'
   LEFT JOIN media_folders mf ON mf.id = a.folder_id
   LEFT JOIN users u ON u.id = a.created_by`;
+
+const COLUMNS = sql`a.id, a.kind, a.visibility, a.usage_status, a.legacy_key, a.folder_id, a.created_at, a.deleted_at, a.current_file_id,
+          f.original_filename, f.width, f.height, f.byte_size, f.mime_type, f.storage_area, f.processing_status,
+          te.title AS title_en, ta.title AS title_ar, te.alt_text AS alt_en, ta.alt_text AS alt_ar,
+          mf.name AS folder_name, u.display_name AS uploader,
+          (SELECT GROUP_CONCAT(x.flag ORDER BY x.flag SEPARATOR ',') FROM media_flags x WHERE x.media_id = a.id) AS flags`;
 
 const ORDER: Record<LibraryQuery["sort"], SQL> = {
   newest: sql`a.created_at DESC, a.id DESC`,
@@ -177,16 +193,51 @@ export async function listMedia(db: Db, permissions: ReadonlySet<string>, query:
   const [count] = await rowsOf<{ n: number }>(db, sql`SELECT COUNT(*) AS n ${FROM} WHERE ${where}`);
   const total = Number(count?.n ?? 0);
   const offset = (query.page - 1) * query.pageSize;
-  const rows = await rowsOf<Record<string, unknown>>(
-    db,
-    sql`SELECT a.id, a.kind, a.visibility, a.usage_status, a.legacy_key, a.folder_id, a.created_at, a.deleted_at,
-          f.original_filename, f.width, f.height, f.byte_size, f.mime_type, f.storage_area, f.processing_status,
-          te.title AS title_en, ta.title AS title_ar, te.alt_text AS alt_en, ta.alt_text AS alt_ar,
-          mf.name AS folder_name, u.display_name AS uploader,
-          (SELECT GROUP_CONCAT(x.flag ORDER BY x.flag SEPARATOR ',') FROM media_flags x WHERE x.media_id = a.id) AS flags
-        ${FROM} WHERE ${where} ORDER BY ${ORDER[query.sort]} LIMIT ${query.pageSize} OFFSET ${offset}`,
-  );
+  const rows = await rowsOf<Record<string, unknown>>(db, sql`SELECT ${COLUMNS} ${FROM} WHERE ${where} ORDER BY ${ORDER[query.sort]} LIMIT ${query.pageSize} OFFSET ${offset}`);
   return { rows: rows.map(toRow), total };
+}
+
+/** Usage statuses a content slot may newly take (A4 brief §53; `media-refs.ts` decides the same on save). */
+const CHOOSABLE = ["pending_review", "approved", "restricted"] as const;
+
+export interface PickerQuery {
+  q: string;
+  kinds: readonly ("image" | "document")[];
+  page: number;
+  pageSize: number;
+  /** Only this item, if it may be chosen (an item just uploaded, or a duplicate the person chose to use). */
+  id?: string;
+}
+
+/**
+ * What a public content slot's picker offers (A4 brief §53): public-class items only — never a private one, whoever
+ * asks — not in the Trash, pending review, approved or restricted (each non-approved one shown with its warning), with a
+ * ready file, of the slot's kinds. Newest first.
+ */
+export async function pickerMedia(db: Db, query: PickerQuery): Promise<{ rows: LibraryRow[]; total: number }> {
+  const conditions: SQL[] = [
+    sql`a.visibility = 'public'`,
+    sql`a.deleted_at IS NULL`,
+    sql`a.current_file_id IS NOT NULL`,
+    sql`a.usage_status IN (${sql.join(CHOOSABLE.map((s) => sql`${s}`), sql`, `)})`,
+    sql`a.kind IN (${sql.join((query.kinds.length ? query.kinds : ["image"]).map((k) => sql`${k}`), sql`, `)})`,
+  ];
+  const search = searchCondition(query.q);
+  if (search) conditions.push(search);
+  if (query.id !== undefined) conditions.push(isUlid(query.id) ? sql`a.id = ${query.id}` : sql`FALSE`);
+  const where = sql.join(conditions, sql` AND `);
+  const [count] = await rowsOf<{ n: number }>(db, sql`SELECT COUNT(*) AS n ${FROM} WHERE ${where}`);
+  const offset = (query.page - 1) * query.pageSize;
+  const rows = await rowsOf<Record<string, unknown>>(db, sql`SELECT ${COLUMNS} ${FROM} WHERE ${where} ORDER BY a.created_at DESC, a.id DESC LIMIT ${query.pageSize} OFFSET ${offset}`);
+  return { rows: rows.map(toRow), total: Number(count?.n ?? 0) };
+}
+
+/** Specific items by id, whatever their state (Trash included); the caller decides what the person may see. */
+export async function mediaRowsByIds(db: Db, ids: readonly string[]): Promise<Map<string, LibraryRow>> {
+  const unique = [...new Set(ids)].filter(isUlid);
+  if (!unique.length) return new Map();
+  const rows = await rowsOf<Record<string, unknown>>(db, sql`SELECT ${COLUMNS} ${FROM} WHERE a.id IN (${sql.join(unique.map((v) => sql`${v}`), sql`, `)})`);
+  return new Map(rows.map(toRow).map((r) => [r.id, r]));
 }
 
 const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -212,6 +263,7 @@ function toRow(r: Record<string, unknown>): LibraryRow {
     mime: str(r.mime_type),
     storageArea: (str(r.storage_area) as LibraryRow["storageArea"]) ?? null,
     processing: (str(r.processing_status) as LibraryRow["processing"]) ?? null,
+    currentFileId: str(r.current_file_id),
     flags,
     blocking: flags.some(isBlockingMediaFlag),
     createdAt: created ? new Date(`${created.replace(" ", "T")}Z`) : null,
