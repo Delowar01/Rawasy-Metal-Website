@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { PreviewSection } from "@/server/builder/preview";
 import { HOME_NOTES, HOME_RENDERERS } from "./adapters/home";
+import { SERVICE_ABSENT, SERVICE_NOTES, SERVICE_RENDERERS } from "./adapters/service";
 import type { BlockProps, RenderContext } from "./context";
 import { GenericContactDetails, GenericQuoteForm } from "./generic/contact";
 import { GenericDownloads, GenericGallery, GenericImage, GenericLogoStrip, GenericMap, GenericTextImage, GenericVideo } from "./generic/media";
@@ -20,6 +20,7 @@ import {
   GenericTimeline,
 } from "./generic/text";
 import { isRenderedBlock, type RenderedBlock } from "./keys";
+import { AbsentSection, blockSection, type Placed, type Presence } from "./compose";
 import { InvalidSection } from "./Placeholder";
 import { SectionBoundary } from "./SectionBoundary";
 
@@ -49,17 +50,7 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
   "about.clients": Pending,
   "about.compliance": Pending,
   "services.index": Pending,
-  "service.hero": Pending,
-  "service.overview": Pending,
-  "service.scope": Pending,
-  "service.process": Pending,
-  "service.machines": Pending,
-  "service.applications": Pending,
-  "service.gallery": Pending,
-  "service.why": Pending,
-  "service.related": Pending,
-  "service.projects": Pending,
-  "service.cta": Pending,
+  ...SERVICE_RENDERERS,
   "capabilities.power": Pending,
   "capabilities.console": Pending,
   "capabilities.register": Pending,
@@ -114,22 +105,51 @@ export const RENDERERS: Record<RenderedBlock, Renderer> = {
 /** What a bespoke block's preview leaves out or stands in for, beyond what its declared fields tell (`sectionNotes`). */
 export const BLOCK_NOTES: Partial<Record<RenderedBlock, (props: BlockProps) => string[]>> = {
   ...HOME_NOTES,
+  ...SERVICE_NOTES,
+};
+
+/** Blocks that show nothing where their content is missing (as today's pages leave such a section out): the reason. */
+export const BLOCK_ABSENT: Partial<Record<RenderedBlock, Presence>> = {
+  ...SERVICE_ABSENT,
+};
+
+/**
+ * Where the preview finds a block that renders neither its anchor nor an id of its own (the builder's outline and the
+ * pointer's picks), as a selector of the approved component's markup.
+ */
+export const BLOCK_SELECTORS: Partial<Record<RenderedBlock, string>> = {};
+
+/** Frames that hold several sections (`compose.tsx`): drawn by one renderer each. */
+export type GroupRenderer = (props: { items: Placed[]; ctx: RenderContext }) => ReactNode | Promise<ReactNode>;
+
+export const GROUP_RENDERERS: Record<string, GroupRenderer> = {
+  // The homepage's clients and compliance share one muted sheet (the sheet's own top space when compliance comes first).
+  "home-sheet": ({ items, ctx }) => (
+    <div className={items[0].section.blockType === "home.compliance" ? "sec-sheet sec-muted gb-sheet-top" : "sec-sheet sec-muted"}>
+      {items.map((item) => (
+        <SectionView key={item.section.id} placed={item} ctx={ctx} />
+      ))}
+    </div>
+  ),
 };
 
 /**
  * One section, drawn by its block's renderer: a renderer that fails while it reads its data shows a placeholder for that
  * section alone (caught here, on the server), and so does one that fails in the browser (`SectionBoundary`); a section
- * that could not be read shows its reason. No Suspense boundary: the page hydrates in one piece, as the website does, so
- * the reveals and the rest of the motion start on every section together.
+ * that could not be read shows its reason, and one whose content is missing on this page says so. No Suspense boundary:
+ * the page hydrates in one piece, as the website does, so the reveals and the rest of the motion start on every section
+ * together.
  */
-export async function SectionView({ section, ctx }: { section: PreviewSection; ctx: RenderContext }) {
+export async function SectionView({ placed, ctx }: { placed: Placed; ctx: RenderContext }) {
+  const { section, absent, ordinal } = placed;
   if (section.state !== "ok" || !isRenderedBlock(section.blockType)) {
     return <InvalidSection id={section.id} label={section.label} problem={section.problem ?? "This section can't be shown."} />;
   }
+  if (absent) return <AbsentSection id={section.id} label={section.label} reason={absent} />;
   const Render = RENDERERS[section.blockType];
   let output: ReactNode;
   try {
-    output = await Render({ section: { id: section.id, blockType: section.blockType, anchor: section.anchor, settings: section.settings, content: section.content }, ctx });
+    output = await Render({ section: blockSection(section, ordinal), ctx });
   } catch (error) {
     // The server log keeps the reason; the page shows only that this section could not be drawn.
     console.error(`Preview: section ${section.id} (${section.blockType}) could not be drawn: ${error instanceof Error ? error.name : "error"}`);
@@ -137,6 +157,28 @@ export async function SectionView({ section, ctx }: { section: PreviewSection; c
   }
   return (
     <SectionBoundary id={section.id} label={section.label}>
+      {output}
+    </SectionBoundary>
+  );
+}
+
+/** A frame of several sections, drawn by its group's renderer (a failure shows each of its sections' placeholder). */
+export async function GroupView({ group, items, ctx }: { group: string; items: Placed[]; ctx: RenderContext }) {
+  const Render = GROUP_RENDERERS[group];
+  let output: ReactNode;
+  try {
+    output = Render ? await Render({ items, ctx }) : null;
+  } catch (error) {
+    console.error(`Preview: sections ${items.map((i) => i.section.id).join(", ")} (${group}) could not be drawn: ${error instanceof Error ? error.name : "error"}`);
+    output = null;
+  }
+  if (output === null) {
+    return items.map((item) => (
+      <InvalidSection key={item.section.id} id={item.section.id} label={item.section.label} problem="This section could not be drawn. Its other sections are shown; check its settings in the editor." />
+    ));
+  }
+  return (
+    <SectionBoundary id={items[0].section.id} label={items.map((i) => i.section.label).join(", ")}>
       {output}
     </SectionBoundary>
   );

@@ -6,6 +6,7 @@
  * published.
  */
 import type { ShellView } from "@/components/commerce/data";
+import type { Tone } from "@/components/commerce/types";
 import { href } from "@/i18n/routes";
 import type { OwnerKind } from "@/server/builder/block";
 import type { Content, Locale, Settings } from "@/server/builder/fields";
@@ -26,6 +27,18 @@ export interface RenderContext {
   page: { systemKey: string | null; effectiveDate: string | null } | null;
   shell: ShellView;
   hrefOf: RouteHref;
+  /** What the rest of the page holds, for blocks whose approved component depends on it. */
+  layout: LayoutFacts;
+}
+
+/**
+ * Facts about the whole layout a block may need: which block types the page shows (a service opening's "See the work"
+ * goes to the gallery or the projects only where the page has them), and a service page's colour role, set on its
+ * opening (every section of the page takes it, as today's pages take their service's).
+ */
+export interface LayoutFacts {
+  present: ReadonlySet<string>;
+  serviceTone: Tone | null;
 }
 
 export interface BlockSection {
@@ -35,6 +48,11 @@ export interface BlockSection {
   settings: Settings;
   /** The chosen language's texts (null: none yet; renderers show what they can and the notes say why). */
   content: Content | null;
+  /**
+   * The section's place among the page's numbered sections of its kind (0 first; -1 when its kind is not numbered): a
+   * service page's sections and the About parts number themselves by it, and a service section takes its surface from it.
+   */
+  ordinal: number;
 }
 
 export interface BlockProps {

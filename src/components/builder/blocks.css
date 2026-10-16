@@ -969,3 +969,12 @@
 .mc .gb-sheet-top {
   padding-top: var(--sec-y);
 }
+
+/* A section the preview cannot draw, or one that shows nothing on this page: the note keeps its place in the page. */
+.mc .gb-failed {
+  padding-block: 1.25rem;
+}
+
+.mc .gb-absent .gb-missing {
+  min-height: 3.5rem;
+}

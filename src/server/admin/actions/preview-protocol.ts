@@ -12,6 +12,8 @@ export interface PreviewMapEntry {
   anchor: string | null;
   /** Ids the section renders besides its anchor (its title, `#page-title` …), to find it on the page. */
   ids: string[];
+  /** Where a section without an anchor or id of its own is drawn (a selector of the approved component's markup). */
+  selector: string | null;
   /** What the preview says about it (missing language, placeholders, left-out records). */
   notes: string[];
   /** "ok", or why it is shown as a placeholder. */

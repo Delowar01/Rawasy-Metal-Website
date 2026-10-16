@@ -38,6 +38,8 @@ function locate(map: PreviewMapEntry[]): Found[] {
       const el = direct(document.getElementById(id));
       if (el) return { id: entry.id, elements: [el] };
     }
+    const match = entry.selector ? main.querySelector(entry.selector) : null;
+    if (match) return { id: entry.id, elements: [match] };
     return null;
   });
   // A section without an id of its own: the top-level elements between its neighbours.
