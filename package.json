@@ -20,7 +20,9 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check && node scripts/db-migrate.mjs check && node scripts/generate-access-seed.mjs --check",
     "db:migrate": "node scripts/db-migrate.mjs up",
-    "db:status": "node scripts/db-migrate.mjs status"
+    "db:status": "node scripts/db-migrate.mjs status",
+    "media:import-release": "node scripts/media-import-release.mjs",
+    "media:baseline": "node scripts/media-release-baseline.mjs"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",
