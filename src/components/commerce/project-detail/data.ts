@@ -62,7 +62,7 @@ export interface ProjectDetailView {
 }
 
 /** A reference to one of the profile's pages ("p.3") rather than an item of its work gallery ("04", "07–08"). */
-const isPageReference = (ref: string) => /^p\.\s*\d/i.test(ref);
+export const isPageReference = (ref: string) => /^p\.\s*\d/i.test(ref);
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "");
 

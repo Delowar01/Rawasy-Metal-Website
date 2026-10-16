@@ -10,32 +10,45 @@ import { Icon } from "../Icon";
  */
 export function NotFoundView({ locale }: { locale: Locale }) {
   const { notFound } = getDictionary(locale);
+  return <NotFoundPanel text={notFound} homeHref={href(locale, "home")} contactHref={href(locale, "contact")} />;
+}
+
+/** The 404's panel with its texts (the page builder's preview gives its own section's words). */
+export function NotFoundPanel({
+  text,
+  homeHref,
+  contactHref,
+}: {
+  text: { code: string; note: string; title: string; body: string; home: string; contact: string };
+  homeHref: string;
+  contactHref: string;
+}) {
   return (
     <div className="sec pt-[clamp(1.25rem,0.8rem+1.6vw,2.5rem)]">
       <div className="shell">
         <section aria-labelledby="page-title" className="ip-404 sec-raised rounded-[var(--sheet-r)]">
           <div className="grid items-center gap-x-12 gap-y-6 lg:grid-cols-12">
             <p aria-hidden className="ip-404-code lg:order-last lg:col-span-5 lg:text-end">
-              {notFound.code}
+              {text.code}
             </p>
             <div className="lg:col-span-7">
               <p className="eyebrow" data-tone="brand">
-                {notFound.note}
+                {text.note}
               </p>
               <h1 id="page-title" className="t-h1 mt-5">
-                {notFound.title}
+                {text.title}
               </h1>
-              <p className="t-lead mt-4 max-w-[32rem]">{notFound.body}</p>
+              <p className="t-lead mt-4 max-w-[32rem]">{text.body}</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a href={href(locale, "home")} className="btn btn-primary btn-lg">
+                <a href={homeHref} className="btn btn-primary btn-lg">
                   {/* Back: the arrow points against the reading direction. */}
                   <span className="inline-flex -scale-x-100">
                     <Icon name="arrow" size={18} />
                   </span>
-                  {notFound.home}
+                  {text.home}
                 </a>
-                <a href={href(locale, "contact")} className="btn btn-secondary btn-lg">
-                  {notFound.contact}
+                <a href={contactHref} className="btn btn-secondary btn-lg">
+                  {text.contact}
                 </a>
               </div>
             </div>

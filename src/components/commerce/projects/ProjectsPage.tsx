@@ -116,7 +116,7 @@ export function ProjectHighlights({ head, projects, refLabel, action }: { head: 
   );
 }
 
-/** The gallery (`#gallery`): the category bar and every project, each at `#<slug>` (inside the filter's provider). */
+/** The gallery (`#gallery`): the category bar and every project, each at `#<slug>` (inside the choice's provider). */
 export function GallerySection({
   head,
   projects,

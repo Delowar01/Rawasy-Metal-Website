@@ -249,7 +249,7 @@ export function AboutBeyond({
   title: string;
   intro: string;
   items: { slug: string; label: string }[];
-  link: { href: string; label: string };
+  link?: { href: string; label: string };
 }) {
   return (
     <section id="beyond" aria-labelledby="beyond-title" className="sec sec-sheet sec-raised">
@@ -273,10 +273,12 @@ export function AboutBeyond({
               </li>
             ))}
           </ul>
-          <a href={link.href} className="btn btn-secondary mt-8">
-            {link.label}
-            <Icon name="arrow" size={17} />
-          </a>
+          {link && (
+            <a href={link.href} className="btn btn-secondary mt-8">
+              {link.label}
+              <Icon name="arrow" size={17} />
+            </a>
+          )}
         </div>
       </div>
     </section>
@@ -449,7 +451,7 @@ export function AboutWorkshop({ index, head, photos }: { index: string; head: Pa
   );
 }
 
-/** The machinery as a table: each machine's thumbnail, name, type and stated power (never a figure the records do not state). */
+/** The machinery in rows and columns: each machine's thumbnail, name, type and stated power (never a figure the records do not state). */
 export function AboutMachinery({
   index,
   head,
