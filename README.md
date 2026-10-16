@@ -460,7 +460,9 @@ draft working copy only: there is no Publish button, nothing reaches the public 
 files) come in A4. What each role may do follows the permission matrix (`src/server/policy/registry.ts`): Owner, Admin and
 Editor edit general content, Owner and Admin archive, restore and register the site's fixed pages, only Owner and Admin
 edit certificates and legal pages (the Owner alone archives certificates), and a Reviewer reads and may add a project
-restriction; only an Owner or Admin clears one, with a reason. Test content only ("Test …", "Demo …").
+restriction; only an Owner or Admin clears one, with a reason. A service features only projects that list it: a project's
+editor marks such a service ("Features this project"), and removing it there is refused until the project is taken out of
+that service's Featured projects. Test content only ("Test …", "Demo …").
 
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
@@ -498,4 +500,5 @@ approval (report `docs/reports/2026-10-09-stage-1j-release-candidate.md`); deplo
 go-ahead. The Namecheap Stellar Plus hosting adapter (`server.js`, above) is prepared and tested locally and awaits
 independent review. The admin / CMS program (A1 → A9) has begun: A1 (architecture, design only) and A2 (authentication,
 roles, the database foundation and the admin shell, local only) are approved; A3 (the core content records, local only)
-is built and awaits independent review. A4 does not start before the user approves A3.
+and its Correction 1 (cross-record relation integrity, one definition of language completeness) are built and await
+independent review. A4 does not start before the user approves A3.

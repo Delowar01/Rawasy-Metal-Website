@@ -11,7 +11,7 @@
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
 - Latest report: `docs/reports/2026-10-15-admin-a3-core-cms.md` (Admin / CMS program, Phase A3 — Core CMS, database
-  working copies of the core content, local implementation only)
+  working copies of the core content, local implementation only; its "A3 CORRECTION 1" section is at the end)
   (earlier: `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
   shell; its "A2 CORRECTION 1", "A2 CORRECTION 2" and "A2 FINAL VISUAL CORRECTION" sections are at the end),
   `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
@@ -206,6 +206,17 @@
   public 612 / 612 in the first full run, and the public site proven unchanged against `preserve/pre-admin-a3` (files,
   stylesheets, modules, 102 pages over HTTP in three gate-off settings, no public database connection with the admin on,
   237 screens); evidence `rawasy-a3-evidence.zip` (not committed): 108 captures, 0 horizontal overflow.
+  The independent review substantially approved A3 but did not close it: **A3 Correction 1 is built — local only** (the
+  user's "PHASE A3 — CORRECTION 1 / CROSS-RECORD RELATION INTEGRITY + LANGUAGE-COMPLETENESS SINGLE SOURCE" brief; section
+  "A3 CORRECTION 1" at the end of the A3 report; checkpoint `preserve/pre-admin-a3-correction1` at `a7e6637`) and awaits
+  independent review. Its commits: `b7038b1` a project keeps a service that features it (the featured-project invariant,
+  see "Phase A3 implementation"); `6e531f9` its tests; `1237f86` one definition of language completeness
+  (`src/server/cms/translated.ts`); `ded2734` the drift tests. Final QA on a fresh clone of `ded2734`: `npm ci`, audit `--omit=dev` 0, lint, typecheck,
+  build with no database settings, `db:check`, unit 132 / 132, integration 258 / 258, admin 64 / 64, public 612 / 612 in
+  the first full run, and the public site proven unchanged against `preserve/pre-admin-a3` (files, stylesheets, modules,
+  102 pages over HTTP in three gate-off settings, no public database connection with the admin on, 238 screens); evidence
+  `rawasy-a3-final-evidence.zip` (not committed): 143 captures, 0 horizontal overflow. Offered to the Owner, not done:
+  relation rows written as a diff (overlapping saves of related records deadlock once, then retry: see the gotcha).
   **Do not start A4** (no media library, uploads, page builder, global settings or menus, enquiries, publishing,
   revisions in use, database-backed public pages, content migration, cache handler, projections, redirects, persistent
   media) until the user approves A3 and says so.
@@ -539,7 +550,9 @@
   (`createItem` / `updateItem` / `setItemArchived` / `loadEditorItem`, `parseInput`), `store.ts` (`contentTransaction`
   = `inTransaction` + A2's `lockActor`, `lockRoot`, relations, orderings, search rows, `contentAudit`, `instantOf`),
   `pages.ts`, `flags.ts` + `restrictions.ts`, `ordering.ts` + `reorder.ts`, `list.ts` (lists, filters, dashboard counts),
-  `lookups.ts` (pickers, "used by"), `completeness.ts`, `permissions.ts`, `slug.ts` + `src/i18n/reserved-slugs.ts`,
+  `lookups.ts` (pickers, "used by"), `translated.ts` (Correction 1: the eight types' translated fields, translation and
+  child tables and title field — the one definition `kinds.ts` spreads and `list.ts` / `lookups.ts` derive their SQL from,
+  `COMPLETENESS`), `completeness.ts`, `permissions.ts`, `slug.ts` + `src/i18n/reserved-slugs.ts`,
   `text.ts` (plain text, paragraph documents, URLs, digit guard, Arabic search normalization), `form.ts`. Next.js side:
   `src/server/admin/actions/cms.ts` (Server Actions), `cms-model.ts` (types shared with client components),
   `src/server/admin/cms.ts` (editor models), `src/components/admin/cms/*` (client), `src/app/(admin)/admin/_components/
@@ -563,9 +576,32 @@
   - Slugs: ASCII lowercase, unique per type (archived items keep theirs); generic pages never take a reserved route
     (`reserved-slugs.ts`, tested against `src/i18n/routes.ts`, the app's top-level folders and metadata files); machine,
     project and certificate slugs are anchors and refuse their page's own ids.
-  - English and Arabic are equals: missing / incomplete / draft / complete / needs review (`completeness.ts` and
-    `localeStateSql` must agree); neither language is required to save; a form is the full state (emptying a language
-    removes its row). Arabic inputs `dir="rtl" lang="ar"`.
+  - English and Arabic are equals: missing / incomplete / draft / complete / needs review (`completeness.ts`; the lists'
+    `localeStateSql` is derived from the same field definition, below); neither language is required to save; a form is
+    the full state (emptying a language removes its row). Arabic inputs `dir="rtl" lang="ar"`.
+  - One definition of language completeness (A3 Correction 1, `1237f86`): the translated fields, their tables, the title
+    field and the child tables live in `translated.ts` only. `KindSpec extends TranslatedSpec` and each spec spreads
+    `TRANSLATED.<type>` (children: `MACHINE_ATTRIBUTE_TABLES`, `CERTIFICATE_FACT_TABLES`); `list.ts` and `lookups.ts` read
+    `COMPLETENESS` (required columns by kind — text `<> ''`, rich `JSON_LENGTH(…, '$.content') > 0`, lines
+    `JSON_LENGTH(…) > 0` — the title column, the child tables), derived from the Drizzle columns. Never write a second
+    list of required fields; required and title columns must be NOT NULL (a NULL reads as filled in that SQL).
+    `tests/unit/cms-completeness.test.ts` (42) and `tests/integration/cms-completeness.test.ts` (the list and picker SQL
+    state equals the editor's on 47 items over all eight types) fail on drift.
+  - A service features only projects that list it, at every commit (A3 Correction 1, `b7038b1`): every
+    `service_featured_projects (S, P)` row has its `project_services (P, S)` row. A project's save that removes a service
+    still featuring it is refused on `rel.services` ("This project is currently featured by …"; audited as a failed
+    `project.update`), never changing the service's curated list: `keepsFeaturingServices` reads the removed services'
+    featured rows `LOCK IN SHARE MODE` under the project's root lock, before any write (only removals: a reorder or an
+    unchanged list never triggers it). The service side reads its featured projects' `project_services` rows
+    `LOCK IN SHARE MODE` (`featuredListService`), never the snapshot (race B: a snapshot taken before the project's save
+    still showed the pair). The project's root row is the pair's mutex: a new feature share-locks it (`targetStates`), and
+    so does InnoDB's foreign-key check of every inserted featured row. A relation `check` may return a `RelationRefusal`
+    (message + audit summary + changes); `checkRelations` collects them and the save writes one failed audit event. The
+    project editor marks a featuring service "Features this project" (with a hint); its Used-by panel lists it. Lock order:
+    the comment on `contentTransaction` (actor, session, root, newly linked targets, cross-record pairs, own rows,
+    ordering). Tests: `tests/integration/cms-featured-invariant.test.ts` (sequential; races A and B made deterministic
+    with a held translation row; ten unscripted races; controls; the brief's invariant query after every test) and the
+    "A3 Correction 1" test in `e2e-admin/cms.spec.ts`.
   - Restrictions: every role adds (`projects.add_flags`); only Owner / Admin clear (`projects.clear_flags`), with a
     reason, never on an archived project; an unknown flag blocks (fail-closed).
   - Lists: server-side, 25 a page (10–100), state in the address, bound parameters only, table and column names from
@@ -1964,3 +2000,16 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - A second HTTP freeze run on the same build copies differs from the first on unknown-slug 404s: the copies keep the
   first run's runtime route cache (`.next/server/route-cache`). Empty it in every served copy (or use fresh copies) before
   each comparison, as `start_base` does for the baseline.
+- InnoDB's foreign-key check share-locks the parent row of every child row inserted. `replaceRelation` deletes and
+  re-inserts every row of a relation, so a save locks its targets' root rows late, after its own rows: a project save
+  (its root FOR UPDATE) rewriting `project_services` and a service save (its root FOR UPDATE) rewriting
+  `service_featured_projects` with that project each wait for the other's root and deadlock whenever they overlap (A3
+  Correction 1's probe: 100 / 100 rounds, each settled by `inTransaction`'s one retry, as on the A3 code). A diff-based
+  write (update kept rows' positions, insert and delete only the changes) removed it in a scratch prototype; not adopted
+  (scope), offered to the Owner. Two saves of related items can deadlock; never make an invariant depend on the retry.
+- A locking read (`LOCK IN SHARE MODE` / `FOR UPDATE`) of a row that does not exist takes a gap lock at REPEATABLE READ:
+  other transactions' inserts into that gap wait until it commits.
+- A race between two saves is deterministic when a third connection holds (FOR UPDATE) a row the first save writes only
+  after its checks — its translation row: the first stops there with its other locks taken, the second is shown to wait
+  for it, then the held row is released (`cms-featured-invariant.test.ts`). A pausing proxy over mysql2 is the
+  alternative when no such row exists (`review-races.test.ts`).

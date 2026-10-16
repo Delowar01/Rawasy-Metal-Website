@@ -1103,3 +1103,688 @@ The tests:
   the commits in item 3.
 - A4 (Media Library) starts only when the Owner approves A3 and says so (§66).
 - Production and staging stay untouched: no deployment, no CMS database, no Namecheap change (§65).
+
+## A3 CORRECTION 1
+
+Date: 2026-10-15 to 2026-10-16 · Branch: `claude/new-session-5eijs6` · Brief: "RAWASY METAL WEBSITE / ADMIN / CMS PROGRAM / PHASE A3 —
+CORRECTION 1 / CROSS-RECORD RELATION INTEGRITY + LANGUAGE-COMPLETENESS SINGLE SOURCE / LOCAL ONLY — DO NOT START A4".
+
+### Summary and status
+
+The independent review substantially approved A3 but did not close it. It asked for two focused corrections, and both
+are built, local only.
+
+**1. A service's featured projects always list the service** (brief §1–8; `b7038b1`, tests `6e531f9`).
+- **The rule.** Every `service_featured_projects (service, project)` row must have its
+  `project_services (project, service)` row at every commit.
+- **The gap.** A3 checked the rule only when the service was saved (its item 43.3 recorded this). A project could drop
+  the service afterwards, or at the same moment, and leave the service featuring a project that no longer lists it.
+- **Now, on the project side:**
+  - a project save that removes a service still featuring the project is **refused**, with the reason on the Services
+    field: "This project is currently featured by “Test Laser Service”. Remove it from that service's Featured projects
+    first, then remove the service here.";
+  - the service's curated list is never changed silently;
+  - the refusal is audited as a failed `project.update`.
+- **Both sides decide on locking reads**, never on the transaction's snapshot. The project's root row is the pair's
+  mutex, and the lock order is written down on `contentTransaction` (item 8).
+- **Before saving**, the project editor marks the service "Features this project" and adds a hint. Its Used-by panel
+  already listed "Services that feature this project".
+- **Unchanged:** reorders, unchanged lists and removing a service that does not feature the project all save as before.
+
+**2. One definition of language completeness** (brief §9–10, Option A; `1237f86`, tests `ded2734`).
+- **Before:** the lists and pickers computed a language's state in SQL from their own copy of the required fields, while
+  the editor read the content specs.
+- **Now:** both read one declarative definition, `src/server/cms/translated.ts`.
+  - `kinds.ts` spreads it into every spec.
+  - `list.ts` and `lookups.ts` derive their SQL from it.
+  - There is no import cycle.
+- The derived SQL rules equal the previous hand-written maps for all eight types, so no list or badge changed.
+- 42 unit tests and 8 real-MariaDB tests (47 items) hold all eight types to the definition, and each of 5 planted drifts
+  fails them (item 16).
+
+**Proof of the invariant** (items 9–12, on a real MariaDB):
+- the sequential case is refused, audited, and allowed again once the service stops featuring the project;
+- race A and race B (opposite lock orders, made deterministic) each commit exactly one valid result;
+- ten unscripted races and a 100-round probe never break the invariant;
+- the brief's invariant query is true after every test;
+- on the A3 code (`e2c67db`) none of the 7 new tests passes, and the probe broke the invariant in 100 / 100 rounds.
+
+**The cross-record review** (item 27) found no other High or Medium issue. One Low item, pre-existing and measured, is
+offered to the Owner: two saves of related records can deadlock, and `inTransaction`'s one retry settles it.
+
+**Final QA, on a fresh clone of `ded2734` (the final code):**
+
+| Check | Result |
+|---|---|
+| `npm ci` | passed |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| Full `npm audit` | the same 9 development-only entries as A3's (item 26) |
+| Lint | 0 problems |
+| Typecheck | 0 errors |
+| Build | passed, with no database settings |
+| `db:check` | OK |
+| Unit | **132 / 132** (A3 90 + Correction 1 42) |
+| Integration | **258 / 258** (A3 243 + Correction 1 15) |
+| Admin browser | **64 / 64** (A3 63 + Correction 1 1) |
+| Public E2E | **612 / 612**, first full run |
+
+**Public freeze**, against `preserve/pre-admin-a3` (item 28):
+- no public source changed;
+- the build output differs only by build ids and chunk paths;
+- stylesheets and scripts are identical on all 104 pages;
+- the 102 sitemap pages answer identically over HTTP in three admin-off settings;
+- the public site makes no database connection, even with the admin on;
+- 238 screens were compared: 231 identical at the first pass, and the other 7 proven run-to-run noise.
+
+**Visual evidence:** `rawasy-a3-final-evidence.zip` (not committed): 143 captures of 32 screens, with 0 sideways overflow.
+They are A3's 25 screens again, plus the correction's 7 (items 29–30).
+
+Nothing was deployed, `main` was not touched, there was no schema migration, and A4 was not started.
+
+**A3 CORRECTION 1 STATUS: READY FOR INDEPENDENT REVIEW** (not self-approved).
+
+### Items for the Owner's decision (none blocks this correction)
+1. **Relation rows written as a diff (Low, pre-existing; item 27).**
+   - **The problem.** Two saves of related records at the same moment can deadlock. For example, a project reordering
+     its services while a service featuring it changes its Featured projects. The cause: each relation is rewritten
+     (delete, then insert), and InnoDB's foreign-key check then share-locks the other record's root.
+   - **How often.** A 100-round probe deadlocked once in every round, as it already did on the A3 code. Each time
+     `inTransaction`'s one retry saved both changes, and nothing was refused or lost.
+   - **The option.** Writing a relation as a diff (update kept rows' positions in place, insert and delete only the
+     changes) removed every deadlock in the probe, with the invariant intact. It was tried in a scratch copy only and
+     not adopted: the brief asks not to redesign relation handling unless required.
+2. **An archived service that features a project (item 13).** It must be restored before the project can drop it, since
+   an archived service is read-only. The message says so. Confirm, or ask for another path (for example, letting an
+   Owner or Admin take the project out of an archived service's Featured projects).
+
+### Report items (brief §18, in order)
+
+#### 1. Starting HEAD
+`a7e6637587354f63b92686f4e59abbb282d19e2f` ("Admin A3: report wording (docs only)").
+- It equalled `origin/claude/new-session-5eijs6`, with a clean working tree.
+- The final A3 code under review, `e2c67db17486ed15434380ec2057ce9a9d93608d`, is its ancestor.
+- `preserve/pre-admin-a3` was at `dcd089d33c474b28c725d35e3537fa8f8d3aef02`, `main` at
+  `474f61f10f12981e41f9b7e7fd6065a0ec9da541`, and the A2 preservation branches where they were (item 31), as the brief
+  expected.
+
+#### 2. Preservation SHA
+`preserve/pre-admin-a3-correction1` → `a7e6637587354f63b92686f4e59abbb282d19e2f`.
+- It did not exist before.
+- It was created and pushed without force
+  (`git push origin a7e6637…:refs/heads/preserve/pre-admin-a3-correction1`).
+- It has not moved since (item 31).
+
+#### 3. Implementation commits
+| Commit | What |
+|---|---|
+| `b7038b1` | A project keeps a service that features it: the project-side refusal, both locking reads, the audited refusal, the lock order, the editor's marker (brief §1–4, §6–7) |
+| `6e531f9` | Tests for the invariant: 7 on a real MariaDB, 1 admin browser test (brief §5, §8) |
+| `1237f86` | One definition of language completeness: `translated.ts`, read by the editor, the lists and the pickers (brief §9) |
+| `ded2734` | The completeness drift tests: 42 unit, 8 on a real MariaDB (brief §10) |
+| (the commit that adds this section) | This report section, `CLAUDE.md` and the README (docs only; the branch's last commit) |
+
+Each commit was checked in the working checkout before it was made:
+- `b7038b1` + `6e531f9`: lint and typecheck clean; the CMS integration suites 86 / 86; the admin CMS browser suite
+  17 / 17 on a fresh build.
+- `1237f86` + `ded2734`: lint and typecheck clean; unit 132 / 132; the CMS integration suites 94 / 94.
+
+#### 4. Final code SHA
+`ded27342c66eaf8eb734fba348094a96906bd9dd` (`ded2734`) is the last commit with code. Every QA result below (items 17–26,
+28–30) is from a fresh clone of it.
+
+#### 5. Final docs HEAD
+The docs commit that adds this section follows `ded2734` and is the branch's HEAD
+(`git log -1 origin/claude/new-session-5eijs6`). Its SHA is given in the final message, since a commit cannot name
+itself.
+
+**Files changed `a7e6637..ded2734`:** 13 files, +987 / −247 lines, 4 new. All of them are in the admin's own code and
+tests:
+- **Server:**
+  - `src/server/cms/engine.ts`: `RelationRefusal`; `checkRelations` collects refusals and the save audits them;
+    `KindSpec extends TranslatedSpec`.
+  - `kinds.ts`: `keepsFeaturingServices`, the locking `featuredListService`, the specs spreading `TRANSLATED`, and
+    `servicesFeaturingProject`.
+  - `store.ts`: the lock order documented on `contentTransaction`.
+  - `translated.ts` (new).
+  - `list.ts` and `lookups.ts`: their SQL derived from `COMPLETENESS`.
+- **Admin UI:** `src/server/admin/cms.ts` (the dependency note and hint), `src/server/admin/actions/cms-model.ts`
+  (`OptionModel.note`) and `src/components/admin/cms/RelationPicker.tsx` (the badge).
+- **Tests:** `tests/integration/cms-featured-invariant.test.ts`, `tests/integration/cms-completeness.test.ts` and
+  `tests/unit/cms-completeness.test.ts` (new), and `e2e-admin/cms.spec.ts` (one test added).
+
+**Unchanged:**
+- every public path (item 28);
+- `package.json` and `package-lock.json`;
+- the migrations and the schema (`drizzle/`, `src/server/db/**`). No schema migration was needed (brief §14): the rule is
+  enforced in the change transaction, where the other A3 rules live.
+- the registries and their seeds (`db:check`, item 24);
+- `server.js` and the deployment scripts.
+
+#### 6. Exact invalid state
+`service_featured_projects (S, P)` exists with no `project_services (P, S)`. The brief's query is then false:
+`NOT EXISTS (SELECT 1 FROM service_featured_projects sfp LEFT JOIN project_services ps ON ps.project_id = sfp.project_id AND
+ps.service_id = sfp.service_id WHERE ps.project_id IS NULL)`.
+
+On the A3 code (`e2c67db`) it is reached in two ways:
+- **Sequentially.**
+  1. P lists S.
+  2. S features P, which is allowed because P lists S.
+  3. P's save removes S. `updateItem` rewrites P's `project_services` rows (`replaceRelation`), and nothing reads
+     `service_featured_projects`.
+  4. The commit leaves S featuring P, which no longer lists it. A3's item 43.3 recorded this half: the service's next
+     save named P to remove.
+- **Concurrently (race B).**
+  1. S's save takes its snapshot (its first plain read) while P still lists S.
+  2. S's save waits for P's root row.
+  3. P's save removes S and commits.
+  4. S's `featuredListService` reads `project_services` from its snapshot, still sees (P, S), and inserts (S, P).
+
+Item 12 shows both on `e2c67db`.
+
+#### 7. Enforcement design
+**The project side: `keepsFeaturingServices`** (`kinds.ts`, the `check` of the project's Services relation).
+- It takes the removed services: the stored list minus the new one, as sets. A reorder, an unchanged list or an added
+  service is never checked.
+- For those it runs
+  `SELECT service_id FROM service_featured_projects WHERE project_id = ? AND service_id IN (…) LOCK IN SHARE MODE`.
+- It runs under the project's root lock (`lockRoot`, FOR UPDATE), after `checkTargets`, before any write.
+- Any row refuses the save: the message goes on `rel.services` and one failed audit event is written. Nothing else is
+  written.
+- The message names the services (at most three, then a count). When one of them is archived, it says to restore it
+  first (item 13).
+
+**The service side: `featuredListService`.**
+- Its read is now `SELECT project_id FROM project_services WHERE service_id = ? AND project_id IN (…) LOCK IN SHARE
+  MODE`. Before, it was a plain Drizzle select answered from the snapshot.
+- A featured project that does not list the service refuses the save with the same message as before, now also audited
+  as a failed `service.update`.
+
+**Why exactly one valid result commits.** The project's root row is the pair's mutex: no new (S, P) row can commit while
+P's save holds it.
+- A service that features P anew share-locks P's root row first (`targetStates`, A3 finding 3).
+- InnoDB's foreign-key check share-locks it again for every `service_featured_projects` row inserted.
+- So:
+  - **If the service holds the row first**, P's save waits at its `lockRoot`, then reads the committed (S, P) and is
+    refused (race A).
+  - **If P's save holds it first**, the service waits. Its locking read then finds no (P, S) and it is refused (race B).
+  - **A service save that removes or rewrites (S, P) at that moment** holds the row's record lock. The project's
+    locking read waits for it and decides on what commits.
+
+**In the engine.**
+- A relation's `check` may now return a `RelationRefusal` (`message`, an audit `summary`, `changes`) as well as a
+  string.
+- `checkRelations` collects them, and `createItem` / `updateItem` write one failed audit event for them before returning
+  `invalid`.
+- No other relation gained a rule, and no migration was added.
+
+**In the editor (brief §6).** No new subsystem was built:
+- the project's Services picker marks each service that features the project, "Features this project"
+  (`OptionModel.note`, a badge);
+- it adds a hint: "A service marked “Features this project” stays until the project is removed from that service's
+  Featured projects.";
+- the existing Used-by panel lists "Services that feature this project", with links.
+
+The save refusal stays mandatory: the marker reflects the page as it was opened.
+
+#### 8. Lock order
+As documented on `contentTransaction` (`src/server/cms/store.ts`), for every content change:
+1. the acting user's row, then the acting session (`lockActor`, A2);
+2. the item's root row, FOR UPDATE (`lockRoot`);
+3. what the change links anew, share-locked: a newly chosen reference (`checkReference`), then each relation's newly
+   added targets in the type's relation order (`targetStates(…, { lock: true })`);
+4. the cross-record pairs a relation's rule depends on, share-locked:
+   - a service's featured projects → their `project_services` rows;
+   - a project's removed services → their `service_featured_projects` rows;
+5. the item's own rows (translations, relation rows, children, search rows, audit), then its collection's ordering.
+
+InnoDB's foreign-key checks also share-lock the target's root row for every relation row inserted. That makes the
+project's root row (step 2 of its own save) the mutex of every (service, project) pair.
+
+Two saves of related records can still meet in opposite orders: each holds its own root and wants the other's. InnoDB
+then stops one with a deadlock error and rolls it back whole, and `inTransaction` retries it once (A2). Every attempt
+decides on locking reads, so the invariant never depends on the retry, nor on someone saving again. Item 27 measures
+this.
+
+#### 9. Sequential proof
+Test "sequential: refused (field message, nothing changed, audited), then allowed once the service stops featuring it"
+in `tests/integration/cms-featured-invariant.test.ts`, on a real MariaDB 11.4.13.
+1. It creates service S and project P (P lists S) and features P on S. Both rows exist.
+2. Saving P without S is refused:
+   - `invalid`, with only `rel.services`: "This project is currently featured by “Test test-seq-service”. Remove it from
+     that service's Featured projects first, then remove the service here.";
+   - both rows remain, and P's `lock_version` is unchanged (nothing saved);
+   - the newest audit event is `project.update` / `failed`, by the acting Editor, with the summary in item 14 and
+     `changes = { refused: [{ relation: "services", featuredBy: [S] }] }`.
+3. Removing P from S's Featured projects, then retrying the same removal, succeeds. Neither row remains.
+
+A second test, "several services feature it", names both services ("“Test test-multi-a” and “Test test-multi-b”",
+"those services' Featured projects", "then remove the services here") and changes nothing.
+
+The invariant query (item 6) is asserted true after every test of the file (`afterEach`).
+
+#### 10. Concurrency A
+"race A — the service features the project first, the project's removal of the service waits and is refused".
+1. A third connection holds S's English translation row (FOR UPDATE).
+2. S's save, which features P anew, takes its locks and stops at that row. Its locks are its root, a share lock on P's
+   root (the new target) and a share lock on `project_services (P, S)`. The test checks the save is still waiting.
+3. P's save, removing S, starts and waits at `lockRoot` for S's share lock. Checked waiting too.
+4. The held row is released.
+5. S's save commits (`ok`). P's save then reads the committed (S, P) with its locking read and is refused (`invalid`,
+   the message above, audited `project.update` / `failed`).
+6. Both rows remain, and the invariant query is true.
+
+#### 11. Concurrency B
+"race B — the project drops the service first, the service's new feature waits and is refused". The lock order is
+reversed:
+1. A third connection holds P's English translation row.
+2. P's save, removing S, takes P's root (FOR UPDATE), makes its checks (no featured row: none exists yet) and stops at
+   that row.
+3. S's save, featuring P anew, starts after it. Its snapshot still shows P listing S, but it waits for P's root row.
+4. The held row is released.
+5. P's save commits (`ok`). S's save then reads `project_services` with its locking read, finds no (P, S) and is
+   refused (`invalid`: "1 featured project(s) no longer list this service …"). It is audited `service.update` /
+   `failed`: "Refused: featured project “Demo demo-race-b-project” (demo-race-b-project) does not list this service in
+   its own record."
+6. Neither row remains, and the invariant query is true.
+
+**"Ten unscripted races"** starts the two saves together, without coordination. Each of the 10 rounds commits exactly
+one valid result, and the invariant holds after every round.
+
+The **100-round probe** (item 27, scenario Y) found the same: one winner each round (the project 99 times, the service
+once), no error and no violation.
+
+#### 12. Negative control
+The new test file was added unchanged to a worktree of **`e2c67db`** (the A3 code under review) and run against
+`e2c67db`'s code:
+
+| Test | `e2c67db` | `ded2734` |
+|---|---|---|
+| sequential | **fails**: the removal is saved (`ok`, expected `invalid`) | passes |
+| several services | **fails**: saved (`ok`) | passes |
+| race A | **fails**: the project's save commits (`ok`) and breaks the invariant | passes |
+| race B | **fails**: the service's save commits (`ok`) from its snapshot | passes |
+| ten unscripted races | **fails**: round 0, both saves `ok` | passes |
+| ordinary editing (controls) | fails only in the `afterEach` invariant check, on rows left broken by the tests above; run alone it **passes** (its assertions are not weakened: ordinary editing is unchanged) | passes |
+| archived services | **fails**: the removal of an archived featuring service is saved | passes |
+
+In total, 0 / 7 pass on `e2c67db` and 7 / 7 on `ded2734`. Run alone on `e2c67db`, the controls pass 1 / 2.
+
+The 100-round probe on `e2c67db` found **100 / 100 invariant violations** in scenario Y, against 0 on `ded2734`
+(item 27). No test was weakened to pass on both.
+
+#### 13. User-facing refusal
+**On save.** The project editor shows the reason in two places:
+- in the form's error summary (`role="alert"`), as a link to the field;
+- on the Services field itself.
+
+The messages:
+- **One service:** "This project is currently featured by “Test Laser Service”. Remove it from that service's Featured
+  projects first, then remove the service here."
+- **Several:** "This project is currently featured by “A” and “B”. Remove it from those services' Featured projects
+  first, then remove the services here." Up to three names are given, then "and N more".
+- **An archived service:** "This project is currently featured by “A” (archived). Restore that service and remove the
+  project from its Featured projects first, then remove the service here." An archived service is read-only, so it must
+  be restored first (Owner decision 2 above).
+
+Nothing is saved. The form keeps what the person changed, as with every refused save. Names are plain text (A3 refuses
+markup and control characters) and React renders them as text.
+
+**Before saving.** "Features this project" sits on the service, with the hint, and the Used-by panel lists "Services
+that feature this project". The service's own picker offers only projects that list the service (A3).
+
+The admin browser test "A3 Correction 1: a project can't drop a service that features it — marked before saving,
+refused on save with the reason" checks all of this in the production build:
+- the marker, the hint and the Used-by link;
+- that Remove, then Save draft, shows the exact message in the summary and on the field;
+- that the database rows and `lock_version` are unchanged;
+- that the audit row matches.
+
+The evidence shows it in five variants (X01–X04, item 29).
+
+#### 14. Audit
+**The refused project save** is one `audit_events` row:
+- `action = project.update`, `outcome = failed`, `entity = project / P`, the acting user, session and address (A2's
+  fields);
+- `summary`: "Refused: removing service “Test Laser Service” (test-laser-service) from this project — it still features
+  the project in its Featured projects.";
+- `changes = { "refused": [{ "relation": "services", "featuredBy": ["<service id>"] }] }`.
+
+**The service-side refusal** is audited the same way: `service.update` / `failed`, "Refused: featured project “…” (…)
+does not list this service in its own record.", `changes = { refused: [{ relation: "featuredProjects", notListing:
+[…] }] }`.
+
+These rows hold only names (clipped to 60 characters), slugs and ids. They hold no long text, field value, password,
+token or other credential, and they go through A2's `recordAudit` (summary at most 500 characters, `redactChanges`).
+
+The integration tests assert the action, outcome, actor, exact summary and changes. They also assert that the summary
+holds none of the project's text.
+
+#### 15. Completeness design
+**Option A.**
+
+`src/server/cms/translated.ts` holds, for all eight types:
+- the translated fields (key, label, kind, limits, `required`, `optional`, search, SEO, digit guard, hint);
+- the translation table and its parent and locale columns;
+- the title field;
+- the child-item tables: `MACHINE_ATTRIBUTE_TABLES` and `CERTIFICATE_FACT_TABLES`.
+
+**The editor.** `KindSpec extends TranslatedSpec` and `ChildSpec extends ChildTables`. Each spec in `kinds.ts` spreads
+`...TRANSLATED.<type>` and its child tables, so `requiredFilled` (the editor's state) reads these very fields.
+
+**The lists and pickers.** `completenessRule(type)` derives what the SQL tests, with the names taken from the Drizzle
+columns, never written twice:
+- the required text columns (`<> ''`), rich documents (`JSON_LENGTH(…, '$.content') > 0`) and line lists
+  (`JSON_LENGTH(…) > 0`; none required today);
+- the title column;
+- the child tables.
+
+`COMPLETENESS` holds the eight rules. `list.ts`'s `localeStateSql` and `lookups.ts`'s title column read it; the
+hand-written `REQUIRED` and `TITLE` maps are gone.
+
+**No circular import.** `translated.ts` imports only the schema and the registry, so `list.ts` and `kinds.ts` both depend
+on it, and on nothing of each other.
+
+**No behaviour change.** A one-off script evaluated the previous `REQUIRED` map (from `a7e6637`'s `list.ts`) and the old
+`TITLE` map. For all eight types they equal the derived rules exactly (same columns, same order, same child tables).
+
+#### 16. Drift test
+**`tests/unit/cms-completeness.test.ts` (42 tests).** For each of the eight types:
+- the spec uses the shared definition itself: the same field list object, title, table and columns (no copy);
+- the SQL rule is exactly the required fields, each tested by its kind, and the rendered SQL tests no other column;
+- every required column and the title are NOT NULL (SQL would read a NULL as filled), and no required field is also
+  "optional";
+- the child items use the same tables in the editor and the SQL rule, with NOT NULL label and value, and the SQL requires
+  both;
+- the registry's table and column names equal the schema's.
+
+Two more tests check that all eight types are covered and that only machinery and certificates have child items.
+
+**`tests/integration/cms-completeness.test.ts` (8 tests, real MariaDB).** For every type, items are created through the
+engine:
+- every required field filled;
+- each required field missing in turn;
+- English complete with Arabic partly written;
+- both complete, then English changed (needs review);
+- for machinery and certificates, child items missing a label or a value in one language.
+
+For each of the 47 items, the state the list's SQL and the picker's SQL give equals the editor's in both languages, and
+the editor's equals the expected state. The existing language-filter tests (`cms-general.test.ts`) are unchanged and
+pass.
+
+**Fails on drift**, shown by planting each drift in a scratch copy:
+
+| Planted drift | Unit | Integration |
+|---|---|---|
+| the SQL drops rich fields | 1 fails | 1 fails (services) |
+| the editor uses its own copy of the fields (an industry's description not required) | 2 fail | 1 fails |
+| a required field on a nullable column (a project's scope) | 1 fails | passes (the states still agree; the hazard is in the schema) |
+| the child rule ignores the value | 2 fail | 2 fail (machinery, certificates) |
+| a hand-written rule comes back with a drift (industries) | 1 fails | 1 fails |
+| none | 42 / 42 pass | 8 / 8 pass |
+
+#### 17. Unit
+**132 / 132** (fresh clone of `ded2734`, `npm run test:unit`, 4.3 s):
+- A2 30 (unchanged);
+- A3 60 (unchanged);
+- Correction 1: 42 (`cms-completeness`).
+
+#### 18. Integration
+**258 / 258** (fresh clone, local MariaDB 11.4.13, a fresh `rawasy_t_*` database per file, 56 s):
+- A2 164 and A3 79, unchanged;
+- Correction 1: 15 — `cms-featured-invariant` 7 and `cms-completeness` 8.
+
+#### 19. Admin
+**64 / 64** (fresh clone, `npm run test:admin`; the production build served by `server.js` on port 3401 with a fresh
+`rawasy_e2e_*` database; 19.2 min):
+- A2's 47 (`admin.spec.ts` 38, `gate.spec.ts` 9) and A3's 16, unchanged;
+- Correction 1: 1, "A3 Correction 1: a project can't drop a service that features it — marked before saving, refused on
+  save with the reason" (`cms.spec.ts`, 1.3 s; item 13).
+
+A3's phone, dark-mode and axe tests now also run over the project editor with the new marker shown: no sideways scroll
+at 390 and 320 px, and axe finds nothing in dark mode.
+
+The server log holds two kinds of expected lines: "Invalid Server Actions request", from A2's cross-origin refusal
+tests, and one "destination stream closed early", from a page the browser left while it streamed. Both appear in the same
+places in earlier A2 and A3 runs, and no test failed or was retried.
+
+**Combined:**
+
+| Suite | A2 | A3 | Correction 1 | Total |
+|---|---|---|---|---|
+| Unit | 30 | 60 | 42 | 132 |
+| Integration | 164 | 79 | 15 | 258 |
+| Admin browser | 47 | 16 | 1 | 64 |
+| Public E2E (unchanged) | — | — | — | 612 |
+| **Combined** | | | | **1,066 / 1,066** |
+
+#### 20. Public E2E
+**612 / 612 in the first full run** (3 workers, 21.7 min).
+- **Setup:** the fresh clone of `ded2734`, served by `server.js` on port 3400.
+- **Image warm-up first:** 1,484 / 1,484 sizes, none failed or timed out, at most 2 requests at once, 102 s.
+- No test failed, was retried or was skipped.
+- The public E2E tests and `playwright.config.ts` are byte-identical to the baseline's (item 28).
+
+#### 21. Lint
+`npm run lint`: **0 problems** (fresh clone). This includes A2's rules (client components import only
+`@/server/admin/actions/*`, public files never import `src/server/**`, no Drizzle relational API).
+
+#### 22. Typecheck
+`npm run typecheck`: **0 errors** (fresh clone).
+
+#### 23. Build
+`npm run build`: **exit 0** (fresh clone, 32 s).
+- No `DB_*`, `ADMIN_ENABLED` or `APP_ENV` variable was set.
+- The routes are the public site's static and SSG pages plus 46 dynamic admin routes, as in A3.
+
+#### 24. db:check
+`npm run db:check`: "Migration files OK: 4 (0000_access_control, 0001_seed_access_control, 0002_core_cms,
+0003_seed_core_cms). Seed migrations match the registries." There is no new migration, and the seeds are unchanged.
+
+#### 25. audit --omit=dev
+**0 vulnerabilities** (fresh clone, after `npm ci`). No dependency changed.
+
+#### 26. Full audit
+`npm audit` exits 1 with **9 vulnerabilities (4 moderate, 5 high)**, the same list as A3's item 36. All are in
+development-only tools:
+- the lint chain `braces` ← … ← `eslint-config-next` (5 high);
+- `esbuild` ← `drizzle-kit` (4 moderate), the advisory the Owner accepted in A2.
+
+Nothing in either chain is part of the served app.
+
+#### 27. Integrity review
+The question (brief §16): can editing one side of a relationship leave another table in a state the CMS itself considers
+invalid? Each relationship was reviewed from both sides and under concurrency:
+
+| Relationship | Rule the CMS keeps | Before | Now |
+|---|---|---|---|
+| service featured projects ⊆ project services | a service features only projects that list it (A1 §8.1) | **broken** from the project side, sequentially and concurrently (item 6) | **fixed** (items 7–12) |
+| archived targets | an archived item may stay linked, never linked anew | held: newly linked targets are share-locked (A3 finding 3); archiving never touches links | unchanged |
+| service ↔ machines | exists; archived not linked anew | held; A1 ties no other rule to it | unchanged |
+| machine's primary service | exists; archived not chosen anew | held (`checkReference`, share-locked); A1 ties it to no list | unchanged |
+| project ↔ categories | no active project in an archived category | held from both sides (a category in use isn't archived; a project isn't restored into an archived one; a new link is share-locked) | unchanged; re-checked under concurrency |
+| industry ↔ services, industry ↔ projects | exists; archived not linked anew | held; no cross-record rule in A1 | unchanged |
+| project's client record | exists; archived not chosen anew (FK RESTRICT) | held. A1 writes the client name "when the client has no client record"; A3 gives it as a hint, not a rule (Info) | unchanged |
+
+**Concurrency, measured.** `probe-concurrency.ts` (session scratchpad, not committed) ran 100 rounds of two saves started
+together, on fresh records each round:
+
+| Scenario (100 rounds each) | `e2c67db` | `ded2734` | scratch: `ded2734` + relations written as a diff |
+|---|---|---|---|
+| X: a project reorders its services while a service featuring it saves (both valid) | all saved; 0 deadlocks | all saved; 2 deadlocks, both retried | all saved; 0 deadlocks |
+| W: a project reorders while that service changes its Featured projects (both valid) | all saved; 100 deadlocks, all retried | all saved; 100 deadlocks, all retried | all saved; 0 deadlocks |
+| Y: a service features a project while the project drops it (conflicting) | both saved 100 / 100: **100 invariant violations** | one winner each round; 0 violations | one winner each round; 0 violations |
+
+No save failed and no error escaped the retry in any scenario.
+
+**Findings:**
+- **High / Medium:** the featured-project invariant, **fixed** in this correction. No other.
+- **Low (L1), pre-existing, measured:**
+  - related saves that overlap can deadlock. W did so in every round on the A3 code and still does. The correction's
+    locking read adds a rare case, X: 2 in 100.
+  - InnoDB settles it, and `inTransaction` retries once, so no change was refused or lost, and the invariant does not
+    depend on the retry.
+  - The fix, relation rows written as a diff, was measured in a scratch copy (above). It is offered to the Owner, not
+    applied (brief §4).
+- **Info:**
+  - **I1:** an archived service that features a project must be restored before the project can drop it (Owner
+    decision 2).
+  - **I2:** a project may hold both a client record and a client name. A1 describes the name as the fallback, and A3
+    leaves it a hint; it is not cross-record and unchanged.
+  - **I3:** a database that broke the invariant before this correction would show it on the service's next save ("no
+    longer list this service"). There is no such database: every A3 database was test data and was dropped.
+
+#### 28. Freeze proof
+Against `preserve/pre-admin-a3` (`dcd089d`, the approved A2), on the fresh clone of `ded2734`. The baseline was built
+from a worktree of `dcd089d`, and each build was served from its own clean copy by `server.js` in production mode.
+
+**Sources.** `git diff a7e6637..ded2734` and `git diff dcd089d..ded2734` are both empty for every public path:
+- `src/app/(commerce)/**`, `src/components/commerce/**`, `src/content/**`, `src/lib/**`, `public/**`;
+- `src/app/global-not-found*`, `src/app/{robots,sitemap,manifest}.ts`, `src/fonts/**`, `src/proxy.ts`,
+  `next.config.ts`, `server.js`;
+- `scripts/package-namecheap.mjs`, `scripts/warm-images.mjs`, `e2e/**`, `playwright.config.ts`, `package.json`,
+  `package-lock.json`, `.env.example`.
+
+The correction changed only `src/server/**`, `src/components/admin/**` and admin tests (item 5). The 13 held-back-media
+rules are untouched.
+
+**Build output.** Each build has 890 public files:
+- 114 byte-identical;
+- 601 differing only by the build id or `/_next/static` chunk paths;
+- **0 other differences**. The 175 server bundles and manifests are compared by module instead.
+
+On all 104 prerendered public pages:
+- **stylesheets:** the same files in the same order, byte-identical;
+- **scripts:** the same chunk names and bytes, and the same module set and code. For example, `en.html` has 182 modules
+  and 636,590 bytes on both builds, and `ar/projects.html` 177 modules and 605,400 bytes on both.
+
+**HTTP.** Three admin-off settings were tested, each against a freshly started baseline with its route cache emptied:
+nothing set (the deployment default), `ADMIN_ENABLED=0`, and `APP_ENV=staging`. In all three:
+- **102 / 102 sitemap pages** have the same status, headers, normalised HTML, SEO facts and page data. The SEO facts are
+  102 titles, 102 descriptions, 102 canonicals, 306 hreflang links, 208 JSON-LD blocks, 618 media references and 292,957
+  characters of visible text.
+- `robots.txt`, `sitemap.xml` (48,451 bytes), the manifest and both icons are byte-identical.
+- `/favicon.ico` answers 404 on both builds, with bodies of the same length (8,200 bytes) that are equal once the build id
+  is normalised, as in A3.
+- **40 / 40 redirect and locale cases** are identical, every A3 address included.
+- **22 / 22 not-found cases** are identical.
+- **4 / 4 form posts** and **3 / 3 API cases** are identical.
+- **13 / 13 held-back files** answer the same.
+- **0 public pages link to the admin.**
+
+**No public database query.** The build was served with the admin **on** and `DB_*` pointing at a stand-in that counts
+connection attempts and refuses each one:
+- crawling the 102 pages, their page data, 7 public files and 7 404s made **0 attempts**;
+- the admin's sign-in page made 0;
+- the positive control, a forged admin sign-in, made 1.
+
+**Pixels.**
+- **Setup:** 11 representative pages, screen by screen (up to 6), in EN/AR × light/dark × desktop 1440 × 900 / phone
+  390 × 844. Reduced motion, every image decoded, the map stubbed.
+- **First pass:** **238 screens, 231 pixel-identical.** All 7 others have equal page heights on both builds.
+- **Repeat captures** of the 7, 3 more per build:
+  - 4 are identical in every repeat pair: `/en/projects` dark, both screens; `/ar/certificates` screen 2; the Arabic
+    Laser Cutting phone screen 2.
+  - `/en/projects` desktop light: each build differs from itself by the same 8 pixels, and every baseline-versus-current
+    pair is identical. A2 and A3 noted the same 8.
+  - The Arabic Laser Cutting phone screen 1: the current build differs from itself by 31 pixels, and 2 of 3 cross pairs
+    are identical.
+  - The Arabic Laser Cutting signature on the desktop was captured 6 more times per build. Each build differs from
+    itself by up to 37 pixels, at most 2 levels apart, and 22 of the 36 cross pairs are identical. A3 noted the same 37.
+- So every difference is the noise a build shows against itself, and the public site is unchanged.
+
+#### 29. Evidence zip
+**`rawasy-a3-final-evidence.zip`**, 48,500,308 bytes, not committed. It is in the session scratchpad:
+`/tmp/claude-0/-home-user-Rawasy-Metal-Website/34883015-4850-5415-b502-fd42eee69ac3/scratchpad/a3c1/evidence/rawasy-a3-final-evidence.zip`.
+
+**How it was captured.** From the fresh clone of `ded2734` (the final code), after all its QA passed:
+- the production build was served by `server.js` with `APP_ENV=local`, on a throwaway local database dropped afterwards;
+- one test account per role was seeded by the test-only script;
+- every record shown was created through the screens themselves and is test data ("Test …", "Demo …").
+
+**What it holds.**
+- `INDEX.md` (with a table from the brief's §17 list to the evidence ids), `shots.json`, 143 PNGs in `raw/`, and 12
+  contact sheets (6 desktop, 6 phone).
+- 32 screens in up to five variants: desktop 1280 × 800 light (32) and dark (27), phone 390 × 844 light (32) and dark
+  (25), narrow phone 320 × 640 light (27).
+- The correction's screens are in all five variants:
+  - full pages X01 (the service's Featured projects), X02 (the project editor, dependency shown before saving) and X03
+    (the refused save);
+  - close-ups, the element itself from the same page in the same state: X01a, X02a (the Services relation with "Features
+    this project" and the hint), X03a (the refusal on the field) and X04 (Used by).
+- A3's 25 screens are captured again from the corrected code.
+
+**The brief's §17 list, screen by screen:**
+
+| §17 item | Evidence id |
+|---|---|
+| Project editor Relations | X02, X02a |
+| Service editor Featured Projects | X01, X01a |
+| The blocking validation message | X03 (the summary at the top of the form), X03a (on the Services field) |
+| Used-by / dependency indication | X02a (the marker and hint, before saving), X04 (Used by) |
+| Representative list / editor mobile screens | the phone variants (390 light and dark) and the 320 px variants of every list and editor (V01, V02, J01, J02, M01, L01 …) and of X01–X03 |
+| The 320 px stale / error message | S01 narrow-light (stale), X03 and X03a narrow-light (the refusal) |
+
+The capture notes in A3's item 41 still apply (sticky bars drawn in their place in the page; "0 of 10" recovery codes
+from the seed script).
+
+#### 30. Responsive/overflow
+**0 page-level horizontal overflow in all 143 captures**: document width equals window width at 1280, 390 and 320 px,
+light and dark. This includes the project editor with the "Features this project" marker and the refusal message.
+
+At 320 px:
+- the marker sits on its own line under the service's name and slug (X02a narrow-light);
+- the hint and the refusal wrap within the field (X03a narrow-light);
+- the error summary's link wraps (X03 narrow-light).
+
+The admin browser suite checks the same at 390 and 320 px on every CMS screen, the project editor with the marker
+included (item 19).
+
+#### 31. Preservation refs
+After the final push, `git ls-remote origin` shows:
+- `preserve/pre-admin-a3-correction1` → `a7e6637587354f63b92686f4e59abbb282d19e2f` (created here, item 2);
+- `preserve/pre-admin-a3` → `dcd089d33c474b28c725d35e3537fa8f8d3aef02`;
+- `preserve/pre-admin-a2` → `ed6b6521f8e5cae04f983acd298e0ef1e6b9aac0`;
+- `preserve/pre-admin-a2-correction1` → `b47d8e533bc59543f9d2de839d10894ba63831cb`;
+- `preserve/pre-admin-a2-correction2` → `bca33aad848b84a629de76f6a658a9316408a5d8`;
+- `preserve/pre-admin-a1` → `74220ea`, `preserve/pre-namecheap-adapter` → `422c397`, and every earlier stage checkpoint,
+  unchanged.
+
+No branch was deleted, renamed or force-pushed. Only `claude/new-session-5eijs6` moved, by fast-forward pushes.
+
+#### 32. main untouched
+`main` is at `474f61f10f12981e41f9b7e7fd6065a0ec9da541`, as at the start, checked with `git ls-remote` after the final
+push. No commit, merge or push touched it.
+
+#### 33. No A4
+A4 was not started:
+- no media library, uploads, media columns or files;
+- no page builder, global settings or menus;
+- no forms or enquiries;
+- no publishing, revisions in use, preview or public database reads;
+- no content import, cache handler, projections or redirects.
+
+The changes are confined to A3's own CMS code and tests (item 5).
+
+#### 34. Nothing deployed
+- Nothing was uploaded, packaged for Namecheap or deployed.
+- No production or staging CMS database was created, and Namecheap's MariaDB was never connected.
+- cPanel, DNS, SSL and mail were not changed.
+- No production secret was created, and the production admin was not enabled.
+
+Every database used was a local, throwaway MariaDB 11.4 database (`rawasy_t_*`, `rawasy_e2e_*`), dropped after use. The
+public website still builds and runs without any database.
+
+**A3 CORRECTION 1 STATUS: READY FOR INDEPENDENT REVIEW** (not self-approved).
+
+### How to run (local)
+As in A3's "How to run". The correction's own tests:
+- `node --test tests/unit/cms-completeness.test.ts`;
+- `node --test tests/integration/cms-featured-invariant.test.ts tests/integration/cms-completeness.test.ts`, with
+  `TEST_DB_*` set;
+- `npm run test:admin` (the "A3 Correction 1" test in `e2e-admin/cms.spec.ts`).
+
+### Next steps
+- The Owner's independent review of this correction: this section, `rawasy-a3-final-evidence.zip` (not committed) and
+  the commits in item 3.
+- The Owner's two decisions above (none blocks the review).
+- A4 (Media Library) starts only when the Owner approves A3 and says so. Nothing is deployed.
