@@ -1039,10 +1039,13 @@ test.describe("phones, dark mode, accessibility and the CSP", () => {
       await page.context().close();
     }
     // Every content editor with media fields at 320 px, as the Owner (a certificate shows its redacted previews and its
-    // private originals): the pickers' long labels ("Choose logo (monochrome)…") wrap instead of widening the page.
+    // private originals): the pickers' long labels ("Choose logo (monochrome)…") wrap instead of widening the page. So do
+    // the media item pages' download buttons ("Download the private original", Owner only, just signed in).
     const owner = await signedIn(browser, "owner", { viewport: { width: 320, height: 700 } });
-    for (const path of [`/admin/certificates/${ids.certificate}`, "/admin/certificates/new", "/admin/clients/new", "/admin/services/new", "/admin/machinery/new", "/admin/industries/new", `/admin/projects/${ids.project}`]) {
+    for (const path of [`/admin/certificates/${ids.certificate}`, "/admin/certificates/new", "/admin/clients/new", "/admin/services/new", "/admin/machinery/new", "/admin/industries/new", `/admin/projects/${ids.project}`, `/admin/media/${ids.private}`, `/admin/media/${ids.photo2}`]) {
       await open(owner, path);
+      if (path.endsWith(ids.private)) await expect(owner.getByRole("link", { name: "Download the private original" })).toBeVisible();
+      if (path.endsWith(ids.photo2)) await expect(owner.getByRole("link", { name: "Download the original file" })).toBeVisible();
       expect(await pageOverflow(owner), `320 owner ${path}`).toBeLessThanOrEqual(0);
       const wide = await owner.evaluate(() =>
         [...document.querySelectorAll("main .adm-btn")].filter((b) => {

@@ -447,7 +447,7 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
         <h3>Status</h3>
         <MediaStatusActions id={id} version={detail.lockVersion} status={status} visibility={detail.visibility} deleted={detail.deleted} can={detail.can} />
         {detail.can.view_original ? (
-          <div className="adm-subset">
+          <div className="adm-subset adm-original">
             <h3>Original file</h3>
             {isPrivate && !recent ? (
               <StepUpForm mfa={mfa.enrolled} reason="Downloading a private original needs a fresh confirmation." />

@@ -1562,6 +1562,13 @@ body.adm {
   text-align: center;
 }
 
+/* The media item page's "Download the private original" (286 px, no wrapping) made the page 18 px wider than a 320 px
+   screen: the original file's buttons wrap the same way. */
+.adm-original .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
 .adm-media-slot + .adm-media-slot,
 .adm-media-slot + .adm-media-list,
 .adm-media-list + .adm-media-list,
