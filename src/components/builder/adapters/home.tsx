@@ -12,7 +12,7 @@ import { serviceIcon } from "@/components/commerce/ui";
 import type { ServiceSlug, SupportSlug } from "@/content/types";
 import type { LinkTarget } from "@/server/builder/links";
 import type { Loc, PreviewMachine, PreviewProject, PreviewService } from "@/server/builder/preview-data";
-import { itemsOf, itemText, linesOf, resolveLink, resolveSelection, textOf } from "@/server/builder/view";
+import { itemsOf, itemText, linesOf, resolveLink, resolveSelection, showcaseNotes, textOf } from "@/server/builder/view";
 import type { SelectionValue } from "@/server/builder/fields";
 import type { BlockProps, RenderContext } from "../context";
 import { InvalidSection } from "../Placeholder";
@@ -232,6 +232,8 @@ function machineryModel({ section, ctx }: BlockProps): Model {
     all: textOf(c, "all"),
     items: items.map((record) => machineItem(record, ctx, notes)),
   };
+  // The approved component draws its six machines in its own order (frozen): say where a selection differs.
+  notes.push(...showcaseNotes(items.map((record) => ({ slug: record.slug, label: recordLabel(record.name, record.slug) }))));
   return { view, notes };
 }
 

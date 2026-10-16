@@ -191,6 +191,28 @@ export function resolveSelection<E extends SelectableEntity>(entity: E, value: S
   return { items: pool.slice(0, value.limit), notes };
 }
 
+/**
+ * The machines the homepage's showcase draws, in its order: `src/components/commerce/home/Machinery.tsx`, frozen since
+ * TM-1 (a public test pins its bytes), draws only these six — the flagship lasers first, then bending and welding —
+ * whatever a selection holds. `tests/unit/builder-renderers.test.ts` keeps this list equal to the component's.
+ */
+export const HOME_SHOWCASE_MACHINES = ["fiber-laser-combo-12kw", "tube-cutting-12kw", "fiber-laser-6kw", "fiber-laser-3kw", "cnc-press-brake", "laser-welding"] as const;
+
+/** The notes for a homepage machinery selection the frozen showcase draws otherwise: machines it leaves out, an order it does not keep. */
+export function showcaseNotes(chosen: readonly { slug: string; label: string }[]): string[] {
+  const order: readonly string[] = HOME_SHOWCASE_MACHINES;
+  const notes: string[] = [];
+  const outside = chosen.filter((machine) => !order.includes(machine.slug));
+  if (outside.length) {
+    notes.push(`The homepage showcase draws only its six approved machines: ${outside.map((machine) => `“${machine.label}”`).join(", ")} ${outside.length === 1 ? "is" : "are"} not shown.`);
+  }
+  const inside = chosen.filter((machine) => order.includes(machine.slug)).map((machine) => machine.slug);
+  if (inside.join() !== order.filter((slug) => inside.includes(slug)).join()) {
+    notes.push("The homepage showcase draws its machines in its approved order (the flagship lasers first, then bending and welding), not in the order chosen.");
+  }
+  return notes;
+}
+
 // --- Links ------------------------------------------------------------------------------------------------------------------------
 
 /** The site's route keys a system link names (`links.ts` keys are the route table's own keys). */
