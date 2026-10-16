@@ -8,19 +8,46 @@
  *   placeholder;
  * - one image at a time per process (`sharp.concurrency(1)`, cache off, and a queue in front of it): the host shares
  *   2 GB of memory with everything else. The source is decoded once, scaled to the largest width needed as raw pixels,
- *   and every variant is made from those pixels.
+ *   and every variant is made from those pixels;
+ * - sharp is loaded on first use (`loadSharp`), never imported at the top: see there.
  *
  * Every derivative's name carries a hash of its file version and its bytes (two versions never share a name, even with
  * identical pixels), and is written once, never over another file (`MediaStore.writeNew`): a failed upload removes only
  * the files it created. Framework-free.
  */
 import { createHash } from "node:crypto";
-import sharp, { type Metadata, type OutputInfo, type Sharp } from "sharp";
+import type { Metadata, OutputInfo, Sharp } from "sharp";
 import { BLUR_SIZE, MEDIA_LIMITS, plannedWidths, THUMB_QUALITY, THUMB_SIZE, WEBP_QUALITY, widthKey, type SignatureType } from "./registry.ts";
 import { derivedKey, type MediaStore } from "./storage.ts";
 
-sharp.concurrency(1);
-sharp.cache(false);
+let sharpLoading: Promise<typeof import("sharp").default> | null = null;
+
+/**
+ * sharp, loaded by Node when the first image is processed, with its settings for this process (one thread, no cache).
+ * Never imported by the bundler, for two reasons:
+ * - Turbopack would load sharp's ES module entry as an external ES module, which is an "async module"; any async module
+ *   in the module graph (even one imported only on demand) adds Turbopack's async-module code to the browser runtime
+ *   of every page, the public site's included. `turbopackIgnore` leaves this `import()` as written: Node resolves
+ *   `sharp` from `node_modules` at run time (a dependency in `package.json`, installed with the app).
+ * - The settings are libvips's own, shared with Next.js's image optimizer in the same process: applied when this module
+ *   was loaded, a request that only loaded an admin route (even with the admin gate off) changed them for the public
+ *   site's images. Now they apply only once the admin processes an image.
+ * A failed load is not kept, so the next image tries again.
+ */
+function loadSharp(): Promise<typeof import("sharp").default> {
+  sharpLoading ??= import(/* turbopackIgnore: true */ "sharp").then(
+    ({ default: sharp }) => {
+      sharp.concurrency(1);
+      sharp.cache(false);
+      return sharp;
+    },
+    (error: unknown) => {
+      sharpLoading = null;
+      throw error;
+    },
+  );
+  return sharpLoading;
+}
 
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -54,6 +81,7 @@ export interface ImageFacts {
  * HEVC), the image must not be animated, and width × height (as displayed) at most 40 megapixels.
  */
 export async function probeImage(path: string, expected: Exclude<SignatureType, "pdf">): Promise<ImageFacts> {
+  const sharp = await loadSharp();
   let meta: Metadata;
   try {
     meta = await sharp(path, decodeOptions).metadata();
@@ -107,6 +135,7 @@ export const derivedNameHash = (fileId: string, data: Uint8Array) => createHash(
  */
 export async function generateVariants(store: MediaStore, sourcePath: string, mediaId: string, fileId: string, facts: ImageFacts): Promise<GeneratedImage> {
   return oneImageAtATime(async () => {
+    const sharp = await loadSharp();
     const widths = plannedWidths(facts.width);
     const largest = Math.max(...widths);
     let base: { data: Buffer; info: OutputInfo };
