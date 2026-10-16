@@ -129,12 +129,15 @@ export interface UploadOptions {
   keepDuplicate?: boolean;
   /** Declared size (defaults to the real size). */
   size?: number;
+  /** Another store to drive the protocol with (a `hookedStore` that acts in the middle of the processing). */
+  store?: MediaStore;
 }
 
 /** Opens, sends every part in order, completes. Returns the last answer (and the open answer's upload id). */
 export async function upload(env: MediaEnv, actor: Actor, bytes: Buffer, filename: string, options: UploadOptions = {}): Promise<UploadAnswer & { uploadId?: string }> {
   const ctx = mctx(env, actor);
-  const opened = await openUpload(ctx, env.store, {
+  const store = options.store ?? env.store;
+  const opened = await openUpload(ctx, store, {
     purpose: options.purpose ?? "new",
     filename,
     size: options.size ?? bytes.length,
@@ -147,11 +150,29 @@ export async function upload(env: MediaEnv, actor: Actor, bytes: Buffer, filenam
   const parts = Number(opened.body!.parts);
   for (let part = 1; part <= parts; part++) {
     const slice = bytes.subarray((part - 1) * MEDIA_LIMITS.chunkBytes, part * MEDIA_LIMITS.chunkBytes);
-    const answer = await writePart(ctx, env.store, uploadId, String(part), String(slice.length), once(slice));
+    const answer = await writePart(ctx, store, uploadId, String(part), String(slice.length), once(slice));
     if (answer.status !== 204) return { ...answer, uploadId };
   }
-  const done = await completeUpload(ctx, env.store, uploadId, options.keepDuplicate ? { keepDuplicate: true } : {});
+  const done = await completeUpload(ctx, store, uploadId, options.keepDuplicate ? { keepDuplicate: true } : {});
   return { ...done, uploadId };
+}
+
+/**
+ * The test's store, with `hook` run once before the first `method` call that matches `when` — something another person
+ * does while a file is being processed (the processing itself is the store's real code).
+ */
+export function hookedStore<M extends "writeNew" | "move">(env: MediaEnv, method: M, when: (...args: Parameters<MediaStore[M]>) => boolean, hook: () => Promise<void>): MediaStore {
+  const hooked = Object.create(env.store) as MediaStore;
+  let fired = false;
+  const original = MediaStore.prototype[method] as (...args: unknown[]) => Promise<unknown>;
+  (hooked as unknown as Record<string, unknown>)[method] = async function (this: MediaStore, ...args: Parameters<MediaStore[M]>) {
+    if (!fired && when(...args)) {
+      fired = true;
+      await hook();
+    }
+    return original.apply(this, args);
+  };
+  return hooked;
 }
 
 export async function uploadOk(env: MediaEnv, actor: Actor, bytes: Buffer, filename: string, options: UploadOptions = {}): Promise<string> {

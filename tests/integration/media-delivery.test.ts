@@ -15,7 +15,7 @@ import { openTarget } from "../../src/server/media/stream.ts";
 import type { Db } from "../../src/server/db/client.ts";
 import { ulid } from "../../src/server/security/ids.ts";
 import { formOf, query } from "./cms-helpers.ts";
-import { assertPublicMediaInvariant, jpeg, mctx, pdf, setupMediaEnv, upload, uploadOk, type MediaEnv } from "./media-helpers.ts";
+import { assertPublicMediaInvariant, hookedStore, jpeg, mctx, pdf, setupMediaEnv, upload, uploadOk, type MediaEnv } from "./media-helpers.ts";
 
 let env: MediaEnv;
 before(async () => {
@@ -201,6 +201,26 @@ describe("private originals (A4 brief §16, §49, §69, §75)", () => {
     );
     const summaries = await query<{ summary: string }>(env, "SELECT summary FROM audit_events WHERE entity_id = ?", [id]);
     assert.ok(summaries.every((s) => !s.summary.includes("original.pdf")), "never the file's name in the log");
+  });
+
+  test("a certificate archived while its private original is processed: refused at the end, no link, the stored file removed (review I4)", async () => {
+    const cert = await certificate();
+    const store = hookedStore(
+      env,
+      "move",
+      (_from, _key, toArea) => toArea === "private",
+      async () => {
+        await env.pool.query("UPDATE certificates SET publication_status = 'archived', draft_status = 'none', archived_at = NOW(3) WHERE id = ?", [cert]);
+      },
+    );
+    const answer = await upload(env, env.team.owner, pdf("Synthetic archived-meanwhile original"), "original.pdf", { purpose: "private_original", certificateId: cert, store });
+    assert.equal(answer.status, 422, JSON.stringify(answer.body));
+    assert.match(String(answer.body!.error), /archived/);
+    const id = String(answer.body!.mediaId);
+    assert.deepEqual(await query(env, "SELECT 1 FROM certificate_documents WHERE certificate_id = ?", [cert]), [], "no link to an archived certificate");
+    const [file] = await query<{ processing_status: string; storage_key: string }>(env, "SELECT processing_status, storage_key FROM media_files WHERE media_id = ?", [id]);
+    assert.equal(file.processing_status, "failed");
+    assert.equal(await env.store.sizeOf("private", file.storage_key), null, "the original it stored is removed again");
   });
 
   test("public-class originals: Owner and Admin (media.view_original); an Editor or Reviewer is denied", async () => {

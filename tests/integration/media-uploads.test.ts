@@ -10,12 +10,13 @@ import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import sharp from "sharp";
 import { ulid } from "../../src/server/security/ids.ts";
+import { derivedNameHash } from "../../src/server/media/images.ts";
 import { MEDIA_LIMITS } from "../../src/server/media/registry.ts";
-import { approveMedia, updateMediaMetadata } from "../../src/server/media/service.ts";
-import { cancelUpload, completeUpload, openUpload, writePart } from "../../src/server/media/uploads.ts";
+import { approveMedia, trashMedia, updateMediaMetadata } from "../../src/server/media/service.ts";
+import { cancelUpload, claimUploadSlot, completeUpload, freeUploadSlot, openUpload, writePart } from "../../src/server/media/uploads.ts";
 import { formOf, query } from "./cms-helpers.ts";
 import { actorFor, createUser } from "./helpers.ts";
-import { assertPublicMediaInvariant, avif, jpeg, mctx, once, pdf, png, pngBomb, setupMediaEnv, upload, uploadOk, webp, type MediaEnv } from "./media-helpers.ts";
+import { assertPublicMediaInvariant, avif, hookedStore, jpeg, mctx, once, pdf, png, pngBomb, setupMediaEnv, upload, uploadOk, webp, type MediaEnv } from "./media-helpers.ts";
 
 let env: MediaEnv;
 before(async () => {
@@ -82,7 +83,7 @@ describe("a new upload becomes a pending item with its variants", () => {
       assert.equal(data.length, Number(v.byte_size), "the row's size is the file's");
       const { createHash } = await import("node:crypto");
       assert.equal(createHash("sha256").update(data).digest("hex"), Buffer.from(v.sha256 as Buffer).toString("hex"), "the row's hash is the file's");
-      assert.ok(String(v.storage_key).includes(createHash("sha256").update(data).digest("hex").slice(0, 8)), "the name carries the hash");
+      assert.ok(String(v.storage_key).endsWith(`-${derivedNameHash(String(file.id), data)}.webp`), "the name carries the hash of its version and bytes");
       const metaData = await sharp(data).metadata();
       assert.equal(metaData.format, "webp");
       assert.equal(metaData.exif, undefined, "no EXIF in a variant");
@@ -322,6 +323,53 @@ describe("chunks (A4 brief §72)", () => {
     assert.equal(status, 429);
     assert.equal(opened, MEDIA_LIMITS.uploadsPerHour + 1);
   });
+
+  test("a slot is freed only by the upload that holds it: a late cancel of an expired upload never frees a newer one's (review L4)", async () => {
+    const user = (await createUser(env, { roles: ["editor"], name: "Test Slot Editor" })).id;
+    const first = await claimUploadSlot(env.deps.db, user, env.deps.clock());
+    assert.ok(first);
+    env.clock.advance(MEDIA_LIMITS.uploadTtlMs + 1000);
+    try {
+      const second = await claimUploadSlot(env.deps.db, user, env.deps.clock());
+      assert.ok(second);
+      assert.equal(second.slot, first.slot, "the expired upload's slot is claimed again");
+      await freeUploadSlot(env.deps.db, user, first.slot, first.until);
+      const third = await claimUploadSlot(env.deps.db, user, env.deps.clock());
+      assert.ok(third);
+      assert.notEqual(third.slot, second.slot, "the newer upload still holds its slot");
+      await freeUploadSlot(env.deps.db, user, second.slot, second.until);
+      const fourth = await claimUploadSlot(env.deps.db, user, env.deps.clock());
+      assert.equal(fourth?.slot, second.slot, "its holder freed it");
+    } finally {
+      env.clock.advance(-(MEDIA_LIMITS.uploadTtlMs + 1000));
+    }
+  });
+
+  test("opening an upload removes the person's own expired uploads and their parts; others' are left alone (review L4)", async () => {
+    const mine = mctx(env, await actorFor(env, await createUser(env, { roles: ["editor"], name: "Test Abandoning Editor" })));
+    const theirs = mctx(env, await actorFor(env, await createUser(env, { roles: ["editor"], name: "Test Other Editor" })));
+    const bytes = Buffer.alloc(MEDIA_LIMITS.chunkBytes, 7);
+    const abandoned: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const answer = await openUpload(mine, env.store, { purpose: "new", filename: `abandoned-${i}.png`, size: bytes.length + 10 });
+      const uploadId = String(answer.body!.uploadId);
+      assert.equal((await writePart(mine, env.store, uploadId, "1", String(bytes.length), once(bytes))).status, 204);
+      abandoned.push(uploadId);
+    }
+    const other = String((await openUpload(theirs, env.store, { purpose: "new", filename: "other.png", size: 10 })).body!.uploadId);
+    env.clock.advance(MEDIA_LIMITS.uploadTtlMs + 1000);
+    try {
+      const fresh = await openUpload(mine, env.store, { purpose: "new", filename: "fresh.png", size: 10 });
+      assert.equal(fresh.status, 201);
+      for (const uploadId of abandoned) assert.ok(!tmpEntries().includes(uploadId), `expired and abandoned: removed (${uploadId})`);
+      assert.ok(tmpEntries().includes(other), "another person's upload is theirs to finish or for the maintenance tool");
+      assert.ok(tmpEntries().includes(String(fresh.body!.uploadId)));
+      await cancelUpload(mine, env.store, String(fresh.body!.uploadId));
+    } finally {
+      env.clock.advance(-(MEDIA_LIMITS.uploadTtlMs + 1000));
+    }
+    await cancelUpload(theirs, env.store, other);
+  });
 });
 
 describe("content checks (A4 brief §28, §71): the bytes decide, never the name or the browser", () => {
@@ -481,6 +529,54 @@ describe("replacement (A4 brief §33; Owner decision 8)", () => {
     assert.equal((await query(env, "SELECT 1 FROM public_media WHERE media_id = ?", [id])).length, 1, "still delivered");
     const files = await filesOf(id);
     assert.equal(files.at(-1)!.processing_status, "failed");
+  });
+
+  test("same pixels in other bytes: a new version with files of its own; every file of the delivered version stays (review M2)", async () => {
+    // Two PNG files of the same pixels: not identical (so not refused), but their sizes are byte for byte the same. Their
+    // names used to be the bytes' hash alone, so the replacement's rows collided with the delivered version's and the
+    // failed replacement deleted the files the delivered version still served.
+    const pixels = () => sharp({ create: { width: 640, height: 400, channels: 3, background: { r: 30, g: 140, b: 90 } } });
+    const v1 = await pixels().png({ compressionLevel: 9 }).toBuffer();
+    const v2 = await pixels().png({ compressionLevel: 0 }).toBuffer();
+    assert.notDeepEqual(v1, v2);
+    const id = await uploadOk(env, env.team.editor, v1, "same-pixels.png");
+    await approve(env, id);
+    const [first] = await filesOf(id);
+    const delivered = await variantsOf(String(first.id));
+    const replaced = await upload(env, env.team.editor, v2, "same-pixels-again.png", { purpose: "replace", mediaId: id });
+    assert.equal(replaced.status, 201, JSON.stringify(replaced.body));
+    const files = await filesOf(id);
+    assert.deepEqual(files.map((f) => f.processing_status), ["ready", "ready"]);
+    const fresh = await variantsOf(String(files[1].id));
+    const hex = (rows: Record<string, unknown>[]) => rows.map((v) => Buffer.from(v.sha256 as Buffer).toString("hex"));
+    assert.deepEqual(hex(fresh), hex(delivered), "the same pixels made the same bytes");
+    const taken = new Set(delivered.map((v) => String(v.storage_key)));
+    for (const v of fresh) assert.ok(!taken.has(String(v.storage_key)), `a name of its own: ${v.storage_key}`);
+    for (const v of [...delivered, ...fresh]) assert.equal(await env.store.sizeOf("derived", String(v.storage_key)), Number(v.byte_size), `on disk: ${v.storage_key}`);
+    await assertPublicMediaInvariant(env);
+  });
+
+  test("moved to the Trash while its replacement is processed: the new version fails and only its own files go (review I1)", async () => {
+    const id = await uploadOk(env, env.team.editor, await jpeg(700, 500, { seed: 77 }), "trash-during.jpg");
+    const [first] = await filesOf(id);
+    const kept = (await variantsOf(String(first.id))).map((v) => String(v.storage_key).slice(id.length + 1)).sort();
+    const store = hookedStore(
+      env,
+      "writeNew",
+      (area) => area === "derived",
+      async () => assert.equal((await trashMedia(mctx(env, env.team.admin), id)).kind, "ok"),
+    );
+    const answer = await upload(env, env.team.editor, await jpeg(700, 500, { seed: 78 }), "replacement.jpg", { purpose: "replace", mediaId: id, store });
+    assert.equal(answer.status, 422, JSON.stringify(answer.body));
+    assert.match(String(answer.body!.error), /Trash/);
+    const row = await asset(id);
+    assert.ok(row.deleted_at, "still in the Trash");
+    assert.equal(row.current_file_id, first.id, "the old version stays current");
+    const files = await filesOf(id);
+    assert.equal(files[1].processing_status, "failed");
+    assert.deepEqual(await variantsOf(String(files[1].id)), []);
+    assert.deepEqual(readdirSync(join(env.store.areaRoot("derived"), id)).sort(), kept, "the old version's files, and nothing else");
+    await assertPublicMediaInvariant(env);
   });
 
   test("a replacement keeps the kind; identical bytes are refused; a Reviewer may not replace", async () => {

@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { releasePath, releaseFile } from "../../src/server/media/presence.ts";
 import { dataDirFrom, isValidKey, MediaStore, StorageConfigError, StoragePathError } from "../../src/server/media/storage.ts";
+import { derivedNameHash } from "../../src/server/media/images.ts";
 
 const ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 let root: string;
@@ -86,6 +87,39 @@ describe("keys (A4 brief §70)", () => {
     assert.equal(await store.sizeOf("tmp", `${ULID}/part-1`), null);
     assert.equal(await store.writeStreamAtomic("tmp", `${ULID}/part-1`, source(10), { maxBytes: 10, exactBytes: 10 }), 10);
     assert.equal(await store.sizeOf("tmp", `${ULID}/part-1`), 10);
+  });
+});
+
+describe("generated files are written once (review M2)", () => {
+  test("writeNew creates a file, accepts the same bytes again, and never replaces other bytes", async () => {
+    const key = `${ULID}/w640-11111111.webp`;
+    assert.equal(await store.writeNew("derived", key, Buffer.from("first bytes")), "created");
+    assert.equal(await store.writeNew("derived", key, Buffer.from("first bytes")), "same", "the same bytes: not this write's file");
+    await assert.rejects(store.writeNew("derived", key, Buffer.from("other bytes")), StoragePathError);
+    const opened = await store.openRead("derived", key);
+    assert.equal((await opened!.handle.readFile()).toString(), "first bytes", "never overwritten");
+    await opened!.handle.close();
+    const listing = await store.listArea("derived");
+    assert.ok(!listing.files.some((k) => k.includes(".tmp-")), "no temporary file left behind");
+  });
+
+  test("writeNew never writes through a link at the name or its folder", async () => {
+    const linked = `${ULID}/w1600-22222222.webp`;
+    symlinkSync(join(outside, "secret.txt"), join(store.areaRoot("derived"), linked));
+    await assert.rejects(store.writeNew("derived", linked, Buffer.from("not for the store")), StoragePathError);
+    const other = "01BX5ZZKBKACTAV9WEVGEMMVS0";
+    symlinkSync(outside, join(store.areaRoot("derived"), other));
+    await assert.rejects(store.writeNew("derived", `${other}/w320-33333333.webp`, Buffer.from("x")), StoragePathError);
+  });
+
+  test("a derivative's name comes from its file version and its bytes: two versions of the same pixels never share one", () => {
+    const bytes = Buffer.from("identical variant bytes");
+    const a = derivedNameHash("01HZZZZZZZZZZZZZZZZZZZZZZA", bytes);
+    const b = derivedNameHash("01HZZZZZZZZZZZZZZZZZZZZZZB", bytes);
+    assert.match(a, /^[0-9a-f]{8}$/);
+    assert.notEqual(a, b);
+    assert.equal(derivedNameHash("01HZZZZZZZZZZZZZZZZZZZZZZA", bytes), a, "the same version and bytes: the same (immutable) name");
+    assert.notEqual(derivedNameHash("01HZZZZZZZZZZZZZZZZZZZZZZA", Buffer.from("other bytes")), a);
   });
 });
 

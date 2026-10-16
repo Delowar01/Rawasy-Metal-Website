@@ -169,6 +169,20 @@ describe("headers and addresses", () => {
     assert.match(arabic, /filename="_____\.pdf"; filename\*=UTF-8''%D8%B4/);
   });
 
+  test("a long name is shortened by whole characters: never inside a surrogate pair, and a lone surrogate never throws (review L6)", () => {
+    const emoji = "\u{1F600}";
+    for (const name of [`${"a".repeat(199)}${emoji}.pdf`, `${"a".repeat(200)}${emoji}`, `${emoji.repeat(250)}.pdf`, `x\ud800y.pdf`, `\udc00${"b".repeat(300)}`]) {
+      const header = contentDisposition("attachment", name);
+      const encoded = header.slice(header.indexOf("UTF-8''") + 7);
+      const decoded = decodeURIComponent(encoded);
+      assert.ok([...decoded].length <= 200, `at most 200 characters: ${[...decoded].length}`);
+      assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(decoded), "no lone surrogate");
+      assert.ok(/^[\x20-\x7e]*$/.test(header), "the header stays ASCII");
+    }
+    assert.match(contentDisposition("attachment", `${"a".repeat(199)}${emoji}`), /%F0%9F%98%80$/, "a character that fits is kept whole");
+    assert.match(contentDisposition("attachment", "x\ud800y.pdf"), /x%EF%BF%BDy\.pdf$/, "a lone surrogate becomes U+FFFD");
+  });
+
   test("the public address grammar: a ULID and a width variant or a document name, nothing else", () => {
     const id = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
     assert.ok(publicAddressValid(id, "w320-0a1b2c3d.webp"));

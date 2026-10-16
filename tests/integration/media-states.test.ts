@@ -19,6 +19,7 @@ import {
   updateMediaMetadata,
 } from "../../src/server/media/service.ts";
 import { mediaFlagToken } from "../../src/server/media/service.ts";
+import { createFolder, folderTree } from "../../src/server/media/folders.ts";
 import { formOf, query } from "./cms-helpers.ts";
 import { assertPublicMediaInvariant, jpeg, mctx, pdf, setupMediaEnv, upload, uploadOk, type MediaEnv } from "./media-helpers.ts";
 
@@ -227,6 +228,25 @@ describe("restriction, archive, the Trash (A4 brief §17, §43, §58)", () => {
     await restoreMediaFromTrash(mctx(env, env.team.admin), restricted, await version(restricted));
     assert.equal((await row(restricted)).usage_status, "restricted");
   });
+
+  test("in the Trash nothing changes its status: lifting a restriction or leaving the archive is refused until it is restored (review I1)", async () => {
+    const restricted = await image();
+    assert.equal((await restrictMedia(mctx(env, env.team.admin), restricted, "Synthetic restriction")).kind, "ok");
+    assert.equal((await trashMedia(mctx(env, env.team.admin), restricted)).kind, "ok");
+    const lifted = await unrestrictMedia(mctx(env, env.team.admin), restricted, await version(restricted), "Resolved the synthetic question");
+    assert.equal(lifted.kind, "refused", JSON.stringify(lifted));
+    assert.equal((await row(restricted)).usage_status, "restricted");
+    const archived = await image();
+    assert.equal((await archiveMedia(mctx(env, env.team.admin), archived)).kind, "ok");
+    assert.equal((await trashMedia(mctx(env, env.team.admin), archived)).kind, "ok");
+    assert.equal((await unarchiveMedia(mctx(env, env.team.admin), archived, await version(archived), "Needed again")).kind, "refused");
+    assert.equal((await row(archived)).usage_status, "archived");
+    const audit = await query<{ action: string; outcome: string }>(env, "SELECT action, outcome FROM audit_events WHERE entity_id IN (?, ?) AND outcome = 'failed' ORDER BY id", [restricted, archived]);
+    assert.deepEqual(audit.map((a) => `${a.action}:${a.outcome}`), ["media.unrestrict:failed", "media.unarchive:failed"]);
+    // Restored from the Trash, the usual way back works.
+    assert.equal((await restoreMediaFromTrash(mctx(env, env.team.admin), restricted, await version(restricted))).kind, "ok");
+    assert.equal((await unrestrictMedia(mctx(env, env.team.admin), restricted, await version(restricted), "Resolved the synthetic question")).kind, "ok");
+  });
 });
 
 describe("versions (A4 brief §34)", () => {
@@ -344,5 +364,38 @@ describe("the role matrix (A4 brief §21, §65): hidden buttons are not the secu
     }
     const audit = await query<{ outcome: string }>(env, "SELECT outcome FROM audit_events WHERE entity_id = ? AND outcome = 'denied'", [privateId]);
     assert.ok(audit.length >= 12, "every probe of a private item is audited");
+  });
+
+  test("a private document is never filed in a folder, which every role sees with its item count (review L5)", async () => {
+    const folder = await createFolder(mctx(env, env.team.admin), "Test folder for the private rule", null);
+    assert.equal(folder.kind, "ok", JSON.stringify(folder));
+    const privateId = await uploadOk(env, env.team.owner, pdf("Synthetic private folder probe"), "private.pdf", { purpose: "private_original", certificateId: await newCertificate() });
+    const filed = await updateMediaMetadata(mctx(env, env.team.owner), privateId, formOf({ lockVersion: String(await version(privateId)), folderId: folder.id! }));
+    assert.equal(filed.kind, "invalid", JSON.stringify(filed));
+    assert.ok(filed.kind === "invalid" && filed.errors?.folderId);
+    assert.equal((await row(privateId)).folder_id, null);
+    const [node] = (await folderTree(env.deps.db)).filter((f) => f.id === folder.id);
+    assert.equal(node.items, 0, "nothing for an Admin to count");
+    // A public item is filed as before.
+    const publicId = await image();
+    assert.equal((await updateMediaMetadata(mctx(env, env.team.editor), publicId, formOf({ lockVersion: String(await version(publicId)), folderId: folder.id! }))).kind, "ok");
+    assert.equal((await row(publicId)).folder_id, folder.id);
+  });
+
+  test("the audit log never holds a private document's words: it is always “private document” there (review I2)", async () => {
+    const privateId = await uploadOk(env, env.team.owner, pdf("Synthetic private audit probe"), "probe-name.pdf", { purpose: "private_original", certificateId: await newCertificate() });
+    const titled = await updateMediaMetadata(
+      mctx(env, env.team.owner),
+      privateId,
+      formOf({ lockVersion: String(await version(privateId)), "en.title": "Synthetic secret title", "ar.title": "عنوان سري تجريبي", "en.altMode": "undecided", "ar.altMode": "undecided" }),
+    );
+    assert.equal(titled.kind, "ok", JSON.stringify(titled));
+    assert.equal((await addMediaFlag(mctx(env, env.team.owner), privateId, "rights_pending", "")).kind, "ok");
+    const events = await query<{ entity_label: string | null; summary: string }>(env, "SELECT entity_label, summary FROM audit_events WHERE entity_id = ?", [privateId]);
+    assert.ok(events.length >= 3);
+    for (const event of events) {
+      assert.ok(event.entity_label === null || event.entity_label === "private document", `label: ${event.entity_label}`);
+      for (const word of ["Synthetic secret title", "عنوان سري", "probe-name"]) assert.ok(!event.summary.includes(word), `summary: ${event.summary}`);
+    }
   });
 });

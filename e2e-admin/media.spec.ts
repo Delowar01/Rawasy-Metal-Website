@@ -11,7 +11,7 @@
  */
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { join, resolve } from "node:path";
 import { expect, request as apiRequest, test, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
@@ -581,6 +581,16 @@ test.describe("rights, approval and restriction", () => {
     for (const name of ["original.jpg", "thumb.webp", "w320.webp", names[0].replace(/[0-9a-f]{8}\.webp$/, "00000000.webp")]) {
       expect((await request.get(`/media/u/${ids.photo2}/${name}`)).status(), name).toBe(404);
     }
+    // Next.js's image optimizer never takes an uploaded item's address (security review M1): it would keep serving its own
+    // copy long after the item was withdrawn. The release's own pictures are optimized as before.
+    const optimizer = (url: string) => request.get(`/_next/image?url=${encodeURIComponent(url)}&w=640&q=75`, { headers: { accept: "image/avif,image/webp,*/*" } });
+    for (const url of [`/media/u/${ids.photo2}/${names[0]}`, `/media/projects/../u/${ids.photo2}/${names[0]}`, `/media/u/${ids.photo2}/${names[0]}?v=1`]) {
+      expect((await optimizer(url)).status(), url).toBe(400);
+    }
+    const release = readdirSync(join(ROOT, "public", "media", "projects")).find((name) => name.endsWith(".webp"))!;
+    const optimized = await optimizer(`/media/projects/${release}`);
+    expect(optimized.status()).toBe(200);
+    expect(optimized.headers()["content-type"]).toBe("image/webp");
     // The Editor's page has no approval at all.
     const editor = await as(browser, "editor");
     await open(editor, `/admin/media/${ids.pdf}`);
@@ -1028,6 +1038,21 @@ test.describe("phones, dark mode, accessibility and the CSP", () => {
       await expect(page.locator("#media").getByRole("button", { name: "Add photo…" })).toBeFocused();
       await page.context().close();
     }
+    // Every content editor with media fields at 320 px, as the Owner (a certificate shows its redacted previews and its
+    // private originals): the pickers' long labels ("Choose logo (monochrome)…") wrap instead of widening the page.
+    const owner = await signedIn(browser, "owner", { viewport: { width: 320, height: 700 } });
+    for (const path of [`/admin/certificates/${ids.certificate}`, "/admin/certificates/new", "/admin/clients/new", "/admin/services/new", "/admin/machinery/new", "/admin/industries/new", `/admin/projects/${ids.project}`]) {
+      await open(owner, path);
+      expect(await pageOverflow(owner), `320 owner ${path}`).toBeLessThanOrEqual(0);
+      const wide = await owner.evaluate(() =>
+        [...document.querySelectorAll("main .adm-btn")].filter((b) => {
+          const r = b.getBoundingClientRect();
+          return r.width > 0 && (r.left < -0.5 || r.right > document.documentElement.clientWidth + 0.5);
+        }).length,
+      );
+      expect(wide, `320 owner ${path}: every button inside the screen`).toBe(0);
+    }
+    await owner.context().close();
     // axe on the library (grid and list), an item and the folders, light and dark.
     for (const colorScheme of ["light", "dark"] as const) {
       const page = await signedIn(browser, "editor", { colorScheme });
