@@ -66,6 +66,11 @@ async function open(page: Page, path: string) {
 
 const idFrom = (page: Page) => ULID_IN_URL.exec(new URL(page.url()).pathname + "?")?.[1] ?? "";
 const pageOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+/** Elements of the page (the preview canvas and visually hidden text aside) that end past the screen's right edge. */
+const pastTheScreen = (page: Page) =>
+  page.locator("main *").evaluateAll((els) =>
+    els.filter((e) => !e.closest(".adm-bld-canvas, .adm-sr-only") && e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5).map((e) => e.className),
+  );
 const english = (page: Page) => page.locator("#english");
 
 // --- The builder's parts -----------------------------------------------------------------------------------------------------
@@ -603,15 +608,19 @@ test.describe("phones, the preview's own tab and accessibility", () => {
       expect(await pageOverflow(phone), `${viewport.width} ${colorScheme} edit`).toBe(0);
       await inspector(phone).getByLabel(/^Alt text/).fill(`Test chandelier photo ${viewport.width} ${colorScheme}`);
       await saveLayout(phone);
+      // A rich text in the inspector — its paragraph's kind menu, buttons and marks — stays inside the screen too (the
+      // kind menu's longest choice pushed it 4 px past a 320 px screen until each editor grid had one minmax(0, 1fr) track).
+      await tabs.getByRole("button", { name: "Outline" }).click();
+      await card(phone, "Text").getByRole("button", { name: "Edit “Text”" }).click();
+      await expect(inspector(phone).locator(".adm-bld-rich-block select").first()).toBeVisible();
+      expect(await pageOverflow(phone), `${viewport.width} ${colorScheme} rich text`).toBe(0);
+      expect(await pastTheScreen(phone), `${viewport.width} ${colorScheme} rich text`).toEqual([]);
       await tabs.getByRole("button", { name: "Preview" }).click();
       await expect(phone.locator(".adm-bld-preview")).toBeVisible();
       await expect(phone.getByLabel("Preview width")).toBeVisible();
       await previewReady(phone);
       expect(await pageOverflow(phone), `${viewport.width} ${colorScheme} preview`).toBe(0);
-      const wide = await phone.locator("main *").evaluateAll((els) =>
-        els.filter((e) => !e.closest(".adm-bld-canvas, .adm-sr-only") && e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5).map((e) => e.className),
-      );
-      expect(wide, `${viewport.width} ${colorScheme}`).toEqual([]);
+      expect(await pastTheScreen(phone), `${viewport.width} ${colorScheme}`).toEqual([]);
       await phone.context().close();
     }
   });
