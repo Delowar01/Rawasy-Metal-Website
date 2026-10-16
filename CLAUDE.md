@@ -10,9 +10,10 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-15-admin-a3-core-cms.md` (Admin / CMS program, Phase A3 — Core CMS, database
-  working copies of the core content, local implementation only; its "A3 CORRECTION 1" section is at the end)
-  (earlier: `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
+- Latest report: `docs/reports/2026-10-16-admin-a4-media-library.md` (Admin / CMS program, Phase A4 — Media library,
+  local implementation only)
+  (earlier: `2026-10-15-admin-a3-core-cms.md` (Phase A3 — Core CMS; its "A3 CORRECTION 1" section is at the end),
+  `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
   shell; its "A2 CORRECTION 1", "A2 CORRECTION 2" and "A2 FINAL VISUAL CORRECTION" sections are at the end),
   `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
   `2026-10-09-namecheap-stellar-plus-adapter.md` (its Correction 1 and 2 sections are at the end),
@@ -217,9 +218,41 @@
   102 pages over HTTP in three gate-off settings, no public database connection with the admin on, 238 screens); evidence
   `rawasy-a3-final-evidence.zip` (not committed): 143 captures, 0 horizontal overflow. Offered to the Owner, not done:
   relation rows written as a diff (overlapping saves of related records deadlock once, then retry: see the gotcha).
-  **Do not start A4** (no media library, uploads, page builder, global settings or menus, enquiries, publishing,
-  revisions in use, database-backed public pages, content migration, cache handler, projections, redirects, persistent
-  media) until the user approves A3 and says so.
+  **A3 is approved and closed**, Correction 1 and its final evidence included (the user's A4 brief: "A3 Core CMS +
+  Correction 1 + final visual evidence are independently FULLY APPROVED and CLOSED").
+  **Phase A4 (Media library) is built — local implementation only** (the user's "PHASE A4 — MEDIA LIBRARY / … / DO NOT
+  START A5" brief; report `2026-10-16-admin-a4-media-library.md`; rollback checkpoint: GitHub branch
+  `preserve/pre-admin-a4` at `37a1e67`) and awaits independent review: see "Phase A4 implementation" below. Its commits,
+  each on its own: `905dc48` schema and migration 0004; `c764e83` storage root, signatures and limits; `a6e6c2b` image
+  processing (sharp 0.35.5 pinned: the version Next already installed); `29a2eb2` rights, approval, restriction, Trash,
+  versions and delivery; `6ed79c7` the chunked upload protocol; `bc1ab82` the release media importer; `e6701f7` folders,
+  library queries, usage and maintenance; `4d952e4` server tests; `a0c5553` the admin UI; `b2331db` content media slots,
+  project photos, service gallery, certificate previews; `4e382b7` certificate private originals; `fab0ef3` content
+  media tests; `a074415` item page fixes; `b7a4c8b` browser tests; `fc98e21` README and `.env.example`; `74dcae1` the
+  security review's fixes (3 Medium, 3 Low, 4 Info; no High); `3a7bbc1` picker labels wrap at 320 px; `83b1ba7` the
+  fixes' tests and the maintenance tool's tests; `29c4178` non-uploaders refused before the body is read; `ead98a9` the
+  completeness unit test pins A3's child-text rule by name again (test only); `a6cd373` sharp loaded by Node at run
+  time, never bundled (the freeze proof found every public page's runtime chunk changed); `a50a96c` its test; `66de7be`
+  the media code's file tracing scoped (two new build warnings); `a1f562e` the original file's download button wraps at
+  320 px (found by the evidence capture). Final QA on a fresh clone of `a1f562e`: `npm ci`, audit `--omit=dev` 0, lint,
+  typecheck, build (no warning, no database settings), `db:check`, the packaging script's own check (the 13 held back),
+  unit 167 / 167 (A2 30, A3 102, A4 35), integration 360 / 360 (A2 164, A3 94, A4 102), admin 82 / 82 (A2 47, A3 17, A4
+  18), public 611 / 612, 611 / 612, then 612 / 612 in a third full run (the two failures: a Chromium renderer crash in a
+  tracing test, 20 / 20 alone on both builds, and the pre-existing reduced-motion press transition below). Public freeze
+  against `preserve/pre-admin-a4`: 0 file differences beyond the router's sibling entry (408 files: `["admin"]` →
+  `["admin","api","media"]`; 49 new route files), stylesheets, scripts and modules identical on all 104 pages, 102 pages
+  over HTTP in three gate-off settings, 143 / 143 release files byte-identical, 1,484 / 1,484 `/_next/image` answers
+  identical, no public database connection with the admin on, 235 screens (228 identical, 7 proven noise), all 44 page
+  heights equal once loaded. Evidence `rawasy-a4-final-evidence.zip` (not committed): 133 captures of 37 screens, 14
+  contact sheets, 0 horizontal overflow; synthetic uploads and approved release photos only (the pickers searched for
+  "Test"). **Open for the user** (public site, not changed in A4): with reduced motion, pressed buttons still shrink to
+  98 % over 180 ms (`.mc .btn:active { scale: 0.98 }` with `scale` in `.mc .btn`'s transition list; the reduced-motion
+  block stills the lift and arrow only). It is the same on `preserve/pre-admin-a4`. `commerce-motion.spec.ts`'s
+  reduced-motion test catches it under load (report item 49), and the fix changes the public CSS, so it waits for the
+  user.
+  **Do not start A5** (no page builder or visual editor, global settings or menus, enquiries, publishing, revisions in
+  use, database-backed public pages, content migration, cache handler, projections, redirects, or the public site switched
+  to `/media/u`) until the user approves A4 and says so.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
   the public site (A1–A4 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
   Correction 1 a release built from this branch carries the admin code but serves none of it unless `ADMIN_ENABLED=1`;
@@ -326,7 +359,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2 implemented locally)
+## Admin / CMS program (A1 specification; A2–A4 implemented locally)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -625,6 +658,114 @@
   `.adm-editor-alert .adm-btn` wraps (the stale message's buttons at 320 px).
 - Tests: `e2e-admin/seed-user.mjs` (test only; refused outside `APP_ENV=local` and a `rawasy_e2e_<hex>` database) seeds one
   user per role for `e2e-admin/cms.spec.ts`.
+
+### Phase A4 implementation (local only; report `2026-10-16-admin-a4-media-library.md`)
+
+- Scope: the media library at `/admin/media` (library, `[id]`, `folders`), uploads, versions, rights / flags /
+  approval / restriction / archive / Trash, certificate documents (redacted public previews and the Owner's private
+  originals), the A1 media references of the A3 records (pickers), the release importer, maintenance, and the public
+  route `/media/u/**` for approved uploads. The public site still reads nothing of it (T1): `public/media` and every
+  page are unchanged, the 13 held-back files stay excluded from the package, no page refers to `/media/u`.
+- Schema: `src/server/db/schema-media.ts` → `drizzle/0004_media_library.sql` (11 tables: `media_assets`, `media_files`,
+  `media_variants`, `media_translations`, `media_flags`, `media_folders`, `public_media`, `project_media`,
+  `service_gallery_items` (+ translations), `certificate_documents` with roles `public_preview` / `private_original`;
+  and the A3 records' A1 media columns). No new permission (A2's registry:
+  `media.*`, `private_documents.*`).
+- Storage (`src/server/media/storage.ts`): one root `RAWASY_DATA_DIR` (absolute, outside the app, never in `public` /
+  `public_html`; `media/originals/YYYY/MM/<file>.<ext>`, `media/derived/<media>/<variant>-<hash8>.webp`,
+  `media/private/<media>/<file>.<ext>`, `tmp/uploads/<upload>/…`); keys only from ULIDs and hashes, checked against a
+  grammar, resolved under the real root, opened `O_NOFOLLOW`, 0700 / 0600. Release files stay in `public/media`
+  (`storage_area` `release`, key = the address), served by Next as before.
+- Upload protocol (`uploads.ts`, Route Handlers outside the proxy): POST `/api/admin/media/uploads` (open) → PUT
+  `…/{upload}/parts/{n}` (4 MiB parts, exact `Content-Length`) → POST `…/complete` (or DELETE). An upload belongs to its
+  user and session lineage (others get 404); 20 MiB, 40 MP, 5 parts, 5 open uploads, 60 an hour, 1 h expiry. The bytes
+  decide the type (`signature.ts`: JPEG, PNG, WebP, AVIF, PDF; SVG refused); pixel limit before decoding; duplicates
+  offered for reuse only among items the person may know of. Processing (`versions.ts`, `images.ts`, sharp 0.35.5):
+  widths 320 / 640 / 1080 / 1600 / 2048 never above the source, WebP, EXIF orientation applied, no metadata copied, a
+  256 px admin thumbnail and a blur placeholder; the file row is `processing` before any byte moves; a failure keeps the
+  previous version live.
+- One deliverability rule (`deliverability.ts`): public, approved, no blocking flag (unknown flags block), not in the
+  Trash, a ready current file with its delivery files. `public_media` is written only by `syncPublicMedia`, in the same
+  transaction as every change of those inputs (A4 brief §68 invariant; `assertPublicMediaInvariant` after every media
+  integration test). Statuses: pending_review, approved, restricted, archived, internal (private).
+- Service (`service.ts`): each change in one transaction (the actor's rows, then the item's row FOR UPDATE), permission
+  re-decided there (`access.ts`; private items "not found" to anyone without `private_documents.view`, never
+  approvable), audited. Safety-increasing (flag, restrict, archive, Trash) never need the page's version;
+  safety-decreasing (approve, clear a flag — on the flag instance the page showed —, unrestrict, unarchive, untrash,
+  restore a version) are decided on the locked state and the page's version. Approval needs a note, the alt decision
+  (text or decorative `''`) in both languages (a document: its title), no blocking flag, the files on disk. A
+  replacement returns an approved item to review and never lifts a restriction; Trash restores into review.
+- Delivery: `/media/u/{id}/{w}-{hash8}.webp` and `…/document-{hash8}.pdf` (`public-delivery.ts`): only the current
+  file's variants while deliverable, ETag + a year immutable, nosniff, documents as attachments, 503 when the database is
+  down, 404 before any database access when the admin gate is off. Admin previews `/api/admin/media/{id}/preview/
+  thumb|large` (public-class images only). Originals `/api/admin/files/{id}[?version=]`: public-class for
+  `media.view_original` (Owner, Admin); private only for the Owner with a step-up in the last 10 minutes; audited
+  (`media.original_download` / `media.private_download`, refusals `media.download`); the served `Cache-Control` is
+  `no-store` (next.config's static `/api/admin/**` headers win over the handler's `private, no-store`).
+- Admin UI: `src/app/(admin)/admin/_components/media.tsx` (library, item, folders), `src/components/admin/media/*`
+  (`MediaUploader` with `<progress>` and a polite status line, `MediaPicker` (a `<dialog>` inside the content form: no
+  nested form, `type="button"`, Enter in its search searches), `MediaFields` / `GalleryRows` (Up / Down / Remove, no
+  dragging), `MediaDetailForms`, `FolderManager`, `PrivateOriginalUpload`), Server Actions in
+  `src/server/admin/actions/media.ts`, cards in `src/server/media/cards.ts` (no thumbnail for a blocking-flagged,
+  private or unready item; a private id is "Not available", exactly like an unknown one). The item page's preview is
+  keyed on the flag state (a blocking flag added on the page hides it at once).
+- Narrow phones: `.adm-btn` is `nowrap`, and a long label inside a grid card (`.adm-subset`) widens the grid's `auto`
+  track and the page. A4's long buttons wrap and centre (`.adm-media-slot`, `.adm-media-list`, `.adm-children`,
+  `.adm-uploader` since `3a7bbc1`; the item page's original-file block `.adm-original` since `a1f562e`: "Download the
+  private original" made the page 338 px wide at 320). Give any new long-labelled button the same rule;
+  `media.spec.ts`'s 320 px Owner sweep opens every content editor and both kinds of item page.
+- Content media (`src/server/cms/media-refs.ts`, engine `mediaSlots` / `mediaLists` / the service gallery): a newly
+  chosen item is read with a share lock and must be public-class, not trashed, not archived, ready and of the slot's
+  kind; kept items may stay; private and unknown ids get the same message (`MEDIA_UNAVAILABLE`); no duplicates; saves
+  never touch `certificate_documents` rows with role `private_original` (only the Owner's upload writes them). Alt
+  fields of content are three-state (`<locale>.<key>Mode`: unset / decorative / text).
+- CLIs (by hand, never at app start): `npm run media:import-release` (143 release files: 108 used → approved baseline,
+  22 unused → pending, 13 held back → restricted with their documented flags; idempotent, fails closed, `--refresh=<key>`
+  only on purpose), `node scripts/media-release-baseline.mjs --write|--check` (the baseline from the repository, after a
+  build), `npm run media:maintenance` (report; repairs only when asked; never deletes a media file; no schedule).
+- Tests: `tests/unit/media-*.test.ts`, `tests/integration/media-*.test.ts` (+ `media-helpers.ts`: synthetic files only;
+  `hookedStore` runs something — a Trash, an archive — in the middle of a real processing), `media-maintenance.test.ts`
+  (the maintenance tool), `tests/integration/cms-media.test.ts`, `e2e-admin/media.spec.ts` (18; the E2E server has a
+  temporary `RAWASY_DATA_DIR`, `run().dataDir`). Inherited tests that A4 had to widen keep their A3 rule pinned by name
+  (`cms-completeness.test.ts`: an attribute or a fact needs label and value, a gallery photo its caption).
+- Security invariants from the A4 review (keep them; each has a test that fails on the code before, `fc98e21`):
+  - The image optimizer never takes an uploaded item's address: `images.localPatterns` in `next.config.ts` lists the
+    release's pictures only (`/media/{certificates,clients,machines,projects,services,site}/**`, `/og/**`,
+    `/apple-icon.png`, no query string); anything else answers 400. Next 16.3.8 caches an optimized local image for
+    max(4 h, the source's max-age) — a year for `/media/u/**` — and would keep serving it after a withdrawal. A new
+    public picture folder must be added there (the page then shows a broken image, never a leak).
+  - A derivative's name hash is SHA-256 of the file version's id and the bytes (`derivedNameHash`), so two versions
+    never share a name, even with identical pixels; generated files are written once (`MediaStore.writeNew`: a hard link
+    never replaces a name; the same bytes again are "same", other bytes refused), and a failed upload or regeneration
+    removes only the files it created (`created`). Before, an identical-pixel replacement collided on the unique storage
+    key and its clean-up deleted the delivered version's files.
+  - The upload routes' JSON bodies are read as a stream with a byte cap (`src/server/media/json-body.ts`; chunked bodies
+    included); the stream is cancelled past the cap. Someone who may upload nothing (a Reviewer) is refused (403) before
+    the opening request's body is read (`29c4178`).
+  - An upload slot is freed only by the upload that holds it (`freeUploadSlot(…, heldUntil)`: the row's `expires_at` is
+    the claim's mark); opening an upload first removes the person's own expired, unlocked uploads (`sweepExpired`).
+  - A private item is never filed in a folder (folders and their counts are seen by every role), and its audit label is
+    always "private document" (`mediaLabel`). The dashboard's storage-check summary goes through `publicView` for roles
+    without `private_documents.view`.
+  - `contentDisposition` shortens names by code points and replaces lone surrogates (it can never throw); the file route
+    builds its headers before it opens the file and records the download.
+  - In the Trash nothing changes: a replacement finishing there fails (`finishUpload`), lifting a restriction or leaving
+    the archive is refused. A private original's finish share-locks and re-checks its certificate first (archived or
+    removed meanwhile: failed, no link; the lock order of a certificate's own save).
+- From the A4 public freeze proof (`a6cd373`, with `tests/unit/media-bundle.test.ts`, which fails on the code before):
+  sharp is never bundled. `loadSharp()` in `images.ts` loads it on first use with `import(/* turbopackIgnore: true */
+  "sharp")`, and applies its libvips settings (one thread, no cache) then. A static import, or an `import("sharp")` the
+  bundler resolves, makes sharp an external ES module (an async module), and Turbopack then adds its async-module code
+  to every public page's runtime chunk (`turbopack-*.js` 9,721 → 10,946 bytes on all 104 pages, measured on `ead98a9`).
+  Other files may import sharp's types only. File accesses on run-time paths (`MediaStore.areaRoot`, the release-file
+  `realpath` check in `presence.ts`) carry `/* turbopackIgnore: true */` (`66de7be`): without it the build warns and the
+  media routes' file traces list the whole project.
+- A8 / pre-production hardening candidate (A4 brief §88): A3's relation rows written as a diff (update kept rows'
+  positions, insert and delete only the changes) instead of delete-and-reinsert, which removes the overlapping-save
+  deadlock between a project and a service (settled today by `inTransaction`'s one retry; A3's retry and invariant
+  behaviour stay accepted). Not implemented in A4.
+- Pre-staging, never guessed (A4 brief §93): the real `RAWASY_DATA_DIR` path, filesystem quotas, process count, upload /
+  body limits, ModSecurity, glibc / sharp on the account, MariaDB limits, cron, backup location and off-site backups.
 
 ## Rules from the brief
 
@@ -2013,3 +2154,57 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   after its checks — its translation row: the first stops there with its other locks taken, the second is shown to wait
   for it, then the held row is released (`cms-featured-invariant.test.ts`). A pausing proxy over mysql2 is the
   alternative when no such row exists (`review-races.test.ts`).
+- `server.js` (and `next start`) compiles `next.config.ts` from the folder it runs in at every start: a server on an old
+  `.next` still takes the current `next.config.ts`. A negative control of a config change must put the old file back
+  (A4 M1: with `fc98e21`'s config the optimizer test got 200, with the new one 400).
+- Next 16.3.8's image optimizer: without `images.localPatterns` it takes any local address (`[{ pathname: '**', search:
+  '' }]`); it caches an optimized image for max(`minimumCacheTTL` 4 h, the source's max-age); it fetches a local source
+  through a mocked request that carries no visitor header (no cookie), so authenticated routes never reach it. It always
+  adds `/_next/static/media/**` to a list. Unlisted addresses answer 400 `"url" parameter is not allowed`.
+- Playwright's `request.get` sends `Accept: */*`: Next's optimizer then answers JPEG for a WebP source (no WebP accepted).
+  Send the browser's image `Accept` header when a test checks the optimizer's type.
+- A `ReadableStream` with the default strategy (highWaterMark 1) pulls a chunk as soon as it is built: a test that counts
+  what a reader pulled needs `{ highWaterMark: 0 }`.
+- `ck_certificates_archived` (A3) requires `draft_status = 'none'` for an archived certificate: a test that archives one
+  by SQL sets both.
+- Writing a `\ufffd` escape through a Bash heredoc in this session's tool produced the literal U+FFFD character in the
+  file: write such escapes with a script (`chr(92) + 'ufffd'`) and check the bytes.
+- The Bash safety check refuses `cd dir && rm -rf *` (a relative glob it cannot resolve): extract into a new, empty
+  folder by its absolute path instead (`unzip -d <new dir>`).
+- Turbopack (Next 16.3.8) adds its async-module code (`Symbol("turbopack queues")`, +1,225 bytes) to the browser runtime
+  chunk of every page as soon as the module graph holds one async module, even a server-only one. A package with an ES
+  module entry (sharp 0.35's `dist/index.mjs`) imported by server code becomes an external ES module, which is async —
+  with a static import, and also with a plain `import()`. Load such packages with `import(/* turbopackIgnore: true */
+  "pkg")` (Node resolves it at run time) or not at all; check the public pages' `turbopack-*.js` against the baseline
+  after adding a server dependency (A4: `tests/unit/media-bundle.test.ts`; probe: count `.a(async` in `.next/server`).
+- A top-level static route segment (`src/app/api/…`, `src/app/media/…`) is a sibling of `[locale]` in Next's router tree:
+  every public page's HTML and page data carry the list (`["admin"]` since A2, `["admin","api","media"]` since A4's first
+  real route files there). Freeze proofs normalise that one entry, with any list of names.
+- sharp's `concurrency()` and `cache()` are libvips's process-wide settings, shared with Next's image optimizer in the
+  same process: never set them when a module loads.
+- Turbopack warns "Dynamic filesystem access causes tracing of the whole project" when server code passes a path it
+  cannot scope (a field, a parameter) to `path.join` / `fs` calls: the routes' `.nft.json` traces then list every source
+  file and all of `public/` (the held-back media included). For run-time paths (`RAWASY_DATA_DIR`) put
+  `/* turbopackIgnore: true */` in the call; `join(process.cwd(), "public")` is scoped (it traces `public/` only). Check
+  each build log for new warnings against the baseline's.
+- Never edit a bash script while it runs: bash reads it from the file as it goes and resumes at the old byte offset in
+  the new content (an insertion earlier in the file made a running QA script start its `case` block again).
+- Next's static file server answers `public/` files with `Last-Modified` (and a weak `ETag`) from the file's
+  modification time, so a fresh clone and an older worktree serve identical bytes with different dates: compare bytes
+  and the other headers, and trace `Last-Modified` to each side's file date.
+- Two versions of one media item can hold identical pixels (a re-saved file with other EXIF): anything derived only from
+  the output bytes (names, keys) collides across versions. A4's derivative names hash the file version's id with the bytes.
+- A slot or lock held in a shared table and freed later must be freed only by its holder (a claim mark compared in the
+  freeing UPDATE): after the holder's expiry another claim may own the row (A4 L4).
+- `commerce-motion.spec.ts`'s reduced-motion test ("nothing moves on the way down…") can fail on `/en/contact` under the
+  full suite's load. It records the buttons' 180 ms press `scale` transition, which the public CSS keeps with reduced
+  motion (pre-existing, open for the user). The test sees it only when a frame is drawn between Playwright's mouse-down
+  and mouse-up; to see it on any build, hold the press (`mouse.down()`, then two frames).
+- Chromium's renderer can crash (`page.evaluate: Target crashed`) in `commerce-home-depth.spec.ts`'s tracing test
+  ("marking the page as scrolling…", `browser.startTracing`) under the full suite's load. It happened once in A4's final
+  round and passed 20 / 20 alone on both builds.
+- The pixel freeze proof (`shots.mjs`) reads page heights right after `load`, before its image walk, so two pages read
+  as still growing: the English phone homepage (11,980 vs 12,063 px) and the browser-built Arabic 404. Re-measure after
+  loading (A4's `heights.mjs`: 44 / 44 equal) before calling a height different.
+- The admin media pickers list today's release files, pending ones included, until searched. Where a brief allows
+  approved release thumbnails only, search them for "Test" (synthetic uploads only) before capturing evidence.

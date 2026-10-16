@@ -497,7 +497,10 @@ RAWASY_DATA_DIR=/home/you/rawasy-data       # in .env.local; holds media/origina
 - **Delivery.** An approved uploaded image is served at `/media/u/<id>/<width>-<hash>.webp` (a PDF at
   `/media/u/<id>/document-<hash>.pdf`): only while it is approved, unflagged, not in the Trash and current; never its
   original. Nothing on today's public site uses these addresses before the A9 cutover, and with the admin gate off
-  they answer 404 without reading the database.
+  they answer 404 without reading the database. Next.js's image optimizer (`/_next/image`) never takes them: its
+  `images.localPatterns` in `next.config.ts` lists the release's own pictures only (the six `public/media` folders,
+  `/og/**`, `/apple-icon.png`), because it would keep its own copy of a withdrawn item for as long as the address may be
+  cached (a year). A new folder of public pictures must be added to that list, or `/_next/image` refuses it (400).
 - **Maintenance** (by hand; nothing runs on a schedule): `node --env-file=.env.local scripts/media-maintenance.mjs`
   reports missing files, unknown files on disk, stuck or failed processing, `public_media` drift and old versions past
   30 days, and saves the report for the dashboard. Repairs only when asked: `--clean-tmp`, `--fail-stuck`,
