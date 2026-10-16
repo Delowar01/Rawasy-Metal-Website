@@ -28,6 +28,7 @@ const ICONS = {
   certificates: "M5 3h14v12H5zM9 7h6M9 10h4M10 15l-1 6 3-2 3 2-1-6",
   media: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9.5a1.5 1.5 0 1 0 0-.01",
   folders: "M3 6h6l2 2h10v11H3zM3 10h18",
+  reusable: "M8 4h12v12H8zM4 8v12h12",
 };
 
 /** The Core CMS areas (A3), in the brief's order. */
@@ -39,6 +40,7 @@ const CONTENT_AREAS = [
   { href: "/admin/industries", label: "Industries", icon: ICONS.industries },
   { href: "/admin/clients", label: "Clients", icon: ICONS.clients },
   { href: "/admin/certificates", label: "Certificates", icon: ICONS.certificates },
+  { href: "/admin/reusable-sections", label: "Reusable sections", icon: ICONS.reusable },
 ];
 
 function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {

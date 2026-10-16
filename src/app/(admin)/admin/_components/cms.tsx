@@ -402,6 +402,14 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
             {item.archived ? <span className="adm-badge">Archived</span> : <span className="adm-badge is-success">Draft</span>}
           </span>
         }
+        actions={
+          // A page's or a service's sections are composed in the page builder (A5).
+          type === "page" || type === "service" ? (
+            <Link className="adm-btn is-primary" href={`${info.path}/${id}/builder`}>
+              Edit page layout
+            </Link>
+          ) : null
+        }
       />
       {notice ? (
         <div className="adm-alert is-success" role="status">
