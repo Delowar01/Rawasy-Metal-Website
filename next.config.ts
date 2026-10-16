@@ -23,6 +23,15 @@ const nextConfig: NextConfig = {
   },
   images: {
     qualities: [75, 85],
+    // The image optimizer takes the release's own pictures only (no query string, as before): the six media folders the
+    // pages use, the share images and the app icon. Never the uploaded library's public address `/media/u/**` (A4): an
+    // item there can be withdrawn at any moment, and the optimizer would keep serving its own copy for as long as that
+    // address allows caching (a year). Anything else is refused with 400 (Next.js's answer for an unlisted path).
+    localPatterns: [
+      ...["certificates", "clients", "machines", "projects", "services", "site"].map((group) => ({ pathname: `/media/${group}/**`, search: "" })),
+      { pathname: "/og/**", search: "" },
+      { pathname: "/apple-icon.png", search: "" },
+    ],
   },
   experimental: {
     // Serves app/global-not-found.tsx for URLs that match no route at all

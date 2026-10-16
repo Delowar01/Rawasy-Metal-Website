@@ -22,18 +22,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (decision.kind === "not_found") return notFoundResponse();
   if (decision.kind === "step_up") return textResponse(403, "Confirm your identity in the admin first (it is valid for 10 minutes), then download again.");
   if (decision.kind === "denied") return textResponse(403, "You don't have permission to download original files.");
+  // Everything the answer needs is prepared before the file is opened and the download recorded.
+  const headers = {
+    "Content-Type": decision.file.mime,
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "Content-Disposition": contentDisposition("attachment", decision.file.originalFilename),
+  };
   const opened = await openTarget(await deps.store(), deps.releaseDir, decision.file);
   if (!opened) return notFoundResponse();
-  await auditDownload(route.context, id, decision.file);
-  return new Response(opened.body, {
-    status: 200,
-    headers: {
-      "Content-Type": decision.file.mime,
-      "Content-Length": String(opened.size),
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; sandbox",
-      "Content-Disposition": contentDisposition("attachment", decision.file.originalFilename),
-    },
-  });
+  try {
+    await auditDownload(route.context, id, decision.file);
+  } catch (error) {
+    opened.close();
+    throw error;
+  }
+  return new Response(opened.body, { status: 200, headers: { ...headers, "Content-Length": String(opened.size) } });
 }

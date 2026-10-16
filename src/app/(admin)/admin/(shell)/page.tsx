@@ -10,7 +10,8 @@ import { auditEvents } from "@/server/db/schema";
 import { countItems, type TypeCounts } from "@/server/cms/list";
 import { ENTITIES, type EntityType } from "@/server/cms/registry";
 import { mediaStats, type MediaStats } from "@/server/media/list";
-import { readLastReport, reportHasProblems, type MaintenanceReport } from "@/server/media/maintenance";
+import { canSeePrivate } from "@/server/media/access";
+import { privateMediaIds, publicView, readLastReport, reportHasProblems, type MaintenanceReport } from "@/server/media/maintenance";
 import { MEDIA_LIMITS } from "@/server/media/registry";
 import { mediaStore } from "@/server/media/storage";
 import { formatBytes } from "../_components/media";
@@ -216,7 +217,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
   // The last storage check (Owner and Admin): read from the data folder when it is configured on this server.
   const integrity = actor.permissions.has("media.approve");
-  const report = media && integrity ? await readLastReport(await mediaStore().catch(() => null)) : null;
+  const saved = media && integrity ? await readLastReport(await mediaStore().catch(() => null)) : null;
+  // An Admin sees the check without private items (only the Owner may know they exist).
+  const report = saved && !canSeePrivate(actor.permissions) ? publicView(saved, await guarded(() => privateMediaIds(deps.db))) : saved;
   const usedRecovery = typeof params.recovery === "string" && /^\d+$/.test(params.recovery) ? Number(params.recovery) : null;
   return (
     <>

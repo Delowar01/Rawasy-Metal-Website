@@ -11,8 +11,9 @@
  *   session that opened it. Another user, another session (outside its rotation lineage), or an unknown id gets "not
  *   found" — a guessed ULID reveals nothing. No database table holds uploads.
  * - **Limits:** at most 5 open uploads per user (slots in `rate_limits`, freed on completion or cancel, or after the
- *   1-hour lifetime), 60 new uploads per user per hour, 20 MiB per file, parts of exactly 4 MiB (the last one shorter),
- *   at most 5 parts, the declared size checked before anything is read and the assembled size again.
+ *   1-hour lifetime — only by the upload that holds them), 60 new uploads per user per hour, 20 MiB per file, parts of
+ *   exactly 4 MiB (the last one shorter), at most 5 parts, the declared size checked before anything is read and the
+ *   assembled size again. Opening an upload first removes the person's own expired, abandoned ones.
  * - **Verification** before any database row: the extension must be accepted and the bytes' signature must match it
  *   (`signature.ts`); an image's header is read with the 40-megapixel limit (`images.ts`); a PDF needs its header and its
  *   end marker. Duplicates (same SHA-256) are offered for reuse first — only items the person may know of.
@@ -23,7 +24,7 @@
  */
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import { open } from "node:fs/promises";
+import { open, readdir } from "node:fs/promises";
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { hitRateLimit, HOUR } from "../auth/rate-limit.ts";
@@ -128,8 +129,11 @@ const NOT_FOUND = () => problem(404, "This upload does not exist, has finished, 
 const SLOT_ROW = new Date(0);
 const slotHash = (userId: string, slot: number) => sha256(`media:upload-slot:${userId}#${slot}`);
 
-/** Claims a free open-upload slot (a single conditional UPDATE per slot; rows inserted in key order). -1 when all 5 are taken. */
-export async function claimUploadSlot(db: Db, userId: string, now: Date): Promise<number> {
+/**
+ * Claims a free open-upload slot (a single conditional UPDATE per slot; rows inserted in key order): the slot and the
+ * time it is held until (the upload's expiry, and the claim's mark: see `freeUploadSlot`). Null when all 5 are taken.
+ */
+export async function claimUploadSlot(db: Db, userId: string, now: Date): Promise<{ slot: number; until: Date } | null> {
   const hashes = Array.from({ length: MEDIA_LIMITS.activeUploads }, (_, slot) => slotHash(userId, slot));
   await db
     .insert(rateLimits)
@@ -141,17 +145,22 @@ export async function claimUploadSlot(db: Db, userId: string, now: Date): Promis
       .update(rateLimits)
       .set({ count: sql`${rateLimits.count} + 1`, expiresAt: until })
       .where(and(eq(rateLimits.keyHash, keyHash), eq(rateLimits.windowStart, SLOT_ROW), lte(rateLimits.expiresAt, now)));
-    if (taken.affectedRows === 1) return slot;
+    if (taken.affectedRows === 1) return { slot, until };
   }
-  return -1;
+  return null;
 }
 
-/** Frees a slot (completion, cancel, expiry). Never deletes the row (a concurrent claim still finds it). */
-export async function freeUploadSlot(db: Db, userId: string, slot: number): Promise<void> {
+/**
+ * Frees a slot (completion, cancel, expiry) — only while the upload that claimed it still holds it: the row still
+ * carries that claim's expiry. Once an upload has expired its slot may be claimed again, and a late cancel or complete
+ * of the expired upload must not free the newer upload's slot (that would allow more than 5 open uploads). Never
+ * deletes the row (a concurrent claim still finds it).
+ */
+export async function freeUploadSlot(db: Db, userId: string, slot: number, heldUntil: Date): Promise<void> {
   await db
     .update(rateLimits)
     .set({ expiresAt: SLOT_ROW })
-    .where(and(eq(rateLimits.keyHash, slotHash(userId, slot)), eq(rateLimits.windowStart, SLOT_ROW)));
+    .where(and(eq(rateLimits.keyHash, slotHash(userId, slot)), eq(rateLimits.windowStart, SLOT_ROW), eq(rateLimits.expiresAt, heldUntil)));
 }
 
 // --- Ownership ---------------------------------------------------------------------------------------------------------------
@@ -184,13 +193,36 @@ async function ownedManifest(ctx: MediaContext, store: MediaStore, uploadId: str
 const purposeAllowed = (ctx: MediaContext, purpose: UploadPurpose) =>
   purpose === "private_original" ? mayUploadPrivate(ctx.actor.permissions) : purpose === "replace" ? ctx.actor.permissions.has("media.upload") && ctx.actor.permissions.has("media.edit") : mayUploadPublic(ctx.actor.permissions);
 
-/** Removes an expired or finished upload's folder and frees its slot. */
+/** Removes an expired or finished upload's folder and frees its slot (if it still holds it). */
 async function discard(ctx: MediaContext, store: MediaStore, manifest: UploadManifest) {
   await store.removeUpload(manifest.uploadId).catch(() => undefined);
-  await freeUploadSlot(ctx.deps.db, manifest.userId, manifest.slot);
+  await freeUploadSlot(ctx.deps.db, manifest.userId, manifest.slot, new Date(manifest.expiresAt));
 }
 
 const expired = (manifest: UploadManifest, now: Date) => Date.parse(manifest.expiresAt) <= now.getTime();
+
+/** How many staging folders one sweep looks at, at most (oldest first: upload ids begin with their time). */
+const SWEEP_LIMIT = 200;
+
+/**
+ * Removes the acting user's expired uploads that were never finished or cancelled, before a new one opens: their parts
+ * (up to 20 MiB each) would otherwise stay on disk until someone runs the maintenance tool, while their slots are free
+ * again — so abandoned uploads could pile up. A folder being completed (its lock present) is left alone.
+ */
+async function sweepExpired(ctx: MediaContext, store: MediaStore, now: Date): Promise<void> {
+  let names: string[];
+  try {
+    names = (await readdir(store.areaRoot("tmp"))).filter(isUlid).sort().slice(0, SWEEP_LIMIT);
+  } catch {
+    return;
+  }
+  for (const uploadId of names) {
+    const manifest = await readManifest(store, uploadId);
+    if (!manifest || manifest.uploadId !== uploadId || manifest.userId !== ctx.actor.user.id || !expired(manifest, now)) continue;
+    if (await exists(store, lockKey(uploadId))) continue;
+    await discard(ctx, store, manifest);
+  }
+}
 
 // --- Open ----------------------------------------------------------------------------------------------------------------------
 
@@ -231,8 +263,10 @@ export async function openUpload(ctx: MediaContext, store: MediaStore, body: unk
   const now = deps.clock();
   const hourly = await hitRateLimit(deps.db, `media:uploads:${actor.user.id}`, { limit: MEDIA_LIMITS.uploadsPerHour, windowMs: HOUR }, now);
   if (!hourly.allowed) return problem(429, `You have started ${MEDIA_LIMITS.uploadsPerHour} uploads in the last hour. Try again later.`);
-  const slot = await claimUploadSlot(deps.db, actor.user.id, now);
-  if (slot < 0) return problem(409, `You already have ${MEDIA_LIMITS.activeUploads} uploads open. Finish or cancel one first.`);
+  await sweepExpired(ctx, store, now);
+  const claim = await claimUploadSlot(deps.db, actor.user.id, now);
+  if (!claim) return problem(409, `You already have ${MEDIA_LIMITS.activeUploads} uploads open. Finish or cancel one first.`);
+  const { slot, until } = claim;
   const uploadId = ulid(now.getTime());
   const manifest: UploadManifest = {
     v: 1,
@@ -249,13 +283,14 @@ export async function openUpload(ctx: MediaContext, store: MediaStore, body: unk
     partSize: MEDIA_LIMITS.chunkBytes,
     parts: Math.ceil(request.size / MEDIA_LIMITS.chunkBytes),
     createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + MEDIA_LIMITS.uploadTtlMs).toISOString(),
+    // The slot's claim mark too: a slot is freed only by the upload whose expiry it still carries.
+    expiresAt: until.toISOString(),
     slot,
   };
   try {
     await store.writeAtomic("tmp", manifestKey(uploadId), Buffer.from(JSON.stringify(manifest)));
   } catch (error) {
-    await freeUploadSlot(deps.db, actor.user.id, slot);
+    await freeUploadSlot(deps.db, actor.user.id, slot, until);
     throw error;
   }
   return answer(201, { uploadId, partSize: manifest.partSize, parts: manifest.parts, expiresAt: manifest.expiresAt });
@@ -290,6 +325,8 @@ export async function writePart(ctx: MediaContext, store: MediaStore, uploadId: 
     await store.writeStreamAtomic("tmp", partKey(uploadId, part), body, { maxBytes: manifest.partSize, exactBytes: expected });
   } catch (error) {
     if (error instanceof StorageSizeError) return problem(error.kind === "too_large" ? 413 : 400, `Part ${part} must be exactly ${expected} bytes.`);
+    // The folder went while the part was streamed: the upload expired meanwhile and was cleaned up.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return problem(410, "This upload expired. Start it again.");
     throw error;
   }
   return answer(204);
@@ -503,10 +540,11 @@ async function storeAndProcess(ctx: MediaContext, store: MediaStore, manifest: U
     let variants: Awaited<ReturnType<typeof generateVariants>>["variants"] = [];
     let blur: string | null = null;
     if (accepted.kind === "image" && area === "originals" && dims) {
-      const generated = await generateVariants(store, await store.verifiedPath(area, storageKey), mediaId, dims);
+      const generated = await generateVariants(store, await store.verifiedPath(area, storageKey), mediaId, fileId, dims);
       variants = generated.variants;
       blur = generated.blurDataUrl;
-      for (const v of variants) written.push({ area: "derived", key: v.storageKey });
+      // Only what this upload created is ever removed again (a name it found holding the same bytes is not its file).
+      for (const v of variants) if (v.created) written.push({ area: "derived", key: v.storageKey });
     }
     // Step 5: what was written is checked back before anything is marked ready.
     if ((await store.sizeOf(area, storageKey)) !== facts.size) throw new Error("The stored original is not complete.");

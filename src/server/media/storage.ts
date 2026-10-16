@@ -3,7 +3,8 @@
  * release, outside `public/` and `public_html`, never served directly. Its areas:
  *
  *   $RAWASY_DATA_DIR/media/originals/YYYY/MM/<file-ulid>.<ext>       public-class originals (never served publicly)
- *   $RAWASY_DATA_DIR/media/derived/<media-ulid>/<variant>-<hash8>.webp  generated variants (served when deliverable)
+ *   $RAWASY_DATA_DIR/media/derived/<media-ulid>/<variant>-<hash8>.webp  generated variants (served when deliverable;
+ *                                                                        hash8 from the file version and the bytes)
  *   $RAWASY_DATA_DIR/media/private/<media-ulid>/<file-ulid>.<ext>     private items (certificate originals)
  *   $RAWASY_DATA_DIR/tmp/uploads/<upload-ulid>/…                       upload staging
  *
@@ -14,7 +15,7 @@
  * Nothing here runs at build time: the store is opened on first use by a request, a CLI or a test.
  */
 import { constants, type ReadStream } from "node:fs";
-import { lstat, mkdir, open, readdir, realpath, rename, rm, stat, unlink, type FileHandle } from "node:fs/promises";
+import { link, lstat, mkdir, open, readdir, realpath, rename, rm, stat, unlink, type FileHandle } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { randomBytes } from "node:crypto";
 
@@ -239,6 +240,44 @@ export class MediaStore {
     } catch (error) {
       await unlink(temp).catch(() => undefined);
       throw error;
+    }
+  }
+
+  /**
+   * Writes bytes to a key that must not hold anything else (generated files): a temporary file in the same directory,
+   * then a hard link to the key — which, unlike a rename, never replaces an existing name — then the temporary name
+   * removed. A key that already holds exactly these bytes is left as it is ("same": not this write's file); a key that
+   * holds other bytes is refused. A generated file is never overwritten, so whoever created it is the only one who may
+   * remove it.
+   */
+  async writeNew(area: Area, key: string, data: Uint8Array): Promise<"created" | "same"> {
+    const full = await this.ensureDirFor(area, key);
+    const temp = `${full}.tmp-${randomBytes(6).toString("hex")}`;
+    const handle = await open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    try {
+      try {
+        await handle.writeFile(data);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      try {
+        await link(temp, full);
+        return "created";
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+      const existing = await this.openRead(area, key);
+      if (!existing) throw new StoragePathError("The target changed while it was written.");
+      try {
+        const bytes = await existing.handle.readFile();
+        if (Buffer.compare(bytes, data) === 0) return "same";
+      } finally {
+        await existing.handle.close();
+      }
+      throw new StoragePathError("Another file already holds this name.");
+    } finally {
+      await unlink(temp).catch(() => undefined);
     }
   }
 

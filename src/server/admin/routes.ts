@@ -85,17 +85,5 @@ export async function adminRouteContext(request: Request, action: string, kind: 
   return { ok: true, context: { deps: mediaDeps(), actor: state.actor, meta } };
 }
 
-/** The JSON body of a request, at most `max` bytes; null when it is not JSON. */
-export async function readJsonBody(request: Request, max = 4096): Promise<unknown> {
-  const length = Number(request.headers.get("content-length") ?? "0");
-  if (length > max) return null;
-  try {
-    const text = await request.text();
-    if (text.length > max) return null;
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return null;
-  }
-}
-
 export { contentDisposition } from "@/server/media/headers";
+export { readJsonBody } from "@/server/media/json-body";

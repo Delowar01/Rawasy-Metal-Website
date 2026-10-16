@@ -162,6 +162,13 @@ export async function finishUpload(
 ): Promise<FinishResult> {
   const { deps, actor, meta } = ctx;
   return contentTransaction(deps, actor, async (tx, now) => {
+    // A certificate's private original: the certificate first (the lock order of a certificate's own save — its row,
+    // then media rows), decided again here (it may have been archived or removed while the file was processed).
+    if (input.purpose === "private_original") {
+      const state = input.certificateId ? await certificateState(tx, input.certificateId) : "missing";
+      if (state === "missing") return { kind: "failed", message: "The certificate no longer exists." } as const;
+      if (state === "archived") return { kind: "failed", message: "The certificate was archived during the upload. Restore it, then upload the document again." } as const;
+    }
     const asset = await lockAsset(tx, input.mediaId);
     if (!asset) return { kind: "failed", message: "The item no longer exists." } as const;
     const [file] = await tx.select().from(mediaFiles).where(and(eq(mediaFiles.id, input.fileId), eq(mediaFiles.mediaId, asset.id)));
@@ -169,6 +176,8 @@ export async function finishUpload(
     // The permission is decided again at the end (it can be taken away while a large file is processed).
     const allowed = input.purpose === "new" ? actor.permissions.has("media.upload") : decideAccess(actor.permissions, input.purpose === "private_original" ? "edit" : "replace", asset.visibility).ok;
     if (!allowed) return { kind: "failed", message: "Your permissions changed during the upload." } as const;
+    // An item moved to the Trash while its replacement was processed stays as it was in the Trash (read-only).
+    if (asset.deletedAt) return { kind: "failed", message: "This item was moved to the Trash during the upload. Restore it, then replace its file again." } as const;
     if (input.variants.length) {
       await tx.insert(mediaVariants).values(
         input.variants.map((v) => ({

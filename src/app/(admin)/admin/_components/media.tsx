@@ -477,6 +477,7 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
         folders={folders.map((f) => ({ id: f.id, label: f.label }))}
         preview={blocked ? null : preview}
         latestHref={`/admin/media/${id}`}
+        privateItem={isPrivate}
       />
 
       <section className="adm-card" id="rights" aria-labelledby="rights-title">

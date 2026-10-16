@@ -30,6 +30,8 @@ export interface MaintenanceReport {
   tmp: { abandoned: { uploadId: string; ageHours: number }[]; open: number; other: string[] };
   stuck: { mediaId: string; fileId: string; version: number; since: string }[];
   failed: number;
+  /** How many of `failed` belong to private items (left out of what a role without private access is shown). */
+  failedPrivate?: number;
   missing: { mediaId: string; fileId: string; version: number; what: string[] }[];
   orphans: { area: string; key: string }[];
   notFiles: { area: string; key: string }[];
@@ -56,6 +58,7 @@ export async function scanMedia(ctx: MaintenanceContext): Promise<MaintenanceRep
     tmp: { abandoned: [], open: 0, other: [] },
     stuck: [],
     failed: 0,
+    failedPrivate: 0,
     missing: [],
     orphans: [],
     notFiles: [],
@@ -73,9 +76,12 @@ export async function scanMedia(ctx: MaintenanceContext): Promise<MaintenanceRep
     if ((file.processingStatus === "processing" || file.processingStatus === "uploaded") && file.uploadedAt.getTime() < stuckBefore) {
       report.stuck.push({ mediaId: file.mediaId, fileId: file.id, version: file.version, since: file.uploadedAt.toISOString() });
     }
-    if (file.processingStatus === "failed") report.failed++;
-    if (file.processingStatus !== "ready") continue;
     const asset = assetOf.get(file.mediaId);
+    if (file.processingStatus === "failed") {
+      report.failed++;
+      if (asset?.visibility === "private") report.failedPrivate = (report.failedPrivate ?? 0) + 1;
+    }
+    if (file.processingStatus !== "ready") continue;
     const what = await missingDeliveryFiles(store, ctx.releaseDir, { storageArea: file.storageArea, storageKey: file.storageKey, byteSize: Number(file.byteSize), kind: asset?.kind ?? "image" }, variants.filter((v) => v.fileId === file.id));
     // An uploaded image's original must be there too (the source of its variants and of any regeneration).
     if (file.storageArea === "originals" && asset?.kind === "image" && store) {
@@ -128,6 +134,30 @@ export async function scanMedia(ctx: MaintenanceContext): Promise<MaintenanceRep
     }
   }
   return report;
+}
+
+/**
+ * The report as a role without private access may see it (a private item does not exist for anyone who may not know of
+ * it, A4 brief §16): entries about private items and the private area are left out, and so are their failures.
+ */
+export function publicView(report: MaintenanceReport, privateIds: ReadonlySet<string>): MaintenanceReport {
+  const isPublic = (entry: { mediaId: string }) => !privateIds.has(entry.mediaId);
+  return {
+    ...report,
+    stuck: report.stuck.filter(isPublic),
+    failed: Math.max(0, report.failed - (report.failedPrivate ?? 0)),
+    failedPrivate: 0,
+    missing: report.missing.filter(isPublic),
+    orphans: report.orphans.filter((o) => o.area !== "private"),
+    notFiles: report.notFiles.filter((o) => o.area !== "private"),
+    purgeCandidates: report.purgeCandidates.filter(isPublic),
+    publicMediaDrift: report.publicMediaDrift.filter(isPublic),
+  };
+}
+
+/** The ids of every private item (for `publicView`). */
+export async function privateMediaIds(db: Db): Promise<Set<string>> {
+  return new Set((await db.select({ id: mediaAssets.id }).from(mediaAssets).where(eq(mediaAssets.visibility, "private"))).map((r) => r.id));
 }
 
 /** Whether a report shows something for the Owner/Admin to look at. */
@@ -210,7 +240,7 @@ export async function regenerateVariants(ctx: MaintenanceContext, mediaId: strin
   if (!file || file.storageArea !== "originals" || file.processingStatus !== "ready" || !file.width || !file.height) return "skipped";
   const size = await store.sizeOf("originals", file.storageKey);
   if (size !== Number(file.byteSize)) return "missing";
-  const generated = await generateVariants(store, await store.verifiedPath("originals", file.storageKey), mediaId, { width: file.width, height: file.height });
+  const generated = await generateVariants(store, await store.verifiedPath("originals", file.storageKey), mediaId, file.id, { width: file.width, height: file.height });
   const before = await ctx.db.select({ storageKey: mediaVariants.storageKey }).from(mediaVariants).where(eq(mediaVariants.fileId, file.id));
   await inTransaction(ctx.pool, async (tx) => {
     const [locked] = await tx.select({ currentFileId: mediaAssets.currentFileId }).from(mediaAssets).where(eq(mediaAssets.id, mediaId)).for("update");

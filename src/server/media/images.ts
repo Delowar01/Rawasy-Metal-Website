@@ -10,7 +10,9 @@
  *   2 GB of memory with everything else. The source is decoded once, scaled to the largest width needed as raw pixels,
  *   and every variant is made from those pixels.
  *
- * Every derivative's name carries its content hash; the bytes are written atomically. Framework-free.
+ * Every derivative's name carries a hash of its file version and its bytes (two versions never share a name, even with
+ * identical pixels), and is written once, never over another file (`MediaStore.writeNew`): a failed upload removes only
+ * the files it created. Framework-free.
  */
 import { createHash } from "node:crypto";
 import sharp, { type Metadata, type OutputInfo, type Sharp } from "sharp";
@@ -75,7 +77,10 @@ export interface GeneratedVariant {
   height: number;
   byteSize: number;
   storageKey: string;
+  /** The bytes' SHA-256 (the public ETag). */
   sha256: Buffer;
+  /** Whether this run created the file (false: it already held exactly these bytes — a regeneration). */
+  created: boolean;
 }
 
 export interface GeneratedImage {
@@ -88,11 +93,19 @@ export interface GeneratedImage {
 const hashOf = (data: Uint8Array) => createHash("sha256").update(data).digest();
 
 /**
- * Decodes the original once (pixel limit, orientation applied), then writes the width variants, the thumbnail and the
- * blur placeholder. Checks each written file's size afterwards. Throws ImageRejected for an image that cannot be
- * decoded fully (a truncated or damaged file passes the header check but fails here).
+ * The 8 hex characters in a derivative's name: from the file version's id and the bytes, so a name is only ever reused
+ * for the same bytes of the same version (an immutable address), and two versions with identical pixels — a replacement
+ * that only changed the metadata — never share a file one of them could remove.
  */
-export async function generateVariants(store: MediaStore, sourcePath: string, mediaId: string, facts: ImageFacts): Promise<GeneratedImage> {
+export const derivedNameHash = (fileId: string, data: Uint8Array) => createHash("sha256").update(`${fileId}\n`).update(data).digest("hex").slice(0, 8);
+
+/**
+ * Decodes the original once (pixel limit, orientation applied), then writes the width variants, the thumbnail and the
+ * blur placeholder of one file version (`fileId`). Checks each written file's size afterwards. Throws ImageRejected for
+ * an image that cannot be decoded fully (a truncated or damaged file passes the header check but fails here); on any
+ * failure the files this run created are removed again (and only those).
+ */
+export async function generateVariants(store: MediaStore, sourcePath: string, mediaId: string, fileId: string, facts: ImageFacts): Promise<GeneratedImage> {
   return oneImageAtATime(async () => {
     const widths = plannedWidths(facts.width);
     const largest = Math.max(...widths);
@@ -112,19 +125,23 @@ export async function generateVariants(store: MediaStore, sourcePath: string, me
     const variants: GeneratedVariant[] = [];
     const write = async (variantKey: string, pipeline: Sharp, quality: number) => {
       const out = await pipeline.webp({ quality, effort: 4 }).toBuffer({ resolveWithObject: true });
-      const sha256 = hashOf(out.data);
-      const storageKey = derivedKey(mediaId, variantKey, sha256.toString("hex").slice(0, 8));
-      await store.writeAtomic("derived", storageKey, out.data);
+      const storageKey = derivedKey(mediaId, variantKey, derivedNameHash(fileId, out.data));
+      const placed = await store.writeNew("derived", storageKey, out.data);
+      variants.push({ variantKey, width: out.info.width, height: out.info.height, byteSize: out.data.byteLength, storageKey, sha256: hashOf(out.data), created: placed === "created" });
       const written = await store.sizeOf("derived", storageKey);
       if (written !== out.data.byteLength) throw new Error("A derivative was not written completely.");
-      variants.push({ variantKey, width: out.info.width, height: out.info.height, byteSize: out.data.byteLength, storageKey, sha256 });
     };
-    for (const width of widths) {
-      await write(widthKey(width), width === base.info.width ? fromBase() : fromBase().resize({ width, withoutEnlargement: true }), WEBP_QUALITY);
+    try {
+      for (const width of widths) {
+        await write(widthKey(width), width === base.info.width ? fromBase() : fromBase().resize({ width, withoutEnlargement: true }), WEBP_QUALITY);
+      }
+      await write("thumb", fromBase().resize(THUMB_SIZE, THUMB_SIZE, { fit: "inside", withoutEnlargement: true }), THUMB_QUALITY);
+      const blur = await fromBase().resize(BLUR_SIZE, BLUR_SIZE, { fit: "inside" }).webp({ quality: 20 }).toBuffer();
+      const blurDataUrl = `data:image/webp;base64,${blur.toString("base64")}`;
+      return { width: facts.width, height: facts.height, blurDataUrl: blurDataUrl.length <= 600 ? blurDataUrl : null, variants };
+    } catch (error) {
+      for (const v of variants) if (v.created) await store.remove("derived", v.storageKey).catch(() => undefined);
+      throw error;
     }
-    await write("thumb", fromBase().resize(THUMB_SIZE, THUMB_SIZE, { fit: "inside", withoutEnlargement: true }), THUMB_QUALITY);
-    const blur = await fromBase().resize(BLUR_SIZE, BLUR_SIZE, { fit: "inside" }).webp({ quality: 20 }).toBuffer();
-    const blurDataUrl = `data:image/webp;base64,${blur.toString("base64")}`;
-    return { width: facts.width, height: facts.height, blurDataUrl: blurDataUrl.length <= 600 ? blurDataUrl : null, variants };
   });
 }

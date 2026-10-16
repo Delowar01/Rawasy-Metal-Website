@@ -94,13 +94,17 @@ export async function mediaAudit(db: Db, actor: Actor, meta: RequestMeta, at: Da
   });
 }
 
-/** A short name for summaries: the English or Arabic title, else the legacy key, else the file name, else the id. */
+/**
+ * A short name for summaries: the English or Arabic title, else the legacy key, else the file name, else the id. A
+ * private item is always "private document": the audit log will be read by roles that may not know private items exist
+ * (A8's audit viewer), so none of its words go there.
+ */
 export async function mediaLabel(db: Db, asset: Pick<AssetRow, "id" | "legacyKey" | "currentFileId" | "visibility">): Promise<string> {
+  if (asset.visibility === "private") return "private document";
   const titles = await db.select({ locale: mediaTranslations.locale, title: mediaTranslations.title }).from(mediaTranslations).where(eq(mediaTranslations.mediaId, asset.id));
   const title = titles.find((t) => t.locale === "en")?.title || titles.find((t) => t.locale === "ar")?.title;
   if (title) return title;
   if (asset.legacyKey) return asset.legacyKey;
-  if (asset.visibility === "private") return "private document";
   if (asset.currentFileId) {
     const [file] = await db.select({ name: mediaFiles.originalFilename }).from(mediaFiles).where(eq(mediaFiles.id, asset.currentFileId));
     if (file?.name) return file.name;
@@ -279,6 +283,11 @@ export async function updateMediaMetadata(ctx: MediaContext, id: string, form: R
     if (asset.lockVersion !== input.lockVersion) {
       await fail(`Refused: the item changed after the form was opened (version ${input.lockVersion}, now ${asset.lockVersion}).`);
       return { kind: "stale", message: MEDIA_STALE_MESSAGE } as const;
+    }
+    // Folders are seen by every role that sees the library (their names and item counts): a private item is never filed
+    // in one, or its existence would show there.
+    if (input.folderId && asset.visibility === "private") {
+      return { kind: "invalid", message: "Check the highlighted fields.", errors: { folderId: "A private document is never filed in a folder (folders are seen by every role)." } } as const;
     }
     if (input.folderId) {
       // A locking read: a folder deleted meanwhile is seen gone (or kept until this change commits).
@@ -636,6 +645,10 @@ async function statusBack(
         summary: `Refused: the item changed after the page was opened (version ${expectedVersion}, now ${asset.lockVersion}).`,
       });
       return { kind: "stale", message: MEDIA_STALE_MESSAGE } as const;
+    }
+    if (asset.deletedAt) {
+      await mediaAudit(tx, actor, meta, now, { action: how.action, id, label, outcome: "failed", summary: "Refused: the item is in the Trash (read-only until restored)." });
+      return { kind: "refused", message: "This item is in the Trash. Restore it from the Trash first." } as const;
     }
     if (asset.usageStatus !== how.from) return { kind: "unchanged", message: `This item is not ${how.from}.` } as const;
     const status = reviewStatusOf(asset);

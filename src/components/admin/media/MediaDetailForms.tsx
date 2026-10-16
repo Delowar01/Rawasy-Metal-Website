@@ -149,6 +149,7 @@ export function MediaMetadataForm({
   folders,
   preview,
   latestHref,
+  privateItem = false,
 }: {
   id: string;
   lockVersion: number;
@@ -159,6 +160,8 @@ export function MediaMetadataForm({
   folders: { id: string; label: string }[];
   preview: string | null;
   latestHref: string;
+  /** A private original: never filed in a folder (folders are seen by every role). */
+  privateItem?: boolean;
 }) {
   const [values, setValues] = useState(initial);
   const focalStart = { on: initial.focalX !== "", x: initial.focalX ? Math.round(Number(initial.focalX) * 100) : 50, y: initial.focalY ? Math.round(Number(initial.focalY) * 100) : 50 };
@@ -262,23 +265,27 @@ export function MediaMetadataForm({
           );
         })}
         <section className="adm-card" id="organisation" aria-labelledby={`${uid}-org`}>
-          <h2 id={`${uid}-org`}>Folder and focal point</h2>
-          <div className="adm-field">
-            <label className="adm-label" htmlFor="f-folderId">
-              Folder
-            </label>
-            <select id="f-folderId" name="folderId" className="adm-input" value={values.folderId} onChange={(e) => setValues((v) => ({ ...v, folderId: e.target.value }))} aria-describedby="f-folderId-hint">
-              <option value="">No folder</option>
-              {folders.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-            <p className="adm-hint" id="f-folderId-hint">
-              Folders only organise the library: they never change a file&apos;s address.
-            </p>
-          </div>
+          <h2 id={`${uid}-org`}>{privateItem && !isImage ? "Folder" : "Folder and focal point"}</h2>
+          {privateItem ? (
+            <p className="adm-hint">A private document is never filed in a folder: folders are seen by every role that sees the library.</p>
+          ) : (
+            <div className="adm-field">
+              <label className="adm-label" htmlFor="f-folderId">
+                Folder
+              </label>
+              <select id="f-folderId" name="folderId" className="adm-input" value={values.folderId} onChange={(e) => setValues((v) => ({ ...v, folderId: e.target.value }))} aria-describedby="f-folderId-hint">
+                <option value="">No folder</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              <p className="adm-hint" id="f-folderId-hint">
+                Folders only organise the library: they never change a file&apos;s address.
+              </p>
+            </div>
+          )}
           {isImage ? <FocalPoint preview={preview} x={focal.x} y={focal.y} on={focal.on} onChange={setFocal} /> : null}
         </section>
         <section className="adm-card" id="rights-notes" aria-labelledby={`${uid}-rights`}>
