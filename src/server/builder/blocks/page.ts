@@ -1,0 +1,128 @@
+/**
+ * The inner pages' shared bespoke blocks (A1-CONTENT-MODEL §5.3): the page opening (`PageHero` of the inner-page kit,
+ * with each page's own approved picture or panel beside or below it) and the closing call to action (`ClosingCta`).
+ *
+ * `page.hero` takes the variant of the page it belongs to and nothing else: the variant is part of the approved
+ * composition, so the registry ties each owner to its own one (`structure.ts`, `HERO_VARIANT_OF`). Fields marked with a
+ * variant are used by that variant only (the editor shows only those).
+ */
+import { CLOSING, FIXED, type BlockDefinition } from "../block.ts";
+import { automatic, choice, flag, items, link, media, selection, text, textarea } from "./kit.ts";
+
+export const HERO_VARIANTS = [
+  { value: "about", label: "About: the workshop photo and the registered names" },
+  { value: "services", label: "Services: a tile for each service" },
+  { value: "capabilities", label: "Capabilities: the fleet plate and facts" },
+  { value: "projects", label: "Projects: quick filters and three prints" },
+  { value: "industries", label: "Industries: the strip of sector photos" },
+  { value: "clients", label: "Clients: text only" },
+  { value: "certificates", label: "Certificates: the register of documents" },
+  { value: "contact", label: "Contact: the direct contact details" },
+  { value: "legal", label: "Legal page: the last-updated date" },
+] as const;
+export type HeroVariant = (typeof HERO_VARIANTS)[number]["value"];
+
+const only = (...variants: HeroVariant[]) => ({ only: variants });
+
+export const PAGE_BLOCKS: BlockDefinition[] = [
+  {
+    key: "page.hero",
+    version: 1,
+    label: "Page opening",
+    description: "The inner page's breadcrumb, label, title (the page's only main heading), lead and its approved picture or panel.",
+    category: "page",
+    icon: "hero",
+    owners: [
+      "system:about",
+      "system:services",
+      "system:capabilities",
+      "system:projects",
+      "system:industries",
+      "system:clients",
+      "system:certificates",
+      "system:contact",
+      "legal:privacy",
+      "legal:terms",
+    ],
+    max: 1,
+    locked: true,
+    h1: true,
+    anchor: "none",
+    renderedIds: ["page-title", "direct-contact"],
+    reusable: false,
+    storable: true,
+    upcasters: {},
+    structure: FIXED,
+    settings: {
+      variant: choice("Composition", HERO_VARIANTS, "clients"),
+      facts: items("Facts", "fact", { min: 0, max: 6, initial: 0 }, {}, { label: text("Label", 80), value: text("Value", 120) }, { only: ["about", "services", "projects", "industries"] }),
+      media: media("Photo", ["image"], only("about")),
+      services: selection("Services on the tiles", "service", 12, automatic("all", 6), only("services")),
+      machines: selection("Machines on the fleet plate", "machine", 12, automatic("all", 6), only("capabilities")),
+      prints: selection("The three prints", "project", 3, { mode: "manual", ids: [] }, only("projects")),
+      strip: selection("Sectors in the strip", "industry", 6, { mode: "manual", ids: [] }, only("industries")),
+      certificates: selection("Documents in the register", "certificate", 6, automatic("all", 6), only("certificates")),
+    },
+    content: {
+      eyebrow: text("Label", 80),
+      title: text("Title (the page's main heading)", 200),
+      intro: textarea("Lead", 600),
+      photoAlt: text("Photo alt text", 300, only("about")),
+      caption: text("Photo caption", 300, only("about")),
+      nameplate: text("Registered names label", 120, only("about")),
+      plateLabel: text("Name of the tiles (announced to screen readers)", 120, only("services")),
+      explore: text("Explore action text", 60, only("capabilities")),
+      quote: text("Quote action text", 60, only("capabilities", "contact")),
+      fleet: text("Name of the fleet plate", 120, only("capabilities")),
+      factMachines: text("Fact label: machines", 80, only("capabilities")),
+      factLaser: text("Fact label: laser cutting systems", 80, only("capabilities")),
+      factPeak: text("Fact label: peak power", 80, only("capabilities")),
+      powerUnit: text("Power unit", 20, only("capabilities")),
+      quickFilter: text("Quick filter label", 120, only("projects")),
+      allLabel: text("“All” filter text", 60, only("projects")),
+      refLabel: text("Reference label", 40, only("projects")),
+      registerLabel: text("Register caption", 160, only("certificates")),
+      colNumber: text("Column: number", 40, only("certificates")),
+      colDocument: text("Column: document", 60, only("certificates")),
+      colIssuer: text("Column: issuer", 60, only("certificates")),
+      colReference: text("Column: reference", 60, only("certificates")),
+      reference: text("Reference shown instead of numbers", 160, only("certificates")),
+      findUs: text("Find us action text", 60, only("contact")),
+      call: text("Call action text", 60, only("contact")),
+      methodsLabel: text("Direct contact title", 120, only("contact")),
+      phoneLabel: text("Phone label", 60, only("contact")),
+      whatsappLabel: text("WhatsApp label", 60, only("contact")),
+      chat: text("Chat action text", 60, only("contact")),
+      emailLabel: text("Email label", 60, only("contact")),
+      send: text("Send action text", 60, only("contact")),
+      addressLabel: text("Address label", 60, only("contact")),
+      viewMap: text("View map action text", 60, only("contact")),
+      updatedLabel: text("Last updated label", 80, only("legal")),
+      appliesTo: text("Applies to label", 80, only("legal")),
+      appliesToValue: text("Applies to value", 160, only("legal")),
+    },
+    note: "The page's only main heading: always first, never hidden. The composition is the page's own (the registry offers no other).",
+  },
+  {
+    key: "page.closing_cta",
+    version: 1,
+    label: "Closing call to action",
+    description: "A short prompt and the ways on, on the dark panel at the end of an inner page.",
+    category: "page",
+    icon: "cta",
+    owners: ["system:about", "system:services", "system:capabilities", "system:projects", "system:industries", "system:clients", "system:certificates", "template:project_detail"],
+    max: 1,
+    locked: false,
+    anchor: "none",
+    renderedIds: ["page-cta-title"],
+    reusable: false,
+    storable: true,
+    upcasters: {},
+    structure: CLOSING,
+    settings: {
+      numbered: flag("Number the links", true, { hint: "The Clients page shows no numbering." }),
+      links: items("Links", "link", { min: 1, max: 4, initial: 3 }, { target: link("Opens", undefined, { required: true }) }, { label: text("Link text", 80), description: text("Description", 200) }),
+    },
+    content: { label: text("Label", 80), title: text("Title", 200), body: textarea("Text", 400) },
+  },
+];
