@@ -11,10 +11,14 @@ import { ArchiveControl } from "@/components/admin/cms/ArchiveControl";
 import { ContentEditor } from "@/components/admin/cms/ContentEditor";
 import { FlagsPanel } from "@/components/admin/cms/FlagsPanel";
 import { OrderList } from "@/components/admin/cms/OrderList";
+import { MediaSummary } from "@/components/admin/media/MediaCard";
+import { PrivateOriginalUpload } from "@/components/admin/media/PrivateOriginalUpload";
 import { LOCALE_STATE_TEXT, type CmsLocaleState } from "@/server/admin/actions/cms-model";
 import { editorModel, editorValues, userNames } from "@/server/admin/cms";
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
+import { canSeePrivate } from "@/server/media/access";
+import { privateOriginalCards } from "@/server/media/cards";
 import { loadEditorItem } from "@/server/cms/engine";
 import { listProjectFlags } from "@/server/cms/flags";
 import { SPECS } from "@/server/cms/kinds";
@@ -362,12 +366,14 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
   const item = await guarded(() => loadEditorItem(deps.db, spec, id));
   if (!item) notFound();
   const root = item.root;
-  const [model, usage, names, flags] = await guarded(() =>
+  const privateOriginals = type === "certificate" && canSeePrivate(actor.permissions);
+  const [model, usage, names, flags, originals] = await guarded(() =>
     Promise.all([
       editorModel({ db: deps.db, actor, type, item }),
       usagesOf(deps.db, type, id),
       userNames(deps.db, [root.createdBy as string, root.updatedBy as string, root.archivedBy as string]),
       type === "project" ? listProjectFlags(deps.db, id) : Promise.resolve([]),
+      privateOriginals ? privateOriginalCards(deps.db, actor.permissions, id) : Promise.resolve([]),
     ]),
   );
   const title = item.values.en[spec.titleKey] || item.values.ar[spec.titleKey] || item.slug || "(untitled)";
@@ -380,6 +386,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
   };
   const extraSections = [
     { id: "status", label: "Status" },
+    ...(privateOriginals ? [{ id: "private-original", label: "Private original" }] : []),
     ...(type === "project" ? [{ id: "restrictions", label: "Restrictions" }] : []),
     ...(usage.length ? [{ id: "used-by", label: "Used by" }] : []),
   ];
@@ -458,12 +465,33 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
           <p className="adm-hint">Only roles allowed to archive {info.many.toLowerCase()} can archive or restore this {info.one}.</p>
         )}
       </section>
+      {privateOriginals ? (
+        <section className="adm-card" id="private-original" aria-labelledby="private-original-title">
+          <h2 id="private-original-title">Private original (Owner only)</h2>
+          <p className="adm-hint">
+            The original document, kept privately for the record. It is never public, never a preview or thumbnail, and never processed into a public file. Public
+            visitors only ever see the redacted previews chosen in the Media section above.
+          </p>
+          {originals.length ? (
+            <ul className="adm-list">
+              {originals.map((card) => (
+                <li key={card.id}>
+                  <MediaSummary card={card} href={`/admin/media/${card.id}`} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="adm-muted">No private original yet.</p>
+          )}
+          {item.archived ? <p className="adm-hint">Restore the certificate before adding a document.</p> : <PrivateOriginalUpload certificateId={id} />}
+        </section>
+      ) : null}
       {type === "project" ? (
         <section className="adm-card" id="restrictions" aria-labelledby="restrictions-title">
           <h2 id="restrictions-title">Restrictions</h2>
           <p className="adm-hint">
-            Safety flags keep a project off the public site once publishing exists. They never publish or approve anything; media rights and approval arrive with the media
-            library (A4).
+            Safety flags keep a project off the public site once publishing exists. They never publish or approve anything; each photo&apos;s own rights and approval are
+            kept on the photo, in the media library.
           </p>
           <FlagsPanel
             projectId={id}
@@ -511,8 +539,9 @@ function CertificateNote() {
   return (
     <div className="adm-alert is-info" role="note">
       <p>
-        <strong>Document upload and public/private file management arrives in A4.</strong> This record holds the certificate&apos;s metadata only: no file, no public
-        address, and never a registration or certificate number.
+        <strong>Public and private files are kept apart.</strong> The thumbnail and the redacted previews (Media section) are separately uploaded, public-class copies
+        that need approval; the private original (Owner only) can never be published. The CMS never redacts a document, and no public text may hold a registration or
+        certificate number.
       </p>
     </div>
   );
