@@ -30,16 +30,25 @@ export function categoryViews(locale: Locale, slugs: ProjectCategory[]): Project
   }));
 }
 
+/**
+ * The photo(s) a project card shows: one photo when the first (or the widest) is wide enough to fill the card, else a
+ * pair of small ones, else the first one framed. Shared with the page builder's preview, which draws the same cards.
+ */
+export function cardImages<T extends { width: number }>(images: T[]): { mode: ProjectCardData["mode"]; images: T[] } {
+  const [first] = images;
+  const widest = images.reduce((a, b) => (b.width > a.width ? b : a), first);
+  const mode: ProjectCardData["mode"] =
+    first.width >= PHOTO_MIN_WIDTH || widest.width >= PHOTO_MIN_WIDTH ? "photo" : images.length > 1 ? "pair" : "framed";
+  return { mode, images: mode === "photo" ? [first.width >= PHOTO_MIN_WIDTH ? first : widest] : mode === "pair" ? images.slice(0, 2) : [first] };
+}
+
 /** Prepares a project for the portfolio in one language. */
 export function projectCard(project: Project, locale: Locale): ProjectCardData {
   const images = projectImages(project).map((id) => {
     const media = getMedia(id);
     return { src: media.src, width: media.width, height: media.height, blurDataURL: media.blurDataURL };
   });
-  const [first] = images;
-  const widest = images.reduce((a, b) => (b.width > a.width ? b : a), first);
-  const mode: ProjectCardData["mode"] =
-    first.width >= PHOTO_MIN_WIDTH || widest.width >= PHOTO_MIN_WIDTH ? "photo" : images.length > 1 ? "pair" : "framed";
+  const card = cardImages(images);
   const categories = categoryViews(locale, project.categories);
   return {
     slug: project.slug,
@@ -49,8 +58,8 @@ export function projectCard(project: Project, locale: Locale): ProjectCardData {
     summary: project.summary[locale],
     categories,
     tone: categories[0]?.tone ?? "brand",
-    mode,
-    images: mode === "photo" ? [first.width >= PHOTO_MIN_WIDTH ? first : widest] : mode === "pair" ? images.slice(0, 2) : [first],
+    mode: card.mode,
+    images: card.images,
     gallery: images,
   };
 }
