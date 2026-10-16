@@ -28,7 +28,9 @@ export async function releaseFile(releaseDir: string, storageKey: string): Promi
   const full = releasePath(releaseDir, storageKey);
   if (!full) return null;
   try {
-    const [root, real] = await Promise.all([realpath(releaseDir), realpath(full)]);
+    // `turbopackIgnore`: run-time paths (the release folder, a checked key); without it the bundler's file tracing
+    // lists the whole project — every source file and all of public/, the held-back media included — for the routes.
+    const [root, real] = await Promise.all([realpath(/* turbopackIgnore: true */ releaseDir), realpath(/* turbopackIgnore: true */ full)]);
     const rel = relative(root, real);
     if (!rel || rel.startsWith("..")) return null;
     const stat = await lstat(real);

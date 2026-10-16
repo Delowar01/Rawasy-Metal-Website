@@ -104,7 +104,9 @@ export class MediaStore {
   }
 
   areaRoot(area: Area): string {
-    return join(this.root, AREA_DIRS[area]);
+    // `turbopackIgnore`: a path under RAWASY_DATA_DIR, outside the application, known only at run time. Without it the
+    // bundler's file tracing cannot scope the access and lists the whole project for every route that stores media.
+    return join(/* turbopackIgnore: true */ this.root, AREA_DIRS[area]);
   }
 
   /**
