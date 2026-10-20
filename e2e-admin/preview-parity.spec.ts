@@ -11,7 +11,8 @@
  * Engraving service page (the whole page: the opening with its signature, the numbered sections and the closing). Reveals, the ambient, the header and the pointer are taken out of the pixel captures on both sides; the
  * motion runs reduced (the hero plate rests finished).
  *
- * Named to run after media.spec.ts (the release import adds the site's own media, which that spec's pickers must not see).
+ * Runs after every other admin spec, media.spec.ts included (the release import adds the site's own media, which that
+ * spec's pickers must not see), in a browser of its own: the "parity" project of playwright.admin.config.ts.
  */
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -68,8 +69,9 @@ test.beforeAll(async () => {
 });
 
 const contexts: BrowserContext[] = [];
-test.afterAll(async () => {
-  for (const context of contexts) await context.close();
+// Each test's tabs close when it ends, so no test keeps another's pages, photos and their decoded pixels in the browser.
+test.afterEach(async () => {
+  for (const context of contexts.splice(0)) await context.close();
 });
 
 /** A signed-in Editor (content.view + preview.use) with reduced motion, at a width and in a colour scheme. */
@@ -89,24 +91,35 @@ async function session(browser: Browser, width: number, scheme: "light" | "dark"
   return context.newPage();
 }
 
-/** Loads a page fully: every image eager and decoded, the fonts in, every reveal shown (scrolled through), back at the top. */
+/**
+ * Loads a page fully: every image eager, loaded and decoded and the fonts in before the page is scrolled, then every
+ * reveal shown (scrolled through) and back at the top. The page is not scrolled while its photos arrive: next/image
+ * decodes and re-renders each photo as it loads, and instant scrolls among those commits are what froze Chromium's
+ * renderer (playwright.admin.config.ts, the "parity" project).
+ */
 async function settle(page: Page, url: string) {
   await page.goto(url);
   await page.locator("main#main").waitFor();
   await page.evaluate(async () => {
+    const decoded = () =>
+      Promise.all(
+        [...document.images].map((img) =>
+          Promise.race([img.decode().catch(() => undefined), new Promise((r) => setTimeout(r, 8000))]),
+        ),
+      );
+    const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     for (const img of document.querySelectorAll("img")) img.loading = "eager";
+    await document.fonts.ready;
+    await decoded();
+    await frames();
     const step = Math.max(200, Math.floor(window.innerHeight * 0.8));
     for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
       window.scrollTo({ top: y, behavior: "instant" });
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await frames();
     }
     window.scrollTo({ top: 0, behavior: "instant" });
     await document.fonts.ready;
-    await Promise.all(
-      [...document.images].map((img) =>
-        Promise.race([img.decode().catch(() => undefined), new Promise((r) => setTimeout(r, 8000))]),
-      ),
-    );
+    await decoded();
   });
 }
 
