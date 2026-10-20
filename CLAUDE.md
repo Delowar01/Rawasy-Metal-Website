@@ -10,9 +10,10 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-16-admin-a4-media-library.md` (Admin / CMS program, Phase A4 — Media library,
+- Latest report: `docs/reports/2026-10-16-admin-a5-page-builder.md` (Admin / CMS program, Phase A5 — Page builder,
   local implementation only)
-  (earlier: `2026-10-15-admin-a3-core-cms.md` (Phase A3 — Core CMS; its "A3 CORRECTION 1" section is at the end),
+  (earlier: `2026-10-16-admin-a4-media-library.md` (Phase A4 — Media library),
+  `2026-10-15-admin-a3-core-cms.md` (Phase A3 — Core CMS; its "A3 CORRECTION 1" section is at the end),
   `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
   shell; its "A2 CORRECTION 1", "A2 CORRECTION 2" and "A2 FINAL VISUAL CORRECTION" sections are at the end),
   `2026-10-09-admin-a1-architecture.md` (Phase A1, design only; its "A1 CORRECTION 1" section is at the end),
@@ -250,11 +251,50 @@
   block stills the lift and arrow only). It is the same on `preserve/pre-admin-a4`. `commerce-motion.spec.ts`'s
   reduced-motion test catches it under load (report item 49), and the fix changes the public CSS, so it waits for the
   user.
-  **Do not start A5** (no page builder or visual editor, global settings or menus, enquiries, publishing, revisions in
-  use, database-backed public pages, content migration, cache handler, projections, redirects, or the public site switched
-  to `/media/u`) until the user approves A4 and says so.
+  **A4 is approved and closed**, final visual evidence included (the user's A5 brief: "A4 Media Library is independently
+  FULLY APPROVED and CLOSED, including final visual evidence").
+  **Phase A5 (Page builder) is built — local implementation only** (the user's "PHASE A5 — PAGE BUILDER / VISUAL
+  EDITOR / … / DO NOT START A6" brief; report `2026-10-16-admin-a5-page-builder.md`; rollback checkpoint: GitHub branch
+  `preserve/pre-admin-a5` at `cc0cae2`) and awaits independent review: see "Phase A5 implementation" below. Its commits,
+  each on its own: `277a379` schema and migration 0005; `b863a4e` block registry, rich text, links, design tokens and
+  structure policy; `d5af882` layout and reusable-section services, editor model and Server Actions; `8f0aef9` the
+  private preview and the generic blocks' renderers; `606b575`, `15783d6`, `5c498ec`, `df41e77` the bespoke blocks'
+  adapters (homepage; preview composition and service pages; inner pages; About, Capabilities, Projects, project page,
+  404); `f1b3737` the reusable editor's model and preview notes; `b3f9f82` the builder's client; `ac2fef1` the screens;
+  `a739644` styles; `45c2798` unit and `b5bc3cf` integration tests; `bc174eb` a save waits for the stored version;
+  `6ae169b` the Pages list points to the builder; `30245bb` browser tests; `a0f381b` preview parity tests; `6da85c2` and
+  `eee94f3` the security review's fixes (1 Medium, 5 Low, 4 of 6 Info; no High), `1f006e1` their tests, `96c3ebb` the
+  canvas sandbox checked in the browser; `eeead56` the final security pass's fixes (no High or Medium; 2 of 3 Low and
+  the link part of one Info fixed: certificate copy read as drawn, Unicode format characters, link targets; the third
+  Low, a retried deadlock, documented) and `40ee741` their tests; `8f72332` the inspector's rich text inside a 320 px
+  screen (found by the evidence capture: one `minmax(0, 1fr)` column for the editor's grids) and `3cc3aa4` its test;
+  `b4f61f9` the homepage machinery preview notes where the frozen showcase draws a selection otherwise; `f2b73c9` the
+  preview parity spec in a browser of its own (both fresh-clone admin runs on `b4f61f9` timed out at a 390 px page:
+  Chromium's renderer froze — see the gotcha; test and config only). Public components, each on its own and each "the
+  pages are unchanged": `1b95e9c` (Contact's quote-form words in one place), `595f50c` (the homepage showcase orders in
+  `getHomeView`; `unoptimized` images), `07325a3` (`cardImages()`), `0401824` (service sections), `dac8c57`, `99f981b`,
+  `d65912c` (the inner pages' sections as exported components), `fc51705` (`home/Machinery.tsx` back to its TM-3 bytes,
+  which a public test pins: the fresh-clone public run on `3cc3aa4` failed on it, 611 / 612). Final QA on a fresh clone
+  of `f2b73c9`: `npm ci`, audit `--omit=dev` 0, lint, typecheck, build (no warning, no database settings), `db:check`,
+  the packaging script's own check (the 13 held back), unit 294 / 294 (A2 30, A3 102, A4 35, A5 127), integration
+  425 / 425 (A2 164, A3 94, A4 102, A5 65), admin 112 / 112 (A2 47, A3 17, A4 18, A5 30), public 612 / 612 after the
+  image warm-up (1,484 / 1,484). Public freeze against `preserve/pre-admin-a5`: 939 / 939 files, none added, all equal
+  once normalised except `/en/terms`'s three (the same drawn page and resolved payload: its Flight rows renumbered),
+  stylesheets identical on all 104 pages, scripts identical on 94 (on the other 10, five client modules differ only by
+  the `unoptimized` spread: equal once it is removed, `minproof.mjs` with a negative control), 102 pages over HTTP in
+  three gate-off settings, 143 / 143 release files byte-identical, 1,484 / 1,484 `/_next/image` answers identical, no
+  public database connection with the admin on, 238 screens (233 identical, 5 proven noise), all 44 page heights equal
+  once loaded. Evidence `rawasy-a5-final-evidence.zip` (not committed): 108 captures of 37 screens, 13 contact sheets, 0
+  horizontal overflow; test content and approved release photos only.
+  **Do not start A6** (no site settings, interface text, menus, header or footer controls, theme, redirects, forms or
+  enquiries, publishing, revisions in use, database-backed public pages, content migration, cache handler, projections,
+  or the public site switched to `/media/u`) until the user approves A5 and says so.
+  **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
+  from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
+  reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
+  in A5, so it waits.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
-  the public site (A1–A4 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
+  the public site (A1–A5 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
   Correction 1 a release built from this branch carries the admin code but serves none of it unless `ADMIN_ENABLED=1`;
   production and staging leave it unset, so `/admin` is the public localized 404 there, as before A2).
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
@@ -359,7 +399,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A4 implemented locally)
+## Admin / CMS program (A1 specification; A2–A5 implemented locally)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -766,6 +806,143 @@
   behaviour stay accepted). Not implemented in A4.
 - Pre-staging, never guessed (A4 brief §93): the real `RAWASY_DATA_DIR` path, filesystem quotas, process count, upload /
   body limits, ModSecurity, glibc / sharp on the account, MariaDB limits, cron, backup location and off-site backups.
+
+### Phase A5 implementation (local only; report `2026-10-16-admin-a5-page-builder.md`)
+
+- Scope: the page builder at `/admin/pages/[id]/builder` and `/admin/services/[id]/builder` (outline · preview ·
+  inspector; where the builder is narrower than 60 rem — a container query — the tabs Outline / Preview / Edit),
+  reusable sections at `/admin/reusable-sections` (list, `new`, `[id]`) and the private preview
+  `/admin/preview/{page|service|reusable}/[id]`. A3's page and service editors link the builder ("Edit page layout").
+  Working layouts only (T1 Option B): the public site reads none of it, there is no Publish button, today's pages were
+  not imported into `page_sections` (A9), no settings or menus (A6), no revisions in use (A8). Test data only ("Test …",
+  "Demo …").
+- Schema: `src/server/db/schema-builder.ts` → `drizzle/0005_page_builder.sql` (4 tables: `page_sections`,
+  `page_section_translations`, `reusable_sections`, `reusable_section_translations`; A1's columns; no rows, no new
+  permission). A section belongs to exactly one owner (`page_id` or `service_id`, CASCADE), shows on at least one device,
+  carries a block key (`^[a-z][a-z_]*\.[a-z][a-z_]*$`), a schema version, a position and an anchor
+  (`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`), both unique per owner; `reusable_section_id` is RESTRICT (a linked reusable section
+  can't be removed); `detached_from_id` is provenance only. Settings are one validated JSON column; texts one `content`
+  JSON per language. The owner's root `lock_version` (pages, services) is the layout's version.
+- The registry (`src/server/builder/`, framework-free, `.ts` imports): `block.ts` (a block type: owners, max, locked,
+  h1, anchor policy, reusable, storable, structure policy, `renderedIds`, `recordIds`, fields, design controls,
+  upcasters), `blocks/*` (87 types: 59 bespoke — today's approved sections of the homepage, the inner pages, the service
+  pages, the project page template and the 404, which the preview draws with the approved components — and 28 generic;
+  `generic.reusable` is a library entry only), `registry.ts` (`validate`: strict schemas, repeated items matched across
+  languages, the block's own rules, depth 16, 48 KB a section; `read`: a newer schema version is never shown or edited,
+  an older one is upcast step by step — a missing step fails closed — and validated again; stored JSON is never rewritten
+  in place), `fields.ts` (the field language: schemas, defaults, completeness, references, `shownValuesOf`, item ids),
+  `richtext.ts` (paragraph, heading 3 / 4, lists, line break; marks bold, italic, link, language; A3's paragraph
+  documents read unchanged), `links.ts` (typed targets: a site page by key, a generic page, a service, a project, a
+  machine, an anchor, `https:`, `mailto:` / `tel:` where the field allows; no free URL kind), `design.ts` (token
+  vocabulary only: words never fade, reduced motion wins, logical alignment, no letter-spacing, every surface × tone
+  ≥ 4.5:1 in both themes), `structure.ts` (owner contracts and permissions), `references.ts`, `texts.ts` (A3's
+  translation states), `view.ts`, `preview.ts`, `preview-data.ts`, `editor.ts`, `store.ts`, `sections.ts`,
+  `reusable.ts`, `input.ts`. Next.js side: `src/server/admin/actions/builder.ts` (Server Actions; `builder-model.ts`
+  types for client components; `preview-protocol.ts`), `src/app/(admin)/admin/_components/builder.tsx` (the screens;
+  route files are thin), `src/components/admin/builder/*` (client), `src/components/builder/*` (the preview's renderers).
+- Owner contracts (`structure.ts`): one main-heading block per owner (first, visible on every device, locked); the
+  registry's `FIXED` blocks it owns are required (never moved, hidden, removed or duplicated); `initial` is today's order
+  (an empty layout is "not set up" until **Set up this layout** inserts it with empty texts); `additions` lists the
+  generic blocks it may take (the Certificates page: no Contact details, F1); a closing call to action stays last; the
+  legal pages, the 404 and the project page template are locked whole. `layoutIssues` checks a save's final layout
+  (owners, maxima, one h1 first, required parts present and visible, anchors valid and unique against every id the
+  components render — `renderedIds`, and `recordIds` built from record slugs such as `m-<machine>`, `line-<service>`,
+  `<service>-title` —, the legal sections today's); `changeIssues` checks what changed (structure needs the structure
+  permission and the block's policy; content and settings do not).
+- Permissions (keys only, never role names): texts and settings of generic, system and home pages and the service
+  template `pages.edit`, legal pages `legal.edit`, services `services.edit`; structure of generic pages `pages.edit`, of
+  the site's own pages and the template `pages.edit` + `pages.archive` (Owner, Admin), of services `services.edit` +
+  `services.archive`; set-up needs the structure keys (legal pages: `legal.edit`); reusable sections
+  `reusable_sections.edit` / `reusable_sections.archive`; the builder page `content.view`; the preview `content.view` +
+  `preview.use`. A Reviewer changes nothing (every refusal audited).
+- Changes (`sections.ts`, `reusable.ts`): each one transaction (`contentTransaction`): the owner's root FOR UPDATE and
+  the version the builder opened ("This page layout changed after you opened it. Reload and review the latest version
+  before saving."), then the reusable sections the change shows anew, share-locked in id order with locking reads of
+  every column a decision uses (`lockLinkedReusables`, `readReusable(…, { lock })`), then the owner's sections FOR
+  UPDATE; every changed section validated in full (registry, references — A4 media by A4's content rule, A3 records,
+  new ones share-locked —, language states); the change and the final layout checked; positions renumbered through a
+  free range; the root's version bumped; one audit event per operation (`layout.save`, `layout.initialize`,
+  `layout.reorder`, `section.*`, `reusable_section.*`: block names, ids, states — never texts or JSON). A save
+  share-locks the reusable sections it links before the owner's sections; a reusable section's archive locks its row,
+  then the sections linking it, so those two never cross. Archive only while unused (a locking read under its row lock,
+  the RESTRICT key behind it). An edit of a reusable section that newly links a page or service (a button to it)
+  share-locks that root after its own row, the reverse of a save linking the section there: the two can deadlock —
+  InnoDB ends one, `inTransaction` retries it once and every attempt decides again under its locks (A3's accepted class;
+  final pass L3; reordering offered as pre-production hardening). A section saved at a newer block version
+  stores its texts at that version too (F3). Link, detach and "Make it reusable" are immediate actions that need a clean
+  builder (no unsaved changes) and the same version check.
+- Inputs: every action calls `actionContext` (gate, session, same origin) before it parses its input or answers anything
+  about it (the archive action reads only its `archived` flag first, to name the refusal it audits, as A3's); a layout save is one JSON string, refused unread
+  past 900 KB (the global Server Action body limit is not raised), ≤ 60 sections, strict schemas (`input.ts`); who acts,
+  a section's lock, its block type, block versions and translation statuses are never read from input; a reusable
+  section's name is A3 plain text (`reusableNameSchema`, F4).
+- Certificate copy (`references.ts`, F1 and the final pass): A3's digit guard on each text piece of both languages as it
+  is drawn (`shownTextsOf`: a text or paragraph field whole with line breaks as spaces, each line, each paragraph, heading
+  or list item — never texts joined across fields, never split at a field's own line breaks), on every value shown as
+  text (`shownValuesOf`; values marked `technical` — a video id, a map's place search — are never shown) and on every
+  link target's address, anchor, email and phone (`CERTIFICATE_LINK`), for a section on the Certificates page or a
+  certificate block anywhere (`home.compliance`, `about.compliance`, `generic.certificates`); a reusable section is
+  checked for every page linking it (a locking read of its links) when linked, duplicated, detached or edited; an anchor
+  on certificate copy holds no 7-digit run. A3's guard (`cms/text.ts` `guardText`) reads past Unicode format characters
+  (`\p{Cf}`: zero-width spaces and joiners, LRM / RLM, ALM, soft hyphen, word joiner, BOM), which plain text accepts.
+  Not read: the A4 media item's alt text an image falls back to (A8's rendered-page check, final pass I4).
+- The preview: route group `src/app/(preview)/admin/preview/` with its own root layout (the MC stylesheets, the page
+  sheets, faces, `Ambient`, `Cursor`, `Motion`; its own boot script, without the stored theme) and
+  `[kind]/[id]/page.tsx` (`requireActor` — otherwise the sign-in page; no bearer link —, `content.view` + `preview.use`,
+  kind and id checked, a trashed owner "not found"; `locale`, `theme`, `device`, `frame` from the address). The proxy's
+  admin branch gives `/admin/preview/**` its own policy (`previewContentSecurityPolicy`: the nonce rules plus
+  `style-src-attr 'unsafe-inline'` for the components' custom properties, `frame-src` YouTube-nocookie / Vimeo /
+  Google, `form-action 'self' mailto:`, `frame-ancestors 'self'`) and `X-Frame-Options: SAMEORIGIN`, and sets
+  `x-preview-locale` / `x-preview-theme` from the address (a client's header is replaced); every other admin page keeps
+  the admin's policy. `render.tsx` maps every registered key to a renderer (a missing one fails typecheck); bespoke
+  blocks draw the approved components through `adapters/*` with views of the same types the static pages build; generic
+  blocks (`generic/*`) sit in `frame.tsx` (design values → `data-*` attributes styled by `blocks.css` from the MC
+  tokens); `compose.tsx` does what the pages do around their sections (absent parts, numbering, surfaces, shared
+  frames); a section that throws is an admin-only placeholder (`SectionBoundary`). Media: an image only with a
+  `public_media` row, otherwise a placeholder that says why; a private item says "Not available". `PreviewBridge`
+  (frame) finds the sections, outlines the chosen one and talks to the builder by `postMessage` (`preview-protocol.ts`:
+  the other window and this origin only, shapes checked; nothing it sends saves anything).
+- Frames: the builder's canvas is `sandbox="allow-scripts allow-same-origin"`, the generic map block's frame
+  `allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox`, the generic video player sandboxed (F6);
+  no frame may navigate the window above it (`builder-review.test.ts` checks every `<iframe>` of the builder's
+  components). The bespoke Contact block draws today's map frame unchanged (the public component).
+- Public components (commits `1b95e9c`, `595f50c`, `07325a3`, `0401824`, `dac8c57`, `99f981b`, `d65912c`, `fc51705`;
+  "the pages are unchanged"): the pages' sections became exported components fed the same data (the homepage's
+  selected-work order moved into `getHomeView`, `cardImages()`, `quoteFormText()`, the services overview, clients,
+  certificates, industries, contact, legal, Capabilities, Projects, project page, About and 404 parts), and a
+  `CommerceImage` may carry `unoptimized` (a conditional spread: an uploaded `/media/u/**` item, which the optimizer never
+  takes, is drawn as it is; static data never sets it). Keep new section components exported the same way; the freeze
+  proof covers them. Never edit `home/Machinery.tsx` or `home/MachineShowcase.tsx`: `commerce-capabilities.spec.ts` pins
+  their bytes to TM-3 (`595f50c` had moved the showcase's order out of `Machinery.tsx`; the fresh-clone public run failed
+  on it and `fc51705` put the file back). The showcase draws only its six machines, in its own order, whatever the
+  `home.machinery` block's selection holds; the preview notes the difference (`showcaseNotes`, `HOME_SHOWCASE_MACHINES` in
+  `view.ts`, kept equal to the component's list by `tests/unit/builder-renderers.test.ts`).
+- Editor UI: `Builder` (working copy, undo / redo for the session, explicit **Save layout**, states Saved / Unsaved
+  changes / Saving / Error; keyed `${owner}:${lockVersion}`; after a save it waits for the stored version, `bc174eb`),
+  `SectionEditor`, `Fields`, `RichTextEditor` (no markup typed; paste converted to the model), `LinkChooser`, `Canvas`,
+  `ReusableEditor`; styles `adm-bld-*` in `admin.css`. The inspector's repeaters and rich text are grids of one
+  `minmax(0, 1fr)` column (`8f72332`): an implicit `auto` column took a paragraph's kind menu's longest choice as its
+  minimum and pushed the editor 4 px past a 320 px screen; `page-builder.spec.ts` opens a rich text at 390 and 320 px
+  and checks every element of `main` (the canvas aside) against the screen. Give a new grid there the same column.
+- Tests: `tests/unit/builder-*.test.ts` (registry, content, structure, renderers, tokens, editing, review),
+  `tests/integration/builder-*.test.ts` (+ `builder-helpers.ts`: migration A–G, sections, reusable, preview data,
+  review), `e2e-admin/page-builder.spec.ts` (15) and `e2e-admin/preview-parity.spec.ts` (15; `e2e-admin/seed-parity.mjs`
+  lays out today's approved words in the run's throwaway database — refused outside `APP_ENV=local` and a
+  `rawasy_e2e_*` database — and each part the preview draws is compared with the public page's: 30 of the 59 bespoke
+  blocks; the others need project, client, industry and certificate records the seed does not create). The parity spec
+  is the `parity` project of `playwright.admin.config.ts`: it runs after the other specs in a new worker (a new
+  browser), closes its tabs after each test and scrolls a page only once its images are decoded (`f2b73c9`; the
+  Chromium freeze in "Gotchas learned").
+- Security invariants from the A5 review (keep them; each has a test that fails on `a0f381b`): F1–F6 above, and
+  - I1: ids the approved components build from record slugs are taken on their page (`recordIds`).
+  - I3: an email target holds no `%` or `#` (`EMAIL_RE`).
+  - I5: defaults are functions (Zod 4.6.5 copies value defaults one level deep, so a default array or rich document was
+    shared between parses).
+  - I6: `jsonDepth` 16 (the deepest valid value is 13: a link in a list item of a question's answer).
+  - Accepted, not changed: copies (the template set-up, "Make it reusable", detach) keep media and records the source
+    already named, as a kept reference may stay (I2; private media can't reach them, a save refuses them); a reusable
+    section's edit needs `reusable_sections.edit` only, not each linking owner's permission (I4; no owner with a stricter
+    permission can link one today: the legal pages take no additions).
 
 ## Rules from the brief
 
@@ -2208,3 +2385,55 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   loading (A4's `heights.mjs`: 44 / 44 equal) before calling a height different.
 - The admin media pickers list today's release files, pending ones included, until searched. Where a brief allows
   approved release thumbnails only, search them for "Test" (synthetic uploads only) before capturing evidence.
+- MariaDB 11.4 does not accept MySQL 8's `SELECT … FOR SHARE` (a syntax error): a share lock is `LOCK IN SHARE MODE`.
+- Zod 4.6.5 copies a value default one level deep: in `.default({ mode: "manual", ids: [] })` or a rich document's
+  default (`{ type: "doc", content: [] }`) the nested array is the same object in every parse, so a caller that pushes
+  into it changes the next parse's default (A5 review I5). Give object defaults as functions (`.default(() => …)`).
+- Read every column a decision rests on in the locking statement itself: a `LOCK IN SHARE MODE` that waited, followed by
+  a plain `SELECT` of the same row's columns, answers from the transaction's older snapshot (A5 review F2: a reusable
+  section archived meanwhile still read "unpublished", and a detach copied older texts). Translations too.
+- A same-origin `<iframe>` without `sandbox` can navigate the window above it, and so can a third-party frame inside it
+  after a click (A5 review F6): the builder's canvas is `sandbox="allow-scripts allow-same-origin"`, the map and video
+  frames have their own sandboxes. `tests/unit/builder-review.test.ts` fails on any builder `<iframe>` without one.
+- The public components set custom properties in `style` attributes (a reveal's `--d` delay, image sizes); the admin's
+  nonce CSP refuses inline style attributes, so the preview (`/admin/preview/**`) has its own policy with
+  `style-src-attr 'unsafe-inline'` — never add that to the admin's policy.
+- The preview's root layout imports every page stylesheet the bespoke components need (`services.css`, `projects.css`,
+  `capabilities.css`, `project-detail.css`, `signature.css`, `blocks.css`): a public page imports only its own, so a
+  bespoke block drawn without its page's sheet renders unstyled. A new page sheet must be imported there too.
+- Moving a page's JSX into exported components keeps the visible HTML but can change the page data's Flight rows (A5:
+  `/en/terms`): compare resolved payload trees and the visible server HTML, never the files (the TM-2 gotcha).
+- A4's media "Used by", the library's "unused" filter and the dashboard count read the A3 records' media columns only:
+  a media item named only by a page section or a reusable section reads as unused until A8's reference index
+  (`content_references`). Check the builder's notes, not the library, before trashing an item a draft layout may use.
+- A token comparison that renames identifiers by first appearance (`jsalpha`, `modules.mjs`) is not scope-aware: when
+  the minifier swaps two locals that other scopes of the module reuse, an unchanged module reads as "changed" (A5: the
+  Capabilities console module). To prove "only this changed", remove the known change from the syntax tree and
+  re-minify both factories with one mangler (`next/dist/compiled/terser`, `mangle: { toplevel: true }`, no compress),
+  then compare; a module may also have several copies in different chunks (the preview's own chunk included) — check
+  every copy (A5's `minproof.mjs`, with a one-token negative control).
+- A content guard must read text as the page draws it: a paragraph field's line break is drawn as a space (only `pre-line`
+  blocks keep it), so splitting on line breaks let "1010⏎123⏎456" or "valid⏎until" pass (A5 final pass L1), while joining
+  separate fields would invent numbers that are never shown together. Plain text also accepts Unicode format characters
+  (Cf: zero-width spaces and joiners, LRM / RLM, ALM, soft hyphen, word joiner, BOM): a digit check must remove them
+  first (`guardText`), or "1010\u200B123\u200B456" shows as one number and passes (L2).
+- A `<select>`'s minimum width is its longest option's: in a grid with an implicit `auto` column (no
+  `grid-template-columns`), that column never shrinks below it, so a select inside a repeater or a rich-text block pushed
+  the builder's inspector 4 px past a 320 px screen (A5 evidence capture; `8f72332`). The `.adm-bld-*` grids now have one
+  `minmax(0, 1fr)` column. A page-overflow check that runs before such a control is shown misses it: open the field first.
+- A public test can pin a component's source bytes, not its output: `commerce-capabilities.spec.ts` hashes
+  `home/Machinery.tsx` and `home/MachineShowcase.tsx` (TM-3). A5's `595f50c` moved the showcase's order out of
+  `Machinery.tsx`; the freeze proof (output) passed, and only the public suite caught it (611 / 612 on the fresh clone of
+  `3cc3aa4`). `fc51705` restored the file. Run the full public suite after any refactor of a public component, and grep
+  `e2e/` for `createHash` / `readFileSync("src/` before touching a frozen file.
+- Chromium 141's headless renderer (Playwright 1.56's headless shell) can freeze for good when script scrolls a page
+  (`scrollTo`, instant) while its photos still arrive: next/image decodes and re-renders each photo as it loads, and the
+  renderer's main thread then waits forever in the compositor (`cc::LayerTreeHost::WaitForProtectedSequenceCompletion`,
+  from a scroll offset update) — no JavaScript runs (`Debugger.pause` does nothing), DevTools gets no answer, and the
+  test times out with its trace stuck as well. In the admin suite it happened only in the browser that had already run the
+  other five specs (about 100 tests): 5 of 5 full runs on `b4f61f9`, always at a 390 px page of the parity spec; with
+  the parity spec in a fresh browser, against the same server and database, it passed. The parity spec now runs in its own
+  project (`playwright.admin.config.ts`: a new worker, so a new browser), closes its tabs after each test and scrolls only
+  once every image is loaded and decoded. To look at such a freeze: launch with `--remote-debugging-port`, find the tab
+  that does not answer `Runtime.evaluate`, then `gdb -p <renderer pid> -batch -ex "thread 1" -ex bt` (gdb can attach in
+  this container; the renderers are the `--type=renderer` processes).

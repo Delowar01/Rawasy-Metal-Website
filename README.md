@@ -374,13 +374,14 @@ in one terminal and `npm run test:e2e` in another (Playwright reuses a server al
 
 ## Admin (local development)
 
-Phases A2–A4 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`,
-`docs/reports/2026-10-15-admin-a3-core-cms.md` and `docs/reports/2026-10-16-admin-a4-media-library.md`; design in
-`docs/admin/`): sign-in, two-factor authentication, sessions, invitations, password reset, users and roles (A2), the core
-content records — pages, services, projects and their categories, machinery, industries, clients and certificate
-metadata — as working copies in the database (A3), and the media library — uploads, versions, rights and approval,
-certificate documents and the media pickers of those records (A4), at `/admin` (English, `noindex`). The visual editor,
-site settings, enquiries and publishing come in later phases.
+Phases A2–A5 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`,
+`docs/reports/2026-10-15-admin-a3-core-cms.md`, `docs/reports/2026-10-16-admin-a4-media-library.md` and
+`docs/reports/2026-10-16-admin-a5-page-builder.md`; design in `docs/admin/`): sign-in, two-factor authentication,
+sessions, invitations, password reset, users and roles (A2), the core content records — pages, services, projects and
+their categories, machinery, industries, clients and certificate metadata — as working copies in the database (A3), the
+media library — uploads, versions, rights and approval, certificate documents and the media pickers of those records
+(A4) — and the page builder — the sections of pages and service pages, reusable sections and a private preview (A5), at
+`/admin` (English, `noindex`). Site settings and menus, enquiries and publishing come in later phases.
 It runs **locally only**, against a local MariaDB: never point it at the hosting account's database, and nothing of it
 is deployed until the user decides. The public website is unaffected: it never reads the database (the content records
 are not shown on it before the A9 cutover) and builds without one.
@@ -432,13 +433,14 @@ node --env-file=.env.local scripts/db-migrate.mjs up          # applies every pe
 
 The files: `drizzle/0000` (13 access-control tables) and `0001` (roles, permissions), from A2; `0002` (the 32 content
 tables) and `0003` (the collections' orderings and the permission "Project flags — add"), from A3; `0004` (11 tables: the
-media library, `public_media` and the content records' media relations; the records' media columns), from A4. A database migrated earlier takes the newer files with the same
-`up`. The runner takes a named lock, checks the journal order and the hash
-of every applied file, sets the database's default collation (`utf8mb4_unicode_520_ci`) while it is empty and verifies
-every table's character set; outside
-`APP_ENV=local` it also requires `--backup-file=<a backup less than 60 minutes old>` once tables exist. Exit codes are
-listed in `scripts/db-migrate.mjs`. `npm run db:generate` (drizzle-kit) writes a new migration from
-`src/server/db/schema.ts` and `schema-cms.ts` (A3) for review; `drizzle-kit push` and `pull` are never used.
+media library, `public_media` and the content records' media relations; the records' media columns), from A4; `0005` (4
+tables: the page builder's sections and reusable sections, with their texts per language; no rows), from A5. A database
+migrated earlier takes the newer files with the same `up`. The runner takes a named lock, checks the journal order and
+the hash of every applied file, sets the database's default collation (`utf8mb4_unicode_520_ci`) while it is empty and
+verifies every table's character set; outside `APP_ENV=local` it also requires `--backup-file=<a backup less than 60
+minutes old>` once tables exist. Exit codes are listed in `scripts/db-migrate.mjs`. `npm run db:generate` (drizzle-kit)
+writes a new migration from `src/server/db/schema.ts`, `schema-cms.ts` (A3), `schema-media.ts` (A4) and
+`schema-builder.ts` (A5) for review; `drizzle-kit push` and `pull` are never used.
 
 **4. The first Owner.**
 
@@ -507,6 +509,34 @@ RAWASY_DATA_DIR=/home/you/rawasy-data       # in .env.local; holds media/origina
   `--regenerate=<id>`, `--regenerate-all`, `--rebuild-public`. It never deletes a media file (`--purge-dry-run` only
   lists candidates). Exit code 2 means the report lists problems.
 
+**7. The page builder (A5).** A page's or a service's editor has **Edit page layout** (`/admin/pages/<id>/builder`,
+`/admin/services/<id>/builder`); the sidebar's CONTENT group lists **Reusable sections** (`/admin/reusable-sections`).
+Everything here is a working layout in the database: there is no Publish button, and the public website keeps drawing
+today's pages from its static source until publishing (A8) and the database switch (A9) exist.
+
+- **A new layout is empty** ("not set up"). **Set up this layout** creates the page's required parts in today's order,
+  with empty texts; then each section is filled in. Only people allowed to change the page's structure set it up (generic
+  pages: Owner, Admin, Editor; the site's own pages and services: Owner and Admin; the legal pages: whoever edits them).
+- **The builder** shows the layout's outline, the preview and the inspector side by side (on a phone: Outline, Preview,
+  Edit tabs). The library offers the page's own approved blocks and the generic blocks its structure allows. The
+  inspector edits a section's settings, its English and Arabic texts (equal; each language marked complete or not),
+  the design choices the block offers (tokens of the approved design only: no colours, sizes, fonts or CSS are typed),
+  where it shows (desktop, tablet, phone, or hidden) and, where allowed, its anchor. Rich text is edited as paragraphs,
+  headings, lists and links (to the site's own pages and records, or an `https:` address); no HTML, script, style or
+  JSON is ever typed or stored.
+- **Saving** is explicit (**Save layout**; Undo and Redo work until then). A save is refused when the layout changed
+  after it was opened ("This page layout changed after you opened it…"): reload and review; what was typed stays in the
+  browser. The main heading and the required parts are locked (never moved, hidden or removed); the legal pages, the 404
+  and the project page template are locked whole in A5.
+- **Reusable sections**: a generic block kept once and linked from any page whose structure allows it (Add a block →
+  Reusable sections, or **Make it reusable** on a section, as a copy or linked). Editing one changes the working preview
+  of every page that links it; **Detach (make a local copy)** turns a linked section into the page's own copy. Only an
+  unused one can be archived.
+- **The preview** (`/admin/preview/{page|service|reusable}/<id>?locale=en|ar&theme=light|dark&device=desktop|tablet|mobile`)
+  draws the saved working layout with the website's own components, styles and fonts. It needs a signed-in person with
+  the preview permission (every role holds it), is never cached or indexed, and has no shareable link. Media that are
+  not approved for public use show as a placeholder that says why; private documents never show.
+
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
 ```bash
@@ -518,8 +548,12 @@ TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=rawasy TEST_DB_PASSWORD='<
 
 `test:admin` (`playwright.admin.config.ts`, `e2e-admin/`) starts `server.js` on port 3401 with a fresh `rawasy_e2e_*`
 database, a throwaway key, the mail sink and a temporary `RAWASY_DATA_DIR` (A4), and removes them afterwards. The media
-integration tests use their own temporary folders and synthetic files only. The public suite (`npm run test:e2e`) needs
-no database.
+integration tests use their own temporary folders and synthetic files only. The page builder's preview parity tests
+(`e2e-admin/preview-parity.spec.ts`) lay out a few pages in that throwaway database with today's approved words
+(`e2e-admin/seed-parity.mjs`, refused outside `APP_ENV=local` and a `rawasy_e2e_*` database) and compare what the
+preview draws with the public page, part by part; nothing is imported into a real database. They run after the other
+admin tests, in a browser of their own (the config's `parity` project). The public suite (`npm run test:e2e`) needs no
+database.
 
 ### Admin: keys
 
