@@ -45,11 +45,10 @@ ran alongside my own checks; every finding was verified against the code before 
 ## 2. A5 findings and corrections
 
 Sources: my own checks (the scope points in 2.0, the suites in item 3, the public proofs in item 5, a browser
-walkthrough of the builder) and two
-independent read-only reviews run in parallel, one of the server side (services, permissions, validation, concurrency,
-audit, migration, the preview's access) and one of the client and rendering side (the builder, the inspector, the
-preview's renderers). Every finding below was checked against the code before anything was changed; the four
-corrections were each reproduced first, by a test that fails on `959d399`.
+walkthrough of the builder) and two independent read-only reviews run in parallel, one of the server side (services,
+permissions, validation, concurrency, audit, migration, the preview's access) and one of the client and rendering side
+(the builder, the inspector, the preview's renderers). Every finding below was checked against the code before anything
+was changed; the four corrections were each reproduced first, by a test that fails on `959d399`.
 
 ### 2.0 The scope, point by point (brief §3)
 
@@ -434,8 +433,8 @@ integration; tests; README and docs; review fixes.
 
 - Corrections: `6ce90ed`, `a215f74`, `f8a439e`, `9296266`, pushed to `origin/claude/new-session-5eijs6` as a
   fast-forward from `959d399` (no force push).
-- This report and the project memory (`CLAUDE.md`): the commit after `9296266`, pushed the same way (its SHA is given
-  with the report's delivery).
+- This report and the project memory (`CLAUDE.md`): the documentation-only commits after `9296266`, pushed the same
+  way (the last one's SHA is given with the report's delivery).
 - `main` untouched (`474f61f`), no pull request, no merge, nothing deployed, no production feature activated, A6 not
   started.
 
