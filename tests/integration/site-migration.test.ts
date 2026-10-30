@@ -259,7 +259,9 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
       for (const bad of ["966500000000", "+0966500000", "+96650", "+966 50 000", "+9665000000000000"]) await assert.rejects(phone(id(101), { position: 2, e164: bad }), /ck_company_phones_e164|Data too long/, bad);
       await assert.rejects(phone(id(101), { position: 0 }), /ck_company_phones_position/);
       await assert.rejects(phone(id(101), {}), /uq_company_phones_position/);
-      // Menu items: exactly one target, a position from 1, shown on some device, unique per menu and parent.
+      // Menu items: exactly one target, a position from 1, shown on some device. One position per item within a menu is
+      // kept by the menu service (the slot's root lock and the renumbering): A1's unique (menu, parent, position) index
+      // covers nested items only, since top-level items have no parent and a unique index admits repeated NULLs.
       const item = (iid: string, fields: Record<string, unknown>) => {
         const row = { id: iid, menu_key: "footer_legal", position: 1, link_type: "route", route_key: "privacy", ...fields };
         const names = Object.keys(row);

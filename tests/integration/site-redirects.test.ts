@@ -15,6 +15,7 @@ import { serviceSpec } from "../../src/server/cms/kinds.ts";
 import { auditOf, ctxOf, query, team, type Team } from "./cms-helpers.ts";
 import { genericPage, service } from "./builder-helpers.ts";
 import { setupTestEnv, type TestEnv } from "./helpers.ts";
+import type { SiteResult } from "../../src/server/site/common.ts";
 import { expectKind, issuesOf, siteChange } from "./site-helpers.ts";
 
 let env: TestEnv;
@@ -165,5 +166,56 @@ describe("editing and (de)activating", () => {
     assert.ok(percent.total < all.total && percent.rows.every((r) => r.sourcePath.includes("%") || r.targetPath?.includes("%")), "a % is matched literally");
     const arabic = await listRedirects(env.deps.db, { state: "all", q: "مشاريع", page: 1 });
     assert.equal(arabic.total, 1, "an Arabic fragment finds the encoded address");
+  });
+});
+
+describe("A6 review corrections", () => {
+  test("L2: a stored redirect that a later change elsewhere breaks says so (a slug given to its old address; a target redirected since)", async () => {
+    const db = env.deps.db;
+    // An old address no page answers today, then a service is given that slug (A3 never reads redirects).
+    const a = expectKind(await create({ sourcePath: "/en/services/test-later-service", targetPath: "/en/contact" }), "ok");
+    assert.equal((await readRedirect(db, a.id))?.warning, null);
+    const svc = await service(env, t.owner);
+    await query(env, "UPDATE services SET slug = 'test-later-service' WHERE id = ?", [svc.id]);
+    assert.match((await readRedirect(db, a.id))?.warning ?? "", /^A service uses this address now: the page wins/);
+    // A redirect to a service whose slug later becomes another active redirect's old address: two steps.
+    const svc2 = await service(env, t.owner);
+    const b = expectKind(await create({ sourcePath: "/en/test-old-b", targetType: "service", targetPath: "", targetId: svc2.id }), "ok");
+    const c = expectKind(await create({ sourcePath: "/en/services/test-renamed", targetPath: "/en/about" }), "ok");
+    assert.equal((await readRedirect(db, b.id))?.warning, null);
+    await query(env, "UPDATE services SET slug = 'test-renamed' WHERE id = ?", [svc2.id]);
+    assert.match((await readRedirect(db, b.id))?.warning ?? "", /redirected itself \(two steps\)/);
+    assert.match((await readRedirect(db, c.id))?.warning ?? "", /^A service uses this address now/);
+    // The list shows the same, and an inactive redirect no longer counts as a step.
+    const listed = (await listRedirects(db, { state: "all", q: "test-old-b", page: 1 })).rows[0];
+    assert.match(listed.warning ?? "", /two steps/);
+    expectKind(await setRedirectActive(siteChange(env, t.admin), { id: c.id, expectedVersion: 0, active: false }), "ok");
+    assert.equal((await readRedirect(db, b.id))?.warning, null);
+  });
+
+  test("I2: saving a redirect never waits on another redirect held by an edit in progress", async () => {
+    const one = expectKind(await create({ sourcePath: "/en/test-held-one" }), "ok");
+    const two = expectKind(await create({ sourcePath: "/en/test-held-two" }), "ok");
+    const held = await env.pool.getConnection();
+    try {
+      await held.query("BEGIN");
+      await held.query("SELECT id FROM redirects WHERE id = ? FOR UPDATE", [one.id]);
+      const saved = await Promise.race([
+        saveRedirect(siteChange(env, t.admin), input({ id: two.id, expectedVersion: 0, sourcePath: "/en/test-held-two", targetPath: "/en/contact" })),
+        new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 4000)),
+      ]);
+      assert.notEqual(saved, "waited", "the save waited on the other redirect's lock");
+      expectKind(saved as SiteResult, "ok");
+    } finally {
+      await held.query("ROLLBACK");
+      held.release();
+    }
+  });
+
+  test("L4: a search cut inside an emoji (a lone surrogate) is read, never thrown", async () => {
+    for (const q of [`${"a".repeat(199)}\uD83D`, `\uDE00old`, `old\uD83D\uDE00`]) {
+      const list = await listRedirects(env.deps.db, { state: "all", q, page: 1 });
+      assert.ok(list.total >= 0, q);
+    }
   });
 });

@@ -150,3 +150,49 @@ describe("saving a slot", () => {
     assert.equal((await query(env, "SELECT * FROM menu_item_translations t JOIN menu_items i ON i.id = t.item_id WHERE i.menu_key = 'footer_company'")).length, 4, "removed items' labels went with them");
   });
 });
+
+describe("A6 review corrections", () => {
+  const menuOf = async (key: MenuSlotKey) => (await readMenus(env.deps.db)).find((m) => m.key === key)!;
+  const stamps = async (key: MenuSlotKey) =>
+    query<{ item_id: string; locale: string; label: string; completed_at: Date; completed_by: string }>(
+      env,
+      "SELECT t.item_id, t.locale, t.label, t.completed_at, t.completed_by FROM menu_item_translations t JOIN menu_items i ON i.id = t.item_id WHERE i.menu_key = ? ORDER BY t.item_id, t.locale",
+      [key],
+    );
+
+  test("L5: a save writes and stamps only the labels it changes; every other label keeps its completion", async () => {
+    // Stamped by the Admin at one moment; then the Owner saves a minute later (the tests' clock stands still otherwise).
+    expectKind(await saveMenu(siteChange(env, t.admin), menuInputOf(await menuOf("footer_company"))), "ok");
+    await query(env, "UPDATE menu_item_translations t JOIN menu_items i ON i.id = t.item_id SET t.completed_by = ? WHERE i.menu_key = 'footer_company'", [t.admin.user.id]);
+    env.clock.advance(60_000);
+    const before = await stamps("footer_company");
+    const menu = await menuOf("footer_company");
+    const input = menuInputOf(menu);
+    input.items[0].label = { en: "Test company label", ar: input.items[0].label!.ar };
+    expectKind(await saveMenu(siteChange(env, t.owner), input), "ok");
+    const after = await stamps("footer_company");
+    const changed = after.filter((row) => {
+      const was = before.find((b) => b.item_id === row.item_id && b.locale === row.locale)!;
+      return was.completed_by !== row.completed_by || String(was.completed_at) !== String(row.completed_at) || was.label !== row.label;
+    });
+    assert.deepEqual(
+      changed.map((r) => [r.item_id, r.locale, r.label, r.completed_by]),
+      [[menu.items[0].id, "en", "Test company label", t.owner.user.id]],
+    );
+  });
+
+  test("I4: Projects has pages of its own, so it stays after Services (the header marks it as the section there)", async () => {
+    for (const position of [0, 1]) {
+      const menu = await menuOf("header_main");
+      const input = menuInputOf(menu);
+      const from = input.items.findIndex((i) => i.route === "projects");
+      const [projects] = input.items.splice(from, 1);
+      input.items.splice(position, 0, projects);
+      // Services stays third: the item before it moves after it.
+      const services = input.items.findIndex((i) => i.route === "services");
+      const [svc] = input.items.splice(services, 1);
+      input.items.splice(2, 0, svc);
+      assert.match(issuesOf(await saveMenu(siteChange(env, t.owner), input)), new RegExp(`items\\.${position}\\.route: Projects has pages of its own: place it after Services`));
+    }
+  });
+});

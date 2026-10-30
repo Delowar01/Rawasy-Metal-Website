@@ -17,7 +17,7 @@ import { readUiText, readUiValues, saveUiText, setUpUiText } from "../../src/ser
 import { UI_STRINGS, type TokenDef } from "../../src/server/site/registry.ts";
 import { auditOf, query, seedMedia, team, type Team } from "./cms-helpers.ts";
 import { actorFor, createUser, setupTestEnv, type TestEnv } from "./helpers.ts";
-import { expectKind, issuesOf, settingsInputOf, siteChange } from "./site-helpers.ts";
+import { deliveredPhoto, expectKind, flagMedia, issuesOf, settingsInputOf, siteChange } from "./site-helpers.ts";
 
 let env: TestEnv;
 let t: Team;
@@ -173,8 +173,12 @@ describe("settings saves", () => {
     assert.equal((await query(env, "SELECT * FROM company_phones WHERE id = ?", [model.values.phones[0].id])).length, 0);
   });
 
-  test("the default share image: an approved public image only (D-A6-7)", async () => {
-    const approved = await seedMedia(env, { status: "approved", title: "Test approved" });
+  test("the default share image: an approved public image that A4 delivers (D-A6-7; a blocking flag refused, A6 review L1)", async () => {
+    const approved = await deliveredPhoto(env);
+    const flagged = await deliveredPhoto(env);
+    await flagMedia(env, flagged, "contains_personal_data");
+    assert.equal((await query(env, "SELECT 1 FROM public_media WHERE media_id = ?", [flagged])).length, 0);
+    assert.equal((await query(env, "SELECT usage_status FROM media_assets WHERE id = ?", [flagged]))[0].usage_status, "approved", "a flag leaves the approval");
     const pending = await seedMedia(env, { status: "pending_review" });
     const privateDoc = await seedMedia(env, { visibility: "private", kind: "document" });
     const doc = await seedMedia(env, { kind: "document", status: "approved" });
@@ -184,6 +188,7 @@ describe("settings saves", () => {
       [privateDoc, /can't be used here/],
       [doc, /Choose an image here/],
       [notReady, /no ready file/],
+      [flagged, /isn't delivered to the website now/],
     ] as const) {
       const input = settingsInputOf(await readSettings(env.deps.db));
       input.defaultOgImageMediaId = id;
@@ -296,5 +301,86 @@ describe("theme", () => {
     assert.equal((await resetTheme(siteChange(env, t.admin), { expectedVersion: ok.lockVersion })).kind, "denied");
     expectKind(await resetTheme(siteChange(env, t.owner), { expectedVersion: ok.lockVersion }), "ok");
     assert.equal((await readTheme(env.deps.db)).overrides.length, 0);
+  });
+});
+
+describe("A6 review corrections", () => {
+  const statusRow = async (locale: "en" | "ar") =>
+    (await query<{ translation_status: string; completed_at: Date | null; completed_by: string | null }>(env, "SELECT translation_status, completed_at, completed_by FROM site_setting_translations WHERE locale = ?", [locale]))[0];
+
+  test("L5: each language's status is A3's plan from what changed and the boxes; completion is stamped only when confirmed", async () => {
+    // Both complete to start (ticked, confirmed by the Owner).
+    let input = settingsInputOf(await readSettings(env.deps.db));
+    input.complete = { en: true, ar: true };
+    expectKind(await saveSettings(siteChange(env, t.owner), input), "ok");
+    assert.deepEqual([(await statusRow("en")).translation_status, (await statusRow("ar")).translation_status], ["complete", "complete"]);
+    const arConfirmed = await statusRow("ar");
+    // English alone changes, both boxes ticked: English confirmed again, Arabic needs review (its stamp kept).
+    input = settingsInputOf(await readSettings(env.deps.db));
+    input.texts!.en.city = "Test City L5";
+    expectKind(await saveSettings(siteChange(env, t.admin), input), "ok");
+    const en = await statusRow("en");
+    const ar = await statusRow("ar");
+    assert.equal(en.translation_status, "complete");
+    assert.equal(en.completed_by, t.admin.user.id);
+    assert.equal(ar.translation_status, "needs_review");
+    assert.equal(ar.completed_by, arConfirmed.completed_by, "the Arabic completion is not re-stamped");
+    assert.deepEqual(ar.completed_at, arConfirmed.completed_at);
+    // The form shows Arabic unticked; saved as it is, it stays "needs review", and nothing is re-stamped.
+    const model = await readSettings(env.deps.db);
+    assert.equal(model.status.ar, "needs_review");
+    input = settingsInputOf(model);
+    assert.deepEqual(input.complete, { en: true, ar: false });
+    expectKind(await saveSettings(siteChange(env, t.owner), input), "ok");
+    assert.equal((await statusRow("ar")).translation_status, "needs_review");
+    assert.equal((await statusRow("en")).completed_by, t.admin.user.id, "an unchanged, still complete language keeps its stamp");
+    // Ticked again: Arabic confirmed now, by this person.
+    input = settingsInputOf(await readSettings(env.deps.db));
+    input.complete = { en: true, ar: true };
+    expectKind(await saveSettings(siteChange(env, t.owner), input), "ok");
+    assert.equal((await statusRow("ar")).translation_status, "complete");
+    assert.equal((await statusRow("ar")).completed_by, t.owner.user.id);
+    // "Does not affect the other language": English changes, Arabic stays complete.
+    input = settingsInputOf(await readSettings(env.deps.db));
+    input.texts!.en.city = "Test City L5 typo fix";
+    input.otherUnaffected = true;
+    expectKind(await saveSettings(siteChange(env, t.owner), input), "ok");
+    assert.equal((await statusRow("ar")).translation_status, "complete");
+    // Unticked: a draft, its completion cleared.
+    input = settingsInputOf(await readSettings(env.deps.db));
+    input.complete = { en: false, ar: true };
+    expectKind(await saveSettings(siteChange(env, t.owner), input), "ok");
+    assert.deepEqual(await statusRow("en"), { translation_status: "draft", completed_at: null, completed_by: null });
+    // A status sent as such is not an input at all.
+    const forged = { ...settingsInputOf(await readSettings(env.deps.db)), status: { en: "complete", ar: "complete" } };
+    assert.equal((await saveSettings(siteChange(env, t.owner), forged)).kind, "invalid");
+    input = settingsInputOf(await readSettings(env.deps.db));
+    input.complete = { en: true, ar: true };
+    expectKind(await saveSettings(siteChange(env, t.owner), input), "ok");
+  });
+
+  test("I3: RAWASY's own map link — Google Maps hosts only, /maps on hosts that serve more, up to 500 characters", async () => {
+    const tryLink = async (link: string) => {
+      const input = settingsInputOf(await readSettings(env.deps.db));
+      input.mapsPlaceUrl = link;
+      return saveSettings(siteChange(env, t.owner), input);
+    };
+    const long = `https://www.google.com/maps/place/Test+Place/@24.6,46.8,17z/data=${"x".repeat(320)}`;
+    assert.ok(long.length > 255 && long.length <= 500);
+    for (const ok of [long, "https://maps.app.goo.gl/TestShareLink123", "https://maps.google.com/?cid=1234567890", "https://goo.gl/maps/TestOldShare"]) {
+      expectKind(await tryLink(ok), "ok");
+    }
+    for (const [bad, pattern] of [
+      ["https://www.google.com/search?q=rawasy", /Google Maps address/],
+      ["https://goo.gl/abcdef", /Google Maps address/],
+      ["https://maps.example.test/place/rawasy", /Google Maps address \(/],
+      ["http://maps.google.com/?cid=1", /Only https/],
+      [`https://www.google.com/maps/place/${"y".repeat(520)}`, /at most 500 characters/],
+    ] as const) {
+      assert.match(issuesOf(await tryLink(bad)), pattern, bad);
+    }
+    // Back to empty: RAWASY has not confirmed its own link (the brief: never a guessed one).
+    expectKind(await tryLink(""), "ok");
+    assert.equal((await readSettings(env.deps.db)).values.mapsPlaceUrl, "");
   });
 });

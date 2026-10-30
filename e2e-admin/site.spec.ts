@@ -294,7 +294,7 @@ test.describe("company & website", () => {
     const arabicName = card(admin, "settings-ar-title").getByLabel("Legal name");
     await expect(arabicName).toHaveAttribute("dir", "rtl");
     await expect(arabicName).toHaveAttribute("lang", "ar");
-    expect(await arabicName.inputValue()).toMatch(/[؀-ۿ]/);
+    expect(await arabicName.inputValue()).toMatch(/[\u0600-\u06ff]/);
     const [row] = await queryTestDb<{ maps_place_url: string | null; email: string }>("SELECT maps_place_url, email FROM site_settings WHERE id = 'site'");
     expect(row).toEqual({ maps_place_url: null, email });
     expect(await lastAudit("action = 'site_settings.setup'")).toMatchObject({ outcome: "success", entity_type: "site_settings", entity_id: "site" });
@@ -437,7 +437,8 @@ async function settingsInput() {
     defaultOgImageMediaId: s.default_og_image_media_id ?? "",
     phones: phones.map((p) => ({ id: p.id, display: p.display, e164: p.e164, hasWhatsapp: Boolean(p.has_whatsapp), isVisible: Boolean(p.is_visible) })),
     texts,
-    status: { en: "complete", ar: "complete" },
+    complete: { en: true, ar: true },
+    otherUnaffected: false,
   };
 }
 
@@ -689,7 +690,7 @@ test.describe("redirects", () => {
     expect((await attempt("/en/old-loop", "/en/old-loop")).target).toContain("isn't a page of the website");
     expect((await attempt("/en/old-chain", "/en/old-company-page")).target).toContain("isn't a page of the website");
     expect((await attempt("https://rawasy.example.test/en/x", "/en/about")).source).toContain("without the domain");
-    expect((await attempt("/en/old%E2%80%8Bpage", "/en/about")).source).toContain("invisible formatting marks");
+    expect((await attempt("/en/old%E2%80%8Bpage", "/en/about")).source).toContain("invisible marks");
     expect((await attempt("/en/old-page", "/en/no-such-page")).target).toContain("isn't a page of the website");
     await expect(main(admin).getByLabel("Old address")).toHaveValue("/en/old-page");
     expect(await queryTestDb("SELECT id FROM redirects")).toEqual([{ id: stored.id }]);

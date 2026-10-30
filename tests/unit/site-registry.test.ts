@@ -18,6 +18,7 @@ import {
   MENU_SLOTS,
   REFERENCE_TOKENS,
   ROUTE_NAMES,
+  SECTION_ROUTES,
   SITE_ROUTE_KEYS,
   SITE_ROUTES,
   tokenStyle,
@@ -68,11 +69,11 @@ describe("interface text keys", () => {
         const text = staticUiText(s.key, locale)!;
         assert.ok(text.trim() === text && !/[\r\n]/.test(text), s.key);
         const written = s.otherLanguage ? (locale === "en" ? "ar" : "en") : locale;
-        if (written === "ar" && /[A-Za-z]{3}/.test(text) && !/[؀-ۿ]/.test(text)) assert.fail(`${s.key} (${locale}) reads as English: ${text}`);
+        if (written === "ar" && /[A-Za-z]{3}/.test(text) && !/[\u0600-\u06ff]/.test(text)) assert.fail(`${s.key} (${locale}) reads as English: ${text}`);
       }
     }
     assert.equal(staticUiText("a11y.languageSwitch", "en"), getDictionary("en").a11y.languageSwitch);
-    assert.match(staticUiText("a11y.languageSwitch", "en")!, /[؀-ۿ]/);
+    assert.match(staticUiText("a11y.languageSwitch", "en")!, /[\u0600-\u06ff]/);
   });
 });
 
@@ -124,6 +125,24 @@ describe("menus", () => {
     const hidden = items();
     hidden[1].isVisible = false;
     assert.ok(menuIssues(slot, hidden, stored).length > 0);
+    // Projects (pages of its own) in the first two places, where the header marks the page only (A6 review I4).
+    for (const at of [0, 1]) {
+      const early = items();
+      const from = early.findIndex((i) => i.route === "projects");
+      [early[at], early[from]] = [early[from], early[at]];
+      assert.ok(menuIssues(slot, early, stored).some((i) => i.path === `items.${at}.route` && /pages of its own/.test(i.message)), String(at));
+    }
+  });
+
+  test("the header's page-mark-only places and its section routes are what Header.tsx draws (the first two links use `here`)", () => {
+    const header = read("src/components/commerce/shell/Header.tsx");
+    const flat = /const flat = \[([^\]]*)\];/.exec(header)?.[1].split(",").map((x) => x.trim());
+    assert.deepEqual(flat, ["home", "about"]);
+    assert.equal(MENU_SLOTS.find((s) => s.key === "header_main")!.pageMarkOnly, flat!.length);
+    assert.match(header, /\{flat\.map\(\(item\) => \(\s*<li key=\{item\.key\}>\s*<a href=\{item\.href\} className="nav-link" aria-current=\{here\(item\.key\)\}>/);
+    // The routes the header marks as a section on their own pages: services (a service's page) and projects (a project's).
+    assert.match(header, /\(key === "services" && current === "service"\) \|\| \(key === "projects" && current === "project"\)/);
+    assert.deepEqual([...SECTION_ROUTES], ["services", "projects"]);
   });
 });
 

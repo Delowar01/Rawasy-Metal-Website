@@ -52,12 +52,23 @@ describe("normalizeSitePath", () => {
     assert.match(refused(`/en/${"a".repeat(600)}`), /too long/);
   });
 
-  test("never holds a control character or an invisible formatting mark, typed or %-coded", () => {
-    for (const hidden of ["​", "‎", "‮", "⁦", "﻿", "­", "\u0000", "\u007f", "\u0085"]) {
-      const encoded = [...new TextEncoder().encode(hidden)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("");
-      assert.ok(!normalizeSitePath(`/en/old${hidden}page`).ok, `typed U+${hidden.codePointAt(0)!.toString(16)}`);
-      assert.match(refused(`/en/old${encoded}page`), /invisible formatting marks/, `encoded U+${hidden.codePointAt(0)!.toString(16)}`);
+  test("never holds a character that draws nothing (controls, formatting marks, default-ignorables), typed or %-coded", () => {
+    // Controls and formatting marks, then the default-ignorable letters and marks the A6 review found accepted before.
+    const hidden = ["\u200b", "\u200e", "\u202e", "\u2066", "\ufeff", "\u00ad", "\u0000", "\u007f", "\u0085"];
+    const ignorable = ["\u034f", "\ufe0f", "\u3164", "\u115f", "\u1160", "\uffa0", "\u180b", "\u17b4", "\u{e0100}"];
+    for (const char of [...hidden, ...ignorable]) {
+      const name = `U+${char.codePointAt(0)!.toString(16)}`;
+      const encoded = [...new TextEncoder().encode(char)].map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("");
+      assert.ok(!normalizeSitePath(`/en/old${char}page`).ok, `typed ${name}`);
+      assert.match(refused(`/en/old${encoded}page`), /invisible marks/, `encoded ${name}`);
     }
+  });
+
+  test("two spellings of one text are one address (NFC): a composed and a combining accent store alike", () => {
+    assert.equal(ok("/en/caf%C3%A9"), "/en/caf%C3%A9");
+    assert.equal(ok("/en/cafe%CC%81"), "/en/caf%C3%A9");
+    assert.equal(ok("/en/cafe\u0301"), "/en/caf%C3%A9");
+    assert.equal(readablePath(ok("/en/cafe%CC%81")), "/en/caf\u00e9");
   });
 });
 
