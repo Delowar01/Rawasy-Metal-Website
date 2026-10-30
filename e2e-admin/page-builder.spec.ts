@@ -31,6 +31,7 @@ const USERS: Record<Role, { email: string; name: string; password: string; mfa: 
   reviewer: { email: "builder.reviewer@example.test", name: "Test Builder Reviewer", password: "builder reviewer phrase lantern", mfa: false },
 };
 const secrets: Partial<Record<Role, string>> = {};
+const userIds: Partial<Record<Role, string>> = {};
 const pages: Partial<Record<Role, Page>> = {};
 const ids: Record<string, string> = {};
 const ULID_IN_URL = /\/([0-9A-HJKMNP-TV-Z]{26})(?:[/?]|$)/;
@@ -142,6 +143,7 @@ test.beforeAll(async () => {
       { env: { ...cliEnv(), SEED_PASSWORD: user.password }, encoding: "utf8" },
     );
     const seeded = JSON.parse(out) as { id: string; secret: string | null };
+    userIds[role] = seeded.id;
     if (seeded.secret) secrets[role] = seeded.secret;
   }
   // The release's own media (A4's importer: idempotent); one approved photo gets a focal point for the preview.
@@ -412,6 +414,15 @@ test.describe("a generic page", () => {
     await editor.waitForLoadState("load");
     await editor.locator(".adm-bld").waitFor();
     await expect(card(editor, "Text").locator(".adm-badge", { hasText: "Hidden" })).toBeVisible();
+    // The refused edits were made on the older version: kept in the tab, offered for download or discarding, never
+    // applied over the newer layout (A5 final correction).
+    const kept = editor.locator("[data-kept-work]");
+    await expect(kept).toHaveAttribute("data-kept-work", "blocked");
+    await expect(kept.getByRole("button", { name: "Restore unsaved changes" })).toHaveCount(0);
+    editor.once("dialog", (d) => void d.accept());
+    await kept.getByRole("button", { name: "Discard them" }).click();
+    await expect(kept).toHaveCount(0);
+    await expect(editor.locator(".adm-bld-grid")).not.toHaveAttribute("inert", /.*/);
     const [event] = await queryTestDb<{ outcome: string }>("SELECT outcome FROM audit_events WHERE entity_type = 'page' AND entity_id = ? ORDER BY id DESC LIMIT 1", [ids.page]);
     expect(event.outcome).toBe("failed");
   });
@@ -566,22 +577,41 @@ test.describe("the site's own pages and services", () => {
     await previewReady(reviewer);
     // A save sent by hand from the Reviewer's page: refused by the server, nothing stored, audited.
     const before = await sectionIds("page_id", ids.page);
-    const answer = await reviewer.evaluate(
-      async ({ id, page }) => {
-        const body = new FormData();
-        body.append("0", JSON.stringify([JSON.stringify({ owner: { type: "page", id: page }, expectedVersion: 0, sections: [] })]));
-        const response = await fetch(location.pathname, { method: "POST", headers: { "Next-Action": id, Accept: "text/x-component" }, body });
-        return response.text();
-      },
-      { id: actionId("saveLayoutAction"), page: ids.page },
-    );
-    expect(answer).toMatch(/"status":"error"/);
+    const forge = (editorId: string | null) =>
+      reviewer.evaluate(
+        async ({ id, page, editorId }) => {
+          const body = new FormData();
+          const args: unknown[] = [JSON.stringify({ owner: { type: "page", id: page }, expectedVersion: 0, sections: [] })];
+          if (editorId !== null) args.push(editorId);
+          body.append("0", JSON.stringify(args));
+          const response = await fetch(location.pathname, { method: "POST", headers: { "Next-Action": id, Accept: "text/x-component" }, body });
+          return response.text();
+        },
+        { id: actionId("saveLayoutAction"), page: ids.page, editorId },
+      );
+    // Naming the Reviewer (as their builder does): refused on the permission, by the layout service.
+    expect(await forge(userIds.reviewer!)).toMatch(/"status":"error"/);
     expect(await sectionIds("page_id", ids.page)).toEqual(before);
     const [event] = await queryTestDb<{ outcome: string; action: string }>(
       "SELECT outcome, action FROM audit_events WHERE entity_type = 'page' AND entity_id = ? ORDER BY id DESC LIMIT 1",
       [ids.page],
     );
     expect(event).toEqual({ outcome: "denied", action: "layout.save" });
+    // Naming nobody, or someone else (an editor opened by another person): refused before the payload is read, audited.
+    for (const editorId of [null, userIds.editor!]) {
+      expect(await forge(editorId)).toMatch(/"status":"signed_out","reason":"other_user"/);
+      const [refusal] = await queryTestDb<{ outcome: string; action: string; entity_type: string; entity_id: string; summary: string }>(
+        "SELECT outcome, action, entity_type, entity_id, summary FROM audit_events WHERE action = 'layout.save' ORDER BY id DESC LIMIT 1",
+      );
+      expect(refusal).toEqual({
+        outcome: "denied",
+        action: "layout.save",
+        entity_type: "user",
+        entity_id: userIds.reviewer,
+        summary: "Refused: the editor was opened by another user (this browser signed in as someone else meanwhile).",
+      });
+    }
+    expect(await sectionIds("page_id", ids.page)).toEqual(before);
   });
 });
 
@@ -900,6 +930,329 @@ test.describe("A5 acceptance review", () => {
         width: 322,
       });
     }
+  });
+});
+
+test.describe("A5 final correction: unsaved work when the session ends", () => {
+  // Two Editors of their own, so ending their sessions never touches the other tests' signed-in pages.
+  const KEEPER = { email: "builder.keeper@example.test", name: "Test Keeper One", password: "keeper one phrase orchard" };
+  const KEEPER2 = { email: "builder.keeper2@example.test", name: "Test Keeper Two", password: "keeper two phrase quarry" };
+  const keeperIds: Record<string, string> = {};
+  const KEPT_PREFIX = "rawasy-draft:v1:";
+
+  test.beforeAll(() => {
+    for (const user of [KEEPER, KEEPER2]) {
+      const out = execFileSync(process.execPath, [join(ROOT, "e2e-admin/seed-user.mjs"), "--email", user.email, "--name", user.name, "--roles", "editor"], {
+        env: { ...cliEnv(), SEED_PASSWORD: user.password },
+        encoding: "utf8",
+      });
+      keeperIds[user.email] = (JSON.parse(out) as { id: string }).id;
+    }
+  });
+
+  /** Signs in on this tab (it shows the sign-in page, or goes there). */
+  async function signInHere(page: Page, user: { email: string; password: string }) {
+    if (!new URL(page.url()).pathname.startsWith("/admin/login")) await page.goto("/admin/login");
+    await page.getByLabel("Email", { exact: true }).fill(user.email);
+    await page.getByLabel("Password", { exact: true }).fill(user.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/admin/login"));
+  }
+  async function freshTab(browser: Browser, user: { email: string; password: string }) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const page = await context.newPage();
+    await signInHere(page, user);
+    return page;
+  }
+  /** The session's idle limit passed (A2: 2 hours without use): every live session of this user has ended. */
+  const endSessions = (email: string) =>
+    queryTestDb("UPDATE sessions s JOIN users u ON u.id = s.user_id SET s.idle_expires_at = s.created_at WHERE u.email_normalized = ? AND s.revoked_at IS NULL", [email]);
+  /** What this tab keeps of unsaved editor work (its sessionStorage entries). */
+  const keptHere = (page: Page) =>
+    page.evaluate((prefix) => Object.fromEntries(Object.keys(sessionStorage).filter((k) => k.startsWith(prefix)).map((k) => [k, sessionStorage.getItem(k) ?? ""])), KEPT_PREFIX);
+  const keptKeys = async (page: Page) => Object.keys(await keptHere(page)).sort();
+  /** Reloads past the browser's own leave warning (the builder is dirty). */
+  async function reloadPastTheWarning(page: Page) {
+    const accept = (d: { accept: () => Promise<void> }) => void d.accept();
+    page.on("dialog", accept);
+    await page.reload();
+    page.off("dialog", accept);
+  }
+  const headingTitles = async (pageId: string) =>
+    (
+      await queryTestDb<{ content: unknown }>(
+        "SELECT t.content FROM page_sections s JOIN page_section_translations t ON t.section_id = s.id AND t.locale = 'en' WHERE s.page_id = ? AND s.block_type = 'generic.heading' ORDER BY s.position",
+        [pageId],
+      )
+    ).map((r) => (json(r.content) as { title?: string }).title);
+  /** A new generic page whose layout holds one stored heading ("Test stored heading"); its builder stays open. */
+  async function pageWithHeading(page: Page, slug: string, title: string): Promise<string> {
+    await open(page, "/admin/pages/new");
+    await page.getByRole("link", { name: "New generic page" }).click();
+    await page.getByLabel("Slug", { exact: true }).fill(slug);
+    await english(page).getByLabel(/^Title/).fill(title);
+    await page.getByRole("button", { name: "Create page" }).click();
+    await page.waitForURL(/created=1/);
+    const id = idFrom(page);
+    await builder(page, `/admin/pages/${id}/builder`);
+    await page.getByRole("button", { name: "Set up this layout" }).click();
+    await page.waitForURL(/done=setup/);
+    await addBlock(page, "Heading");
+    await inspector(page).getByLabel(/^Title/).fill("Test stored heading");
+    await saveLayout(page);
+    return id;
+  }
+  async function typeTitle(page: Page, text: string) {
+    await card(page, "Heading").getByRole("button", { name: "Edit “Heading”" }).click();
+    await inspector(page).getByLabel(/^Title/).fill(text);
+    await expect(chip(page)).toHaveText("Unsaved changes");
+  }
+
+  test("the session ends with unsaved edits: the save answers in the page, the edits stay; signed in again in a new tab, this tab saves them", async ({ browser }) => {
+    const page = await freshTab(browser, KEEPER);
+    const id = await pageWithHeading(page, "test-kept-session", "Test Kept Session");
+    await typeTitle(page, "Test heading typed before the session ended");
+    // A copy is kept in this tab — the editor's content only — and nothing is sent to the server meanwhile.
+    const key = `${KEPT_PREFIX}${keeperIds[KEEPER.email]}:page:${id}`;
+    await expect.poll(() => keptKeys(page)).toEqual([key]);
+    const sent: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() !== "GET") sent.push(`${r.method()} ${r.url()}`);
+    });
+    await page.waitForTimeout(1500);
+    expect(sent, "an idle builder sends nothing (no keep-alive)").toEqual([]);
+    const raw = (await keptHere(page))[key];
+    const cookie = (await page.context().cookies()).find((c) => c.name === "__Host-rawasy_admin")!.value;
+    expect(raw).toContain("Test heading typed before the session ended");
+    for (const secret of [cookie, KEEPER.password, KEEPER.email]) expect(raw.includes(secret), "no credential in the kept copy").toBe(false);
+    expect(Object.keys(JSON.parse(raw)).sort()).toEqual(["base", "id", "kind", "payload", "savedAt", "user", "v"]);
+
+    // Two hours without use: the session ends. The save is answered in the page; nothing is stored.
+    await endSessions(KEEPER.email);
+    await page.getByRole("button", { name: "Save layout" }).click();
+    await expect(chip(page)).toHaveText("Signed out: not saved");
+    const notice = page.locator("[data-signed-out]");
+    await expect(notice).toHaveAttribute("data-signed-out", "ended");
+    await expect(notice).toContainText("Your session has ended, so nothing was saved. Your changes are still here");
+    expect(new URL(page.url()).pathname).toBe(`/admin/pages/${id}/builder`);
+    await expect(inspector(page).getByLabel(/^Title/)).toHaveValue("Test heading typed before the session ended");
+    expect(await headingTitles(id)).toEqual(["Test stored heading"]);
+    expect(await keptKeys(page)).toEqual([key]);
+    expect(await axe(page), "the signed-out notice").toEqual([]);
+
+    // Signed in again in a new tab (the notice's link): a full sign-in, password included.
+    const [tab] = await Promise.all([page.context().waitForEvent("page"), notice.getByRole("link", { name: "Sign in again in a new tab" }).click()]);
+    await tab.waitForLoadState();
+    expect(new URL(tab.url()).pathname).toBe("/admin/login");
+    await expect(tab.getByRole("status")).toContainText("Your session has ended. Sign in again.");
+    await signInHere(tab, KEEPER);
+    await tab.close();
+    // Back in the builder's tab: the same edits are saved, and the kept copy goes.
+    await saveLayout(page);
+    expect(await headingTitles(id)).toEqual(["Test heading typed before the session ended"]);
+    await expect.poll(() => keptKeys(page)).toEqual([]);
+    await page.context().close();
+  });
+
+  test("a reload after the session ended: signed in again in this tab, the builder offers the kept edits on their own version, then saves them", async ({ browser }) => {
+    const page = await freshTab(browser, KEEPER);
+    const id = await pageWithHeading(page, "test-kept-reload", "Test Kept Reload");
+    await typeTitle(page, "Test heading kept across a reload");
+    await expect.poll(() => keptKeys(page)).toHaveLength(1);
+    await endSessions(KEEPER.email);
+    await reloadPastTheWarning(page);
+    await page.waitForURL("**/admin/login?session_ended=1");
+    await signInHere(page, KEEPER);
+    await builder(page, `/admin/pages/${id}/builder`);
+    const kept = page.locator("[data-kept-work]");
+    await expect(kept).toHaveAttribute("data-kept-work", "restorable");
+    await expect(kept).toContainText("were kept in this browser tab");
+    // Until the person decides, the builder takes no edits (nothing new could overwrite the kept copy).
+    await expect(page.locator(".adm-bld-grid")).toHaveAttribute("inert", "");
+    await expect(chip(page)).toHaveText("Saved");
+    expect(await axe(page), "the kept-work notice").toEqual([]);
+    await page.setViewportSize({ width: 320, height: 640 });
+    expect(await pageOverflow(page), "320 px with the notice").toBe(0);
+    expect(await pastTheScreen(page), "320 px with the notice").toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await kept.getByRole("button", { name: "Restore unsaved changes" }).click();
+    await expect(kept).toHaveCount(0);
+    await expect(chip(page)).toHaveText("Unsaved changes");
+    await card(page, "Heading").getByRole("button", { name: "Edit “Heading”" }).click();
+    await expect(inspector(page).getByLabel(/^Title/)).toHaveValue("Test heading kept across a reload");
+    await saveLayout(page);
+    expect(await headingTitles(id)).toEqual(["Test heading kept across a reload"]);
+    await expect.poll(() => keptKeys(page)).toEqual([]);
+    await page.context().close();
+  });
+
+  test("two editors at once: the later save is refused, nothing is stored over the newer version, and the kept edits are offered for download or discarding, never applied", async ({ browser }) => {
+    const first = await freshTab(browser, KEEPER);
+    const id = await pageWithHeading(first, "test-kept-conflict", "Test Kept Conflict");
+    await typeTitle(first, "Test title from the older version");
+    await expect.poll(() => keptKeys(first)).toHaveLength(1);
+    const second = await freshTab(browser, KEEPER2);
+    await builder(second, `/admin/pages/${id}/builder`);
+    await typeTitle(second, "Test newer stored title");
+    await saveLayout(second);
+    const [{ v }] = await queryTestDb<{ v: number }>("SELECT lock_version AS v FROM pages WHERE id = ?", [id]);
+
+    await first.getByRole("button", { name: "Save layout" }).click();
+    await expect(chip(first)).toHaveText("Changed elsewhere: not saved");
+    await expect(inspector(first).getByLabel(/^Title/)).toHaveValue("Test title from the older version");
+    expect(await headingTitles(id)).toEqual(["Test newer stored title"]);
+
+    const accept = (d: { accept: () => Promise<void> }) => void d.accept();
+    first.on("dialog", accept);
+    await first.locator(".adm-bld").getByRole("alert").getByRole("button", { name: "Reload the latest version" }).click();
+    await first.waitForLoadState("load");
+    first.off("dialog", accept);
+    await first.locator(".adm-bld").waitFor();
+    const kept = first.locator("[data-kept-work]");
+    await expect(kept).toHaveAttribute("data-kept-work", "blocked");
+    await expect(kept).toContainText(`this layout was saved again since then (version ${v - 1}, now ${v})`);
+    await expect(kept.getByRole("button", { name: "Restore unsaved changes" })).toHaveCount(0);
+    await expect(first.locator(".adm-bld-grid")).toHaveAttribute("inert", "");
+    expect(await axe(first), "the notice of kept edits that can't be restored").toEqual([]);
+
+    // Download: the kept edits as a file, to compare by hand; no credential in it.
+    const [download] = await Promise.all([first.waitForEvent("download"), kept.getByRole("button", { name: "Download the kept changes" }).click()]);
+    const file = readFileSync((await download.path())!, "utf8");
+    const parsed = JSON.parse(file) as { record: { id: string }; madeOnVersion: number; storedVersionNow: number };
+    expect(parsed.record.id).toBe(id);
+    expect([parsed.madeOnVersion, parsed.storedVersionNow]).toEqual([v - 1, v]);
+    expect(file).toContain("Test title from the older version");
+    const cookie = (await first.context().cookies()).find((c) => c.name === "__Host-rawasy_admin")!.value;
+    expect(file.includes(cookie)).toBe(false);
+
+    // Discarded: the builder shows what is stored now, and nothing of the older edits remains in the tab.
+    first.once("dialog", (d) => void d.accept());
+    await kept.getByRole("button", { name: "Discard them" }).click();
+    await expect(kept).toHaveCount(0);
+    await expect(first.locator(".adm-bld-grid")).not.toHaveAttribute("inert", /.*/);
+    await card(first, "Heading").getByRole("button", { name: "Edit “Heading”" }).click();
+    await expect(inspector(first).getByLabel(/^Title/)).toHaveValue("Test newer stored title");
+    expect(await keptKeys(first)).toEqual([]);
+    expect(await headingTitles(id)).toEqual(["Test newer stored title"]);
+    await first.context().close();
+    await second.context().close();
+  });
+
+  test("another person signs in in this browser: the first person's open builder saves nothing, and their kept edits are neither offered nor kept", async ({ browser }) => {
+    const page = await freshTab(browser, KEEPER);
+    const id = await pageWithHeading(page, "test-kept-other", "Test Kept Other");
+    await typeTitle(page, "Test typed by the first person");
+    await expect.poll(() => keptKeys(page)).toHaveLength(1);
+    // In another tab of this browser: sign out, then the second person signs in.
+    const other = await page.context().newPage();
+    await open(other, "/admin");
+    await other.locator('summary[aria-label^="Account:"]').click();
+    await other.getByRole("button", { name: "Sign out" }).click();
+    await expect(other).toHaveURL(/\/admin\/login\?signed_out=1$/);
+    await signInHere(other, KEEPER2);
+    // The first tab's save names the person who opened it: refused, nothing stored, audited.
+    await page.getByRole("button", { name: "Save layout" }).click();
+    await expect(chip(page)).toHaveText("Signed out: not saved");
+    await expect(page.locator("[data-signed-out]")).toHaveAttribute("data-signed-out", "other_user");
+    await expect(page.locator("[data-signed-out]")).toContainText("This browser is now signed in as someone else, so nothing was saved.");
+    expect(await headingTitles(id)).toEqual(["Test stored heading"]);
+    const [refusal] = await queryTestDb<{ outcome: string; entity_id: string }>(
+      "SELECT outcome, entity_id FROM audit_events WHERE action = 'layout.save' AND entity_type = 'user' ORDER BY id DESC LIMIT 1",
+    );
+    expect(refusal).toEqual({ outcome: "denied", entity_id: keeperIds[KEEPER2.email] });
+    // Any admin page of the second person removes the first person's copy from this tab; their builder offers nothing.
+    const accept = (d: { accept: () => Promise<void> }) => void d.accept();
+    page.on("dialog", accept);
+    await open(page, "/admin");
+    page.off("dialog", accept);
+    await expect.poll(() => keptKeys(page)).toEqual([]);
+    await builder(page, `/admin/pages/${id}/builder`);
+    await expect(page.locator("[data-kept-work]")).toHaveCount(0);
+    await page.context().close();
+  });
+
+  test("signing out removes the edits this tab kept, and those of the admin's other open tabs", async ({ browser }) => {
+    const page = await freshTab(browser, KEEPER);
+    const id = await pageWithHeading(page, "test-kept-signout", "Test Kept Sign Out");
+    await typeTitle(page, "Test typed before signing out");
+    await expect.poll(() => keptKeys(page)).toHaveLength(1);
+    // Another admin tab of this browser with unsaved edits of its own.
+    const other = await page.context().newPage();
+    await pageWithHeading(other, "test-kept-signout-other", "Test Kept Sign Out Other");
+    await typeTitle(other, "Test typed in the other tab");
+    await expect.poll(() => keptKeys(other)).toHaveLength(1);
+    await page.locator('summary[aria-label^="Account:"]').click();
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/admin\/login\?signed_out=1$/);
+    expect(await keptKeys(page)).toEqual([]);
+    await expect.poll(() => keptKeys(other), "the other tab heard the sign-out").toEqual([]);
+    await other.waitForTimeout(1000);
+    expect(await keptKeys(other), "and keeps nothing more").toEqual([]);
+    await other.close({ runBeforeUnload: false });
+    await signInHere(page, KEEPER);
+    await builder(page, `/admin/pages/${id}/builder`);
+    await expect(page.locator("[data-kept-work]")).toHaveCount(0);
+    expect(await headingTitles(id)).toEqual(["Test stored heading"]);
+    await page.context().close();
+  });
+
+  test("the reusable section editor: a save without a session answers in the page; after a reload and a new sign-in its kept edits come back", async ({ browser }) => {
+    const page = await freshTab(browser, KEEPER);
+    await open(page, "/admin/reusable-sections");
+    await page.getByRole("link", { name: "New reusable section" }).click();
+    await page.getByLabel("Name (shown in the admin only)").fill("Test kept reusable");
+    await page.locator(".adm-choice", { hasText: "Call to action" }).first().locator("input").check();
+    await page.getByRole("button", { name: "Create the reusable section" }).click();
+    await page.waitForURL(/\/admin\/reusable-sections\/[0-9A-Z]{26}\?created=1/);
+    const id = idFrom(page);
+    await page.getByLabel("Name (shown in the admin only)").fill("Test kept reusable, renamed");
+    await inspector(page).getByLabel(/^Title/).fill("Test kept reusable title");
+    await expect(chip(page)).toHaveText("Unsaved changes");
+    await expect.poll(() => keptKeys(page)).toEqual([`${KEPT_PREFIX}${keeperIds[KEEPER.email]}:reusable:${id}`]);
+
+    await endSessions(KEEPER.email);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(chip(page)).toHaveText("Signed out: not saved");
+    await expect(page.locator("[data-signed-out]")).toHaveAttribute("data-signed-out", "ended");
+    await expect(page.getByLabel("Name (shown in the admin only)")).toHaveValue("Test kept reusable, renamed");
+    const stored = async () => (await queryTestDb<{ name: string }>("SELECT name FROM reusable_sections WHERE id = ?", [id]))[0].name;
+    expect(await stored()).toBe("Test kept reusable");
+
+    await reloadPastTheWarning(page);
+    await page.waitForURL("**/admin/login?session_ended=1");
+    await signInHere(page, KEEPER);
+    await open(page, `/admin/reusable-sections/${id}`);
+    const kept = page.locator("[data-kept-work]");
+    await expect(kept).toHaveAttribute("data-kept-work", "restorable");
+    await expect(page.getByLabel("Name (shown in the admin only)")).toBeDisabled();
+    await kept.getByRole("button", { name: "Restore unsaved changes" }).click();
+    await expect(page.getByLabel("Name (shown in the admin only)")).toHaveValue("Test kept reusable, renamed");
+    await expect(inspector(page).getByLabel(/^Title/)).toHaveValue("Test kept reusable title");
+    const before = new URL(page.url()).searchParams.get("v");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.waitForURL((url) => url.searchParams.get("done") === "saved" && url.searchParams.get("v") !== before);
+    expect(await stored()).toBe("Test kept reusable, renamed");
+    await expect.poll(() => keptKeys(page)).toEqual([]);
+    await page.context().close();
+  });
+
+  test("the media picker in a builder whose session has ended says so in the picker; the page and its edits stay", async ({ browser }) => {
+    const page = await freshTab(browser, KEEPER);
+    const id = await pageWithHeading(page, "test-kept-picker", "Test Kept Picker");
+    await typeTitle(page, "Test heading typed before the picker");
+    await addBlock(page, "Image");
+    await endSessions(KEEPER.email);
+    await inspector(page).getByRole("button", { name: "Choose…" }).click();
+    const picker = page.getByRole("dialog", { name: "Choose: Photo" });
+    await expect(picker).toContainText("Your session has ended. Sign in again in a new tab, then search again; nothing on this page is lost.");
+    expect(new URL(page.url()).pathname).toBe(`/admin/pages/${id}/builder`);
+    await picker.getByRole("button", { name: "Close" }).click();
+    // The unsaved section and the unsaved title are still here.
+    expect(await cardTitles(page)).toEqual(["Page opening", "Heading", "Image"]);
+    await expect(chip(page)).toHaveText("Unsaved changes");
+    await card(page, "Heading").getByRole("button", { name: "Edit “Heading”" }).click();
+    await expect(inspector(page).getByLabel(/^Title/)).toHaveValue("Test heading typed before the picker");
+    await page.context().close();
   });
 });
 
