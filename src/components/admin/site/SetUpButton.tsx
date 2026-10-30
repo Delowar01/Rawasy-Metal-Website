@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { setUpNavigationAction, setUpSettingsAction, setUpUiTextAction } from "@/server/admin/actions/site";
 import type { SiteActionState } from "@/server/admin/actions/site-model";
+import { savedAt } from "./useSiteSave";
 
 const ACTIONS = { settings: setUpSettingsAction, ui: setUpUiTextAction, navigation: setUpNavigationAction } as const;
 
@@ -25,7 +26,7 @@ export function SetUpButton({ part, label, savedHref }: { part: keyof typeof ACT
           startTransition(async () => {
             const result = await ACTIONS[part]();
             setState(result);
-            if (result.status === "ok") router.replace(savedHref, { scroll: false });
+            if (result.status === "ok") router.replace(savedAt(savedHref, result.lockVersion), { scroll: false });
           })
         }
       >

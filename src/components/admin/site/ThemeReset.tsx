@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { resetThemeAction } from "@/server/admin/actions/site";
 import type { SiteActionState } from "@/server/admin/actions/site-model";
+import { savedAt } from "./useSiteSave";
 
 export function ThemeReset({ lockVersion }: { lockVersion: number }) {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function ThemeReset({ lockVersion }: { lockVersion: number }) {
           startTransition(async () => {
             const result = await resetThemeAction({ expectedVersion: lockVersion });
             setState(result);
-            if (result.status === "ok") router.replace("/admin/theme?saved=1", { scroll: false });
+            if (result.status === "ok") router.replace(savedAt("/admin/theme?saved=1", result.lockVersion), { scroll: false });
           })
         }
       >

@@ -10,7 +10,7 @@ import { useState, useTransition } from "react";
 import { useUnsavedChanges } from "@/components/admin/cms/useUnsavedChanges";
 import { saveRedirectAction, setRedirectActiveAction } from "@/server/admin/actions/site";
 import type { RedirectFormModel, SiteActionState } from "@/server/admin/actions/site-model";
-import { SaveAlert, useSiteSave } from "./useSiteSave";
+import { SaveAlert, savedAt, useSiteSave } from "./useSiteSave";
 
 type Choices = Record<"page" | "service" | "project", { id: string; label: string }[]>;
 
@@ -198,7 +198,7 @@ export function RedirectToggle({ id, lockVersion, active }: { id: string; lockVe
           startTransition(async () => {
             const result = await setRedirectActiveAction({ id, expectedVersion: lockVersion, active: !active });
             setState(result);
-            if (result.status === "ok") router.replace(`/admin/redirects/${id}?saved=1`, { scroll: false });
+            if (result.status === "ok") router.replace(savedAt(`/admin/redirects/${id}?saved=1`, result.lockVersion), { scroll: false });
           })
         }
       >
