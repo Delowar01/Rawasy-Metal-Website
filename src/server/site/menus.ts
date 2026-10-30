@@ -36,7 +36,7 @@ import {
   type SiteIssue,
   type SiteResult,
 } from "./common.ts";
-import { isSiteRoute, LOCALES, MENU_SLOT_KEYS, MENU_SLOTS, menuSlot, ROUTE_NAMES, SITE_ROUTE_KEYS, type Locale, type MenuSlot, type MenuSlotKey, type SiteRouteKey } from "./registry.ts";
+import { isSiteRoute, LOCALES, MENU_SLOT_KEYS, MENU_SLOTS, menuSlot, ROUTE_NAMES, SECTION_ROUTES, SITE_ROUTE_KEYS, type Locale, type MenuSlot, type MenuSlotKey, type SiteRouteKey } from "./registry.ts";
 import { staticMenus } from "./static-source.ts";
 
 export interface MenuItemModel {
@@ -112,8 +112,10 @@ async function insertItem(
   return id;
 }
 
-async function writeLabels(tx: Db, itemId: string, label: Record<Locale, string>, actorId: string, now: Date) {
+/** An item's labels: a language is written (and its completion stamped) only when its label is new or changed. */
+async function writeLabels(tx: Db, itemId: string, label: Record<Locale, string>, actorId: string, now: Date, before: Record<Locale, string> | null = null) {
   for (const locale of LOCALES) {
+    if (before && before[locale] === label[locale]) continue;
     const values = { label: label[locale], translationStatus: "complete" as const, completedAt: now, completedBy: actorId, updatedAt: now, updatedBy: actorId };
     await tx
       .insert(menuItemTranslations)
@@ -201,6 +203,9 @@ export function menuIssues(slot: MenuSlot, items: readonly MenuItemInput[], stor
       issues.push({ path: `items.${i}.route`, message: `${ROUTE_NAMES[slot.pinned.route]} stays in place ${slot.pinned.position}: it opens the Services menu.` });
     }
     if (slot.alwaysShown?.includes(i + 1) && !item.isVisible) issues.push({ path: `items.${i}.isVisible`, message: "The header always shows its first three items." });
+    if (slot.pageMarkOnly && i < slot.pageMarkOnly && SECTION_ROUTES.includes(item.route)) {
+      issues.push({ path: `items.${i}.route`, message: `${ROUTE_NAMES[item.route]} has pages of its own: place it after Services, where the header also marks it on those pages.` });
+    }
     issues.push(...labelIssues(slot, item, i));
   });
   if (slot.pinned) {
@@ -258,7 +263,7 @@ export async function saveMenu(change: SiteChange, raw: unknown): Promise<SiteRe
             updatedBy: actor.user.id,
           })
           .where(and(eq(menuItems.id, item.id), eq(menuItems.menuKey, input.key)));
-        if (item.label) await writeLabels(tx, item.id, item.label, actor.user.id, now);
+        if (item.label) await writeLabels(tx, item.id, item.label, actor.user.id, now, storedItem.label);
       } else {
         added++;
         await insertItem(tx, input.key, i + 1, { linkType: "route", route: item.route as SiteRouteKey, collection: null, label: item.label, isVisible: item.isVisible }, actor.user.id, now);

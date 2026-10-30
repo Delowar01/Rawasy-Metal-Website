@@ -76,6 +76,11 @@ export interface MenuSlot {
   pinned?: { position: number; route: SiteRouteKey };
   /** Positions that are always shown (the header's first two links and the dropdown). */
   alwaysShown?: readonly number[];
+  /**
+   * Leading positions the design draws with the page mark only (the header's first two links: `here`, not `section`):
+   * a page that has pages of its own (`SECTION_ROUTES`) goes after them, where the header also marks it on those pages.
+   */
+  pageMarkOnly?: number;
   /** Fixed items (the Services menu): nothing is added, removed, moved or hidden; only labels change. */
   fixed?: boolean;
 }
@@ -84,12 +89,13 @@ export const MENU_SLOTS: readonly MenuSlot[] = [
   {
     key: "header_main",
     name: "Header navigation",
-    description: "The main pages in the header bar and the phone menu. Services is always third: it opens the Services menu.",
+    description: "The main pages in the header bar and the phone menu. Services is always third: it opens the Services menu; Projects comes after it.",
     minItems: 3,
     maxItems: 8,
     labelMax: 24,
     pinned: { position: 3, route: "services" },
     alwaysShown: [1, 2, 3],
+    pageMarkOnly: 2,
   },
   {
     key: "header_services",
@@ -113,6 +119,9 @@ export const MENU_SLOTS: readonly MenuSlot[] = [
 
 export const MENU_SLOT_KEYS = MENU_SLOTS.map((s) => s.key);
 export const menuSlot = (key: string): MenuSlot | undefined => MENU_SLOTS.find((s) => s.key === key);
+
+/** Site pages that have pages of their own (a service's, a project's): the header marks them as the section on those. */
+export const SECTION_ROUTES: readonly SiteRouteKey[] = ["services", "projects"];
 
 /** The Services menu's automatic collection: every live service in the published order (A1 `menu_items.collection`). */
 export const SERVICES_COLLECTION = "services";
