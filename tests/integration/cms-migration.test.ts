@@ -105,17 +105,20 @@ async function a2Snapshot(c: Conn, tables: string[]) {
 }
 
 describe("A. an empty database", () => {
-  // A4 added 0004_media_library and A5 0005_page_builder after the A3 files: every committed migration applies, the A3
-  // files among them.
-  test("takes every migration (the A3 files, A4's 0004 and A5's 0005), then reports nothing pending", async () => {
+  // A4 added 0004_media_library, A5 0005_page_builder and A6 0006_site_controls / 0007_seed_site_controls after the A3
+  // files: every committed migration applies, the A3 files among them.
+  test("takes every migration (the A3 files, A4's 0004, A5's 0005 and A6's 0006–0007), then reports nothing pending", async () => {
     const database = await freshDatabase("a3mig_a");
     const up = await cli(database, ["up"]);
     assert.equal(up.code, 0, up.stderr);
-    for (const tag of ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library", "0005_page_builder"])
+    for (const tag of ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library", "0005_page_builder", "0006_site_controls", "0007_seed_site_controls"])
       assert.match(up.stdout, new RegExp(`Applied ${tag}`));
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, /Applied \(6\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library, 0005_page_builder/);
+    assert.match(
+      status.stdout,
+      /Applied \(8\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library, 0005_page_builder, 0006_site_controls, 0007_seed_site_controls/,
+    );
     assert.match(status.stdout, /Pending \(0\): none/);
   });
 });

@@ -21,10 +21,12 @@ const run = promisify(execFile);
 const ROOT = resolve(import.meta.dirname, "../..");
 const CLI = join(ROOT, "scripts/db-migrate.mjs");
 const ALL_TAGS = ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library"];
-/** A5 added 0005_page_builder after the A4 file: every committed migration applies, A4's among them. */
-const COMMITTED = [...ALL_TAGS, "0005_page_builder"];
+/** A5 added 0005_page_builder and A6 0006 / 0007 after the A4 file: every committed migration applies, A4's among them. */
+const COMMITTED = [...ALL_TAGS, "0005_page_builder", "0006_site_controls", "0007_seed_site_controls"];
 /** The tables 0005 adds (A5's own proofs: tests/integration/builder-migration.test.ts). */
 const A5_TABLES = ["page_sections", "page_section_translations", "reusable_sections", "reusable_section_translations"];
+/** The tables 0006 adds (A6's own proofs: tests/integration/site-migration.test.ts). */
+const A6_TABLE_COUNT = 11;
 
 async function cli(database: string, args: string[]) {
   const { host, port, user, password } = serverConfig();
@@ -166,14 +168,14 @@ async function seedA3(c: Conn) {
 }
 
 describe("A. an empty database", () => {
-  test("takes every migration (the A4 file and A5's 0005 after it), then reports nothing pending", async () => {
+  test("takes every migration (the A4 file, then A5's 0005 and A6's 0006–0007), then reports nothing pending", async () => {
     const database = await freshDatabase("a4mig_a");
     const up = await cli(database, ["up"]);
     assert.equal(up.code, 0, up.stderr);
     for (const tag of COMMITTED) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, new RegExp(`Applied \\(6\\): ${COMMITTED.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(8\\): ${COMMITTED.join(", ")}`));
     assert.match(status.stdout, /Pending \(0\): none/);
   });
 });
@@ -184,7 +186,7 @@ describe("B–G. a database at A3 with accounts and content, upgraded to A4", ()
   const columnsBefore: Record<string, string[]> = {};
   let before: Record<string, string> = {};
 
-  test("B. an A3 database with A2 accounts and A3 content takes the A4 file (and, since A5, 0005 after it)", async () => {
+  test("B. an A3 database with A2 accounts and A3 content takes the A4 file (and, since A5 and A6, 0005–0007 after it)", async () => {
     database = await freshDatabase("a4mig_b");
     const c = await serverConnection(database);
     try {
@@ -202,6 +204,8 @@ describe("B–G. a database at A3 with accounts and content, upgraded to A4", ()
     assert.equal(up.code, 0, up.stderr);
     assert.match(up.stdout, /Applied 0004_media_library/);
     assert.match(up.stdout, /Applied 0005_page_builder/);
+    assert.match(up.stdout, /Applied 0006_site_controls/);
+    assert.match(up.stdout, /Applied 0007_seed_site_controls/);
     assert.doesNotMatch(up.stdout, /Applied 000[0-3]/);
   });
 
@@ -210,7 +214,7 @@ describe("B–G. a database at A3 with accounts and content, upgraded to A4", ()
     assert.equal(again.code, 0);
     assert.match(again.stdout, /Nothing to apply/);
     const status = await cli(database, ["status"]);
-    assert.match(status.stdout, new RegExp(`Applied \\(6\\): ${COMMITTED.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(8\\): ${COMMITTED.join(", ")}`));
   });
 
   test("D. the hash and order checks still refuse a changed or reordered A4 file", async () => {
@@ -243,7 +247,7 @@ describe("B–G. a database at A3 with accounts and content, upgraded to A4", ()
       );
       const a4 = all.filter((r) => A4_TABLES.includes(r.t));
       assert.equal(a4.length, A4_TABLES.length);
-      assert.equal(all.length, tables.length + A4_TABLES.length + A5_TABLES.length);
+      assert.equal(all.length, tables.length + A4_TABLES.length + A5_TABLES.length + A6_TABLE_COUNT);
       for (const table of a4) assert.deepEqual([table.e, table.co], ["InnoDB", "utf8mb4_unicode_520_ci"], table.t);
       const keys = await rows<{ t: string; c: string; co: string }>(
         c,
@@ -317,7 +321,7 @@ describe("B–G. a database at A3 with accounts and content, upgraded to A4", ()
   test("G. npm run db:check passes (drizzle-kit check, the migration files, the seed against the registries)", async () => {
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
     const { stdout } = await run(npm, ["run", "--silent", "db:check"], { cwd: ROOT, env: { ...process.env, NODE_ENV: "test" } });
-    assert.match(stdout, /Migration files OK: 6/);
+    assert.match(stdout, /Migration files OK: 8/);
     assert.match(stdout, /Seed migrations match the registries/);
   });
 });
