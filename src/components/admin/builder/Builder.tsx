@@ -173,8 +173,9 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
       reusable: s.reusable,
       ...(s.id ? { duplicateOf: s.id } : s.reusableId ? { reusableId: s.reusableId } : {}),
       data: s.data && block ? copyWithNewIds(block, s.data) : null,
-      // A stored section's copy is made by the server; a new section's copy carries its data.
-      dataChanged: !s.id && !s.reusableId && !s.reusable,
+      // A stored section's copy is made by the server from what is stored; a new section's copy carries its data, and so
+      // does the copy of a stored section with unsaved edits (the copy shows them, so it must store them).
+      dataChanged: !s.reusableId && !s.reusable && (!s.id || s.dataChanged),
       model: null,
     };
     const index = sections.findIndex((x) => x.ref === s.ref);

@@ -798,6 +798,49 @@ function builderActionRequests() {
   ].map(({ name, multipart }) => ({ name, options: { headers: headers(name), multipart, maxRedirects: 0 } }));
 }
 
+// --- A5 acceptance review: the builder's working copy and the generic photo frame -----------------------------------------
+
+test.describe("A5 acceptance review", () => {
+  /** A new generic page, its builder opened and its layout set up (the page's id). */
+  async function newPageLayout(page: Page, slug: string, title: string): Promise<string> {
+    await open(page, "/admin/pages/new");
+    await page.getByRole("link", { name: "New generic page" }).click();
+    await page.getByLabel("Slug", { exact: true }).fill(slug);
+    await english(page).getByLabel(/^Title/).fill(title);
+    await page.getByRole("button", { name: "Create page" }).click();
+    await page.waitForURL(/created=1/);
+    const id = idFrom(page);
+    await builder(page, `/admin/pages/${id}/builder`);
+    await page.getByRole("button", { name: "Set up this layout" }).click();
+    await page.waitForURL(/done=setup/);
+    return id;
+  }
+  const englishTitles = async (pageId: string) =>
+    (
+      await queryTestDb<{ content: unknown }>(
+        "SELECT t.content FROM page_sections s JOIN page_section_translations t ON t.section_id = s.id AND t.locale = 'en' WHERE s.page_id = ? AND s.block_type = 'generic.heading' ORDER BY s.position",
+        [pageId],
+      )
+    ).map((r) => (json(r.content) as { title?: string }).title);
+
+  test("a stored section duplicated with unsaved edits: the copy stores the edits it shows", async ({ browser }) => {
+    const editor = await as(browser, "editor");
+    const id = await newPageLayout(editor, "test-review-duplicate", "Test Review Duplicate");
+    await addBlock(editor, "Heading");
+    await inspector(editor).getByLabel(/^Title/).fill("Test stored title");
+    await saveLayout(editor);
+    expect(await englishTitles(id)).toEqual(["Test stored title"]);
+    // The stored heading edited, then duplicated before any save: the copy (now chosen) shows the edited title.
+    await card(editor, "Heading").getByRole("button", { name: "Edit “Heading”" }).click();
+    await inspector(editor).getByLabel(/^Title/).fill("Test edited title");
+    await card(editor, "Heading").getByRole("button", { name: "Duplicate “Heading”" }).click();
+    expect(await cardTitles(editor)).toEqual(["Page opening", "Heading", "Heading"]);
+    await expect(inspector(editor).getByLabel(/^Title/)).toHaveValue("Test edited title");
+    await saveLayout(editor);
+    expect(await englishTitles(id)).toEqual(["Test edited title", "Test edited title"]);
+  });
+});
+
 test.describe("the admin gate", () => {
   test("off (production without ADMIN_ENABLED): every builder, reusable and preview address is the public 404 path; no A5 action runs", async () => {
     test.setTimeout(120_000);
