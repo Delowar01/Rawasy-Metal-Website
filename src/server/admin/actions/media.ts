@@ -71,8 +71,13 @@ const PICKER = z.object({
  * asks — not in the Trash, pending, approved or restricted, ready, of the slot's kinds. Reading it changes nothing.
  */
 export async function pickMediaAction(input: { q?: string; kinds: string[]; page?: number; id?: string }): Promise<PickerState> {
-  const ctx = await actionContext("media.pick", { permission: "media.view" });
-  if (!ctx.ok) return { status: "error", message: ctx.state.message ?? "This request was refused." };
+  // The picker opens inside editors that hold unsaved work (the page builder, a reusable section, a content form): an
+  // ended session is answered in the picker, never redirected, so the page and its edits stay (A5 final correction).
+  const ctx = await actionContext("media.pick", { permission: "media.view", signedOut: "answer" });
+  if (!ctx.ok) {
+    if (ctx.state.signedOut) return { status: "error", message: "Your session has ended. Sign in again in a new tab, then search again; nothing on this page is lost." };
+    return { status: "error", message: ctx.state.message ?? "This request was refused." };
+  }
   const parsed = PICKER.safeParse(input);
   if (!parsed.success) return { status: "error", message: "The search could not be read." };
   const { q, kinds, page, id } = parsed.data;

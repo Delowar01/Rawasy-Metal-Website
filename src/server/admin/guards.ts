@@ -63,19 +63,28 @@ export async function auditDenied(actor: Actor, action: string, summary: string,
   );
 }
 
+/** Shown by an action that answers instead of redirecting when there is no fully signed-in session. */
+export const SIGNED_OUT_MESSAGE = "Your session has ended, so nothing was saved.";
+
 /**
  * The checks every authenticated admin mutation starts with. Returns the context, or the refusal to show. No session →
- * sign-in page. A refused origin, a missing permission or a missing re-authentication is audited.
+ * sign-in page, or — with `signedOut: "answer"`, for the editors that hold unsaved work in the page (the page builder,
+ * the reusable section editor, the media picker inside them) — a refusal saying so (`signedOut`), so the page and its
+ * working copy stay where they are; nothing is done either way. A refused origin, a missing permission or a missing
+ * re-authentication is audited.
  */
 export async function actionContext(
   action: string,
-  options: { permission?: string; stepUp?: boolean } = {},
+  options: { permission?: string; stepUp?: boolean; signedOut?: "redirect" | "answer" } = {},
 ): Promise<{ ok: true; context: ActionContext } | { ok: false; state: ActionState }> {
   assertAdminEnabled();
   const meta = await requestMeta();
   const deps = authDeps();
   const state = await getAdminState();
-  if (state.status !== "active") redirect(signInPathFor(state));
+  if (state.status !== "active") {
+    if (options.signedOut === "answer") return { ok: false, state: failure(SIGNED_OUT_MESSAGE, { signedOut: true }) };
+    redirect(signInPathFor(state));
+  }
   const { actor } = state;
   const refuse = async (summary: string, message: string, extra: Partial<ActionState> = {}) => {
     await auditDenied(actor, action, summary, meta, deps);

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "@/components/admin/AuthForms";
-import { MenuCloser, NavLink, SessionKeeper } from "@/components/admin/Shell";
+import { DraftJanitor, MenuCloser, NavLink, SessionKeeper } from "@/components/admin/Shell";
 import { requireActor } from "@/server/admin/guards";
 import { ROLE_NAMES } from "../_components/parts";
 
@@ -193,6 +193,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
         </main>
       </div>
       <SessionKeeper rotateAt={actor.session.createdAt.getTime() + 30 * 60_000} />
+      <DraftJanitor user={actor.user.id} />
       <MenuCloser />
     </div>
   );

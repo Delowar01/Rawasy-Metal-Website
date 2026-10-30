@@ -1,9 +1,10 @@
 "use client";
-/** Client parts of the admin shell: navigation links that mark the current page, and the session keeper. */
+/** Client parts of the admin shell: navigation links that mark the current page, the session keeper, the draft janitor. */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import { rotateSessionAction } from "@/server/admin/actions/auth";
+import { DRAFTS_CHANNEL, forgetDraftsHere, purgeDrafts, tabStorage } from "./builder/draft";
 
 export function NavLink({ href, children, exact = false }: { href: string; children: ReactNode; exact?: boolean }) {
   const pathname = usePathname();
@@ -44,5 +45,29 @@ export function MenuCloser() {
   useEffect(() => {
     document.querySelectorAll<HTMLDetailsElement>("details[data-adm-menu][open]").forEach((menu) => menu.removeAttribute("open"));
   }, [pathname]);
+  return null;
+}
+
+/**
+ * Removes the unsaved editor work this tab kept for anyone but the person signed in now, and every expired copy (A5 final
+ * correction): another user signing in in this tab never finds — or keeps around — someone else's edits. A sign-out in
+ * another admin tab of this browser clears this tab's copies too.
+ */
+export function DraftJanitor({ user }: { user: string }) {
+  useEffect(() => {
+    purgeDrafts(tabStorage(), user, Date.now());
+  }, [user]);
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(DRAFTS_CHANNEL);
+      channel.onmessage = (event) => {
+        if (event.data === "forget") forgetDraftsHere();
+      };
+    } catch {
+      channel = null;
+    }
+    return () => channel?.close();
+  }, []);
   return null;
 }

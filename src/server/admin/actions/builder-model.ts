@@ -208,9 +208,17 @@ export interface ReusableEditorModel {
 export type BuilderSaveState =
   | { status: "ok"; message: string; lockVersion: number; ids: Record<string, string> }
   | { status: "stale"; message: string }
+  /**
+   * Nothing was saved because the editor is not signed in as the person who opened it: the session ended (or waits
+   * for its second factor), or this browser signed in as someone else meanwhile. Answered instead of a redirect, so the
+   * working copy stays in the page.
+   */
+  | { status: "signed_out"; message: string; reason: "ended" | "other_user" }
   | { status: "error"; message: string; issues?: { ref?: string; path?: string; message: string }[] };
 
 export const BUILDER_STALE_MESSAGE = "This page layout changed after you opened it. Reload and review the latest version before saving.";
+export const BUILDER_SIGNED_OUT_MESSAGE = "Your session has ended, so nothing was saved.";
+export const BUILDER_OTHER_USER_MESSAGE = "This browser is now signed in as someone else, so nothing was saved.";
 
 /** A fresh repeated-item id, as the server's `newItemId` makes them ("i" + 8 base-36 characters). */
 export function newBuilderItemId(): string {

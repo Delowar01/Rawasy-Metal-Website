@@ -4,6 +4,8 @@
  * the page builder), its "Used by" list with links to those pages' builders, its preview, archive and restore. Saving
  * changes only the working copy that the linking pages' previews show; no visitor sees it (publishing is A8). An edit is
  * decided on the version this editor opened ("This reusable section changed after you opened it…"); nothing is merged.
+ * Unsaved edits survive a session that ends, as in the page builder (A5 final correction): the save answers in the page,
+ * and a copy is kept in this tab, offered back onto the same version only.
  */
 import { useRouter } from "next/navigation";
 import { useActionState, useId, useRef, useState } from "react";
@@ -16,15 +18,25 @@ import { ConfirmAction } from "../ConfirmAction";
 import { FormAlert, SubmitButton } from "../forms";
 import { useUnsavedChanges } from "../cms/useUnsavedChanges";
 import { Canvas, DEVICES, previewUrl, type PreviewDevice } from "./Canvas";
+import { readKeptReusable } from "./draft";
+import { KeptWorkNotice, SignedOutNotice } from "./DraftNotice";
 import { FieldEnvProvider, type FieldEnv } from "./env";
 import { fillLanguages } from "./model";
 import { SectionEditor } from "./SectionEditor";
+import { useDraft } from "./useDraft";
 import { useStickyBar } from "./useStickyBar";
 
 type Issue = { path?: string; message: string };
-type SaveView = { status: "idle" } | { status: "saving" } | { status: "saved"; message: string } | { status: "stale"; message: string } | { status: "error"; message: string; issues: Issue[] };
+type SaveView =
+  | { status: "idle" }
+  | { status: "saving" }
+  | { status: "saved"; message: string }
+  | { status: "stale"; message: string }
+  | { status: "signed_out"; message: string; reason: "ended" | "other_user" }
+  | { status: "error"; message: string; issues: Issue[] };
 
-export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
+/** `viewer`: the id of the person this editor was opened for (its saves name them; its kept copy is theirs). */
+export function ReusableEditor({ model, viewer }: { model: ReusableEditorModel; viewer: string }) {
   const router = useRouter();
   const id = useId();
   const openedData = model.data && model.block ? fillLanguages(model.block, model.data) : null;
@@ -37,8 +49,36 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
   const [save, setSave] = useState<SaveView>({ status: "idle" });
   const [media, setMedia] = useState<Record<string, MediaCardModel>>(model.media);
   const [notes, setNotes] = useState<string[]>([]);
+  // Counts the edits (the kept copy is written after each burst of them).
+  const [edits, setEdits] = useState(0);
   const dirty = changed || name !== model.name;
-  useUnsavedChanges(dirty);
+
+  // The copy of these edits kept in the tab, and the one an earlier visit kept (until restored or discarded).
+  const keeper = useDraft({
+    user: viewer,
+    kind: "reusable",
+    id: model.id,
+    base: model.lockVersion,
+    enabled: model.can.edit && !model.archived && model.block !== null && openedData !== null,
+    dirty,
+    version: `${edits}:${name}`,
+    payload: () => ({ name, data: data as SectionData }),
+    read: readKeptReusable,
+  });
+  useUnsavedChanges(dirty, undefined, keeper.drop);
+  const kept = keeper.pending;
+  const keptBlocked =
+    kept && kept.base !== model.lockVersion
+      ? `this reusable section was saved again since then (version ${kept.base}, now ${model.lockVersion}), and restoring them would overwrite the newer version.`
+      : null;
+  const restoreKept = () => {
+    if (!kept || keptBlocked || !model.block) return;
+    setName(kept.payload.name);
+    setData(fillLanguages(model.block, kept.payload.data));
+    setChanged(true);
+    setEdits((n) => n + 1);
+    keeper.restored();
+  };
   const root = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   useStickyBar(root, bar);
@@ -52,7 +92,7 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
     // A reusable section can be linked into any page: it names no in-page anchor of its own.
     anchors: [],
     // Nothing more is edited between a save and the stored version replacing this one (it would be dropped).
-    disabled: !model.can.edit || save.status === "saving" || save.status === "saved",
+    disabled: !model.can.edit || save.status === "saving" || save.status === "saved" || kept !== null,
     issues: save.status === "error" ? save.issues : [],
   };
 
@@ -60,7 +100,7 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
     if (!data || !dirty) return;
     setSave({ status: "saving" });
     try {
-      const result = await saveReusableAction(JSON.stringify({ id: model.id, expectedVersion: model.lockVersion, name, data }));
+      const result = await saveReusableAction(JSON.stringify({ id: model.id, expectedVersion: model.lockVersion, name, data }), viewer);
       if (result.status === "ok") {
         // The editor opens again on the stored version (its new version number remounts it, and puts it in the address so
         // the version is always read again); the screen confirms.
@@ -70,12 +110,14 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
           setSave({ status: "idle" });
           return;
         }
+        keeper.saved();
         setSave({ status: "saved", message: result.message });
         // Should the reload not arrive (a lost connection), editing comes back rather than staying locked; a save from
         // this older version is then refused as changed elsewhere, never stored over the new one.
         window.setTimeout(() => setSave((s) => (s.status === "saved" ? { status: "idle" } : s)), 20_000);
         router.replace(`${window.location.pathname}?done=saved&v=${result.lockVersion}`, { scroll: false });
       } else if (result.status === "stale") setSave({ status: "stale", message: result.message });
+      else if (result.status === "signed_out") setSave({ status: "signed_out", message: result.message, reason: result.reason });
       else setSave({ status: "error", message: result.message, issues: result.issues ?? [] });
     } catch {
       setSave({ status: "error", message: "The save didn't reach the server. Try again; your changes are still here.", issues: [] });
@@ -101,11 +143,13 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
                   ? "Error: not saved"
                   : save.status === "stale"
                     ? "Changed elsewhere: not saved"
-                    : dirty
+                    : save.status === "signed_out"
+                      ? "Signed out: not saved"
+                      : dirty
                       ? "Unsaved changes"
                       : "Saved"}
           </span>
-          <button type="button" className="adm-btn is-primary" onClick={() => void saveNow()} disabled={!dirty || !model.can.edit || save.status === "saving" || save.status === "saved" || !data}>
+          <button type="button" className="adm-btn is-primary" onClick={() => void saveNow()} disabled={!dirty || !model.can.edit || save.status === "saving" || save.status === "saved" || !data || kept !== null}>
             {save.status === "saving" ? "Saving…" : "Save"}
           </button>
         </div>
@@ -132,10 +176,29 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
           </a>
         </div>
       </div>
+      {kept ? (
+        <KeptWorkNotice
+          savedAt={kept.savedAt}
+          blocked={keptBlocked}
+          onRestore={restoreKept}
+          onDiscard={keeper.discard}
+          download={{
+            name: `unsaved-reusable-section-${model.id}-${new Date(kept.savedAt).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`,
+            json: () =>
+              JSON.stringify(
+                { kind: "RAWASY admin: unsaved reusable section", record: { id: model.id, name: model.name }, keptAt: new Date(kept.savedAt).toISOString(), madeOnVersion: kept.base, storedVersionNow: model.lockVersion, ...kept.payload },
+                null,
+                2,
+              ),
+          }}
+        />
+      ) : null}
+      {save.status === "signed_out" ? <SignedOutNotice reason={save.reason} message={save.message} saveLabel="Save" /> : null}
       {save.status === "stale" ? (
-        <div className="adm-alert is-warning" role="alert">
+        <div className="adm-alert is-warning adm-bld-notice" role="alert">
           <p>{save.message}</p>
-          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version and drop the edits made here?") && window.location.reload()}>
+          <p>Reloading shows the latest version; your edits are not applied to it, but a copy stays in this tab and is offered for download after the reload.</p>
+          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version? Your edits are not applied to it; a copy stays in this tab for download.") && window.location.reload()}>
             Reload the latest version
           </button>
         </div>
@@ -175,7 +238,7 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
             <label className="adm-label" htmlFor={`${id}-name`}>
               Name (shown in the admin only)
             </label>
-            <input id={`${id}-name`} className="adm-input" value={name} maxLength={240} disabled={!model.can.edit || save.status === "saving" || save.status === "saved"} onChange={(e) => setName(e.target.value)} aria-invalid={nameIssue ? true : undefined} />
+            <input id={`${id}-name`} className="adm-input" value={name} maxLength={240} disabled={!model.can.edit || save.status === "saving" || save.status === "saved" || kept !== null} onChange={(e) => setName(e.target.value)} aria-invalid={nameIssue ? true : undefined} />
             {nameIssue ? <p className="adm-hint adm-error">{nameIssue}</p> : null}
           </div>
           {data && model.block ? (
@@ -189,6 +252,7 @@ export function ReusableEditor({ model }: { model: ReusableEditorModel }) {
                 update={(recipe) => {
                   setData((d) => (d ? recipe(d) : d));
                   setChanged(true);
+                  setEdits((n) => n + 1);
                   if (save.status === "saved") setSave({ status: "idle" });
                 }}
                 changed={changed}

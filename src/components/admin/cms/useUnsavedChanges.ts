@@ -3,13 +3,14 @@
  * Warns before unsaved edits are lost (A3 brief §48): while `dirty`, leaving the page through a link inside the admin
  * asks for confirmation, and closing or reloading the tab triggers the browser's own warning. In-page links (the
  * editor's section links), new tabs and modified clicks pass through. Back and forward are not intercepted (Next.js has
- * no supported way to hold them); the browser warning still covers a reload or closing the tab.
+ * no supported way to hold them); the browser warning still covers a reload or closing the tab. `onLeave` runs when the
+ * person confirms leaving through a link (the page builder then drops the copy of its edits it keeps in the tab).
  */
 import { useEffect } from "react";
 
 export const UNSAVED_MESSAGE = "You have unsaved changes. Leave this page and lose them?";
 
-export function useUnsavedChanges(dirty: boolean, message = UNSAVED_MESSAGE) {
+export function useUnsavedChanges(dirty: boolean, message = UNSAVED_MESSAGE, onLeave?: () => void) {
   useEffect(() => {
     if (!dirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -27,7 +28,7 @@ export function useUnsavedChanges(dirty: boolean, message = UNSAVED_MESSAGE) {
       if (!window.confirm(message)) {
         event.preventDefault();
         event.stopPropagation();
-      }
+      } else onLeave?.();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     // Capture phase on the document: runs before Next.js's link handler (on the React root), so a cancelled click never
@@ -37,5 +38,5 @@ export function useUnsavedChanges(dirty: boolean, message = UNSAVED_MESSAGE) {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
     };
-  }, [dirty, message]);
+  }, [dirty, message, onLeave]);
 }

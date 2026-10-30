@@ -8,6 +8,11 @@
  * again on save, against the layout version this builder opened: a layout changed meanwhile is refused with the exact
  * stale message and nothing is merged.
  *
+ * Unsaved work is never lost to a session that ends (A5 final correction): a save made without a live session — or from
+ * a browser signed in as someone else by then — is answered in the page (the edits stay; sign in again in a new tab,
+ * then save), and while the builder is dirty a copy of the working copy is kept in this tab (`useDraft`), offered back
+ * the next time this person opens this layout here — restored only onto the version it was made from.
+ *
  * Desktop: outline, preview and inspector side by side. Narrower screens: one of them at a time, chosen with tabs.
  */
 import { useRouter } from "next/navigation";
@@ -24,6 +29,8 @@ import type { PreviewToBuilder } from "@/server/admin/actions/preview-protocol";
 import { LocaleBadge } from "../cms/ContentEditor";
 import { useUnsavedChanges } from "../cms/useUnsavedChanges";
 import { Canvas, DEVICES, previewUrl, type PreviewDevice } from "./Canvas";
+import { keepLayout, readKeptLayout, restoreLayout } from "./draft";
+import { KeptWorkNotice, SignedOutNotice } from "./DraftNotice";
 import { FieldEnvProvider, type FieldEnv } from "./env";
 import {
   ANCHOR_PATTERN,
@@ -41,6 +48,7 @@ import {
   type WorkingSection,
 } from "./model";
 import { SectionEditor } from "./SectionEditor";
+import { useDraft } from "./useDraft";
 import { useStickyBar } from "./useStickyBar";
 
 type Issue = { ref?: string; path?: string; message: string };
@@ -49,6 +57,7 @@ type SaveView =
   | { status: "saving" }
   | { status: "saved"; message: string }
   | { status: "stale"; message: string }
+  | { status: "signed_out"; message: string; reason: "ended" | "other_user" }
   | { status: "error"; message: string; issues: Issue[] };
 type Panel = "outline" | "preview" | "edit";
 type Done = "saved" | "setup" | "detached" | "copied" | "linked";
@@ -57,7 +66,8 @@ const DEVICE_NAMES: Record<keyof Devices, string> = { desktop: "Desktop", tablet
 const HISTORY_LIMIT = 100;
 const NEEDS_CLEAN = "Save or undo your changes first: this acts on the saved layout at once.";
 
-export function Builder({ model, initialSection }: { model: BuilderModel; initialSection: string | null }) {
+/** `viewer`: the id of the person this builder was opened for (its saves name them; its kept copy is theirs). */
+export function Builder({ model, initialSection, viewer }: { model: BuilderModel; initialSection: string | null; viewer: string }) {
   const router = useRouter();
   const id = useId();
   const opened = useMemo(() => initialSections(model), [model]);
@@ -81,16 +91,41 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
   // After a save, until the stored layout replaces this working copy (a new version remounts the builder), nothing more
   // can be edited here: an edit made in between would be dropped by that reload.
   const [reloading, setReloading] = useState(false);
-  // Nor while a save or an immediate action is on its way: it carries the working copy as it was when it started.
-  const locked = reloading || save.status === "saving" || busy;
   const removeDialog = useRef<HTMLDialogElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const tabs = useRef<HTMLDivElement>(null);
   useStickyBar(root, bar);
 
-  const dirty = layoutKey(sections) !== openedKey;
-  useUnsavedChanges(dirty);
+  const sectionsKey = layoutKey(sections);
+  const dirty = sectionsKey !== openedKey;
+
+  // The copy of this working copy kept in the tab, and the one an earlier visit kept (until restored or discarded).
+  const keeper = useDraft({
+    user: viewer,
+    kind: model.owner.type,
+    id: model.owner.id,
+    base: model.lockVersion,
+    enabled: model.can.content && !model.owner.archived,
+    dirty,
+    version: sectionsKey,
+    payload: () => keepLayout(sections),
+    read: readKeptLayout,
+  });
+  // Leaving through a link asks first; confirmed, the edits are dropped as the question says (the kept copy too).
+  useUnsavedChanges(dirty, undefined, keeper.drop);
+  const kept = keeper.pending;
+  const keptBlocked = !kept
+    ? null
+    : kept.base !== model.lockVersion
+      ? `this layout was saved again since then (version ${kept.base}, now ${model.lockVersion}), and restoring them would overwrite the newer version.`
+      : !restoreLayout(kept.payload, opened, new Set(Object.keys(model.blocks)), () => "new:check")
+        ? "they no longer match this layout's sections."
+        : null;
+
+  // Nor while a save or an immediate action is on its way (it carries the working copy as it was when it started), nor
+  // while a kept copy waits for the person to restore or discard it.
+  const locked = reloading || save.status === "saving" || busy || kept !== null;
 
   const blockOf = (s: WorkingSection): BlockModel | undefined => model.blocks[s.blockType];
   const current = sections.find((s) => s.ref === selected) ?? null;
@@ -270,19 +305,22 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
       url.searchParams.set("done", done);
       url.searchParams.set("v", String(result.lockVersion));
       if (result.lockVersion !== model.lockVersion) {
+        // Stored: the kept copy goes, and nothing more is kept from this working copy (the stored version replaces it).
+        keeper.saved();
         setReloading(true);
         // Should the reload not arrive (a lost connection), editing comes back rather than staying locked.
         window.setTimeout(() => setReloading(false), 20_000);
       }
       router.replace(`${url.pathname}${url.search}`, { scroll: false });
     } else if (result.status === "stale") setSave({ status: "stale", message: result.message });
+    else if (result.status === "signed_out") setSave({ status: "signed_out", message: result.message, reason: result.reason });
     else setSave({ status: "error", message: result.message, issues: result.issues ?? [] });
   };
   const saveLayout = async () => {
     if (!dirty || save.status === "saving") return;
     setSave({ status: "saving" });
     try {
-      afterSave(await saveLayoutAction(JSON.stringify(layoutPayload(model.owner, model.lockVersion, sections))), "saved");
+      afterSave(await saveLayoutAction(JSON.stringify(layoutPayload(model.owner, model.lockVersion, sections)), viewer), "saved");
     } catch {
       setSave({ status: "error", message: "The save didn't reach the server. Check the connection and try again; your changes are still here.", issues: [] });
     }
@@ -298,6 +336,31 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
     }
   };
   const ownerRef = { type: model.owner.type, id: model.owner.id };
+
+  const restoreKept = () => {
+    const next = kept && !keptBlocked ? restoreLayout(kept.payload, opened, new Set(Object.keys(model.blocks)), newRef) : null;
+    if (!next) return;
+    apply(next);
+    setSelected(null);
+    keeper.restored();
+    setStatus("Restored the unsaved changes kept in this tab. Review them, then save.");
+  };
+  const keptFile = () => ({
+    name: `unsaved-layout-${model.owner.slug ?? model.owner.id}-${kept ? new Date(kept.savedAt).toISOString().slice(0, 16).replace(/[:T]/g, "") : ""}.json`,
+    json: () =>
+      JSON.stringify(
+        {
+          kind: "RAWASY admin: unsaved page layout",
+          record: { type: model.owner.type, id: model.owner.id, label: model.owner.label },
+          keptAt: kept ? new Date(kept.savedAt).toISOString() : null,
+          madeOnVersion: kept?.base ?? null,
+          storedVersionNow: model.lockVersion,
+          sections: kept?.payload ?? [],
+        },
+        null,
+        2,
+      ),
+  });
 
   // On a narrow screen (one panel at a time) a choice made far down the outline opens the inspector at its top.
   const showPanel = (next: Panel) => {
@@ -331,7 +394,7 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
     remember: (card) => setMedia((m) => ({ ...m, [card.id]: card })),
     canUpload: model.canUpload,
     anchors,
-    disabled: !model.can.content || save.status === "saving" || reloading,
+    disabled: !model.can.content || save.status === "saving" || reloading || kept !== null,
     issues: current ? issuesOf(current.ref) : [],
   };
 
@@ -344,9 +407,11 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
           ? "Error: not saved"
           : save.status === "stale"
             ? "Changed elsewhere: not saved"
-            : dirty
-              ? "Unsaved changes"
-              : "Saved";
+            : save.status === "signed_out"
+              ? "Signed out: not saved"
+              : dirty
+                ? "Unsaved changes"
+                : "Saved";
 
   return (
     <div className="adm-bld" data-panel={panel} ref={root}>
@@ -399,11 +464,27 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
         {status}
       </p>
       {status ? <p className="adm-hint adm-bld-status">{status}</p> : null}
+      {kept ? (
+        <KeptWorkNotice
+          savedAt={kept.savedAt}
+          blocked={keptBlocked}
+          onRestore={restoreKept}
+          onDiscard={() => {
+            keeper.discard();
+            setStatus("Discarded the unsaved changes kept in this tab.");
+          }}
+          download={keptFile()}
+        />
+      ) : null}
+      {save.status === "signed_out" ? <SignedOutNotice reason={save.reason} message={save.message} saveLabel="Save layout" /> : null}
       {save.status === "stale" ? (
-        <div className="adm-alert is-warning" role="alert">
+        <div className="adm-alert is-warning adm-bld-notice" role="alert">
           <p>{save.message}</p>
-          <p>Your edits are still here; reloading shows the latest saved layout and drops them.</p>
-          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version and drop the edits made here?") && window.location.reload()}>
+          <p>
+            Your edits are still here. Reloading shows the latest saved layout; your edits are not applied to it, but a copy stays in this tab and is
+            offered for download after the reload.
+          </p>
+          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version? Your edits are not applied to it; a copy stays in this tab for download.") && window.location.reload()}>
             Reload the latest version
           </button>
         </div>
@@ -452,7 +533,7 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
             <div className="adm-empty">
               <p>This layout is not set up yet.</p>
               {model.can.initialize ? (
-                <button type="button" className="adm-btn is-primary" disabled={busy || dirty} onClick={() => void immediate("setup", () => initializeLayoutAction({ owner: ownerRef, expectedVersion: model.lockVersion }))}>
+                <button type="button" className="adm-btn is-primary" disabled={busy || dirty} onClick={() => void immediate("setup", () => initializeLayoutAction({ owner: ownerRef, expectedVersion: model.lockVersion }, viewer))}>
                   Set up this layout
                 </button>
               ) : (
@@ -528,10 +609,10 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
                 patch={(change, editKey) => patch(current.ref, change, editKey)}
                 update={(recipe, editKey) => updateData(current.ref, recipe, editKey)}
                 onDetach={() =>
-                  void immediate("detached", () => detachSectionAction({ owner: ownerRef, expectedVersion: model.lockVersion, sectionId: current.id }))
+                  void immediate("detached", () => detachSectionAction({ owner: ownerRef, expectedVersion: model.lockVersion, sectionId: current.id }, viewer))
                 }
                 onCreateReusable={(name, mode) =>
-                  void immediate(mode === "copy" ? "copied" : "linked", () => createReusableFromSectionAction({ owner: ownerRef, expectedVersion: model.lockVersion, sectionId: current.id, name, mode }))
+                  void immediate(mode === "copy" ? "copied" : "linked", () => createReusableFromSectionAction({ owner: ownerRef, expectedVersion: model.lockVersion, sectionId: current.id, name, mode }, viewer))
                 }
               />
             </FieldEnvProvider>

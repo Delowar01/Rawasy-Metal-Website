@@ -68,7 +68,7 @@ export async function BuilderScreen({ type, id, searchParams }: { type: "page" |
           <p>Your role can edit this layout but not open previews; the preview frame stays empty.</p>
         </div>
       ) : null}
-      <Builder key={`${model.owner.id}:${model.lockVersion}`} model={model} initialSection={section ?? null} />
+      <Builder key={`${model.owner.id}:${model.lockVersion}`} model={model} initialSection={section ?? null} viewer={actor.user.id} />
     </>
   );
 }
@@ -175,7 +175,7 @@ export async function ReusableEdit({ id, searchParams }: { id: string; searchPar
           <p>Saved. Every page and service that links it shows the change in its preview; nothing is public until publishing exists (A8).</p>
         </div>
       ) : null}
-      <ReusableEditor key={`${model.id}:${model.lockVersion}`} model={model} />
+      <ReusableEditor key={`${model.id}:${model.lockVersion}`} model={model} viewer={actor.user.id} />
     </>
   );
 }

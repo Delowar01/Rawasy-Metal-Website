@@ -12,6 +12,7 @@ import {
 } from "@/server/admin/actions/auth";
 import { idle } from "@/server/admin/actions/state";
 import { Field, FormAlert, PASSWORD_HINT, SubmitButton } from "./forms";
+import { forgetDrafts } from "./builder/draft";
 
 export function LoginForm({ next }: { next?: string }) {
   const [state, action] = useActionState(signInAction, idle);
@@ -77,8 +78,9 @@ export function VerifyForm({ next }: { next?: string }) {
 }
 
 export function SignOutButton({ label = "Sign out", variant = "secondary" }: { label?: string; variant?: "secondary" | "link" }) {
+  // Signing out also removes the unsaved editor work this tab kept (A5 final correction: never left for the next person).
   return (
-    <form action={signOutAction}>
+    <form action={signOutAction} onSubmit={() => forgetDrafts()}>
       {variant === "link" ? (
         <button type="submit" className="adm-link-btn">
           {label}

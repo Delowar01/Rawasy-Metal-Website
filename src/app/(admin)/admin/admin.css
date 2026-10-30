@@ -1990,6 +1990,13 @@ body.adm {
   color: var(--adm-warning);
 }
 
+/* The builder's notices about unsaved work (kept in the tab, signed out, changed elsewhere): their buttons have long
+   labels, so on a narrow phone they wrap, centred, instead of pushing the page wider than the screen. */
+.adm-bld-notice .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
 /* Tabs (the narrow screens' views, a section's languages): pressed buttons. */
 .adm-bld-tabs {
   display: flex;
