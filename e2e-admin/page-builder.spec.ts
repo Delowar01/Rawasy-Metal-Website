@@ -1058,6 +1058,15 @@ test.describe("A5 final correction: unsaved work when the session ends", () => {
     const page = await freshTab(browser, KEEPER);
     const id = await pageWithHeading(page, "test-kept-reload", "Test Kept Reload");
     await typeTitle(page, "Test heading kept across a reload");
+    // A photo chosen before the session ends: it comes back with its card, never as "not available".
+    await addBlock(page, "Image");
+    await inspector(page).getByRole("button", { name: "Choose…" }).click();
+    const picker = page.getByRole("dialog", { name: "Choose: Photo" });
+    await picker.getByLabel("Search media").fill("chandelier-1");
+    await picker.getByRole("button", { name: "Search", exact: true }).click();
+    await picker.locator("button.adm-pick").filter({ hasText: "chandelier-1" }).first().click();
+    await expect(picker).toBeHidden();
+    await inspector(page).getByLabel(/^Alt text/).fill("Test kept photo");
     await expect.poll(() => keptKeys(page)).toHaveLength(1);
     await endSessions(KEEPER.email);
     await reloadPastTheWarning(page);
@@ -1078,10 +1087,17 @@ test.describe("A5 final correction: unsaved work when the session ends", () => {
     await kept.getByRole("button", { name: "Restore unsaved changes" }).click();
     await expect(kept).toHaveCount(0);
     await expect(chip(page)).toHaveText("Unsaved changes");
+    expect(await cardTitles(page)).toEqual(["Page opening", "Heading", "Image"]);
+    await card(page, "Image").getByRole("button", { name: "Edit “Image”" }).click();
+    await expect(inspector(page).locator(".adm-bld-media-card")).toContainText("chandelier-1");
+    await expect(inspector(page)).not.toContainText("The chosen item is not available here");
+    await expect(inspector(page).getByLabel(/^Alt text/)).toHaveValue("Test kept photo");
     await card(page, "Heading").getByRole("button", { name: "Edit “Heading”" }).click();
     await expect(inspector(page).getByLabel(/^Title/)).toHaveValue("Test heading kept across a reload");
     await saveLayout(page);
     expect(await headingTitles(id)).toEqual(["Test heading kept across a reload"]);
+    const [image] = await queryTestDb<{ settings: unknown }>("SELECT settings FROM page_sections WHERE page_id = ? AND block_type = 'generic.image'", [id]);
+    expect(JSON.stringify(json(image.settings))).toContain(ids.photo);
     await expect.poll(() => keptKeys(page)).toEqual([]);
     await page.context().close();
   });

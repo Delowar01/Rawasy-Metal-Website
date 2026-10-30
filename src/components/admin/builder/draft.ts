@@ -5,8 +5,10 @@
  *
  * What a copy holds, and nothing else: the editor's own content — a layout's sections as the editor holds them (order,
  * visibility, devices, anchors, links to reusable sections, the texts and settings of edited and new sections), or a
- * reusable section's name and data — with the user, the record and the version it was made from. Never a credential,
- * token, cookie, session id, password, code or file: media and records are named by id, exactly as a save sends them.
+ * reusable section's name and data — with the user, the record and the version it was made from, and the cards of the
+ * public media items that work names (what the editor shows of them: titles, state, the admin thumbnail's address).
+ * Never a credential, token, cookie, session id, password, code or file: media and records are named by id, exactly as
+ * a save sends them; a private item is never kept.
  *
  * Where it lives and when it goes: `sessionStorage` is this tab's own (other tabs and windows never see it; it ends with
  * the tab). A copy belongs to one user and one record; it is offered back only to that user, in that record's editor,
@@ -21,6 +23,7 @@
  * `tests/unit/builder-draft.test.ts`. The hook that reads and writes it is `useDraft.ts`.
  */
 import type { SectionData } from "@/server/admin/actions/builder-model";
+import type { MediaCardModel } from "@/server/admin/actions/media-model";
 import type { WorkingSection } from "./model";
 
 export const DRAFT_PREFIX = "rawasy-draft:v1:";
@@ -54,6 +57,7 @@ export interface Draft<P> {
 
 // Ids are ULIDs (users, pages, services, reusable sections): letters and digits only, so a key can't be confused.
 const ID = /^[0-9A-Za-z]{1,40}$/;
+const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const KINDS: readonly string[] = ["page", "service", "reusable"];
 const validRef = (ref: DraftRef) => ID.test(ref.user) && ID.test(ref.id) && KINDS.includes(ref.kind);
 
@@ -205,6 +209,58 @@ export function readSectionData(value: unknown): SectionData | null {
 }
 
 /**
+ * The cards of the media items that kept data names (by id, anywhere in it), as the editor holds them: public items
+ * only — a private or unavailable card is never kept. They let a restored copy show items chosen before it was kept
+ * (the page's own cards cover only what is stored); the server decides every item again on save.
+ */
+export function keptCards(datas: unknown[], cards: Record<string, MediaCardModel>): MediaCardModel[] {
+  const ids = new Set<string>();
+  const walk = (value: unknown) => {
+    if (typeof value === "string") {
+      if (Object.hasOwn(cards, value)) ids.add(value);
+    } else if (Array.isArray(value)) value.forEach(walk);
+    else if (isRecord(value)) Object.values(value).forEach(walk);
+  };
+  datas.forEach(walk);
+  return [...ids].map((id) => cards[id]).filter((card) => card.visibility === "public" && !card.unavailable);
+}
+
+const KINDS_OF_MEDIA: readonly string[] = ["image", "svg", "document"];
+const STATUSES: readonly string[] = ["pending_review", "approved", "restricted", "internal", "archived"];
+// A card's thumbnail is the admin's own preview route, never another address.
+const THUMB = /^\/api\/admin\/media\/[0-9A-HJKMNP-TV-Z]{26}\/preview\/thumb\?file=[0-9A-HJKMNP-TV-Z]{26}$/;
+const size = (value: unknown) => value === null || (Number.isInteger(value) && (value as number) > 0 && (value as number) < 100_000);
+
+/** Kept cards read back: each field checked, public items only (anything else makes the whole copy unreadable). */
+export function readKeptCards(value: unknown): MediaCardModel[] | null {
+  if (!Array.isArray(value) || value.length > 200) return null;
+  const out: MediaCardModel[] = [];
+  for (const c of value) {
+    if (!isRecord(c) || typeof c.id !== "string" || !ULID.test(c.id) || !str(c.label, 500) || !(c.labelAr === null || str(c.labelAr, 500))) return null;
+    if (!KINDS_OF_MEDIA.includes(c.kind as string) || c.visibility !== "public" || !STATUSES.includes(c.status as string)) return null;
+    if (typeof c.trashed !== "boolean" || typeof c.ready !== "boolean" || typeof c.blocking !== "boolean" || c.unavailable !== undefined) return null;
+    if (!Array.isArray(c.flags) || c.flags.length > 20 || !c.flags.every((f) => str(f, 200)) || !size(c.width) || !size(c.height)) return null;
+    if (!(c.thumb === null || (typeof c.thumb === "string" && THUMB.test(c.thumb)))) return null;
+    out.push({
+      id: c.id,
+      label: c.label as string,
+      labelAr: c.labelAr as string | null,
+      kind: c.kind as MediaCardModel["kind"],
+      visibility: "public",
+      status: c.status as MediaCardModel["status"],
+      trashed: c.trashed,
+      ready: c.ready,
+      flags: [...(c.flags as string[])],
+      blocking: c.blocking,
+      width: c.width as number | null,
+      height: c.height as number | null,
+      thumb: c.thumb as string | null,
+    });
+  }
+  return out;
+}
+
+/**
  * A section as kept: what the editor holds, without the server's model of a stored section (taken from the page again
  * on restore, with its data where it was not edited) and with data only where the save would send it.
  */
@@ -224,8 +280,19 @@ export interface KeptSection {
   dataChanged: boolean;
 }
 
-/** The copy of a layout's working copy. */
-export function keepLayout(sections: WorkingSection[]): KeptSection[] {
+/** A layout's kept copy: its sections, and the cards of the public media items they name. */
+export interface KeptLayout {
+  sections: KeptSection[];
+  media: MediaCardModel[];
+}
+
+/** The copy of a layout's working copy (`cards`: the editor's media cards). */
+export function keepLayout(sections: WorkingSection[], cards: Record<string, MediaCardModel>): KeptLayout {
+  const kept = keepSections(sections);
+  return { sections: kept, media: keptCards(kept.map((k) => k.data), cards) };
+}
+
+function keepSections(sections: WorkingSection[]): KeptSection[] {
   return sections.map((s) => ({
     ref: s.ref,
     id: s.id,
@@ -246,7 +313,14 @@ export function keepLayout(sections: WorkingSection[]): KeptSection[] {
 const str = (value: unknown, max: number) => typeof value === "string" && value.length <= max;
 
 /** A kept layout read back: its shape checked (anything unexpected makes the whole copy unreadable). */
-export function readKeptLayout(value: unknown): KeptSection[] | null {
+export function readKeptLayout(value: unknown): KeptLayout | null {
+  if (!isRecord(value)) return null;
+  const sections = readKeptSections(value.sections);
+  const media = readKeptCards(value.media);
+  return sections && media ? { sections, media } : null;
+}
+
+function readKeptSections(value: unknown): KeptSection[] | null {
   if (!Array.isArray(value) || value.length > MAX_SECTIONS) return null;
   const out: KeptSection[] = [];
   for (const item of value) {
@@ -322,14 +396,16 @@ export function restoreLayout(kept: KeptSection[], opened: WorkingSection[], blo
   return out;
 }
 
-/** A reusable section's kept edits: its name and data. */
+/** A reusable section's kept edits: its name and data, and the cards of the public media items its data names. */
 export interface KeptReusable {
   name: string;
   data: SectionData;
+  media: MediaCardModel[];
 }
 
 export function readKeptReusable(value: unknown): KeptReusable | null {
   if (!isRecord(value) || !str(value.name, 240)) return null;
   const data = readSectionData(value.data);
-  return data ? { name: value.name as string, data } : null;
+  const media = readKeptCards(value.media);
+  return data && media ? { name: value.name as string, data, media } : null;
 }

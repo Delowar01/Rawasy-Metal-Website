@@ -109,7 +109,7 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
     enabled: model.can.content && !model.owner.archived,
     dirty,
     version: sectionsKey,
-    payload: () => keepLayout(sections),
+    payload: () => keepLayout(sections, media),
     read: readKeptLayout,
   });
   // Leaving through a link asks first; confirmed, the edits are dropped as the question says (the kept copy too).
@@ -119,7 +119,7 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
     ? null
     : kept.base !== model.lockVersion
       ? `this layout was saved again since then (version ${kept.base}, now ${model.lockVersion}), and restoring them would overwrite the newer version.`
-      : !restoreLayout(kept.payload, opened, new Set(Object.keys(model.blocks)), () => "new:check")
+      : !restoreLayout(kept.payload.sections, opened, new Set(Object.keys(model.blocks)), () => "new:check")
         ? "they no longer match this layout's sections."
         : null;
 
@@ -338,8 +338,10 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
   const ownerRef = { type: model.owner.type, id: model.owner.id };
 
   const restoreKept = () => {
-    const next = kept && !keptBlocked ? restoreLayout(kept.payload, opened, new Set(Object.keys(model.blocks)), newRef) : null;
-    if (!next) return;
+    const next = kept && !keptBlocked ? restoreLayout(kept.payload.sections, opened, new Set(Object.keys(model.blocks)), newRef) : null;
+    if (!kept || !next) return;
+    // Items chosen before the copy was kept: their cards come back with it (the page's own cards win).
+    setMedia((m) => ({ ...Object.fromEntries(kept.payload.media.map((card) => [card.id, card])), ...m }));
     apply(next);
     setSelected(null);
     keeper.restored();
@@ -355,7 +357,8 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
           keptAt: kept ? new Date(kept.savedAt).toISOString() : null,
           madeOnVersion: kept?.base ?? null,
           storedVersionNow: model.lockVersion,
-          sections: kept?.payload ?? [],
+          sections: kept?.payload.sections ?? [],
+          media: kept?.payload.media ?? [],
         },
         null,
         2,

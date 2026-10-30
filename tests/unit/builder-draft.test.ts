@@ -14,9 +14,11 @@ import {
   DRAFT_TTL_MS,
   draftKey,
   keepLayout,
+  keptCards,
   parseDraft,
   purgeDrafts,
   readDraft,
+  readKeptCards,
   readKeptLayout,
   readKeptReusable,
   removeDraft,
@@ -26,6 +28,7 @@ import {
   type KeptSection,
 } from "../../src/components/admin/builder/draft.ts";
 import type { WorkingSection } from "../../src/components/admin/builder/model.ts";
+import type { MediaCardModel } from "../../src/server/admin/actions/media-model.ts";
 import { SESSION_ABSOLUTE_MS, SESSION_IDLE_MS } from "../../src/server/auth/sessions.ts";
 
 /** An in-memory Storage (the browser's sessionStorage interface). */
@@ -202,7 +205,7 @@ describe("a layout's copy holds the editor's content only, and goes back only wh
   ];
 
   test("kept: no server model, no address; data only where the save would send it", () => {
-    const kept = keepLayout(working);
+    const kept = keepLayout(working, {}).sections;
     const json = JSON.stringify(kept);
     assert.ok(!json.includes("server's model"), "the server's model of a section is never kept");
     assert.ok(!json.includes("/admin/"), "no address is kept (a link to a reusable section is rebuilt from its id)");
@@ -214,11 +217,11 @@ describe("a layout's copy holds the editor's content only, and goes back only wh
     }
     assert.equal(kept[0].data?.content.en?.title, "Two, edited", "an edited stored section keeps its data");
     assert.equal(kept[1].data?.content.en?.title, "New", "a new section keeps its data");
-    assert.deepEqual(readKeptLayout(JSON.parse(json)), kept, "read back exactly");
+    assert.deepEqual(readKeptLayout(JSON.parse(JSON.stringify({ sections: kept, media: [] }))), { sections: kept, media: [] }, "read back exactly");
   });
 
   test("restored onto the layout it was made on: stored sections take the page's model again, new ones fresh references", () => {
-    const restored = restoreLayout(readKeptLayout(JSON.parse(JSON.stringify(keepLayout(working))))!, opened, blocks, newRef);
+    const restored = restoreLayout(readKeptLayout(JSON.parse(JSON.stringify(keepLayout(working, {}))))!.sections, opened, blocks, newRef);
     assert.ok(restored);
     assert.deepEqual(
       restored.map((s) => [s.id, s.blockType, s.visible, s.dataChanged]),
@@ -238,14 +241,14 @@ describe("a layout's copy holds the editor's content only, and goes back only wh
   });
 
   test("a stored section left unedited takes the page's data, never the copy's", () => {
-    const kept = keepLayout([opened[0], opened[1]]);
+    const kept = keepLayout([opened[0], opened[1]], {}).sections;
     assert.equal(kept[0].data, null);
     const restored = restoreLayout(kept, opened, blocks, newRef)!;
     assert.equal(restored[0].data, opened[0].data);
   });
 
   test("never applied where it does not fit: an unknown or retyped section, an unknown block, a twice-named section", () => {
-    const base = keepLayout(working);
+    const base = keepLayout(working, {}).sections;
     const cases: [string, KeptSection[]][] = [
       ["a stored section that is not on the page", [{ ...base[0], id: "01HZZZZZZZZZZZZZZZZZZZZZX9" }]],
       ["a stored section of another block", [{ ...base[0], blockType: "generic.heading" }]],
@@ -258,31 +261,62 @@ describe("a layout's copy holds the editor's content only, and goes back only wh
   });
 
   test("a copy that does not have the shape of one is unreadable as a whole", () => {
-    const base = JSON.parse(JSON.stringify(keepLayout(working))) as Record<string, unknown>[];
+    const base = JSON.parse(JSON.stringify(keepLayout(working, {}).sections)) as Record<string, unknown>[];
+    const layout = (sections: unknown) => ({ sections, media: [] });
     const bad: unknown[] = [
       null,
       {},
-      Array.from({ length: 61 }, () => base[1]),
-      [{ ...base[0], visible: "yes" }],
-      [{ ...base[0], devices: { desktop: true } }],
-      [{ ...base[0], id: "../../x" }],
-      [{ ...base[0], data: { settings: {}, content: { fr: {} }, complete: { en: true, ar: true }, otherUnaffected: false } }],
-      [{ ...base[3], reusable: { id: "javascript:alert(1)", name: "x" } }],
-      [{ ...base[0], label: "x".repeat(241) }],
+      base, // the sections alone, without their cards
+      layout(Array.from({ length: 61 }, () => base[1])),
+      layout([{ ...base[0], visible: "yes" }]),
+      layout([{ ...base[0], devices: { desktop: true } }]),
+      layout([{ ...base[0], id: "../../x" }]),
+      layout([{ ...base[0], data: { settings: {}, content: { fr: {} }, complete: { en: true, ar: true }, otherUnaffected: false } }]),
+      layout([{ ...base[3], reusable: { id: "javascript:alert(1)", name: "x" } }]),
+      layout([{ ...base[0], label: "x".repeat(241) }]),
     ];
     for (const value of bad) assert.equal(readKeptLayout(value), null, JSON.stringify(value)?.slice(0, 80));
     // Fields that are not part of a kept section are dropped, never carried into the editor.
-    const extra = readKeptLayout([{ ...base[3], href: "javascript:alert(1)", model: { ops: {} }, reusable: { id: R1, name: "x", href: "https://example.com" } }]);
+    const extra = readKeptLayout(layout([{ ...base[3], href: "javascript:alert(1)", model: { ops: {} }, reusable: { id: R1, name: "x", href: "https://example.com" } }]));
     assert.ok(extra);
     assert.equal(JSON.stringify(extra).includes("javascript:"), false);
     assert.equal(JSON.stringify(extra).includes("example.com"), false);
   });
 
-  test("a reusable section's copy: its name and data", () => {
-    assert.deepEqual(readKeptReusable({ name: "Test", data: data("x") }), { name: "Test", data: data("x") });
-    assert.equal(readKeptReusable({ name: 1, data: data("x") }), null);
-    assert.equal(readKeptReusable({ name: "Test", data: { settings: [] } }), null);
-    assert.equal(readKeptReusable({ name: "x".repeat(241), data: data("x") }), null);
+  test("a reusable section's copy: its name, data and the cards of the items its data names", () => {
+    assert.deepEqual(readKeptReusable({ name: "Test", data: data("x"), media: [] }), { name: "Test", data: data("x"), media: [] });
+    assert.equal(readKeptReusable({ name: "Test", data: data("x") }), null, "without its cards");
+    assert.equal(readKeptReusable({ name: 1, data: data("x"), media: [] }), null);
+    assert.equal(readKeptReusable({ name: "Test", data: { settings: [] }, media: [] }), null);
+    assert.equal(readKeptReusable({ name: "x".repeat(241), data: data("x"), media: [] }), null);
+  });
+
+  test("media: the cards of public items the kept data names come with it, never a private item or a foreign address", () => {
+    const M1 = "01HZZZZZZZZZZZZZZZZZZZZZM1", M2 = "01HZZZZZZZZZZZZZZZZZZZZZM2", M3 = "01HZZZZZZZZZZZZZZZZZZZZZM3", F1 = "01HZZZZZZZZZZZZZZZZZZZZZF1";
+    const card = (id: string, extra: Partial<MediaCardModel> = {}): MediaCardModel => ({
+      id, label: `Test item ${id.slice(-2)}`, labelAr: null, kind: "image", visibility: "public", status: "approved", trashed: false, ready: true,
+      flags: [], blocking: false, width: 322, height: 322, thumb: `/api/admin/media/${id}/preview/thumb?file=${F1}`, ...extra,
+    });
+    const cards = { [M1]: card(M1), [M2]: card(M2, { visibility: "private", thumb: null }), [M3]: card(M3) };
+    const withPhotos: WorkingSection = { ...working[1], data: { ...data("New"), settings: { photo: M1, gallery: [{ id: "i1", photo: M2 }] } } };
+    const kept = keepLayout([withPhotos], cards);
+    assert.deepEqual(kept.media.map((c) => c.id), [M1], "only the public items the data names (M3 is not named, M2 is private)");
+    assert.deepEqual(keptCards([null, { a: [M3] }], cards).map((c) => c.id), [M3]);
+    assert.deepEqual(readKeptLayout(JSON.parse(JSON.stringify(kept)))?.media, kept.media, "read back exactly");
+    // Read back field by field: a private card, a foreign thumbnail address or an unknown field makes the copy unreadable.
+    for (const bad of [
+      { ...card(M1), visibility: "private" },
+      { ...card(M1), thumb: "https://tracker.example/pixel.gif" },
+      { ...card(M1), thumb: `/api/admin/media/${M1}/preview/large?file=${F1}` },
+      { ...card(M1), unavailable: true },
+      { ...card(M1), id: "../x" },
+      { ...card(M1), status: "published" },
+    ]) {
+      assert.equal(readKeptCards([bad]), null, JSON.stringify(bad).slice(0, 80));
+      assert.equal(readKeptLayout({ sections: [], media: [bad] }), null);
+    }
+    const extra = readKeptCards([{ ...card(M1), extra: "dropped" }]);
+    assert.deepEqual(extra, [card(M1)], "fields that are not a card's are not carried");
   });
 });
 
@@ -291,7 +325,8 @@ describe("the editors keep their work in the tab without keeping the session ali
   test("no polling, no interval and no server call from the kept-copy code", () => {
     for (const path of ["src/components/admin/builder/useDraft.ts", "src/components/admin/builder/draft.ts", "src/components/admin/builder/DraftNotice.tsx"]) {
       const source = read(path);
-      assert.equal(/setInterval|@\/server\/admin\/actions\/(?!builder-model)/.test(source), false, path);
+      // Only the plain-data models (`*-model`, no Server Action in them) may be imported here.
+      assert.equal(/setInterval|@\/server\/admin\/actions\/(?![a-z-]+-model")/.test(source), false, path);
     }
     for (const path of ["src/components/admin/builder/Builder.tsx", "src/components/admin/builder/ReusableEditor.tsx"]) {
       assert.equal(read(path).includes("setInterval"), false, path);

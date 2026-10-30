@@ -18,7 +18,7 @@ import { ConfirmAction } from "../ConfirmAction";
 import { FormAlert, SubmitButton } from "../forms";
 import { useUnsavedChanges } from "../cms/useUnsavedChanges";
 import { Canvas, DEVICES, previewUrl, type PreviewDevice } from "./Canvas";
-import { readKeptReusable } from "./draft";
+import { keptCards, readKeptReusable } from "./draft";
 import { KeptWorkNotice, SignedOutNotice } from "./DraftNotice";
 import { FieldEnvProvider, type FieldEnv } from "./env";
 import { fillLanguages } from "./model";
@@ -62,7 +62,7 @@ export function ReusableEditor({ model, viewer }: { model: ReusableEditorModel; 
     enabled: model.can.edit && !model.archived && model.block !== null && openedData !== null,
     dirty,
     version: `${edits}:${name}`,
-    payload: () => ({ name, data: data as SectionData }),
+    payload: () => ({ name, data: data as SectionData, media: keptCards([data], media) }),
     read: readKeptReusable,
   });
   useUnsavedChanges(dirty, undefined, keeper.drop);
@@ -74,6 +74,7 @@ export function ReusableEditor({ model, viewer }: { model: ReusableEditorModel; 
   const restoreKept = () => {
     if (!kept || keptBlocked || !model.block) return;
     setName(kept.payload.name);
+    setMedia((m) => ({ ...Object.fromEntries(kept.payload.media.map((card) => [card.id, card])), ...m }));
     setData(fillLanguages(model.block, kept.payload.data));
     setChanged(true);
     setEdits((n) => n + 1);
