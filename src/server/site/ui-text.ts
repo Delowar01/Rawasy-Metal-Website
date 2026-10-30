@@ -6,8 +6,9 @@
  * - Read: every signed-in role (`content.view`); change: `settings.edit` (Owner, Admin): the interface text belongs to
  *   the site settings' aggregate (A1), so every change locks its root and is decided on its version.
  * - Set-up copies today's text (the dictionaries) for every key and language without a value.
- * - A save is one group's full state: plain text on one line, at most the key's length; an empty field removes the
- *   working value (the preview then shows today's text, marked as such).
+ * - A save is the whole interface text (every key, both languages: the screen is one form, its groups only headings, so
+ *   saving never loses another group's typing): plain text on one line, at most the key's length; an empty field
+ *   removes the working value (the preview then shows today's text, marked as such).
  */
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -16,7 +17,7 @@ import { uiStringTranslations } from "../db/schema-site.ts";
 import { contentTransaction, rowsOf } from "../cms/store.ts";
 import { plainText } from "../cms/text.ts";
 import { bumpSiteRoot, INVALID, lockSettingsRoot, refuse, siteAudit, stale, STALE_SETTINGS, versionSchema, type SiteChange, type SiteIssue, type SiteResult } from "./common.ts";
-import { LOCALES, UI_GROUPS, UI_STRINGS, uiString, type Locale, type UiGroupKey, type UiStringDef } from "./registry.ts";
+import { LOCALES, UI_STRINGS, uiString, type Locale, type UiStringDef } from "./registry.ts";
 import { staticUiTexts } from "./static-source.ts";
 
 export interface UiTextRow {
@@ -89,7 +90,6 @@ export async function setUpUiText(change: SiteChange): Promise<SiteResult> {
 
 export const uiTextInputSchema = z
   .object({
-    group: z.enum(UI_GROUPS.map((g) => g.key) as [UiGroupKey, ...UiGroupKey[]]),
     expectedVersion: versionSchema,
     values: z.record(z.string().max(100), z.object({ en: z.string().max(2000), ar: z.string().max(2000) }).strict()),
   })
@@ -97,13 +97,13 @@ export const uiTextInputSchema = z
 
 export type UiTextInput = z.input<typeof uiTextInputSchema>;
 
-/** The checked values of one group, or its issues (pure: the unit tests check it with the registry alone). */
-export function checkUiGroup(group: UiGroupKey, values: Record<string, Record<Locale, string>>): { ok: true; values: Record<string, Record<Locale, string>> } | { ok: false; issues: SiteIssue[] } {
-  const defs = UI_STRINGS.filter((s) => s.group === group);
+/** The checked values of every key, or the issues (pure: the unit tests check it with the registry alone). */
+export function checkUiValues(values: Record<string, Record<Locale, string>>): { ok: true; values: Record<string, Record<Locale, string>> } | { ok: false; issues: SiteIssue[] } {
+  const defs = UI_STRINGS;
   const issues: SiteIssue[] = [];
   const keys = Object.keys(values);
   if (keys.length !== defs.length || keys.some((k) => !defs.some((d) => d.key === k))) {
-    return { ok: false, issues: [{ path: "values", message: "This group couldn't be read. Reload the page." }] };
+    return { ok: false, issues: [{ path: "values", message: "The interface text couldn't be read. Reload the page." }] };
   }
   const out: Record<string, Record<Locale, string>> = {};
   for (const def of defs) {
@@ -117,19 +117,18 @@ export function checkUiGroup(group: UiGroupKey, values: Record<string, Record<Lo
   return issues.length ? { ok: false, issues } : { ok: true, values: out };
 }
 
-/** Save one group's interface text, decided on the site settings' version as the page showed it. */
+/** Save the interface text (every key), decided on the site settings' version as the page showed it. */
 export async function saveUiText(change: SiteChange, raw: unknown): Promise<SiteResult> {
   const parsed = uiTextInputSchema.safeParse(raw);
-  if (!parsed.success) return { kind: "invalid", message: INVALID, issues: [{ path: "values", message: "This group couldn't be read. Reload the page." }] };
-  const checked = checkUiGroup(parsed.data.group, parsed.data.values);
+  if (!parsed.success) return { kind: "invalid", message: INVALID, issues: [{ path: "values", message: "The interface text couldn't be read. Reload the page." }] };
+  const checked = checkUiValues(parsed.data.values);
   if (!checked.ok) return { kind: "invalid", message: INVALID, issues: checked.issues };
-  const { group, expectedVersion } = parsed.data;
+  const { expectedVersion } = parsed.data;
   const { deps, actor } = change;
   return contentTransaction(deps, actor, async (tx, now): Promise<SiteResult> => {
     const root = await lockSettingsRoot(tx);
     if (!root) return { kind: "not_found" };
-    const groupName = UI_GROUPS.find((g) => g.key === group)!.name;
-    const event = { action: "ui_text.update", type: "ui_text" as const, id: group, label: `Interface text: ${groupName}` };
+    const event = { action: "ui_text.update", type: "ui_text" as const, id: "site", label: "Interface text" };
     if (!actor.permissions.has("settings.edit")) return refuse(tx, change, now, event, "Editing the interface text needs a permission you don't hold.");
     if (root.lockVersion !== expectedVersion) return stale(tx, change, now, event, expectedVersion, root.lockVersion, STALE_SETTINGS);
     const stored = await readUiValues(tx);
@@ -143,9 +142,9 @@ export async function saveUiText(change: SiteChange, raw: unknown): Promise<Site
         else await tx.execute(sql`DELETE FROM ui_string_translations WHERE string_key = ${key} AND locale = ${locale}`);
       }
     }
-    if (!changed.length) return { kind: "ok", id: group, lockVersion: root.lockVersion, summary: "Nothing to save." };
+    if (!changed.length) return { kind: "ok", id: "site", lockVersion: root.lockVersion, summary: "Nothing to save." };
     await bumpSiteRoot(tx, "site_settings", "id", "site", actor.user.id, now);
-    await siteAudit(tx, change, now, { ...event, summary: `Edited the interface text (${groupName}): ${changed.length} value${changed.length === 1 ? "" : "s"}.`, changes: { values: changed } });
-    return { kind: "ok", id: group, lockVersion: root.lockVersion + 1, summary: "Saved. The preview shows the change; visitors still see today's website." };
+    await siteAudit(tx, change, now, { ...event, summary: `Edited the interface text: ${changed.length} value${changed.length === 1 ? "" : "s"}.`, changes: { values: changed } });
+    return { kind: "ok", id: "site", lockVersion: root.lockVersion + 1, summary: "Saved. The preview shows the change; visitors still see today's website." };
   });
 }
