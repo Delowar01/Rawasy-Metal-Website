@@ -25,7 +25,7 @@ fresh clone of the final code commit and a public freeze proof.
    polls.
 
 Status: both corrections built and verified. On a fresh clone of the final code commit every suite is at or above its
-baseline — unit 311 / 311, integration 425 / 425, admin 122 / 122, public ⟨PUBLIC⟩ — the production audit is 0, and the
+baseline — unit 311 / 311, integration 425 / 425, admin 122 / 122, public 612 / 612 — the production audit is 0, and the
 approved public website is unchanged against the 16.3.8 baseline: every difference in its build output is the new
 framework's encoding of the same content, each one measured (item 6). Recommendation (item 8): **A5 READY FOR OWNER
 CLOSURE.**
@@ -45,10 +45,12 @@ CLOSURE.**
   | `bbb53f2` | Builder and reusable editor: unsaved work survives a session that ends |
   | `96e9ded` | Tests: unsaved builder work when the session ends |
   | `eb2119a` | Kept builder work: a restored copy shows the media chosen before it was kept (found while testing) |
-  | (the next commit) | This report, the A5 technical report's final-correction section, `CLAUDE.md` (documentation only) |
+  | `b446189` | This report and the A5 technical report's final-correction section (documentation only; pushed while the fresh-clone public suite was still running, its result marked pending) |
+  | (the next commit) | The public suite's result in this report; `CLAUDE.md` (documentation only) |
 
-- **Final code commit:** `eb2119a`. **Final commit:** the documentation commit on top of it (its SHA is given with the
-  report's delivery). Pushed to `origin/claude/new-session-5eijs6` as a fast-forward from `2e01a1f` (no force push).
+- **Final code commit:** `eb2119a`. **Final commit:** the second documentation commit on top of it (its SHA is given
+  with the report's delivery). Pushed to `origin/claude/new-session-5eijs6` in two fast-forwards, `2e01a1f..b446189`
+  and then the final documentation commit (no force push).
 
 ## 2. Exact changed files and dependencies
 
@@ -222,9 +224,30 @@ shell through untracked wrapper configs (`launchOptions.executablePath` only), a
 | unit | 295 / 295 | **311 / 311** (+16: `builder-draft.test.ts`) |
 | integration | 425 / 425 | **425 / 425** |
 | admin browser | 115 / 115 | **122 / 122** (24.0 min; +7: "A5 final correction") |
-| public E2E (`server.js`, after the image warm-up) | 612 / 612 | ⟨PENDING⟩ |
+| public E2E (`server.js`, after the image warm-up) | 612 / 612 | **612 / 612** (first run, 22.5 min) |
 
-⟨PENDING: notes⟩
+Notes:
+- **One run of each suite, in the order of the table; no retry, no test marked flaky, nothing skipped.** Times: unit
+  6.4 s, integration 135.7 s, admin 24.0 min (1 worker), public 22.5 min (3 workers), after the image warm-up (`node
+  scripts/warm-images.mjs`: 1,484 / 1,484 sizes, 0 failed, 100.8 s), against `server.js` on port 3400.
+- **Security regression tests** are inside these suites and all pass: A2's sign-in, session, token, MFA, RBAC,
+  privilege and promotion boundaries and races (`sign-in`, `sessions`, `tokens`, `mfa`, `rbac`, `privilege-boundary`,
+  `promotion-boundary`, `review-races`, `admission`, `secrets` integration tests; `security`, `privilege`,
+  `admin-gate` unit tests; the gate, forged and replayed actions and stale tabs in `gate.spec.ts` and
+  `admin.spec.ts`), A3's (`cms-review`, `cms-featured-invariant`), A4's (`media-races`, `media-uploads`,
+  `media-delivery`; `media-json-body`, `media-bundle`, `media-storage`) and A5's (`builder-review`, unit and
+  integration; the canvas sandbox and forged builder actions in `page-builder.spec.ts`) — and this correction's: a
+  forged save naming nobody or another user is refused before its payload is read and audited; a session that ended
+  saves nothing; no cookie, password or e-mail address in a kept copy (no cookie in its download); another user's copy
+  is never offered and is purged; sign-out clears every admin tab; the 2-hour / 12-hour limits are unchanged; no
+  keep-alive request.
+- **Desktop and mobile visual tests:** the public suite's sweeps (twelve sizes on Capabilities and the project pages,
+  320–1440 px every 4 px on the homepage's Industries, phone menus and rows at 320 / 390, 200 % zoom, light / dark,
+  forced colours, reduced motion, no JavaScript) and the admin suite's phone checks (the builder at 390 px light and
+  dark and at 320 px; the media pickers and every content editor at 320 px; this correction's notices: axe, and no
+  sideways scroll or element past the screen at 320 px). The pixel comparison of the public site is item 6.5.
+- **Fails before:** the 7 new browser tests each failed on a build of `0613fe5` (item 4.4); the 16 new unit tests fail
+  there too (their module does not exist before `bbb53f2`).
 
 ## 6. Public website preservation evidence
 

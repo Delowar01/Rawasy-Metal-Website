@@ -10,9 +10,11 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-30-admin-a5-acceptance-review.md` (Admin / CMS program, Phase A5 — acceptance
-  review, readiness and the A6 plan)
-  (earlier: `2026-10-16-admin-a5-page-builder.md` (Phase A5 — Page builder, local implementation only),
+- Latest report: `docs/reports/2026-10-30-admin-a5-final-correction.md` (Admin / CMS program, Phase A5 — final security
+  and data-preservation correction: Next.js 16.4.1 / Zod 4.6.6, unsaved builder work when a session ends)
+  (earlier: `2026-10-30-admin-a5-acceptance-review.md` (Phase A5 — acceptance review, readiness and the A6 plan),
+  `2026-10-16-admin-a5-page-builder.md` (Phase A5 — Page builder, local implementation only; its "A5 FINAL CORRECTION"
+  section is at the end),
   `2026-10-16-admin-a4-media-library.md` (Phase A4 — Media library),
   `2026-10-15-admin-a3-core-cms.md` (Phase A3 — Core CMS; its "A3 CORRECTION 1" section is at the end),
   `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
@@ -309,6 +311,29 @@
   a session that ends with unsaved builder edits loses them (A2's stale-tab rule: options in the report's item 2.2); the
   A5 decisions carried (item 6.2); the A6 decisions (item 8.7); a Low / Info backlog (item 2.4). The A6 plan is the
   report's item 8.
+  **The A5 final correction is built — local only** (the user's "A5 FINAL SECURITY & DATA-PRESERVATION CORRECTION"
+  brief; report `2026-10-30-admin-a5-final-correction.md`; rollback checkpoint: GitHub branch
+  `preserve/pre-admin-a5-final-correction` at `2e01a1f`) and awaits the Owner's review. Both items above are closed: (1)
+  the Owner's authorized exception — `a116222` (the tracing fix: `resolve(/* turbopackIgnore: true */ cwd)` in
+  `dataDirFrom`, `src/server/media/storage.ts`), `0613fe5` (`next` 16.3.8 → **16.4.1**, `@next/env` and the eight
+  `@next/swc-*` with it, `zod` 4.6.5 → **4.6.6**: GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r, GHSA-673q-mjm6-r5xr,
+  GHSA-mrhx-c7xc-m3w5; the minimum patched versions — 16.4.2 / 16.4.3 carry no security fix, zod 4.6.7 is 4.6.6's code;
+  nothing else upgraded; `npm audit --omit=dev` **0**); (2) unsaved builder work — `bbb53f2`, tests `96e9ded`, `eb2119a`
+  (see "From the A5 final correction" under "Phase A5 implementation"). Final QA on a fresh clone of `eb2119a`:
+  `npm ci`, audit `--omit=dev` 0 (all: the 4 accepted dev-only moderates), lint, typecheck, build (no warning, no database
+  settings), `db:check`, the packaging check (13 held back), unit 311 / 311, integration 425 / 425, admin 122 / 122,
+  public 612 / 612 in the first run. Public freeze against the 16.3.8 baseline (the clean build of `9296266` =
+  `2e01a1f`'s sources): no public source changed; 890 / 890 public files, none added or missing; visible HTML equal on
+  104 / 104 pages; page data equal by content on 104 / 104 (16.4 re-encodes Flight: see the gotcha); JSON-LD and the
+  boot script equal on 104 / 104; the 43 font files byte-identical; CSS: exactly 3 rules differ, written by 16.4's
+  minifier (`.rounded-full` `3.40282e38px` → `2147483647px`; `@keyframes sk-bend-a/b` `rotate: none` → `0deg`, the
+  source's own value), measured equal in 40 held frames of the press-brake sketch (computed rotation and boxes; pixels
+  within the baseline's own 3-pixel noise); client JS: every module of ours equal once the compiler's encoding is
+  normalised, the rest Next's runtime; HTTP 231 / 231 answers equal (102 documents, 102 page-data requests, 27 others);
+  1,484 / 1,484 optimized images byte-identical; resting pixels equal: 357 / 398 captures identical at once, the other
+  41 identical on recapture or a browser cache-timing choice of one gallery photo's srcset candidate that both builds
+  make at the same rate (5 : 3 in 8 loads each); page heights equal in all 136 views. Recommendation in the report (item
+  8); A5 is not Owner-approved.
   **Do not start A6** (no site settings, interface text, menus, header or footer controls, theme, redirects, forms or
   enquiries, publishing, revisions in use, database-backed public pages, content migration, cache handler, projections,
   or the public site switched to `/media/u`) until the user approves A5 and says so.
@@ -466,8 +491,9 @@
 ### Phase A2 implementation (local only; report `2026-10-09-admin-a2-auth-rbac-shell.md`)
 
 - Stack: `drizzle-orm` 0.45.3 (core query builder only: `db.query`, `drizzle(…, { schema | mode })` and `drizzle-kit`
-  imports outside `drizzle.config.ts` fail lint), `mysql2` 3.24.4, `@node-rs/argon2` 2.2.1, `zod` 4.6.5,
-  `qrcode-generator` 2.0.4; dev `drizzle-kit` 0.31.11 (generate / check only, never push / pull). Exact pins.
+  imports outside `drizzle.config.ts` fail lint), `mysql2` 3.24.4, `@node-rs/argon2` 2.2.1, `zod` 4.6.6 (4.6.5 until the
+  A5 final correction), `qrcode-generator` 2.0.4; dev `drizzle-kit` 0.31.11 (generate / check only, never push / pull).
+  Exact pins.
 - Server code in `src/server/` (framework-free where the CLIs and tests use it: explicit `.ts` imports, Node type
   stripping, `tsconfig` `allowImportingTsExtensions`): `config/env.ts` (every variable; values never in errors),
   `db/` (`schema.ts` the 13 A2 tables, `columns.ts`, `pool.ts` lazy pool per process, `DB_POOL_LIMIT` default 2 max 4,
@@ -535,7 +561,9 @@
 - Security invariants from A2 Correction 1 (keep them; each has a test that fails on `b47d8e5`):
   - A revoked token never authenticates, whatever `revoked_reason` says: `lookupSession` answers live / ended / none,
     `replaced_by_id` is lineage only (never followed), no grace window. A stale request or tab goes to
-    `/admin/login?session_ended=1` and recovers only with the new cookie its own response delivered.
+    `/admin/login?session_ended=1` and recovers only with the new cookie its own response delivered (since the A5 final
+    correction the builder's own actions and the media picker answer `signedOut` in the page instead of redirecting —
+    nothing is done either way; the tab recovers with the cookie of a full sign-in in another tab).
   - `signIn` creates its session (pending or full) in one transaction holding the user row, only while the account is as
     it was checked: the same password hash (or the rehash it wrote; a rehash that lost to another sign-in's upgrade
     re-checks the password against the stored hash), active, not deleted, not locked; otherwise `failed`, audited, and
@@ -626,7 +654,8 @@
   counts as the step-up for 10 minutes; mail stays disabled / local sink (no SMTP); drizzle-kit's dev-only advisory is
   accepted (no forced downgrade; production audit must stay 0); the homepage showcase race: component and tests unchanged;
   API headers stay on `/api/admin/**` and `/api/internal/**`; host/account checks and key escrow are pre-staging work; no
-  Next.js upgrade.
+  Next.js upgrade (one exception since, authorized by the A5 final correction brief: the security patch 16.3.8 → 16.4.1;
+  any other version change is again the Owner's).
 
 ### Phase A3 implementation (local only; report `2026-10-15-admin-a3-core-cms.md`)
 
@@ -956,6 +985,33 @@
   is the `parity` project of `playwright.admin.config.ts`: it runs after the other specs in a new worker (a new
   browser), closes its tabs after each test and scrolls a page only once its images are decoded (`f2b73c9`; the
   Chromium freeze in "Gotchas learned").
+- From the A5 final correction (keep them; each has a test that fails on `0613fe5`; report
+  `2026-10-30-admin-a5-final-correction.md`, item 4):
+  - The five builder actions (`saveLayoutAction`, `initializeLayoutAction`, `detachSectionAction`,
+    `createReusableFromSectionAction`, `saveReusableAction`) take the editor's user id as a second argument and start
+    with `editorContext` (`builder.ts`): `actionContext(action, { signedOut: "answer" })` — without a fully signed-in
+    session it answers `{ signedOut: true }` (→ `signed_out`, reason `ended`) instead of redirecting, nothing done — then
+    the editor must be the session's user (else `signed_out`, reason `other_user`, audited as denied on the user
+    entity), before the payload is read; a `SessionEndedError` inside the transaction answers the same (`orEnded`). The
+    builder passes `viewer` (`actor.user.id`, from `BuilderScreen` / `ReusableEdit`). `pickMediaAction` answers in its
+    dialog too. Every other action keeps A2's redirect. No keep-alive: nothing calls the server while an editor is idle.
+  - Kept copies (`src/components/admin/builder/draft.ts`, framework-free, `useDraft.ts`): `sessionStorage` key
+    `rawasy-draft:v1:<user>:<page|service|reusable>:<id>`, value `{ v: 1, user, kind, id, base (the version it was made
+    on), savedAt, payload }`; a layout's payload `{ sections (no server model; data only where the save sends it),
+    media (cards of public items it names; thumbnail only `/api/admin/media/<id>/preview/thumb?file=<id>`) }`, a
+    reusable section's `{ name, data, media }`. Never a credential, token, file or private item. Read once at mount
+    (`useState` initializer: the purity lint refuses `Date.now()` in render) and shown only once hydrated (no SSR
+    mismatch); the editor is inert (`locked`) until **Restore** or **Discard**; restored only when `base` equals the
+    version opened and every stored section and block it names is there (`restoreLayout`), else **Download** / Discard.
+    Written 500 ms after a change and on `pagehide` / unmount; removed by `saved()` (only when a new version was
+    stored — a save at the same version does not remount), discard, `drop()` (the leave guard's confirmed leave:
+    `useUnsavedChanges(dirty, message, onLeave)`), `forgetDrafts()` (sign-out: the `rawasy:forget-drafts` event stops
+    open editors first, so their unmount flush can't write the copy back; a `BroadcastChannel` `rawasy-admin-drafts`
+    tells the admin's other tabs), `DraftJanitor` (shell: another user's and expired copies), 12 h (`DRAFT_TTL_MS` =
+    `SESSION_ABSOLUTE_MS`). A reload, Back / Forward and a redirect keep it.
+  - Tests: `tests/unit/builder-draft.test.ts` (16), "A5 final correction" in `e2e-admin/page-builder.spec.ts` (7). A
+    test that ends a session sets `idle_expires_at = created_at` for that user's live sessions (its own seeded users,
+    never the cached role pages).
 - From the A5 acceptance review (keep them; each has a test that fails on `959d399`):
   - The certificate guard reads text with `[\p{Cf}\p{Default_Ignorable_Code_Point}]` removed (`cms/text.ts`
     `INVISIBLE`; the union, for the guard's reading only — stored text unchanged).
@@ -2470,6 +2526,29 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   `launchOptions.executablePath` (a wrapper elsewhere moves `testDir`). All suites passed on 153.
 - The build id inside a served page is in escaped JSON (`\"b\":\"…\"` in the inline Flight scripts): HTTP freeze
   comparisons must take each server's `.next/BUILD_ID`, not a regex over the HTML.
+- **Next.js 16.4.1 build output** (A5 final correction; compare across versions only with these in mind): `next/font`
+  CSS-module class names lose their family prefix (`plus_jakarta_sans_240eb66f-module__dT6wSG__variable` →
+  `dT6wSG_variable`; the hash part is unchanged: normalise one to the other); the Flight payload is re-encoded — the
+  router state moved from `f: [[tree, seedData, head, isHeadPartial]]` to `t: { t: { s, h, d: { r, p, v }, c: $Q<map> },
+  h: { r, p, v } }`, repeated strings become rows (`"$2"`), a client reference's export name can be a row reference,
+  back-references run through the new shape (`$0:t:t:d:r:props:…`), the metadata boundary wraps the hidden `div` instead
+  of the other way round, and a page lists one more async chunk script — compare resolved content (the A5 final
+  correction's `canon.mjs`: elements as `{ type, key, props }`, fragments and Next's Outlet / Viewport / Metadata
+  boundaries transparent, deferred back-references), never bytes; the CSS minifier writes `calc(infinity * 1px)` as
+  `2147483647px` (was `3.40282e38px`) and keeps `rotate: 0deg` (was rewritten to `none`); client chunks drop
+  `"use strict"`, mangle cross-module export names (`a.useMedia` → `a.R`: map them back through each module's
+  `ctx.s([name, kind, value, …], id?)` list, by position) and `next/image`'s entry became an ES re-export (`25164`, was
+  the CommonJS `57688`); module ids stay (they come from paths). Turbopack compiles in about 9 s. The 16.3.8 gotchas
+  below (image optimizer, render cache) are not re-verified on 16.4.1.
+- Next 16.4's file tracer reads `resolve(process.cwd())` (or `resolve(cwd)` with that default) as an access to the whole
+  project and lists every source and public file in the route's trace (the build warns); mark such calls
+  `/* turbopackIgnore: true */`, as for run-time paths.
+- `sessionStorage` belongs to one tab: a sign-out clears only its own tab unless the others are told (`BroadcastChannel`),
+  and an editor that unmounts after the clear writes its copy back from its unmount flush unless it was stopped first.
+- In a serial Playwright describe, `-g` that picks a later test runs it without the earlier tests' state (`ids.page`
+  undefined) and the first failure skips the rest: run self-contained tests one per invocation (each run starts its own
+  server and database).
+- `/proc/net/tcp` writes ports in hex: 3402 is `0D4A` (a stop step that matched `0D72` = 3442 left a server running).
 - Chromium 141's headless renderer (Playwright 1.56's headless shell) can freeze for good when script scrolls a page
   (`scrollTo`, instant) while its photos still arrive: next/image decodes and re-renders each photo as it loads, and the
   renderer's main thread then waits forever in the compositor (`cc::LayerTreeHost::WaitForProtectedSequenceCompletion`,
