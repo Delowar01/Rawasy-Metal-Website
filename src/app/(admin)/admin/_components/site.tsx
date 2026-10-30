@@ -18,6 +18,7 @@ import { requireActor } from "@/server/admin/guards";
 import { SITE_WORKING_NOTE, type MenuFormModel, type RedirectFormModel, type SettingsFormModel, type UiGroupFormModel } from "@/server/admin/actions/site-model";
 import { mediaCards } from "@/server/media/cards";
 import { readMenus, routeChoices } from "@/server/site/menus";
+import { readablePath } from "@/server/site/paths";
 import { listRedirects, readRedirect, redirectTargetChoices } from "@/server/site/redirects";
 import { APPROVED_TOKENS, COUNTRY_CODE, REFERENCE_TOKENS, UI_GROUPS } from "@/server/site/registry";
 import { readSettings } from "@/server/site/settings";
@@ -325,12 +326,12 @@ export async function RedirectsScreen({ searchParams }: { searchParams: SearchPa
                 <tr key={r.id}>
                   <th scope="row" className="adm-cell-title">
                     <Link href={`/admin/redirects/${r.id}`} dir="ltr" className="adm-mono adm-site-path">
-                      {r.sourcePath}
+                      {readablePath(r.sourcePath)}
                     </Link>
                   </th>
                   <td data-label="Leads to">
                     <span className="adm-site-path" dir="ltr">
-                      {r.targetType === "path" ? r.targetAddress : r.targetLabel}
+                      {r.targetType === "path" ? readablePath(r.targetAddress ?? "") : r.targetLabel}
                     </span>
                     {r.warning ? <span className="adm-badge is-warning"> {r.warning}</span> : null}
                   </td>
@@ -397,9 +398,9 @@ export async function RedirectEditScreen({ id, searchParams }: { id: string; sea
   const model: RedirectFormModel = {
     id: row.id,
     lockVersion: row.lockVersion,
-    sourcePath: row.sourcePath,
+    sourcePath: readablePath(row.sourcePath),
     targetType: row.targetType,
-    targetPath: row.targetPath ?? "",
+    targetPath: readablePath(row.targetPath ?? ""),
     targetId: row.targetId ?? "",
     statusCode: row.statusCode,
     note: row.note,
@@ -410,7 +411,7 @@ export async function RedirectEditScreen({ id, searchParams }: { id: string; sea
       <p className="adm-hint">{REDIRECT_NOTE}</p>
       <Saved show={one(query.saved) === "1"} text="Saved." />
       <p className="adm-muted">
-        {row.isActive ? "Active" : "Inactive"} · leads to <span dir="ltr">{row.targetAddress ?? "—"}</span> · last changed {formatTime(row.updatedAt)}
+        {row.isActive ? "Active" : "Inactive"} · leads to <span dir="ltr">{row.targetAddress ? readablePath(row.targetAddress) : "—"}</span> · last changed {formatTime(row.updatedAt)}
       </p>
       {row.warning ? (
         <div className="adm-alert is-info" role="status">

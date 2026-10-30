@@ -11,8 +11,14 @@ export type PathResult = { ok: true; path: string; locale: Locale } | { ok: fals
 
 const UNRESERVED = /^[A-Za-z0-9._~-]$/;
 
-/** One path segment in canonical form: decoded, then every character outside A–Z a–z 0–9 . _ ~ - written as %XX. */
-function canonicalSegment(segment: string): string | null {
+/** Characters a segment never holds once decoded: controls and invisible formatting marks (zero-width, bidi …). */
+const HIDDEN = /[\p{Cc}\p{Cf}]/u;
+
+/**
+ * One path segment in canonical form: decoded, then every character outside A–Z a–z 0–9 . _ ~ - written as %XX. Null when
+ * it can't be read (an incomplete %-code, “.” or “..”); "hidden" when it holds a control or formatting character.
+ */
+function canonicalSegment(segment: string): string | null | "hidden" {
   let decoded: string;
   try {
     decoded = decodeURIComponent(segment);
@@ -20,12 +26,37 @@ function canonicalSegment(segment: string): string | null {
     return null;
   }
   if (!decoded || decoded === "." || decoded === "..") return null;
+  if (HIDDEN.test(decoded)) return "hidden";
   let out = "";
   for (const char of decoded) {
     if (UNRESERVED.test(char)) out += char;
-    else for (const byte of new TextEncoder().encode(char)) out += `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+    else out += encodeChar(char);
   }
   return out;
+}
+
+const encodeChar = (char: string) => [...new TextEncoder().encode(char)].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join("");
+
+/**
+ * A stored address as people read it: letters, marks and digits of any script shown as themselves (an Arabic address in
+ * Arabic), everything else as stored (%XX: spaces, slashes and percent signs inside a part). Typing it back gives the same
+ * stored form.
+ */
+export function readablePath(path: string): string {
+  return path
+    .split("/")
+    .map((segment) => {
+      let decoded: string;
+      try {
+        decoded = decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+      let out = "";
+      for (const char of decoded) out += UNRESERVED.test(char) || /^[\p{L}\p{M}\p{N}]$/u.test(char) ? char : encodeChar(char);
+      return out;
+    })
+    .join("/");
 }
 
 /**
@@ -49,6 +80,7 @@ export function normalizeSitePath(input: string, options: { allowLocaleRoot?: bo
   for (const segment of rest) {
     const canonical = canonicalSegment(segment);
     if (canonical === null) return { ok: false, message: "Part of this address can't be read (an incomplete %-code, or “.” / “..”)." };
+    if (canonical === "hidden") return { ok: false, message: "An address can't hold control characters or invisible formatting marks, even as %-codes." };
     segments.push(canonical);
   }
   const path = `/${locale}${segments.map((s) => `/${s}`).join("")}`;
