@@ -213,16 +213,17 @@ also passed lint, typecheck, build (no warning), unit 295 / 295, integration 425
   A5's documented ones: 24 files of `src/components/commerce` (sections exported as components fed the same data),
   `src/lib/project-cards.ts` (`cardImages()`), `src/proxy.ts` (the preview's admin branch) and `src/lib/admin-headers.ts`
   (admin). This review's four commits touch no public file.
-- **Build output** (clean builds, no database settings; `.next/server/app` outside the admin, preview and API):
-  890 / 890 files, none missing or added; 712 byte-identical or equal once the build id, hashed asset names and the
-  router's sibling list are normalised; 3 differ — `/en/terms`'s HTML, page data and segment — and their **resolved**
-  Flight trees are equal (67 rows each) and the visible HTML is equal (a negative control, Privacy against Terms, is
-  caught). Stylesheets identical on **104 / 104** pages. Scripts identical on **94 / 104**; on the other 10 (home,
-  Capabilities, Certificates, Industries, Projects, EN and AR) one chunk each differs, and a token diff shows exactly the
-  conditional `...x.unoptimized?{unoptimized:!0}:{}` spread plus minifier renames of one-letter locals (the homepage hero's
-  timing constants `+720 / +60 / +140 / +860` unchanged). This matches the A5 report.
-- **Final against `959d399`:** identical public output — 890 / 890 files equal (normalised), server code for the public
-  routes 175 / 175, stylesheets and scripts identical on all 104 pages.
+- **Build output** (clean builds, no database settings; `.next/server/app` outside the admin, preview and API): 890 /
+  890 files, none missing or added: 175 server bundles (they carry A5's admin code: 138 equal, 37 differ) and 715 served
+  files, of which 712 are byte-identical or equal once the build id, hashed asset names and the router's sibling list
+  are normalised, and 3 differ — `/en/terms`'s HTML, page data and segment — and their **resolved** Flight trees are
+  equal (67 rows each) and the visible HTML is equal (a negative control, Privacy against Terms, is caught). Stylesheets
+  identical on **104 / 104** pages. Scripts identical on **94 / 104**; on the other 10 (home, Capabilities,
+  Certificates, Industries, Projects, EN and AR) one chunk each differs, and a token diff shows exactly the conditional
+  `...x.unoptimized?{unoptimized:!0}:{}` spread plus minifier renames of one-letter locals (the homepage hero's timing
+  constants `+720 / +60 / +140 / +860` unchanged). This matches the A5 report.
+- **Final against `959d399`:** identical public output — 715 / 715 served files equal (normalised), the 175 server
+  bundles byte-identical, stylesheets and scripts identical on all 104 pages.
 - **HTTP** (the baseline and the final build, each served by `server.js` from its own fresh copy of its clean build,
   production settings, no admin variables): 229 answers compared — the 102 sitemap pages as documents, their page-data
   requests (Next's one 307 to the cache-keyed address; the payload files themselves are compared above), robots, sitemap
