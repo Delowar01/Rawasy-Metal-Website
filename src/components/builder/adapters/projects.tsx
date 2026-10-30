@@ -6,7 +6,6 @@ import { FeaturedProject, GallerySection, ProjectHighlights, ProjectIndex } from
 import { serviceTone } from "@/components/commerce/tones";
 import { routeLabels } from "@/content/navigation";
 import type { ProjectCategory, ServiceSlug } from "@/content/types";
-import { getDictionary } from "@/i18n/dictionaries";
 import { categoryTone, cardImages, refOrder } from "@/lib/project-cards";
 import type { Tone as SiteTone } from "@/lib/tones";
 import type { Content, SelectionValue } from "@/server/builder/fields";
@@ -229,7 +228,7 @@ function ProjectOpeningBlock({ section, ctx }: BlockProps) {
   const { locale } = ctx;
   const c = section.content;
   const view = detailView(record, ctx, c, null);
-  const dict = getDictionary(locale);
+  const dict = ctx.site.dict;
   const breadcrumb = [
     { href: ctx.hrefOf(locale, "home"), label: dict.common.home },
     { href: ctx.hrefOf(locale, "projects"), label: routeLabels.projects[locale] },

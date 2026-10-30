@@ -1,5 +1,4 @@
 import { Fragment, type ReactNode } from "react";
-import { getDictionary } from "@/i18n/dictionaries";
 import { LINK_KINDS } from "@/server/builder/links";
 import { isListBlock, readRich, type RichInlineNode } from "@/server/builder/richtext";
 import { resolveLink } from "@/server/builder/view";
@@ -16,7 +15,7 @@ export function RichText({ value, ctx, className = "", prose = "gb-prose" }: { v
   // The structure check only: the field's own rules (which links, headings, lists, lengths) were applied when it was saved.
   const doc = readRich(value, { links: LINK_KINDS });
   if (!doc.content.length) return null;
-  const external = getDictionary(ctx.locale).a11y.externalLink;
+  const external = ctx.site.dict.a11y.externalLink;
 
   const inline = (nodes: RichInlineNode[]) =>
     nodes.map((node, i) => {

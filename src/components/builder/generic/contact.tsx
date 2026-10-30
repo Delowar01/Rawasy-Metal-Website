@@ -1,9 +1,7 @@
 import { breakableEmail, ContactRow, type ContactRowData } from "@/components/commerce/contact/ContactRows";
 import { QuoteForm } from "@/components/commerce/contact/QuoteForm";
 import { quoteFormText } from "@/components/commerce/contact/quote-text";
-import { company, primaryWhatsApp, whatsappUrl } from "@/content/company";
 import { getContactContent, getServices } from "@/content/repository";
-import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
 import { itemsOf, itemText, textOf } from "@/server/builder/view";
 import type { BlockProps } from "../context";
@@ -20,14 +18,15 @@ export async function GenericContactDetails({ section, ctx }: BlockProps) {
   const page = await getContactContent();
   const { methods } = page;
   const locale = ctx.locale;
-  const external = getDictionary(locale).a11y.externalLink;
+  const { company } = ctx.site;
+  const external = ctx.site.dict.a11y.externalLink;
   const rows: ContactRowData[] = [];
   let address: string | null = null;
   let hours: string | null = null;
   if (settings.source !== "custom") {
     for (const phone of company.phones)
       rows.push({ icon: "phone", tone: "steel", label: methods.phone[locale], value: phone.display, href: `tel:${phone.e164}`, action: page.actions.call[locale], ltr: true });
-    rows.push({ icon: "chat", tone: "teal", label: methods.whatsapp[locale], value: primaryWhatsApp.display, href: whatsappUrl(), action: methods.chat[locale], external: true, ltr: true });
+    rows.push({ icon: "chat", tone: "teal", label: methods.whatsapp[locale], value: ctx.site.whatsappDisplay, href: ctx.site.whatsappHref, action: methods.chat[locale], external: true, ltr: true });
     rows.push({ icon: "mail", tone: "steel", label: methods.email[locale], value: breakableEmail(company.email), href: `mailto:${company.email}`, action: methods.send[locale], ltr: true });
     rows.push({ icon: "pin", tone: "brass", label: methods.address[locale], value: company.address[locale].full, href: href(locale, "contact", { hash: "location" }), action: methods.viewMap[locale] });
   } else {
@@ -87,7 +86,7 @@ export async function GenericQuoteForm({ section, ctx }: BlockProps) {
         <>
           <Head section={section} view={view} eyebrow={textOf(content, "eyebrow")} title={textOf(content, "title")} intro={textOf(content, "intro")} />
           <div className="card cp-form gb-form">
-            <QuoteForm text={quoteFormText(ctx.locale, page, services)} email={company.email} whatsapp={whatsappUrl()} privacyHref={href(ctx.locale, "privacy")} />
+            <QuoteForm text={quoteFormText(ctx.locale, page, services)} email={ctx.site.company.email} whatsapp={ctx.site.whatsappHref} privacyHref={href(ctx.locale, "privacy")} />
           </div>
         </>
       )}

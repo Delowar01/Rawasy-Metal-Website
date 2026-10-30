@@ -10,7 +10,6 @@ import { serviceTone } from "@/components/commerce/tones";
 import type { CommerceImage, Tone } from "@/components/commerce/types";
 import { routeLabels } from "@/content/navigation";
 import type { ServiceSlug } from "@/content/types";
-import { getDictionary } from "@/i18n/dictionaries";
 import { cardImages } from "@/lib/project-cards";
 import type { PreviewMachine, PreviewProject, PreviewService } from "@/server/builder/preview-data";
 import { itemsOf, itemText, linesOf, textOf } from "@/server/builder/view";
@@ -78,7 +77,7 @@ function section(props: BlockProps, fixed: string, title: string, intro: string 
 function ServiceOpening({ section: s, ctx }: BlockProps) {
   const service = ctx.service!;
   const { locale } = ctx;
-  const dict = getDictionary(locale);
+  const dict = ctx.site.dict;
   const visual = (typeof s.settings.visual === "string" ? s.settings.visual : "frame") as ServiceLook["hero"];
   const c = s.content;
   const name = service.name[locale] ?? "";

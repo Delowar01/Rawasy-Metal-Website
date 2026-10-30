@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PreviewCanvas } from "@/components/builder/PreviewCanvas";
+import { SiteShellPreview } from "@/components/builder/SiteShellPreview";
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
 import { loadPreview, type PreviewDevice, type PreviewKind } from "@/server/builder/preview";
+import { readWorkingSite } from "@/server/site/working";
 
 /*
  * /admin/preview/{page|service|reusable}/{id} (A5 brief §36–§40): a working page, service page or reusable section as the
@@ -12,6 +14,9 @@ import { loadPreview, type PreviewDevice, type PreviewKind } from "@/server/buil
  * holding `content.view` and `preview.use` (the registry's permissions, never a role name). An unknown kind or id, or a
  * record in the Trash, is "not found". `locale`, `theme`, `device` and `frame` (the builder's canvas) come from the
  * address; `device` leaves out the sections hidden on that screen size.
+ *
+ * A6: every preview draws the site's working copy (company details, navigation, interface text; today's values where
+ * it is not set up), and /admin/preview/site/shell shows the header and footer on their own.
  */
 
 const KINDS: readonly PreviewKind[] = ["page", "service", "reusable"];
@@ -24,13 +29,15 @@ export default async function PreviewPage({ params, searchParams }: PageProps<"/
   const { actor } = await requireActor();
   if (!actor.permissions.has("content.view") || !actor.permissions.has("preview.use")) notFound();
   const { kind, id } = await params;
-  if (!(KINDS as readonly string[]).includes(kind) || !ULID.test(id)) notFound();
+  const site = kind === "site" && id === "shell";
+  if (!site && (!(KINDS as readonly string[]).includes(kind) || !ULID.test(id))) notFound();
   const query = await searchParams;
   const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
   const locale = one(query.locale) === "ar" ? "ar" : "en";
+  if (site) return <SiteShellPreview site={await guarded(() => readWorkingSite(authDeps().db))} locale={locale} />;
   const device = (DEVICES as readonly string[]).includes(one(query.device) ?? "") ? (one(query.device) as PreviewDevice) : "desktop";
   const frame = one(query.frame) === "1";
-  const model = await guarded(() => loadPreview(authDeps().db, kind as PreviewKind, id, { locale, device }));
+  const [model, working] = await guarded(() => Promise.all([loadPreview(authDeps().db, kind as PreviewKind, id, { locale, device }), readWorkingSite(authDeps().db)]));
   if (!model) notFound();
-  return <PreviewCanvas model={model} frame={frame} />;
+  return <PreviewCanvas model={model} frame={frame} site={working} />;
 }

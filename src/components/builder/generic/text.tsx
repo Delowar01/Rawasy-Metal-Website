@@ -1,6 +1,5 @@
 import { Icon } from "@/components/commerce/Icon";
 import { PageHero } from "@/components/commerce/inner/PageHero";
-import { getDictionary } from "@/i18n/dictionaries";
 import { href } from "@/i18n/routes";
 import { designView, itemsOf, itemText, itemValue, textOf, toneAttr } from "@/server/builder/view";
 import { BlockImage } from "../BlockImage";
@@ -14,7 +13,7 @@ export function GenericHero({ section, ctx }: BlockProps) {
   const { settings, content } = section;
   const view = designView(specOf(section.blockType), designOf(section));
   const layout = (settings.layout as "compact" | "split" | "stacked" | undefined) ?? "compact";
-  const dict = getDictionary(ctx.locale);
+  const dict = ctx.site.dict;
   const title = textOf(content, "title");
   const actions = buttonElements(section, ctx, "actions", view);
   const photo =

@@ -3,7 +3,8 @@ import { CapabilitiesActions, capabilityFacts } from "@/components/commerce/capa
 import { FleetPlate } from "@/components/commerce/capabilities/FleetPlate";
 import { CertificateDocuments, CertificateTable, RedactionNote } from "@/components/commerce/certificates/CertificatesPage";
 import { ClientsWall } from "@/components/commerce/clients/ClientsPage";
-import { ContactActions, contactRows, DirectContact, QuoteSection } from "@/components/commerce/contact/ContactPage";
+import { ContactActions, DirectContact, QuoteSection } from "@/components/commerce/contact/ContactPage";
+import { workingContactRows } from "../site";
 import { Location } from "@/components/commerce/contact/Location";
 import { quoteFormText } from "@/components/commerce/contact/quote-text";
 import { IndustryStrip, SectorsSection } from "@/components/commerce/industries/IndustriesPage";
@@ -19,9 +20,8 @@ import type { ServiceRowView } from "@/components/commerce/services/ServiceRow";
 import { industryIcon, industryTone, serviceTone } from "@/components/commerce/tones";
 import type { CommerceImage, Tone } from "@/components/commerce/types";
 import { serviceIcon } from "@/components/commerce/ui";
-import { getCompany, getContactContent, getServices } from "@/content/repository";
+import { getContactContent, getServices } from "@/content/repository";
 import type { ServiceSlug } from "@/content/types";
-import { getDictionary } from "@/i18n/dictionaries";
 import { breadcrumbTrail, type InnerRoute } from "@/lib/inner-page";
 import { formatPower } from "@/lib/utils";
 import type { Content, SelectionValue } from "@/server/builder/fields";
@@ -91,7 +91,7 @@ async function PageOpening({ section, ctx }: BlockProps) {
   const route = ctx.ownerKind ? ROUTE[ctx.ownerKind] : undefined;
   if (!route) return <InvalidSection id={section.id} label="Page opening" problem="this opening belongs to one of the site's own pages." />;
   const { locale } = ctx;
-  const dict = getDictionary(locale);
+  const dict = ctx.site.dict;
   const c = section.content;
   const base = { breadcrumb: breadcrumbTrail(route, locale), breadcrumbLabel: dict.a11y.breadcrumb, eyebrow: textOf(c, "eyebrow"), title: textOf(c, "title"), intro: textOf(c, "intro") || undefined };
   switch (section.settings.variant) {
@@ -143,7 +143,8 @@ async function PageOpening({ section, ctx }: BlockProps) {
 
     case "contact": {
       const contact = ctx.hrefOf(locale, "contact");
-      const rows = contactRows(
+      const rows = workingContactRows(
+        ctx.site,
         contact,
         {
           phone: textOf(c, "phoneLabel"),
@@ -205,8 +206,8 @@ async function PageOpening({ section, ctx }: BlockProps) {
     }
 
     case "about": {
-      // The registered names are the company's current ones (read-only until Site settings, A6).
-      const company = await getCompany();
+      // The registered names: the working copy's (Site settings, A6), today's where it is not set up.
+      const company = ctx.site.company;
       return (
         <PageHero
           layout="split"
@@ -371,7 +372,7 @@ function certificatePreviews(record: { previews: { media: string; locale: "en" |
 function CertificatesRegisterBlock({ section, ctx }: BlockProps) {
   const c = section.content;
   const { locale } = ctx;
-  const dict = getDictionary(locale);
+  const dict = ctx.site.dict;
   const { items } = resolveSelection("certificate", section.settings.certificates as SelectionValue | undefined, ctx.records);
   const reference = { label: textOf(c, "referenceLabel"), value: textOf(c, "reference") };
   return (
@@ -469,7 +470,7 @@ function LocationBlock({ section, ctx }: BlockProps) {
         callLabel: textOf(c, "phoneLabel"),
         send: textOf(c, "send"),
         emailLabel: textOf(c, "emailLabel"),
-        external: getDictionary(ctx.locale).a11y.externalLink,
+        external: ctx.site.dict.a11y.externalLink,
       }}
     />
   );

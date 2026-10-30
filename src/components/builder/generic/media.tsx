@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { Icon } from "@/components/commerce/Icon";
-import { getDictionary } from "@/i18n/dictionaries";
 import { itemsOf, itemText, textOf } from "@/server/builder/view";
 import { BlockImage, deliveredImage } from "../BlockImage";
 import type { BlockProps } from "../context";
@@ -232,7 +231,7 @@ export function GenericMap({ section, ctx }: BlockProps) {
   const place = String(settings.placeLink ?? "").trim();
   const title = textOf(content, "title");
   const address = textOf(content, "address");
-  const external = getDictionary(ctx.locale).a11y.externalLink;
+  const external = ctx.site.dict.a11y.externalLink;
   const q = encodeURIComponent(query);
   const open = place || (query ? `https://www.google.com/maps/search/?api=1&query=${q}` : "");
   return (

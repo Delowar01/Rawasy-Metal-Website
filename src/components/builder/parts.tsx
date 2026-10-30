@@ -1,6 +1,5 @@
 import type { ReactElement } from "react";
 import { Icon, type IconName } from "@/components/commerce/Icon";
-import { getDictionary } from "@/i18n/dictionaries";
 import type { DesignField, Locale } from "@/server/builder/fields";
 import type { DesignSpec } from "@/server/builder/design";
 import type { LinkTarget } from "@/server/builder/links";
@@ -26,7 +25,7 @@ const ON_DARK: Record<string, string> = { primary: "btn btn-primary", secondary:
  * out (the section's notes say why).
  */
 export function buttonElements(section: BlockSection, ctx: RenderContext, repeater: string, view: DesignView): ReactElement[] {
-  const external = getDictionary(ctx.locale).a11y.externalLink;
+  const external = ctx.site.dict.a11y.externalLink;
   const out: ReactElement[] = [];
   for (const item of itemsOf<{ target: LinkTarget | null; style?: string }>(section.settings, repeater)) {
     const label = itemText(section.content, repeater, item.id, "label");

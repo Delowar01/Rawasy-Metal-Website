@@ -7,9 +7,11 @@ import type { PreviewModel } from "@/server/builder/preview";
 import { REGISTRY } from "@/server/builder/registry";
 import { idsOf } from "@/server/builder/structure";
 import { sectionNotes } from "@/server/builder/view";
+import { overlayShell, type WorkingSite } from "@/server/site/working";
 import { routeHref, type RenderContext } from "./context";
 import { PreviewBridge } from "./PreviewBridge";
 import { PreviewLanguageLink } from "./PreviewLanguageLink";
+import { siteViewOf } from "./site";
 import { isRenderedBlock } from "./keys";
 import { blockSection, compose, runs, type Placed } from "./compose";
 import { BLOCK_ABSENT, BLOCK_NOTES, BLOCK_SELECTORS, GroupView, SectionView } from "./render";
@@ -45,14 +47,14 @@ function adapterNotes(placed: Placed, ctx: RenderContext): string[] {
 }
 
 /**
- * A preview page (A5 brief §36): the website's shell (header and footer as today: Site settings, A6, will manage them)
- * around the working sections, each drawn by its block's renderer; then the bridge to the builder. A reusable section is
- * shown on its own, without the shell. Notes about each section (missing language, placeholders, records left out)
- * go to the bridge, never into the page.
+ * A preview page (A5 brief §36): the website's shell (header and footer from the site's working copy, A6 — today's
+ * where it is not set up) around the working sections, each drawn by its block's renderer; then the bridge to the
+ * builder. A reusable section is shown on its own, without the shell. Notes about each section (missing language,
+ * placeholders, records left out) go to the bridge, never into the page.
  */
-export async function PreviewCanvas({ model, frame }: { model: PreviewModel; frame: boolean }) {
+export async function PreviewCanvas({ model, frame, site }: { model: PreviewModel; frame: boolean; site: WorkingSite }) {
   const route = model.ownerKind ? ROUTE_OF[model.ownerKind] : undefined;
-  const shell = await getShellView(model.locale, route && model.path ? { route, path: model.path } : { route: null, path: null });
+  const shell = overlayShell(await getShellView(model.locale, route && model.path ? { route, path: model.path } : { route: null, path: null }), site, model.locale);
   const base: Omit<RenderContext, "layout"> = {
     locale: model.locale,
     kind: model.kind,
@@ -65,6 +67,7 @@ export async function PreviewCanvas({ model, frame }: { model: PreviewModel; fra
     project: model.sample?.type === "project" ? (model.records.projects.find((p) => p.id === model.sample?.id) ?? null) : null,
     page: model.page,
     shell,
+    site: siteViewOf(site, model.locale),
     hrefOf: routeHref,
   };
   const { placed, layout } = compose(model.sections, base, BLOCK_ABSENT);

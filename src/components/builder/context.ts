@@ -6,6 +6,7 @@
  * published.
  */
 import type { ShellView } from "@/components/commerce/data";
+import type { SiteView } from "./site";
 import type { Tone } from "@/components/commerce/types";
 import { href } from "@/i18n/routes";
 import type { OwnerKind } from "@/server/builder/block";
@@ -28,6 +29,8 @@ export interface RenderContext {
   project: PreviewProject | null;
   page: { systemKey: string | null; effectiveDate: string | null } | null;
   shell: ShellView;
+  /** The site's working copy (A6): company facts, interface strings, the WhatsApp link (today's where not set up). */
+  site: SiteView;
   hrefOf: RouteHref;
   /** What the rest of the page holds, for blocks whose approved component depends on it. */
   layout: LayoutFacts;
