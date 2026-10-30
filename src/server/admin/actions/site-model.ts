@@ -54,7 +54,10 @@ export interface SettingsFormModel {
   defaultOgImageMediaId: string;
   phones: PhoneFormModel[];
   texts: Record<LocaleKey, SettingsTextsModel>;
-  status: Record<LocaleKey, "complete" | "needs_review">;
+  /** "<Language> is complete", as stored (A3's box: the server plans the status from it and what changed). */
+  complete: Record<LocaleKey, boolean>;
+  /** The language is marked "Needs review" (the other one changed after it was confirmed). */
+  needsReview: Record<LocaleKey, boolean>;
 }
 
 export interface MenuItemFormModel {

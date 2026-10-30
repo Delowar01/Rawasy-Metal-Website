@@ -73,7 +73,8 @@ export async function SettingsScreen({ searchParams }: { searchParams: SearchPar
     ...settings.values,
     countryCode: COUNTRY_CODE,
     phones: settings.values.phones.map((p) => ({ ...p })),
-    status: { en: settings.status.en === "needs_review" ? "needs_review" : "complete", ar: settings.status.ar === "needs_review" ? "needs_review" : "complete" },
+    complete: { en: settings.status.en === "complete", ar: settings.status.ar === "complete" },
+    needsReview: { en: settings.status.en === "needs_review", ar: settings.status.ar === "needs_review" },
   };
   return (
     <>

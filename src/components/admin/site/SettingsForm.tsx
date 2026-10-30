@@ -2,8 +2,10 @@
 /**
  * The company & website settings form (A6.1): general facts (website, email, phones and WhatsApp, Facebook, the map, the
  * default share image), then the English and the Arabic texts (site name, names, statement, address, vision, the default
- * SEO description), each language in its own card, Arabic right to left. One save sends the whole form with the version
- * it was opened on; the server checks everything again. Leaving with unsaved changes asks first.
+ * SEO description), each language in its own card, Arabic right to left, with A3's "<language> is complete" box and,
+ * once, "This change does not affect the other language" (the server plans each language's status from them and what
+ * changed). One save sends the whole form with the version it was opened on; the server checks everything again.
+ * Leaving with unsaved changes asks first.
  */
 import { useState } from "react";
 import { MediaSlotField } from "@/components/admin/media/MediaFields";
@@ -19,10 +21,17 @@ const LOCALES: { code: LocaleKey; heading: string }[] = [
 ];
 
 type TextKey = Exclude<keyof SettingsTextsModel, "addressLines" | "visionAims">;
-type Draft = Omit<SettingsFormModel, "texts"> & { texts: Record<LocaleKey, Omit<SettingsTextsModel, "addressLines" | "visionAims"> & { addressLines: string; visionAims: string }> };
+type Draft = Omit<SettingsFormModel, "texts" | "needsReview"> & { texts: Record<LocaleKey, Omit<SettingsTextsModel, "addressLines" | "visionAims"> & { addressLines: string; visionAims: string }> };
 
-const toDraft = (model: SettingsFormModel): Draft => ({
+const toDraft = (full: SettingsFormModel): Draft => {
+  const { needsReview, ...model } = full;
+  void needsReview;
+  return draftOf(model);
+};
+
+const draftOf = (model: Omit<SettingsFormModel, "needsReview">): Draft => ({
   ...model,
+  complete: { ...model.complete },
   phones: model.phones.map((p) => ({ ...p })),
   texts: {
     en: { ...model.texts.en, addressLines: model.texts.en.addressLines.join("\n"), visionAims: model.texts.en.visionAims.join("\n") },
@@ -57,6 +66,7 @@ export function SettingsForm({
 }) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(model));
   const [cards, setCards] = useState(initialCards);
+  const [otherUnaffected, setOtherUnaffected] = useState(false);
   const { pending, state, submit, reload, issue } = useSiteSave(saveSettingsAction, "/admin/settings?saved=1");
   const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(model));
   useUnsavedChanges(canEdit && dirty);
@@ -91,7 +101,8 @@ export function SettingsForm({
         en: { ...draft.texts.en, addressLines: draft.texts.en.addressLines.split("\n"), visionAims: draft.texts.en.visionAims.split("\n") },
         ar: { ...draft.texts.ar, addressLines: draft.texts.ar.addressLines.split("\n"), visionAims: draft.texts.ar.visionAims.split("\n") },
       },
-      status: draft.status,
+      complete: draft.complete,
+      otherUnaffected,
     });
 
   const field = (path: string, label: string, value: string, onChange: (v: string) => void, options: { hint?: string; type?: string; dir?: "ltr" | "rtl"; lang?: string; long?: boolean; autoComplete?: string } = {}) => {
@@ -261,23 +272,36 @@ export function SettingsForm({
             {field(`texts.${locale.code}.visionAims`, "Vision aims (one per line)", draft.texts[locale.code].visionAims, (v) => setText(locale.code, "visionAims", v), { dir, lang: locale.code, long: true })}
             {TEXTS.slice(9).map((t) => field(`texts.${locale.code}.${t.key}`, t.label, draft.texts[locale.code][t.key], (v) => setText(locale.code, t.key, v), { dir, lang: locale.code, long: t.long, hint: t.hint }))}
             <div className="adm-field">
-              <label className="adm-label" htmlFor={`f-status-${locale.code}`}>
-                Language state
+              <label className="adm-check" htmlFor={`f-complete-${locale.code}`}>
+                <input
+                  type="checkbox"
+                  id={`f-complete-${locale.code}`}
+                  checked={draft.complete[locale.code]}
+                  disabled={disabled}
+                  aria-describedby={`f-complete-${locale.code}-hint`}
+                  onChange={(e) => set("complete", { ...draft.complete, [locale.code]: e.target.checked })}
+                />
+                <span>{locale.code === "en" ? "English" : "Arabic"} is complete</span>
               </label>
-              <select
-                id={`f-status-${locale.code}`}
-                className="adm-input adm-input-short"
-                value={draft.status[locale.code]}
-                disabled={disabled}
-                onChange={(e) => set("status", { ...draft.status, [locale.code]: e.target.value as "complete" | "needs_review" })}
-              >
-                <option value="complete">Complete</option>
-                <option value="needs_review">Needs review</option>
-              </select>
+              <p className="adm-hint" id={`f-complete-${locale.code}-hint`}>
+                {model.needsReview[locale.code]
+                  ? "Needs review: the other language changed after this one was confirmed. Check it, then tick this box and save."
+                  : "Every field of this language is required; untick it to keep the language as a draft."}
+              </p>
             </div>
           </section>
         );
       })}
+
+      {canEdit ? (
+        <div className="adm-card adm-editor-review">
+          <label className="adm-check" htmlFor="f-otherUnaffected">
+            <input type="checkbox" id="f-otherUnaffected" checked={otherUnaffected} disabled={disabled} onChange={(e) => setOtherUnaffected(e.target.checked)} />
+            <span>This change does not affect the other language (for example, a typo fix)</span>
+          </label>
+          <p className="adm-hint">Otherwise, changing one language while the other is complete marks the other “Needs review”.</p>
+        </div>
+      ) : null}
 
       {canEdit ? (
         <div className="adm-savebar">

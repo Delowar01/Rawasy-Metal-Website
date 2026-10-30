@@ -226,10 +226,11 @@ export const storedLines = (value: unknown): string[] => (Array.isArray(value) ?
 
 /**
  * An external address (A1 §12–§13): `https:` only, a real host name with a dot, no user name or password, no spaces,
- * backslashes or control characters, at most 255 characters (as typed and as stored). Never fetched by the server.
+ * backslashes or control characters, at most 255 characters as typed and as stored (`max`: a longer column, A6's map link).
+ * Never fetched by the server.
  */
-export function httpsUrlProblem(value: string): string | null {
-  if (charLength(value) > 255) return "Use at most 255 characters.";
+export function httpsUrlProblem(value: string, max = 255): string | null {
+  if (charLength(value) > max) return `Use at most ${max} characters.`;
   if (/\s/.test(value)) return "An address has no spaces.";
   // A backslash reads as "/" to a browser ("https://evil.com\@example.com" opens evil.com), and control characters are
   // dropped by the parser: neither belongs in an address (A3 security review, finding 6).
@@ -243,7 +244,7 @@ export function httpsUrlProblem(value: string): string | null {
   if (url.protocol !== "https:") return "Only https:// addresses are accepted.";
   if (url.username || url.password) return "An address may not contain a user name or password.";
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(url.hostname) || url.hostname.includes("..")) return "Enter a public web address (for example https://example.com).";
-  if (charLength(url.href) > 255) return "Use at most 255 characters.";
+  if (charLength(url.href) > max) return `Use at most ${max} characters.`;
   return null;
 }
 

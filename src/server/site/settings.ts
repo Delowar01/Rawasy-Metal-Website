@@ -7,10 +7,15 @@
  *   invented: fields today's site does not have (RAWASY's own map link, a site-wide SEO description, a default share
  *   image) start empty.
  * - A save is the full state of the form, decided on the settings' version as the form showed it ("changed after you
- *   opened them…"). Both languages are required and complete (the shell shows every field in both). Phones keep their
- *   ids; the WhatsApp number is the first visible phone that has WhatsApp (today's rule, `primaryWhatsApp`).
+ *   opened them…"). Both languages are required (the shell shows every field in both); each language's status is A3's
+ *   plan (`planTranslationStatus`) from what changed and the form's "<language> is complete" and "does not affect the
+ *   other language" boxes — never a status sent by the browser — and its completion is stamped only when it is
+ *   confirmed. Phones keep their ids; the WhatsApp number is the first visible phone that has WhatsApp (today's rule,
+ *   `primaryWhatsApp`).
  * - Validation: A3's plain text; https addresses (A3) — the website, Facebook on facebook.com, the map link on Google
- *   Maps; E.164 phone numbers; one email address; the default share image an approved public image (A4, D-A6-7).
+ *   Maps; E.164 phone numbers; one email address; a newly chosen default share image an approved public image that A4
+ *   delivers (its `public_media` row: no blocking flag), D-A6-7. Addresses are decided on the parsed URL (host, scheme,
+ *   no credentials) and stored as typed (trimmed): the browser parses the same text the same way.
  * The public website never reads this (T1 = Option B); the admin preview does.
  */
 import { eq, sql } from "drizzle-orm";
@@ -18,6 +23,7 @@ import { z } from "zod";
 import type { Db } from "../db/client.ts";
 import { companyPhones, siteSettingTranslations, siteSettings } from "../db/schema-site.ts";
 import { EMAIL_RE, ULID_RE } from "../builder/links.ts";
+import { planTranslationStatus } from "../cms/completeness.ts";
 import { mediaTargetStates } from "../cms/media-refs.ts";
 import { contentTransaction, instantOf, rowsOf } from "../cms/store.ts";
 import { httpsUrlProblem, plainText, storedLines } from "../cms/text.ts";
@@ -138,15 +144,28 @@ export async function readSettings(db: Db): Promise<SettingsModel> {
 
 const E164 = /^\+[1-9][0-9]{6,14}$/;
 const FACEBOOK_HOSTS = new Set(["facebook.com", "www.facebook.com", "m.facebook.com", "web.facebook.com"]);
-const MAPS_HOSTS = new Set(["google.com", "www.google.com", "maps.google.com", "maps.app.goo.gl"]);
+const MAPS_HOSTS = new Set(["www.google.com", "google.com", "maps.google.com", "maps.app.goo.gl", "goo.gl"]);
+/** Hosts that serve more than maps: only their /maps addresses are Google Maps (maps.google.com and the share links' maps.app.goo.gl are maps only). */
+const MAPS_UNDER_PATH = new Set(["www.google.com", "google.com", "goo.gl"]);
+/** The map link's column (Google Maps place links run past 255 characters). */
+export const MAPS_URL_MAX = 500;
 
-/** An https address on one of `hosts` (and, for google.com, under /maps), or the problem. */
-export function allowListedUrlProblem(value: string, hosts: ReadonlySet<string>, what: string): string | null {
-  const problem = httpsUrlProblem(value);
+/** An https address on one of `hosts`, or the problem (decided on the parsed URL: what a browser opens). */
+export function allowListedUrlProblem(value: string, hosts: ReadonlySet<string>, what: string, max = 255): string | null {
+  const problem = httpsUrlProblem(value, max);
+  if (problem) return problem;
+  if (!hosts.has(new URL(value).hostname.toLowerCase())) return `Enter a ${what} address (${[...hosts].join(", ")}).`;
+  return null;
+}
+
+/** RAWASY's own Google Maps link: a maps host, and on hosts that serve more than maps a /maps address; or the problem. */
+export function mapsUrlProblem(value: string): string | null {
+  const problem = allowListedUrlProblem(value, MAPS_HOSTS, "Google Maps", MAPS_URL_MAX);
   if (problem) return problem;
   const url = new URL(value);
-  if (!hosts.has(url.hostname.toLowerCase())) return `Enter a ${what} address (${[...hosts].join(", ")}).`;
-  if (url.hostname.toLowerCase().endsWith("google.com") && !url.pathname.startsWith("/maps")) return "Enter a Google Maps address (https://www.google.com/maps/…).";
+  if (MAPS_UNDER_PATH.has(url.hostname.toLowerCase()) && !/^\/maps(\/|$)/.test(url.pathname)) {
+    return "Enter a Google Maps address (https://www.google.com/maps/…, or a share link https://maps.app.goo.gl/…).";
+  }
   return null;
 }
 
@@ -233,17 +252,20 @@ export const settingsInputSchema = z
       }),
     mapsPlaceUrl: z
       .string()
-      .max(600)
+      .max(2000)
       .transform((v) => v.trim())
       .superRefine((v, ctx) => {
-        const problem = v ? (v.length > 500 ? "Use at most 500 characters." : allowListedUrlProblem(v, MAPS_HOSTS, "Google Maps")) : null;
+        const problem = v ? mapsUrlProblem(v) : null;
         if (problem) ctx.addIssue({ code: "custom", message: problem });
       }),
     mapsQuery: required(255),
     defaultOgImageMediaId: z.union([z.literal(""), z.string().regex(ULID_RE)]),
     phones: z.array(phoneSchema).max(SETTINGS_LIMITS.phones.max, { message: `At most ${SETTINGS_LIMITS.phones.max} phone numbers.` }),
     texts: z.object({ en: textsSchema, ar: textsSchema }).strict(),
-    status: z.object({ en: z.enum(["complete", "needs_review"]), ar: z.enum(["complete", "needs_review"]) }).strict(),
+    /** "<Language> is complete" (A3's box): an intent the status plan weighs, never the stored status itself. */
+    complete: z.object({ en: z.boolean(), ar: z.boolean() }).strict(),
+    /** "This change does not affect the other language" (A3's box). */
+    otherUnaffected: z.boolean(),
   })
   .strict()
   .superRefine((input, ctx) => {
@@ -269,12 +291,18 @@ async function shareImageProblem(tx: Db, id: string, keptFrom: string): Promise<
   if (state.trashed) return "The chosen image is in the Trash. Choose another.";
   if (state.usageStatus !== "approved") return "Choose an approved image: approve it in the media library first.";
   if (!state.ready) return "The chosen image has no ready file yet. Choose another.";
+  // A4's one deliverability rule decides the rest (no blocking flag, unknown flags block): its public_media row, read with
+  // a share lock after the item's (the order of A4's own changes), so a flag added meanwhile is seen.
+  const [deliverable] = await rowsOf<{ media_id: string }>(tx, sql`SELECT media_id FROM public_media WHERE media_id = ${id} LOCK IN SHARE MODE`);
+  if (!deliverable) return "This image isn't delivered to the website now (a blocking flag or a restriction). Choose an approved image without one.";
   return null;
 }
 
 // --- Writes ---------------------------------------------------------------------------------------------------------------
 
-async function writeTranslation(tx: Db, locale: Locale, texts: SettingsTexts, status: TranslationStatus, actorId: string, now: Date) {
+/** One language's row: its status from the plan; its completion stamped only when confirmed now (kept otherwise, cleared for a draft). */
+async function writeTranslation(tx: Db, locale: Locale, texts: SettingsTexts, status: TranslationStatus, completedNow: boolean, actorId: string, now: Date) {
+  const completion = status === "draft" ? { completedAt: null, completedBy: null } : completedNow ? { completedAt: now, completedBy: actorId } : {};
   const values = {
     siteName: texts.siteName,
     legalName: texts.legalName,
@@ -290,8 +318,7 @@ async function writeTranslation(tx: Db, locale: Locale, texts: SettingsTexts, st
     visionClosing: texts.visionClosing,
     defaultSeoDescription: texts.defaultSeoDescription || null,
     translationStatus: status,
-    completedAt: status === "complete" ? now : null,
-    completedBy: status === "complete" ? actorId : null,
+    ...completion,
     updatedAt: now,
     updatedBy: actorId,
   };
@@ -335,12 +362,16 @@ export async function setUpSettings(change: SiteChange): Promise<SiteResult> {
         defaultOgImageMediaId: null,
       })
       .where(eq(siteSettings.id, "site"));
-    for (const locale of LOCALES) await writeTranslation(tx, locale, source.texts[locale], "complete", actor.user.id, now);
+    for (const locale of LOCALES) await writeTranslation(tx, locale, source.texts[locale], "complete", true, actor.user.id, now);
     await bumpSiteRoot(tx, "site_settings", "id", "site", actor.user.id, now);
     await siteAudit(tx, change, now, { ...event, summary: "Set up the site settings from today's website (company, contact, address, social link, map search; both languages).", changes: { phones: source.phones.length } });
     return { kind: "ok", id: "site", lockVersion: root.lockVersion + 1, summary: "The settings now hold today's website. Nothing changed for visitors." };
   });
 }
+
+const TEXT_KEYS = Object.keys(EMPTY_TEXTS) as (keyof SettingsTexts)[];
+/** Whether a language's texts differ, field by field. */
+const textsChanged = (a: SettingsTexts, b: SettingsTexts) => TEXT_KEYS.some((key) => JSON.stringify(a[key]) !== JSON.stringify(b[key]));
 
 const COMPARED: (keyof SettingsModel["values"])[] = ["websiteUrl", "email", "postalCode", "geoLat", "geoLng", "geoIsApproximate", "facebookUrl", "mapsPlaceUrl", "mapsQuery", "defaultOgImageMediaId"];
 
@@ -399,12 +430,21 @@ export async function saveSettings(change: SiteChange, raw: unknown): Promise<Si
         defaultOgImageMediaId: input.defaultOgImageMediaId || null,
       })
       .where(eq(siteSettings.id, "site"));
+    // Each language's status: A3's plan (both languages are required, so each exists and is filled once valid).
+    const changed = { en: textsChanged(input.texts.en, stored.values.texts.en), ar: textsChanged(input.texts.ar, stored.values.texts.ar) };
+    const plan = planTranslationStatus({
+      previous: stored.status,
+      changed,
+      marked: input.complete,
+      filled: { en: true, ar: true },
+      exists: { en: true, ar: true },
+      otherUnaffected: input.otherUnaffected,
+    });
     const changedLocales: Locale[] = [];
     for (const locale of LOCALES) {
-      const next = input.texts[locale];
-      const before = stored.values.texts[locale];
-      if (JSON.stringify(next) !== JSON.stringify(before) || stored.status[locale] !== input.status[locale]) changedLocales.push(locale);
-      await writeTranslation(tx, locale, next, input.status[locale], actor.user.id, now);
+      const status = plan.status[locale] ?? "draft";
+      if (changed[locale] || stored.status[locale] !== status) changedLocales.push(locale);
+      await writeTranslation(tx, locale, input.texts[locale], status, plan.completedNow[locale], actor.user.id, now);
     }
     await bumpSiteRoot(tx, "site_settings", "id", "site", actor.user.id, now);
     const fields = COMPARED.filter((key) => String(stored.values[key]) !== String((input as Record<string, unknown>)[key] ?? ""));

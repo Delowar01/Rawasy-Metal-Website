@@ -2680,6 +2680,8 @@ ol.adm-bld-rich-reads {
   display: grid;
   gap: 0.75rem 1rem;
   grid-template-columns: minmax(0, 1fr);
+  /* Fields keep their own height: a hint under one field never stretches its neighbour's input. */
+  align-items: start;
   min-width: 0;
 }
 
