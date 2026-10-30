@@ -355,7 +355,10 @@
   integration 470 / 470, admin 146 / 146 (A5's 122 + A6's 24, first run), public 612 / 612 in the first run (after the image warm-up, 1,484 / 1,484). Public freeze against `preserve/pre-admin-a6`: no public
   source changed; 890 / 890 public files, none added or missing, every prerendered output equal (114 identical, 601
   once normalised); CSS and JS identical on 104 / 104 pages; the 16 public server entries built from the same 299 source
-  files with identical content (only chunk grouping differs); HTTP 229 / 229 answers equal (102 documents, 102 page-data requests, 25 others); pixels pending. Evidence `rawasy-a6-evidence.zip`
+  files with identical content (only chunk grouping differs); HTTP 229 / 229 answers equal (102 documents, 102 page-data requests, 25 others); resting pixels 358 / 398
+  identical at once, the other 40 (the Arabic phone Projects gallery) the browser's timing choice of one photo's srcset
+  candidate (`tulip-roundabout-1.webp` `w=384` / `w=640`) that both builds make — the same choice gave 0 differing pixels
+  across builds in 12 recaptures; page heights equal in all 136 views. Evidence `rawasy-a6-evidence.zip`
   (not committed): 64 captures, 8 contact sheets, 0 horizontal overflow.
   **Do not start A7** (no public forms or enquiries, quote-form backend, spam controls, CSV export or notifications;
   nothing of A8/A9 either: publishing, revisions in use, database-backed public pages, redirects resolving, content

@@ -13,8 +13,10 @@ public suite are identical to the checkpoint (item 7). T1 Option B holds: the pu
 
 - **Start:** `7722640` ("Docs: A5 final correction — public suite result and project memory"). The rollback checkpoint
   **`preserve/pre-admin-a6`** was created at `7722640` and pushed before any A6 work.
-- **Last commit with code:** `10f862b`. Then `4f2b69b` (README) and the docs commit that adds this report and the
-  project memory (`CLAUDE.md`), the branch's head after it.
+- **Last commit with code:** `10f862b`. Docs only after it:
+  - `4f2b69b` README; this is the tree the fresh clone tested;
+  - `cd73c9b` this report, `CLAUDE.md` and a status line under the A1 roadmap, with the browser results then pending;
+  - `f1e0050`, `91c5de1` and the final docs commit (the branch's head), which add the results as they finished.
 - **Branch:** `claude/new-session-5eijs6`. All pushes were fast-forward; nothing was force-pushed.
 
 The commits, in order, each on its own:
@@ -338,7 +340,14 @@ Against `preserve/pre-admin-a6` (`7722640`), its clean build made in a worktree:
   are normalised. That is 102 documents, 102 page-data requests and 25 others: 404s, `/admin` paths (the public 404 with
   the gate off), `/api` and `/media` paths, and the image optimizer. Each server ran on its own fresh copy of its clean
   build.
-- **Pixels:** pending (after the public suite).
+- **Pixels.** Resting pixels with reduced motion: 17 pages, English and Arabic, light and dark, desktop (1440) and
+  phone (390), 398 captures per build.
+  - **358 identical at once.** Page heights are equal in all 136 views.
+  - **The other 40** are all screens of the Arabic Projects gallery on a phone (light and dark). The cause is the
+    browser's timing choice of one gallery photo's srcset candidate: `tulip-roundabout-1.webp` at `w=384` or `w=640`.
+  - **Recaptured** three times per build per theme. Every two captures with the same choice are pixel-identical
+    (0 pixels), between the builds and within one build. Captures with different choices differ within one build too,
+    and both builds make both choices. The height is 21,401 px in all 12 runs. The A5 freeze recorded the same effect.
 - **Public E2E** on the fresh clone: 612 / 612 in the first run.
 - **Shell and HTML in the browser.** The admin spec compares the public pages' header and footer markup and their
   served HTML before and after the working copy exists (`/en`, `/ar`, `/en/contact`, `/ar/contact`, `/en/about`):
