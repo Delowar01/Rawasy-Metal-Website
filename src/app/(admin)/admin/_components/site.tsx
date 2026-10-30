@@ -268,7 +268,8 @@ export async function RedirectsScreen({ searchParams }: { searchParams: SearchPa
   const query = searchParams;
   const stateParam = one(query.state);
   const state = stateParam === "active" || stateParam === "inactive" ? stateParam : "all";
-  const q = (one(query.q) ?? "").slice(0, 200);
+  // At most 200 characters, counted whole (a cut never splits an emoji).
+  const q = [...(one(query.q) ?? "")].slice(0, 200).join("");
   const page = Number(one(query.page) ?? "1");
   const list = await guarded(() => listRedirects(authDeps().db, { state, q, page }));
   const canManage = actor.permissions.has("redirects.manage");
@@ -325,7 +326,8 @@ export async function RedirectsScreen({ searchParams }: { searchParams: SearchPa
             <tbody>
               {list.rows.map((r) => (
                 <tr key={r.id}>
-                  <th scope="row" className="adm-cell-title">
+                  {/* A plain row header (not the lists' grid title cell, which ends short of a taller row's other cells). */}
+                  <th scope="row">
                     <Link href={`/admin/redirects/${r.id}`} dir="ltr" className="adm-mono adm-site-path">
                       {readablePath(r.sourcePath)}
                     </Link>

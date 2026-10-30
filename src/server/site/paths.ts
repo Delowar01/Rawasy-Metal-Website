@@ -11,17 +11,23 @@ export type PathResult = { ok: true; path: string; locale: Locale } | { ok: fals
 
 const UNRESERVED = /^[A-Za-z0-9._~-]$/;
 
-/** Characters a segment never holds once decoded: controls and invisible formatting marks (zero-width, bidi …). */
-const HIDDEN = /[\p{Cc}\p{Cf}]/u;
+/**
+ * Characters a segment never holds once decoded: controls, formatting marks (zero-width, bidi …) and every other
+ * default-ignorable character (variation selectors, the combining grapheme joiner, Hangul fillers …), which draw nothing
+ * — the A5 certificate guard's set.
+ */
+const HIDDEN = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 
 /**
- * One path segment in canonical form: decoded, then every character outside A–Z a–z 0–9 . _ ~ - written as %XX. Null when
- * it can't be read (an incomplete %-code, “.” or “..”); "hidden" when it holds a control or formatting character.
+ * One path segment in canonical form: decoded, NFC-normalised (two spellings of one text — "café" composed or with a
+ * combining accent — are one address), then every character outside A–Z a–z 0–9 . _ ~ - written as %XX. Null when it
+ * can't be read (an incomplete %-code, “.” or “..”); "hidden" when it holds a character that draws nothing. A9 resolves a
+ * visitor's address through this same function, so the stored form and the request's meet.
  */
 function canonicalSegment(segment: string): string | null | "hidden" {
   let decoded: string;
   try {
-    decoded = decodeURIComponent(segment);
+    decoded = decodeURIComponent(segment).normalize("NFC");
   } catch {
     return null;
   }
@@ -53,7 +59,7 @@ export function readablePath(path: string): string {
         return segment;
       }
       let out = "";
-      for (const char of decoded) out += UNRESERVED.test(char) || /^[\p{L}\p{M}\p{N}]$/u.test(char) ? char : encodeChar(char);
+      for (const char of decoded) out += UNRESERVED.test(char) || (/^[\p{L}\p{M}\p{N}]$/u.test(char) && !HIDDEN.test(char)) ? char : encodeChar(char);
       return out;
     })
     .join("/");
@@ -80,7 +86,7 @@ export function normalizeSitePath(input: string, options: { allowLocaleRoot?: bo
   for (const segment of rest) {
     const canonical = canonicalSegment(segment);
     if (canonical === null) return { ok: false, message: "Part of this address can't be read (an incomplete %-code, or “.” / “..”)." };
-    if (canonical === "hidden") return { ok: false, message: "An address can't hold control characters or invisible formatting marks, even as %-codes." };
+    if (canonical === "hidden") return { ok: false, message: "An address can't hold control characters or invisible marks (characters that draw nothing), even as %-codes." };
     segments.push(canonical);
   }
   const path = `/${locale}${segments.map((s) => `/${s}`).join("")}`;

@@ -12,6 +12,9 @@
  *   address in the source's language). No loop (the target is never the source) and no chain (the target is never an
  *   active redirect's source, and no active redirect points at this source): every redirect resolves in one step.
  * - A redirect's version: edits and (de)activation are decided on the version its form showed; reactivation checks again.
+ * - Later changes elsewhere (a record given an old address's slug, a record's slug changed into a chain) are not refused
+ *   here: the list and the redirect's page say so (`warning`), and A8 (automatic slug redirects) and the A9 cutover
+ *   re-check every redirect before any resolves (A6 report).
  */
 import { and, eq, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
@@ -22,7 +25,7 @@ import { contentTransaction, duplicateKey, instantOf, rowsOf } from "../cms/stor
 import { likePattern, plainText } from "../cms/text.ts";
 import { ulid } from "../security/ids.ts";
 import { INVALID, refuse, siteAudit, stale, STALE_REDIRECT, versionSchema, type SiteChange, type SiteIssue, type SiteResult } from "./common.ts";
-import { answeredBy, isLiveAddress, normalizeSitePath } from "./paths.ts";
+import { answeredBy, isLiveAddress, normalizeSitePath, type LiveSlugs } from "./paths.ts";
 import { isSiteRoute, routePath, SITE_ROUTES, type Locale, type SiteRouteKey } from "./registry.ts";
 import { staticProjectSlugs, staticServiceSlugs } from "./static-source.ts";
 
@@ -169,10 +172,10 @@ async function checkRedirect(tx: Db, input: { id: string; sourcePath: string; ta
     const [onward] = await rowsOf<{ id: string }>(tx, sql`SELECT id FROM redirects WHERE source_path = ${address} AND is_active = 1 AND id <> ${input.id} LOCK IN SHARE MODE`);
     if (onward) issues.push({ path: input.targetType === "path" ? "targetPath" : "targetId", message: "The target address is redirected itself. Point straight at where that redirect leads (one step)." });
   }
-  const [inward] = await rowsOf<{ id: string }>(
-    tx,
-    sql`SELECT id FROM redirects WHERE target_type = 'path' AND target_path = ${source.path} AND is_active = 1 AND id <> ${input.id} LOCK IN SHARE MODE`,
-  );
+  // A redirect leading here would make a chain. The rules above already exclude it (a target is a page of the website,
+  // which no source may be), so this stays a plain read, a safeguard only: a locking read here scans every redirect
+  // (target_path has no index) and two edits of different redirects then wait on each other (A6 review, I2).
+  const [inward] = await rowsOf<{ id: string }>(tx, sql`SELECT id FROM redirects WHERE target_type = 'path' AND target_path = ${source.path} AND is_active = 1 AND id <> ${input.id}`);
   if (inward) issues.push({ path: "sourcePath", message: "Another redirect leads to this address. A redirect from it would make a chain." });
   if (issues.length || address === null) return { ok: false, issues };
   return { ok: true, value: { sourcePath: source.path, targetType: input.targetType, targetPath, targetId, address } };
@@ -237,8 +240,11 @@ export async function saveRedirect(change: SiteChange, raw: unknown): Promise<Si
           .where(eq(redirects.id, id));
       }
     } catch (error) {
-      if (duplicateKey(error)) return { kind: "invalid", message: INVALID, issues: [{ path: "sourcePath", message: "This address already has a redirect. Edit that one instead." }] };
-      throw error;
+      if (!duplicateKey(error)) throw error;
+      // The statement failed alone (the transaction goes on), so the refusal is audited like the checks' own.
+      const message = "This address already has a redirect. Edit that one instead.";
+      await siteAudit(tx, change, now, { action, type: "redirect", id: input.id || "new", outcome: "failed", summary: `Refused: ${message}` });
+      return { kind: "invalid", message: INVALID, issues: [{ path: "sourcePath", message }] };
     }
     await siteAudit(tx, change, now, {
       action,
@@ -287,7 +293,28 @@ export async function setRedirectActive(change: SiteChange, raw: { id: unknown; 
 
 // --- Reads ------------------------------------------------------------------------------------------------------------------
 
-async function rowView(db: Db, row: Record<string, unknown>): Promise<RedirectRow> {
+/** What a stored redirect is compared with when it is shown: every slug that answers an address, and the active sources. */
+interface ConflictContext {
+  slugs: LiveSlugs;
+  activeSources: ReadonlySet<string>;
+}
+
+async function conflictContext(db: Db): Promise<ConflictContext> {
+  const slugsOf = async (table: "services" | "projects" | "pages") =>
+    (await rowsOf<{ slug: string }>(db, sql`SELECT slug FROM ${sql.identifier(table)} WHERE slug IS NOT NULL${table === "pages" ? sql` AND page_type = 'generic'` : sql``}`)).map((r) => r.slug);
+  const [services, projects, pages, sources] = await Promise.all([
+    slugsOf("services"),
+    slugsOf("projects"),
+    slugsOf("pages"),
+    rowsOf<{ source_path: string }>(db, sql`SELECT source_path FROM redirects WHERE is_active = 1`),
+  ]);
+  return {
+    slugs: { services: new Set([...staticServiceSlugs(), ...services]), projects: new Set([...staticProjectSlugs(), ...projects]), pages: new Set(pages) },
+    activeSources: new Set(sources.map((r) => r.source_path)),
+  };
+}
+
+async function rowView(db: Db, row: Record<string, unknown>, context: ConflictContext): Promise<RedirectRow> {
   const type = String(row.target_type) as TargetType;
   const source = String(row.source_path);
   const locale = (source.split("/")[1] === "ar" ? "ar" : "en") as Locale;
@@ -307,6 +334,16 @@ async function rowView(db: Db, row: Record<string, unknown>): Promise<RedirectRo
       if (record.archived) warning = `The ${type} it leads to is archived: it would not resolve.`;
     }
   }
+  // Rules that held when it was saved and that later changes elsewhere can break (a slug given or changed since).
+  const answered = answeredBy(source, context.slugs);
+  const conflicts = [
+    warning,
+    answered ? `${answered.replace(/\.$/, "")} now: the page wins, so this redirect would never be used. Deactivate it or change its old address.` : null,
+    targetAddress !== null && targetAddress !== source && context.activeSources.has(targetAddress)
+      ? "Its target is now redirected itself (two steps): point it straight at where that redirect leads."
+      : null,
+  ].filter(Boolean);
+  warning = conflicts.length ? conflicts.join(" ") : null;
   return {
     id: String(row.id),
     sourcePath: source,
@@ -331,9 +368,12 @@ export async function listRedirects(db: Db, options: { state: "all" | "active" |
   const where: SQL[] = [sql`1 = 1`];
   if (options.state === "active") where.push(sql`is_active = 1`);
   if (options.state === "inactive") where.push(sql`is_active = 0`);
-  const q = options.q.trim();
-  // The source is ASCII: a fragment with other characters can match only once encoded (paths.ts), so compare that form.
-  if (q) where.push(sql`(source_path LIKE ${likePattern(/^[\x20-\x7e]*$/.test(q) ? q : encodeURI(q))} OR target_path LIKE ${likePattern(/^[\x20-\x7e]*$/.test(q) ? q : encodeURI(q))})`);
+  // A lone surrogate (half of an emoji cut by a length limit) can't be encoded: it is dropped first.
+  const q = options.q.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "").trim();
+  // The source is ASCII: a fragment with other characters can match only once encoded (paths.ts), so compare that form
+  // (NFC, as the stored addresses are).
+  const fragment = /^[\x20-\x7e]*$/.test(q) ? q : encodeURI(q.normalize("NFC"));
+  if (q) where.push(sql`(source_path LIKE ${likePattern(fragment)} OR target_path LIKE ${likePattern(fragment)})`);
   const condition = sql.join(where, sql` AND `);
   const [{ n }] = await rowsOf<{ n: number }>(db, sql`SELECT COUNT(*) AS n FROM redirects WHERE ${condition}`);
   const total = Number(n);
@@ -343,13 +383,14 @@ export async function listRedirects(db: Db, options: { state: "all" | "active" |
     db,
     sql`SELECT * FROM redirects WHERE ${condition} ORDER BY updated_at DESC, id DESC LIMIT ${REDIRECT_PAGE_SIZE} OFFSET ${(page - 1) * REDIRECT_PAGE_SIZE}`,
   );
-  return { rows: await Promise.all(rows.map((r) => rowView(db, r))), total, page, pages };
+  const context = await conflictContext(db);
+  return { rows: await Promise.all(rows.map((r) => rowView(db, r, context))), total, page, pages };
 }
 
 export async function readRedirect(db: Db, id: string): Promise<RedirectRow | null> {
   if (!ULID_RE.test(id)) return null;
   const [row] = await rowsOf<Record<string, unknown>>(db, sql`SELECT * FROM redirects WHERE id = ${id}`);
-  return row ? rowView(db, row) : null;
+  return row ? rowView(db, row, await conflictContext(db)) : null;
 }
 
 /** The working records a redirect may lead to (not archived, not in the Trash), for the form's choices. */
