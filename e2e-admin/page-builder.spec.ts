@@ -839,6 +839,38 @@ test.describe("A5 acceptance review", () => {
     await saveLayout(editor);
     expect(await englishTitles(id)).toEqual(["Test edited title", "Test edited title"]);
   });
+
+  test("while a save is on its way the outline, library and inspector take no input, and Undo waits", async ({ browser }) => {
+    const editor = await as(browser, "editor");
+    const id = await newPageLayout(editor, "test-review-saving", "Test Review Saving");
+    await addBlock(editor, "Heading");
+    await inspector(editor).getByLabel(/^Title/).fill("Test saving heading");
+    // The save's Server Action (a POST to this page) is held until the checks below are done.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let caught = false;
+    const path = `**/admin/pages/${id}/builder**`;
+    await editor.route(path, async (route) => {
+      if (route.request().method() === "POST" && !caught) {
+        caught = true;
+        await held;
+        await route.continue();
+      } else await route.fallback();
+    });
+    await editor.getByRole("button", { name: "Save layout" }).click();
+    await expect(chip(editor)).toHaveText("Saving…");
+    expect(caught).toBe(true);
+    // Anything done now would be dropped when the stored layout replaces the working copy: nothing can be done.
+    await expect(editor.locator(".adm-bld-grid")).toHaveAttribute("inert", "");
+    await expect(editor.getByRole("button", { name: "Undo" })).toBeDisabled();
+    await expect(editor.getByRole("button", { name: "Redo" })).toBeDisabled();
+    release();
+    await editor.waitForURL((url) => url.searchParams.get("done") === "saved");
+    await expect(chip(editor)).toHaveText("Saved");
+    await expect(editor.locator(".adm-bld-grid")).not.toHaveAttribute("inert", /.*/);
+    await editor.unroute(path);
+    expect(await englishTitles(id)).toEqual(["Test saving heading"]);
+  });
 });
 
 test.describe("the admin gate", () => {

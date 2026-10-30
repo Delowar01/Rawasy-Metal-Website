@@ -81,6 +81,8 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
   // After a save, until the stored layout replaces this working copy (a new version remounts the builder), nothing more
   // can be edited here: an edit made in between would be dropped by that reload.
   const [reloading, setReloading] = useState(false);
+  // Nor while a save or an immediate action is on its way: it carries the working copy as it was when it started.
+  const locked = reloading || save.status === "saving" || busy;
   const removeDialog = useRef<HTMLDialogElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
@@ -133,7 +135,7 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
       const target = event.target as HTMLElement | null;
       if (target && (target.closest("input, textarea, select, [contenteditable]") || target.isContentEditable)) return;
       event.preventDefault();
-      if (reloading) return;
+      if (locked) return;
       if (event.shiftKey) redo();
       else undo();
     };
@@ -350,10 +352,10 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
     <div className="adm-bld" data-panel={panel} ref={root}>
       <div className="adm-bld-top" role="group" aria-label="Builder controls" ref={bar}>
         <div className="adm-bld-top-group">
-          <button type="button" className="adm-btn is-small" onClick={undo} disabled={!past.length || reloading} aria-keyshortcuts="Control+Z">
+          <button type="button" className="adm-btn is-small" onClick={undo} disabled={!past.length || locked} aria-keyshortcuts="Control+Z">
             Undo
           </button>
-          <button type="button" className="adm-btn is-small" onClick={redo} disabled={!future.length || reloading} aria-keyshortcuts="Control+Shift+Z">
+          <button type="button" className="adm-btn is-small" onClick={redo} disabled={!future.length || locked} aria-keyshortcuts="Control+Shift+Z">
             Redo
           </button>
           <span className="adm-bld-save" data-state={save.status === "idle" ? (dirty ? "dirty" : "saved") : save.status} role="status" aria-live="polite">
@@ -430,7 +432,7 @@ export function Builder({ model, initialSection }: { model: BuilderModel; initia
         ))}
       </div>
 
-      <div className="adm-bld-grid" inert={reloading}>
+      <div className="adm-bld-grid" inert={locked}>
         {/* Outline and library */}
         <section className="adm-bld-panel adm-bld-outline" data-panel="outline" aria-labelledby={`${id}-outline`}>
           <h2 id={`${id}-outline`}>Sections</h2>
