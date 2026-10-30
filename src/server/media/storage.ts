@@ -78,7 +78,10 @@ export function dataDirFrom(env: Env = process.env, cwd: string = process.cwd())
   if (!raw) throw new StorageConfigError(`${DATA_DIR_ENV} is not set (media storage).`);
   if (!isAbsolute(raw)) throw new StorageConfigError(`${DATA_DIR_ENV} must be an absolute path.`);
   const dir = resolve(raw);
-  const app = resolve(cwd);
+  // `turbopackIgnore`: a string comparison with the application folder, never a file access. Next 16.4's tracer reads
+  // `resolve(process.cwd())` as an access to the whole project and would list every source and public file in the
+  // traces of each route that stores media.
+  const app = resolve(/* turbopackIgnore: true */ cwd);
   if (dir === app || dir.startsWith(app + sep)) throw new StorageConfigError(`${DATA_DIR_ENV} must be outside the application folder (it holds every upload).`);
   if (dir.split(sep).some((part) => part === "public" || part === "public_html")) {
     throw new StorageConfigError(`${DATA_DIR_ENV} must not be inside a public or public_html folder.`);
