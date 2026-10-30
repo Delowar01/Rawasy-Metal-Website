@@ -1121,3 +1121,37 @@ The tests: `npm run test:unit`; `npm run test:integration` and `npm run test:adm
   item 3.
 - A6 (Global site controls) starts only when the Owner approves A5 and says so.
 - Production and staging stay untouched: no deployment, no CMS database, no Namecheap change.
+
+## A5 FINAL CORRECTION
+
+Date: 2026-10-30 · Branch: `claude/new-session-5eijs6` · Brief: "RAWASY METAL WEBSITE — A5 FINAL SECURITY &
+DATA-PRESERVATION CORRECTION". Full report: `docs/reports/2026-10-30-admin-a5-final-correction.md`. Rollback checkpoint:
+GitHub branch `preserve/pre-admin-a5-final-correction` at `2e01a1f` (the A5 acceptance review's last commit). Local only;
+A5 is not Owner-approved by this section.
+
+**1. Security dependencies (the Owner's authorized exception)** — `0613fe5`, with the tracing fix `a116222`.
+- `next` 16.3.8 → 16.4.1 (with `@next/env` and the eight `@next/swc-*` binaries) and `zod` 4.6.5 → 4.6.6: the minimum
+  patched versions of GHSA-2464-fhr4-w9xw (critical: Image Optimization API, SVG), GHSA-p3m5-59mp-jv5r (high: Server
+  Actions denial of service), GHSA-673q-mjm6-r5xr (critical: `use cache` typed arrays) and GHSA-mrhx-c7xc-m3w5 (high:
+  oversized collections). Nothing else changed (React 19.2.8, `sharp` 0.35.5, Node 22.22.2, Drizzle, mysql2 as before);
+  no `npm audit fix`. `npm audit --omit=dev`: 0.
+- The one incompatibility: 16.4's tracer read `resolve(process.cwd())` in `dataDirFrom` (`src/server/media/storage.ts`)
+  as an access to the whole project (434 source files in 47 routes' traces). The call is a string comparison; it carries
+  `/* turbopackIgnore: true */` now (as A4's run-time paths do). Same refusals (`media-storage.test.ts`), no build
+  warning, traces as with 16.3.8.
+
+**2. Unsaved work when a session ends** — `bbb53f2`, tests `96e9ded`, media cards `eb2119a`.
+- The five builder actions start with `editorContext`: `actionContext(…, { signedOut: "answer" })` answers `signed_out`
+  instead of redirecting (nothing done), and the editor's own user id (`editor`) must be the session's user (otherwise
+  refused, audited) — both before the payload is read; a session ending inside the transaction answers the same. The
+  media picker answers in its dialog. Sign-in, MFA, RBAC and the 2 h / 12 h limits are unchanged; nothing polls.
+- The builder and the reusable section editor keep the edits in the page ("Your session has ended, so nothing was saved.
+  Your changes are still here … Sign in again in a new tab") and, while dirty, a copy in the tab's `sessionStorage`
+  (`draft.ts`, `useDraft.ts`): content only (no credential, token, file or private item), keyed by user and record, with
+  its version; offered back after the page's own sign-in and permission checks, restored only onto the same version
+  (an older copy: download or discard, never applied over newer content); removed after a save, on discard, on a
+  confirmed leave, on sign-out (all admin tabs), when another user signs in in the tab, after 12 hours.
+- Tests: `tests/unit/builder-draft.test.ts` (16); "A5 final correction" in `e2e-admin/page-builder.spec.ts` (7: session
+  ended, reload and restore, two editors, another user, sign-out, reusable editor, picker), each failing on `0613fe5`.
+
+QA on a fresh clone of `eb2119a`, and the public freeze proof against the 16.3.8 baseline: the full report's items 5 and 6.
