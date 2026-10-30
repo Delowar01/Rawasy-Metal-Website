@@ -263,7 +263,7 @@ Docker), Playwright 1.56.1 driving the container's Chrome for Testing 153 throug
 | Unit (`npm run test:unit`) | **336 / 336** | 311 / 311 |
 | Integration (`npm run test:integration`) | **470 / 470** | 425 / 425 |
 | Admin browser (`npm run test:admin`, every spec, the parity project included) | **146 / 146** in the first run (27.9 min) | 122 / 122 |
-| Public E2E (`npm run test:e2e`, against `server.js`, after the image warm-up) | pending (runs after the admin suite) | 612 / 612 |
+| Public E2E (`npm run test:e2e`, against `server.js`, after the image warm-up: 1,484 / 1,484 sizes) | **612 / 612** in the first run (23.1 min) | 612 / 612 |
 
 New A6 tests:
 - **Unit (25):**
@@ -334,9 +334,12 @@ Against `preserve/pre-admin-a6` (`7722640`), its clean build made in a worktree:
   content modules are now also imported by admin code and Turbopack groups them apart. All 16 public entries build
   from the same 299 source files (49 of ours) with byte-identical content (from the chunks' source maps, with embedded
   sources).
-- **HTTP:** pending (after the public suite).
+- **HTTP:** 229 / 229 answers equal: status, the compared headers, and bodies once the build id and hashed asset names
+  are normalised. That is 102 documents, 102 page-data requests and 25 others: 404s, `/admin` paths (the public 404 with
+  the gate off), `/api` and `/media` paths, and the image optimizer. Each server ran on its own fresh copy of its clean
+  build.
 - **Pixels:** pending (after the public suite).
-- **Public E2E** on the fresh clone: pending.
+- **Public E2E** on the fresh clone: 612 / 612 in the first run.
 - **Shell and HTML in the browser.** The admin spec compares the public pages' header and footer markup and their
   served HTML before and after the working copy exists (`/en`, `/ar`, `/en/contact`, `/ar/contact`, `/en/about`):
   byte for byte equal.
