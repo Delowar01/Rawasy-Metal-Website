@@ -352,7 +352,7 @@
   label stamps, I4 Projects after Services), tests `10f862b` (each fails on `c13920f`); `4f2b69b` README. Final QA on a
   fresh clone of `4f2b69b`: `npm ci`, audit `--omit=dev` 0 (all: the 4 accepted dev-only moderates), lint, typecheck,
   build (no warning, no database settings), `db:check` (8 files), the packaging check (13 held back), unit 336 / 336,
-  integration 470 / 470, admin and public pending (running at this commit). Public freeze against `preserve/pre-admin-a6`: no public
+  integration 470 / 470, admin 146 / 146 (A5's 122 + A6's 24, first run), public pending (running at this commit). Public freeze against `preserve/pre-admin-a6`: no public
   source changed; 890 / 890 public files, none added or missing, every prerendered output equal (114 identical, 601
   once normalised); CSS and JS identical on 104 / 104 pages; the 16 public server entries built from the same 299 source
   files with identical content (only chunk grouping differs); HTTP and pixels pending. Evidence `rawasy-a6-evidence.zip`

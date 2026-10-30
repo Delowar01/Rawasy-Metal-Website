@@ -262,7 +262,7 @@ Docker), Playwright 1.56.1 driving the container's Chrome for Testing 153 throug
 | Packaging check (`scripts/package-namecheap.mjs`) | PASS: 0 of 13 held-back files, 111 / 111 public files, 102 sitemap pages | same |
 | Unit (`npm run test:unit`) | **336 / 336** | 311 / 311 |
 | Integration (`npm run test:integration`) | **470 / 470** | 425 / 425 |
-| Admin browser (`npm run test:admin`) | pending (running on the fresh clone at this commit) | 122 / 122 |
+| Admin browser (`npm run test:admin`, every spec, the parity project included) | **146 / 146** in the first run (27.9 min) | 122 / 122 |
 | Public E2E (`npm run test:e2e`, against `server.js`, after the image warm-up) | pending (runs after the admin suite) | 612 / 612 |
 
 New A6 tests:
