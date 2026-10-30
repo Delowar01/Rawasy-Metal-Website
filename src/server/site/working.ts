@@ -31,11 +31,20 @@ export async function readWorkingSite(db: Db): Promise<WorkingSite> {
 /** The working value of an interface text in a language, or today's. */
 export const uiValue = (site: WorkingSite, key: string, locale: Locale, today: string) => site.ui.get(key)?.[locale] ?? today;
 
-/** The WhatsApp link of the working copy (today's form: `https://wa.me/<number>`), or today's. */
+/**
+ * The WhatsApp link of the working copy (today's form: `https://wa.me/<number>`), or today's: the stored primary number
+ * while it is shown and has WhatsApp (the settings service keeps it so), otherwise the first shown number that has it.
+ */
 export function workingWhatsappHref(site: WorkingSite, today: string): string {
-  if (!site.settings.setUp) return today;
-  const phone = site.settings.values.phones.find((p) => p.id === site.settings.primaryWhatsappPhoneId) ?? site.settings.values.phones.find((p) => p.isVisible && p.hasWhatsapp);
+  const phone = workingWhatsappPhone(site);
   return phone ? `https://wa.me/${phone.e164.replace("+", "")}` : today;
+}
+
+/** The number the working copy's WhatsApp links open (see `workingWhatsappHref`), or null (not set up, or none). */
+export function workingWhatsappPhone(site: WorkingSite): { display: string; e164: string } | null {
+  if (!site.settings.setUp) return null;
+  const shown = site.settings.values.phones.filter((p) => p.isVisible && p.hasWhatsapp);
+  return shown.find((p) => p.id === site.settings.primaryWhatsappPhoneId) ?? shown[0] ?? null;
 }
 
 /** Today's company facts with the working settings laid over them (when set up). */

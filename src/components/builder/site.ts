@@ -10,7 +10,7 @@ import { company as staticCompany, whatsappUrl } from "@/content/company";
 import type { CompanyInfo } from "@/content/types";
 import type { Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/dictionaries";
-import { workingCompany, workingDictionary, workingWhatsappHref, type WorkingSite } from "@/server/site/working";
+import { workingCompany, workingDictionary, workingWhatsappHref, workingWhatsappPhone, type WorkingSite } from "@/server/site/working";
 
 export interface SiteView {
   company: CompanyInfo;
@@ -22,7 +22,8 @@ export interface SiteView {
 
 export function siteViewOf(site: WorkingSite, locale: Locale): SiteView {
   const company = workingCompany(staticCompany, site);
-  const whatsapp = company.phones.find((p) => p.whatsapp) ?? company.phones[0];
+  // The link and the number shown beside it come from one choice (today's primary number when nothing is set up).
+  const whatsapp = workingWhatsappPhone(site) ?? staticCompany.phones.find((p) => p.whatsapp) ?? staticCompany.phones[0];
   return { company, dict: workingDictionary(getDictionary(locale), site, locale), whatsappHref: workingWhatsappHref(site, whatsappUrl()), whatsappDisplay: whatsapp?.display ?? "" };
 }
 
