@@ -10,9 +10,10 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-16-admin-a5-page-builder.md` (Admin / CMS program, Phase A5 — Page builder,
-  local implementation only)
-  (earlier: `2026-10-16-admin-a4-media-library.md` (Phase A4 — Media library),
+- Latest report: `docs/reports/2026-10-30-admin-a5-acceptance-review.md` (Admin / CMS program, Phase A5 — acceptance
+  review, readiness and the A6 plan)
+  (earlier: `2026-10-16-admin-a5-page-builder.md` (Phase A5 — Page builder, local implementation only),
+  `2026-10-16-admin-a4-media-library.md` (Phase A4 — Media library),
   `2026-10-15-admin-a3-core-cms.md` (Phase A3 — Core CMS; its "A3 CORRECTION 1" section is at the end),
   `2026-10-09-admin-a2-auth-rbac-shell.md` (Phase A2 — authentication, RBAC, database foundation and admin
   shell; its "A2 CORRECTION 1", "A2 CORRECTION 2" and "A2 FINAL VISUAL CORRECTION" sections are at the end),
@@ -286,6 +287,28 @@
   public database connection with the admin on, 238 screens (233 identical, 5 proven noise), all 44 page heights equal
   once loaded. Evidence `rawasy-a5-final-evidence.zip` (not committed): 108 captures of 37 screens, 13 contact sheets, 0
   horizontal overflow; test content and approved release photos only.
+  **The A5 acceptance review is done and awaits the Owner** (the user's "A5 FINAL REVIEW, ACCEPTANCE READINESS & A6
+  PREPARATION" brief; report `2026-10-30-admin-a5-acceptance-review.md`). It started at `959d399` (docs only, on
+  `f2b73c9`). Four genuine A5 defects corrected, each in its own commit with a test that fails on `959d399`: `6ce90ed`
+  (the certificate digit guard also reads past default-ignorable characters outside Cf: U+034F, variation selectors,
+  Hangul fillers …), `a215f74` (a stored section duplicated with unsaved edits stores those edits), `f8a439e` (the
+  builder is inert, Undo / Redo wait, while a save or an immediate action is under way), `9296266` (a generic block's
+  photo keeps its source-width cap when an entrance is set). Final QA on a fresh clone of `9296266`: `npm ci`, lint,
+  typecheck, build (no warning, no database settings), `db:check`, the packaging check (13 held back), unit 295 / 295,
+  integration 425 / 425, admin 115 / 115, public 612 / 612; public output identical to `959d399`'s and, against
+  `preserve/pre-admin-a5`, only A5's documented differences (files, resolved payloads, CSS on 104 / 104 pages, JS on 94
+  / 104 with the `unoptimized` spread, 229 HTTP answers, resting pixels). **`npm audit --omit=dev` now reports 2**
+  (`next` 16.3.8: GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r, GHSA-673q-mjm6-r5xr; `zod` 4.6.5: GHSA-mrhx-c7xc-m3w5;
+  published 22–23 October, after A5's QA): the patch (`next` 16.4.1 + `zod` 4.6.6) needs the Owner's authorization ("no
+  Next.js upgrade" is locked) — not done. Measured in a throwaway clone: production audit 0, lockfile change limited to
+  next, @next/* and zod, unit 295 / 295; but it is no drop-in — 16.4.1 shortens `next/font`'s CSS-module class names
+  (every public page's bytes change: CSS on 103 / 104 pages, JS on all) and warns of whole-project tracing at
+  `src/server/media/storage.ts:81` (`resolve(cwd)` needs `turbopackIgnore`), so it needs its own correction with a
+  freeze proof that normalises those class names. Recommendation: READY, on the condition of that patch (BLOCKED on it
+  alone if the Owner counts the audit as an A5 criterion); not Owner-approved. Open for the Owner: the dependency patch;
+  a session that ends with unsaved builder edits loses them (A2's stale-tab rule: options in the report's item 2.2); the
+  A5 decisions carried (item 6.2); the A6 decisions (item 8.7); a Low / Info backlog (item 2.4). The A6 plan is the
+  report's item 8.
   **Do not start A6** (no site settings, interface text, menus, header or footer controls, theme, redirects, forms or
   enquiries, publishing, revisions in use, database-backed public pages, content migration, cache handler, projections,
   or the public site switched to `/media/u`) until the user approves A5 and says so.
@@ -933,6 +956,15 @@
   is the `parity` project of `playwright.admin.config.ts`: it runs after the other specs in a new worker (a new
   browser), closes its tabs after each test and scrolls a page only once its images are decoded (`f2b73c9`; the
   Chromium freeze in "Gotchas learned").
+- From the A5 acceptance review (keep them; each has a test that fails on `959d399`):
+  - The certificate guard reads text with `[\p{Cf}\p{Default_Ignorable_Code_Point}]` removed (`cms/text.ts`
+    `INVISIBLE`; the union, for the guard's reading only — stored text unchanged).
+  - A stored section's duplicate carries its data when the source has unsaved edits (`dataChanged` in `duplicate`);
+    otherwise the server clones what is stored.
+  - `Builder`'s `locked` (`reloading || save.status === "saving" || busy`) makes the grid `inert` and holds Undo / Redo
+    (buttons and Ctrl+Z): a change made while a save or an immediate action runs would be dropped by the reload.
+  - `BlockImage` merges the reveal's `style` into the frame's `max-width` cap: `motionProps` returns a `style` (the reveal
+    delay), so never spread it after a `style` prop.
 - Security invariants from the A5 review (keep them; each has a test that fails on `a0f381b`): F1–F6 above, and
   - I1: ids the approved components build from record slugs are taken on their page (`recordIds`).
   - I3: an email target holds no `%` or `#` (`EMAIL_RE`).
@@ -2426,6 +2458,18 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   `Machinery.tsx`; the freeze proof (output) passed, and only the public suite caught it (611 / 612 on the fresh clone of
   `3cc3aa4`). `fc51705` restored the file. Run the full public suite after any refactor of a public component, and grep
   `e2e/` for `createHash` / `readFileSync("src/` before touching a frozen file.
+- `npm ci` can skip an optional native package silently when its download fails: a fresh clone in the A5 review had
+  only `@next/swc-linux-x64-musl`, and `next build` stopped ("Turbopack is not supported on this platform"). Check
+  `node_modules/@next/swc-linux-x64-gnu` after installing; a clean reinstall fixed it.
+- `e2e-admin/server.mjs` writes its run's facts to `os.tmpdir()/rawasy-admin-e2e.json`, which the admin specs read: a
+  second server started while a suite runs would overwrite them. Give any extra server its own `TMPDIR` (and
+  `ADMIN_E2E_PORT`); it drops its database on SIGTERM.
+- Playwright 1.56.1 expects Chromium 141; a container may ship another Chromium (the A5 review's had Chrome for Testing
+  153 at `/opt/pw-browsers/chromium_headless_shell-1243/…`) and forbid `playwright install`. Run the suites through an
+  untracked wrapper config at the repository root that spreads the real one and sets each project's
+  `launchOptions.executablePath` (a wrapper elsewhere moves `testDir`). All suites passed on 153.
+- The build id inside a served page is in escaped JSON (`\"b\":\"…\"` in the inline Flight scripts): HTTP freeze
+  comparisons must take each server's `.next/BUILD_ID`, not a regex over the HTML.
 - Chromium 141's headless renderer (Playwright 1.56's headless shell) can freeze for good when script scrolls a page
   (`scrollTo`, instant) while its photos still arrive: next/image decodes and re-renders each photo as it loads, and the
   renderer's main thread then waits forever in the compositor (`cc::LayerTreeHost::WaitForProtectedSequenceCompletion`,
