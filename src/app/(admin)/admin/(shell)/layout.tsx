@@ -29,6 +29,11 @@ const ICONS = {
   media: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9.5a1.5 1.5 0 1 0 0-.01",
   folders: "M3 6h6l2 2h10v11H3zM3 10h18",
   reusable: "M8 4h12v12H8zM4 8v12h12",
+  company: "M4 20V7l8-3 8 3v13M9 20v-5h6v5M8 10h2M14 10h2",
+  navigation: "M4 6h16M4 12h10M4 18h16",
+  text: "M4 18 8 6l4 12M5.5 14h5M14 18v-5.5a2.5 2.5 0 0 1 5 0V18M14 15h5",
+  redirects: "M4 7h11a4 4 0 0 1 0 8H8M8 11l-4 4 4 4",
+  theme: "M12 3a9 9 0 1 0 0 18c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.3-4-7.8-9-7.8z",
 };
 
 /** The Core CMS areas (A3), in the brief's order. */
@@ -74,6 +79,39 @@ function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {
             <Icon d={ICONS.folders} />
             Folders
           </NavLink>
+        </div>
+      ) : null}
+      {permissions.has("content.view") || permissions.has("redirects.view") ? (
+        <div className="adm-nav-group">
+          <p className="adm-nav-title">Site</p>
+          {permissions.has("content.view") ? (
+            <>
+              <NavLink href="/admin/settings">
+                <Icon d={ICONS.company} />
+                Company &amp; website
+              </NavLink>
+              <NavLink href="/admin/navigation">
+                <Icon d={ICONS.navigation} />
+                Navigation
+              </NavLink>
+              <NavLink href="/admin/interface-text">
+                <Icon d={ICONS.text} />
+                Interface text
+              </NavLink>
+            </>
+          ) : null}
+          {permissions.has("redirects.view") ? (
+            <NavLink href="/admin/redirects">
+              <Icon d={ICONS.redirects} />
+              Redirects
+            </NavLink>
+          ) : null}
+          {permissions.has("theme.edit") ? (
+            <NavLink href="/admin/theme">
+              <Icon d={ICONS.theme} />
+              Theme
+            </NavLink>
+          ) : null}
         </div>
       ) : null}
       {permissions.has("users.view") ? (

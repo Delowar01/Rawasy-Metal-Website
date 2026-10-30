@@ -2668,3 +2668,102 @@ ol.adm-bld-rich-reads {
     border-color: CanvasText;
   }
 }
+
+/* --- Site controls (A6): settings, navigation, interface text, theme, redirects ----------------------------------- */
+/* Every grid here has minmax(0, 1fr) columns and long buttons wrap (A4/A5's 320 px rules). */
+
+.adm-site-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.adm-site-pair {
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+@media (min-width: 48rem) {
+  .adm-site-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.adm-site-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.adm-site-row {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface);
+  overflow-wrap: anywhere;
+}
+
+.adm-site-row-head {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.adm-site-row-head > .adm-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.adm-site-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+}
+
+.adm-site-actions .adm-btn,
+.adm-site-setup .adm-btn,
+.adm-site-menu-bar .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
+.adm-site-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-site-setup {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  min-width: 0;
+}
+
+.adm-site-menu,
+.adm-site-ui-group {
+  min-width: 0;
+}
+
+.adm-site-menu-bar {
+  position: static;
+  box-shadow: none;
+}
+
+.adm-site-path {
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+}
+
+@media (forced-colors: active) {
+  .adm-site-row {
+    border: 1px solid CanvasText;
+  }
+}
