@@ -10,9 +10,11 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-30-admin-a5-final-correction.md` (Admin / CMS program, Phase A5 — final security
-  and data-preservation correction: Next.js 16.4.1 / Zod 4.6.6, unsaved builder work when a session ends)
-  (earlier: `2026-10-30-admin-a5-acceptance-review.md` (Phase A5 — acceptance review, readiness and the A6 plan),
+- Latest report: `docs/reports/2026-10-30-admin-a6-global-site-controls.md` (Admin / CMS program, Phase A6 — global site
+  controls, local implementation only: settings, navigation, interface text, theme, redirects, the preview; the A7 plan)
+  (earlier: `2026-10-30-admin-a5-final-correction.md` (Phase A5 — final security and data-preservation correction:
+  Next.js 16.4.1 / Zod 4.6.6, unsaved builder work when a session ends),
+  `2026-10-30-admin-a5-acceptance-review.md` (Phase A5 — acceptance review, readiness and the A6 plan),
   `2026-10-16-admin-a5-page-builder.md` (Phase A5 — Page builder, local implementation only; its "A5 FINAL CORRECTION"
   section is at the end),
   `2026-10-16-admin-a4-media-library.md` (Phase A4 — Media library),
@@ -332,17 +334,38 @@
   normalised, the rest Next's runtime; HTTP 231 / 231 answers equal (102 documents, 102 page-data requests, 27 others);
   1,484 / 1,484 optimized images byte-identical; resting pixels equal: 357 / 398 captures identical at once, the other
   41 identical on recapture or a browser cache-timing choice of one gallery photo's srcset candidate that both builds
-  make at the same rate (5 : 3 in 8 loads each); page heights equal in all 136 views. Recommendation in the report (item
-  8); A5 is not Owner-approved.
-  **Do not start A6** (no site settings, interface text, menus, header or footer controls, theme, redirects, forms or
-  enquiries, publishing, revisions in use, database-backed public pages, content migration, cache handler, projections,
-  or the public site switched to `/media/u`) until the user approves A5 and says so.
+  make at the same rate (5 : 3 in 8 loads each); page heights equal in all 136 views.
+  **A5 is approved and closed** (the user's "OWNER ACCEPTANCE OF A5 & AUTHORIZATION TO EXECUTE A6" brief: the final
+  implementation is A6's baseline; never reopen A5 or expand its work unless a genuine regression or security defect is
+  found; its Low / Info backlog stays allocated to the later milestones named in the A5 reports).
+  **Phase A6 (Global site controls) is built — local implementation only** (that brief; report
+  `2026-10-30-admin-a6-global-site-controls.md`; rollback checkpoint: GitHub branch `preserve/pre-admin-a6` at `7722640`)
+  and awaits the Owner's review: see "Phase A6 implementation" below. Its commits, each on its own: `87343f0` registry;
+  `ea9bb20` schema, migration 0006 and seed 0007; `6a07830` services; `70ecf6c` the interface text saved as one form;
+  `920e4fa` Server Actions; `9a98a43` admin screens; `e44266a` the preview reads the working copy; `b35d173` service
+  tests; corrections `d7bb07b` (hidden characters in redirect addresses, readable addresses), `a9cb651` (the preview's
+  WhatsApp number and link), `90d473a` (a save reopens its screen at the stored version), `4f01999` (refused redirect
+  saves audited under the change's name); tests `d1264c5`, `0b2fd6e` (the A3–A5 migration tests take 0006/0007),
+  `c13920f` (A6 migration proofs A–G); the independent security review (no High or Medium; 5 Low, 7 Info) fixed in
+  `a81f7de` (settings: L1 delivered share image, L5 A3's status plan, I3 the map link), `748ecff` (redirects: L2 conflict
+  warnings, L3 default-ignorables + NFC, L4 the emoji search, I2 no table-wide lock, I7 audit), `aa89611` (navigation: L5
+  label stamps, I4 Projects after Services), tests `10f862b` (each fails on `c13920f`); `4f2b69b` README. Final QA on a
+  fresh clone of `4f2b69b`: `npm ci`, audit `--omit=dev` 0 (all: the 4 accepted dev-only moderates), lint, typecheck,
+  build (no warning, no database settings), `db:check` (8 files), the packaging check (13 held back), unit 336 / 336,
+  integration 470 / 470, admin and public pending (running at this commit). Public freeze against `preserve/pre-admin-a6`: no public
+  source changed; 890 / 890 public files, none added or missing, every prerendered output equal (114 identical, 601
+  once normalised); CSS and JS identical on 104 / 104 pages; the 16 public server entries built from the same 299 source
+  files with identical content (only chunk grouping differs); HTTP and pixels pending. Evidence `rawasy-a6-evidence.zip`
+  (not committed): 64 captures, 8 contact sheets, 0 horizontal overflow.
+  **Do not start A7** (no public forms or enquiries, quote-form backend, spam controls, CSV export or notifications;
+  nothing of A8/A9 either: publishing, revisions in use, database-backed public pages, redirects resolving, content
+  migration, cache handler, the public site switched to `/media/u`) until the user approves A6 and says so.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
   in A5, so it waits.
   Never connect to Namecheap's MariaDB or ask for production credentials; no deployment. Admin work must not redesign
-  the public site (A1–A5 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
+  the public site (A1–A6 change no appearance, and nothing from the admin reaches production before the A9 cutover: since
   Correction 1 a release built from this branch carries the admin code but serves none of it unless `ADMIN_ENABLED=1`;
   production and staging leave it unset, so `/admin` is the public localized 404 there, as before A2).
 - **The theme exploration is over: A V2 is the approved master design** (the user's "STAGE TM-1 — MODERN
@@ -447,7 +470,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A5 implemented locally)
+## Admin / CMS program (A1 specification; A2–A6 implemented locally)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -1031,6 +1054,76 @@
     already named, as a kept reference may stay (I2; private media can't reach them, a save refuses them); a reusable
     section's edit needs `reusable_sections.edit` only, not each linking owner's permission (I4; no owner with a stricter
     permission can link one today: the legal pages take no additions).
+
+### Phase A6 implementation (local only; report `2026-10-30-admin-a6-global-site-controls.md`)
+
+- Scope (the A6 brief, A6.1–A6.6): working copies of the company & website settings (`/admin/settings`), the four menu
+  slots (`/admin/navigation`), the registered interface text (`/admin/interface-text`), the theme (`/admin/theme`, the
+  Owner's alone) and redirects (`/admin/redirects`, `new`, `[id]`); the admin preview draws them
+  (`/admin/preview/site/shell?locale=&theme=` and every page preview). T1 Option B: the public site reads none of it —
+  `getShellView`, `src/content/*` and the dictionaries are unchanged; no publishing (A8), no redirect resolves before A9.
+  Owner defaults D-A6-1…7 and "Google Maps: never a guessed place link" (the brief §4) are binding.
+- Schema: `src/server/db/schema-site.ts` → `drizzle/0006_site_controls.sql` (11 tables: `site_settings` (+
+  `site_setting_translations`, `company_phones`), `ui_strings` (+ translations), `menus` (+ `menu_items`,
+  `menu_item_translations`), `theme_settings` (+ `design_token_overrides`), `redirects`; A1 §7, plus `menu_items.link_type
+  'route'` + `route_key`, `redirects.lock_version`, an ASCII `target_path`, checks: singleton ids, positions, E.164, the
+  redirect source's form, 307/308, one target) and `0007_seed_site_controls.sql` (the singletons, the four slots, the 34
+  interface-text keys; generated by `scripts/generate-access-seed.mjs` from `src/server/site/registry.ts`; no company
+  fact). A1's `uq_menu_items_position (menu_key, parent_id, position)` admits repeated NULL parents: the menu service
+  (root lock + renumbering) keeps top-level positions unique.
+- Code `src/server/site/` (framework-free, `.ts` imports): `registry.ts` (site routes, `MENU_SLOTS` with the header's
+  positional rules — Services pinned third, the first three always shown, `pageMarkOnly: 2` with `SECTION_ROUTES`, the
+  34 `UI_STRINGS` with lengths by rule, `APPROVED_TOKENS = []`, `REFERENCE_TOKENS`, `tokenValueProblem`, `tokenStyle`),
+  `common.ts` (results, audit, root locks, stale / refuse), `static-source.ts` (today's values in the working shapes: what
+  set-up copies), `paths.ts` (`normalizeSitePath`, `readablePath`, `answeredBy`, `isLiveAddress`), `settings.ts`,
+  `menus.ts`, `ui-text.ts`, `theme.ts`, `redirects.ts`, `working.ts` (`readWorkingSite`, `overlayShell`,
+  `workingCompany`, `workingDictionary`, `workingWhatsappPhone/Href`). Next side: `src/server/admin/actions/site.ts` (+
+  `site-model.ts`), `src/app/(admin)/admin/_components/site.tsx`, `src/components/admin/site/*`, the preview's
+  `src/components/builder/site.ts` and `SiteShellPreview.tsx`; tests `tests/unit/site-*.test.ts`,
+  `tests/integration/site-*.test.ts`, `e2e-admin/site.spec.ts`.
+- Permissions (keys only): read `content.view` (redirects `redirects.view`); settings and interface text
+  `settings.edit`; menus `menus.edit`; redirects `redirects.manage`; theme `theme.edit` + a step-up within 10 minutes.
+  Every action calls `actionContext` before reading its input (the two redirect actions read only `id` / `active` first,
+  to name the audited refusal, as A3/A5 do); every service re-decides the key in `contentTransaction`, locks its root FOR
+  UPDATE and compares the version the form showed (stale → refused, audited `failed`).
+- Rules to keep (each has tests; those from the review fail on `c13920f`):
+  - Set-up copies today's website once (`static-source.ts`); nothing invented: the map's place link, a site SEO
+    description and the share image start empty. The settings' languages are required; each language's status is A3's
+    `planTranslationStatus` from what changed and the form's "<language> is complete" / "does not affect the other
+    language" boxes — never a status from the browser; completion is stamped only when confirmed (A6 review L5). Menu
+    labels and interface-text values are written and stamped only when they change.
+  - A newly chosen default share image must be one A4 delivers: its `public_media` row, share-locked after the item
+    (a blocking flag refuses it; L1). Kept references may stay (A3/A4 rule).
+  - Addresses (website, Facebook, the map link) are decided on the parsed URL (https, a public host on the allow-list,
+    no credentials, `httpsUrlProblem`) and stored as typed (trimmed). The map link: up to 500 characters
+    (`httpsUrlProblem(value, max)`), maps.google.com / maps.app.goo.gl as they come, google.com / goo.gl only under
+    `/maps` (I3).
+  - Navigation: the frozen header destructures `[home, about, servicesNav, ...rest]` — Services stays third, the first
+    three always show, Projects (pages of its own) stays after Services (`pageMarkOnly`; I4); the Services menu is
+    fixed (its collection lists the live services; only its link's label changes). `site-registry.test.ts` pins these
+    to `Header.tsx`.
+  - Interface text: only the 34 registered keys (every dictionary text but `notFound.code`, plus the footer company
+    title); one form, one save, the site root's version; an empty value means today's text.
+  - Theme: `APPROVED_TOKENS` is empty (D-A6-3) — no field, and no screen imports `setTokenOverrideAction`, so the build
+    registers no action for it; `tokenStyle` draws only approved, valid #rrggbb values (never called while the list is
+    empty). Adding a token is the Owner's decision, one by one, with its contrast rule.
+  - Redirects: sources normalised (`normalizeSitePath`: the language first, one %-encoding, NFC, no part that decodes to
+    a control, formatting or default-ignorable character — L3), unique, never an address a page answers (static routes
+    and files, today's and the working records' slugs, share-locked); targets a page of today's website or a working
+    page / service / project (share-locked, not archived); no loop, no onward chain (point lookup); the inward check is
+    a plain read (a locking scan made two edits wait on each other; I2). Later changes elsewhere are marked in the list
+    and on the redirect (`warning`: a page now answers its old address; its target became another active source; L2);
+    A8's slug redirects and the A9 cutover must re-check every redirect, resolve visitor addresses through
+    `normalizeSitePath`, and let pages win.
+  - The preview: `overlayShell` lays a set-up part over `getShellView`'s output (menus, labels, the "every service"
+    label, contact details, statement, legal name, interface strings); a part not set up shows today's. Set up from
+    today's website, the shell preview equals the public shell word for word (`site.spec.ts`). Location and the quote
+    form still read the static company (their notes say so). `e2e-admin/site.spec.ts` empties the A6 working copy in
+    `afterAll`, so the parity project sees today's website.
+- Settings form UI: `.adm-site-pair` aligns its fields at the start (a hint under one field stretched the other); the
+  redirects list's old address is a plain `th` (the lists' grid `.adm-cell-title` ended short of a taller row).
+- Recorded for later (A8 / A9 / Owner): the review's I1 (A1's menu index), I5 (the preview's coordinates), I6 (accepted
+  pattern) and the items in the A6 report's "unresolved" list.
 
 ## Rules from the brief
 
@@ -2560,3 +2653,22 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   once every image is loaded and decoded. To look at such a freeze: launch with `--remote-debugging-port`, find the tab
   that does not answer `Runtime.evaluate`, then `gdb -p <renderer pid> -batch -ex "thread 1" -ex bt` (gdb can attach in
   this container; the renderers are the `--type=renderer` processes).
+- The Write tool, like a Bash heredoc, turns `\uXXXX` escapes in the content into the literal characters: a regex such
+  as `[\u0600-\u06ff]` or a list of zero-width characters arrives in the file as invisible or look-alike characters
+  (A6: `site-paths.test.ts`, `site.spec.ts`). Write such escapes through a script (`chr(92) + "u200b"`) and scan the
+  changed files for `Cc` / `Cf` characters before committing.
+- Next.js registers a Server Action only when a client component (or a form in a server component) refers to it: an
+  exported action nothing imports is not in `.next/server/server-reference-manifest.json` and no request can reach it
+  (A6's `setTokenOverrideAction` while no token is approved). A test that forges it must expect "not in the build".
+- `.adm-table .adm-cell-title` is `display: grid` on a `th`: the cell stops being a table cell and its bottom border ends
+  where its content does. Use it only where the title cell is the row's tallest (A3–A5 lists); a short one-line row
+  header is a plain `th` (A6 redirects).
+- A3's `seedMedia` writes media rows by hand and no `public_media` row: a test that needs an image A4 delivers builds it
+  with `syncPublicMedia` (`deliveredPhoto` in `tests/integration/site-helpers.ts`, `releasePhoto` in A5's tests).
+- `String.prototype.slice` counts UTF-16 units and can cut an emoji in half; `encodeURI` then throws `URIError` on the
+  lone surrogate (A6's redirect search). Cut by code points (`[...text].slice(0, n).join("")`) and drop lone surrogates
+  before encoding.
+- The integration tests' clock stands still: a test that a value is not re-stamped must advance the clock
+  (`env.clock.advance`) and change who acts, or the old and new stamps are equal anyway.
+- A unique index with a nullable column admits repeated NULLs: A1's `uq_menu_items_position (menu_key, parent_id,
+  position)` does not protect top-level items (no parent); the service's root lock and renumbering do.

@@ -25,6 +25,11 @@ implemented**: no `/admin`, no database, no dependency, no migration, no content
 | A8 | Publishing, versions, audit & backup safety | compare/restore UI, scheduling, review comments, audit viewer, integrity checks, backup jobs and restore rehearsals |
 | A9 | Full content migration & complete QA | complete import of the current content; full freeze/parity proof; **one controlled cutover** of the public site to the database (a release built with `CONTENT_SOURCE=database`); the static release kept ready as an immediate rollback until A9 is accepted; static modules retired to test fixtures only after acceptance; complete QA |
 
+**Status** (the project's record, not part of the locked design above; reports in `docs/reports/`): A1–A5 are approved
+and closed (A5 by the Owner's "OWNER ACCEPTANCE OF A5 & AUTHORIZATION TO EXECUTE A6" brief); A6 is built, local
+implementation only, and awaits the Owner's review (`2026-10-30-admin-a6-global-site-controls.md`); A7–A9 are not
+started.
+
 **T1 = Option B (locked by the Owner, A1 Correction 1).** The website is not publicly deployed yet, and the Owner wants
 the complete admin/CMS before public hosting is activated. So A2–A8 are built and used **locally and in authenticated
 staging**; the approved public website stays on its current static source in production, with **no** progressive
