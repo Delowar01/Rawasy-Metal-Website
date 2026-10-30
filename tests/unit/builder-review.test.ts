@@ -223,6 +223,23 @@ describe("Final review — certificate copy as a visitor reads it", () => {
     for (const ok of ["123\u200B456", "Issued\u200B2026", "2026\u200B-01-15"]) assert.equal(digitGuardProblem(ok), null, JSON.stringify(ok));
   });
 
+  test("every other invisible character (default-ignorable, outside Cf) is read past too (A5 acceptance review)", () => {
+    // The combining grapheme joiner, variation selectors (two planes), a Mongolian variation selector and a Khmer
+    // inherent vowel (Mn), and the Hangul fillers (Lo): drawn as nothing or as a blank, never as a separator the guard knows.
+    const invisible = ["\u034F", "\uFE00", "\u{E0100}", "\u180B", "\u17B4", "\u115F", "\u1160", "\u3164", "\uFFA0"];
+    for (const c of invisible) {
+      const name = `U+${c.codePointAt(0)!.toString(16)}`;
+      assert.equal(textProblem(`Test${c}text`, { multiline: false }), null, `${name} is accepted as plain text`);
+      assert.equal(hasRegistrationNumber(`1010${c}123${c}456`), true, `grouped, ${name}`);
+      assert.equal(hasRegistrationNumber([..."1010123"].join(c)), true, `between every digit, ${name}`);
+      assert.notEqual(digitGuardProblem(`Test exp${c}iry`), null, `expiry wording, ${name}`);
+      assert.notEqual(digitGuardProblem(`This licence is valid unt${c}il 1447 AH`), null, `"valid until", ${name}`);
+      assert.equal(issuesOf("generic.heading", { title: `Registration 1010${c}123${c}456` }).length, 1, name);
+    }
+    // Controls: six digits stay six digits, a date stays a date.
+    for (const ok of ["123\u034F456", "Issued\u3164 2026", "2026\uFE00-01-15"]) assert.equal(digitGuardProblem(ok), null, JSON.stringify(ok));
+  });
+
   test("a link's address, anchor, email or phone number holds no registration number; record links and ordinary addresses pass", () => {
     const button = (target: LinkTarget) => ({ actions: [{ id: "i1", target, style: "primary" }] });
     const cta = (target: LinkTarget) => issuesOf("generic.cta", { title: "Test call", actions: { i1: { label: "Test button" } } }, button(target));
