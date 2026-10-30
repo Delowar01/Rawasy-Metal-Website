@@ -79,6 +79,10 @@ export async function saveMenuAction(input: unknown): Promise<SiteActionState> {
   return run("menu.update", "menus.edit", (change) => saveMenu(change, input));
 }
 
+/**
+ * Set one design-token override. No screen calls it while no token is approved (D-A6-3: the list is empty), so the build
+ * registers no action for it and no request can reach it; once the Owner approves a token, its screen imports this.
+ */
 export async function setTokenOverrideAction(input: unknown): Promise<SiteActionState> {
   return run("theme.override", "theme.edit", (change) => setTokenOverride(change, input), { stepUp: true });
 }
@@ -88,7 +92,10 @@ export async function resetThemeAction(input: unknown): Promise<SiteActionState>
 }
 
 export async function saveRedirectAction(input: unknown): Promise<SiteActionState> {
-  return run("redirect.save", "redirects.manage", (change) => saveRedirect(change, input));
+  // Only the id is read first, to name the refusal as the service names the change (an id: an edit), as the toggle is
+  // named by `active`.
+  const id = (input as { id?: unknown } | null)?.id;
+  return run(typeof id === "string" && id ? "redirect.update" : "redirect.create", "redirects.manage", (change) => saveRedirect(change, input));
 }
 
 export async function setRedirectActiveAction(input: { id: unknown; expectedVersion: unknown; active: unknown }): Promise<SiteActionState> {
