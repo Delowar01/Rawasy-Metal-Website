@@ -64,10 +64,12 @@ export function BlockImage({
   const { image, focal } = item;
   const text = decorative ? "" : alt || item.alt[ctx.locale] || "";
   const optimizer = image.unoptimized ? { unoptimized: true } : {};
+  // The reveal's own style (its delay) joins the frame's width cap: spread after it, it would replace the cap.
+  const { style: revealStyle, ...reveal } = (motion ?? {}) as { style?: CSSProperties; [attribute: string]: unknown };
   const ratio = RATIOS[aspect];
   if (!ratio) {
     return (
-      <div className={`gb-photo ${className}`.trim()} data-aspect="original" style={{ maxWidth: image.width }} {...frame} {...motion}>
+      <div className={`gb-photo ${className}`.trim()} data-aspect="original" style={{ ...revealStyle, maxWidth: image.width }} {...frame} {...reveal}>
         <Image src={image.src} alt={text} width={image.width} height={image.height} sizes={sizes} placeholder="blur" blurDataURL={image.blurDataURL} priority={priority} {...optimizer} />
       </div>
     );
@@ -77,7 +79,7 @@ export function BlockImage({
   const cap = Math.floor(Math.min(image.width, (image.height * ratio[0]) / ratio[1]));
   const position = focal ? `${Math.round(focal.x * 1000) / 10}% ${Math.round(focal.y * 1000) / 10}%` : "50% 50%";
   return (
-    <div className={`gb-photo ${className}`.trim()} data-aspect={aspect} style={{ maxWidth: cap }} {...frame} {...motion}>
+    <div className={`gb-photo ${className}`.trim()} data-aspect={aspect} style={{ ...revealStyle, maxWidth: cap }} {...frame} {...reveal}>
       <Image
         src={image.src}
         alt={text}

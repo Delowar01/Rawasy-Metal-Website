@@ -871,6 +871,36 @@ test.describe("A5 acceptance review", () => {
     await editor.unroute(path);
     expect(await englishTitles(id)).toEqual(["Test saving heading"]);
   });
+
+  test("a photo in a generic Image block, with the block's own entrance, is never drawn wider than its file", async ({ browser }) => {
+    const editor = await as(browser, "editor");
+    const id = await newPageLayout(editor, "test-review-photo", "Test Review Photo");
+    await addBlock(editor, "Image");
+    await inspector(editor).getByRole("button", { name: "Choose…" }).click();
+    const picker = editor.getByRole("dialog", { name: "Choose: Photo" });
+    await picker.getByLabel("Search media").fill("chandelier-1");
+    await picker.getByRole("button", { name: "Search", exact: true }).click();
+    await picker.locator("button.adm-pick").filter({ hasText: "chandelier-1" }).first().click();
+    await expect(picker).toBeHidden();
+    await inspector(editor).getByLabel(/^Alt text/).fill("Test review photo");
+    await saveLayout(editor);
+    const image = (await sectionIds("page_id", id)).find((s) => s.block_type === "generic.image")!;
+    // The release photo is 322 × 322 px; the desktop preview's section is far wider.
+    for (const shape of ["original", "1x1"]) {
+      if (shape !== "original") {
+        await card(editor, "Image").getByRole("button", { name: "Edit “Image”" }).click();
+        await inspector(editor).getByLabel("Shape").selectOption(shape);
+        await saveLayout(editor);
+      }
+      const f = await previewReady(editor);
+      const photo = f.locator(`[data-section="${image.id}"] .gb-photo`);
+      await expect(photo).toHaveAttribute("data-motion", "reveal");
+      expect(await photo.evaluate((el) => ({ max: getComputedStyle(el).maxWidth, width: el.getBoundingClientRect().width })), shape).toEqual({
+        max: "322px",
+        width: 322,
+      });
+    }
+  });
 });
 
 test.describe("the admin gate", () => {
