@@ -4,7 +4,7 @@ import { FleetPlate } from "@/components/commerce/capabilities/FleetPlate";
 import { CertificateDocuments, CertificateTable, RedactionNote } from "@/components/commerce/certificates/CertificatesPage";
 import { ClientsWall } from "@/components/commerce/clients/ClientsPage";
 import { ContactActions, DirectContact, QuoteSection } from "@/components/commerce/contact/ContactPage";
-import { workingContactRows } from "../site";
+import { workingContactRows, workingPlace, workingReach } from "../site";
 import { Location } from "@/components/commerce/contact/Location";
 import { quoteFormText } from "@/components/commerce/contact/quote-text";
 import { IndustryStrip, SectorsSection } from "@/components/commerce/industries/IndustriesPage";
@@ -42,8 +42,8 @@ import { filterOptionsOf, projectNotes, projectView, showcasedProjects } from ".
  * to action, the services index, the clients wall, the certificate register and redaction note, the sectors with their
  * classification note, the quote section and the location, and the legal text in its band — the approved components of
  * `src/components/commerce/*`, drawn from the sections' data and the working records. The company's contact details
- * (phones, email, WhatsApp, address) stay the website's current ones until Site settings (A6); the quotation form is
- * today's handoff form, unchanged (A7).
+ * (phones, email, WhatsApp, address, the map's search) are the company settings' working copy (A6; today's while those
+ * are not set up); the quotation form is today's handoff form, unchanged.
  */
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -439,13 +439,15 @@ function SectorsGroup({ items, ctx }: { items: Placed[]; ctx: RenderContext }) {
 
 async function QuoteBlock({ section, ctx }: BlockProps) {
   const c = section.content;
-  // The form is today's handoff form, word for word (A7 boundary): its own texts are the website's.
+  // The form is today's handoff form, word for word (A7 boundary): its own texts are the website's; the request it
+  // prepares goes to the working copy's email address and WhatsApp number (A6).
   const [page, services] = await Promise.all([getContactContent(), getServices()]);
   return (
     <QuoteSection
       head={{ label: textOf(c, "label"), title: textOf(c, "title"), intro: textOf(c, "intro"), stepsLabel: textOf(c, "stepsLabel"), steps: linesOf(c, "steps"), status: textOf(c, "status") }}
       text={quoteFormText(ctx.locale, page, services)}
       privacyHref={ctx.hrefOf(ctx.locale, "privacy")}
+      reach={workingReach(ctx.site)}
     />
   );
 }
@@ -455,6 +457,7 @@ function LocationBlock({ section, ctx }: BlockProps) {
   return (
     <Location
       locale={ctx.locale}
+      place={workingPlace(ctx.site, ctx.locale)}
       text={{
         label: textOf(c, "label"),
         title: textOf(c, "title"),

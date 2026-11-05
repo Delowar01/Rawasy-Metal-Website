@@ -202,6 +202,6 @@ export const HOME_BLOCKS: BlockDefinition[] = [
     renderedIds: ["contact-title"],
     settings: { media: media("Panel photo") },
     content: { label: text("Label", 80), title: text("Title", 200), steps: lines("Steps", 3, 160), whatsapp: text("WhatsApp action text", 60) },
-    note: "Phone, email, WhatsApp and address come from the company's current details (read-only until Site settings, A6).",
+    note: "Phone, email, WhatsApp and address come from the company settings (today's while those are not set up).",
   },
 ];

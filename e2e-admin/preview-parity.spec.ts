@@ -19,6 +19,7 @@ import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import sharp from "sharp";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { company } from "../src/content/company";
 import { cli, cliEnv, queryTestDb } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
@@ -359,4 +360,81 @@ test("a control: one changed word in a section's text is caught by the DOM, the 
   } finally {
     await queryTestDb("UPDATE page_section_translations SET content = ? WHERE section_id = ? AND locale = 'en'", [original, row.id]);
   }
+});
+
+/**
+ * A6 final correction: the Contact page's location card, map and quote form in the preview read the company settings'
+ * working copy (the A6 report's preview-fidelity limitation), through the approved components' optional inputs; the
+ * public Contact page, served by the same server meanwhile, stays today's byte for byte. Synthetic values, written
+ * through the A6 services (`e2e-admin/seed-site.mjs`), emptied again at the end (the parity tests above saw nothing set
+ * up: the same blocks then equal the public page's).
+ */
+test("A6 final correction: with a working copy, the Contact preview's location card, map and quote form read it; the public page stays today's", async ({ browser }) => {
+  const edits = {
+    email: "test.quotes@example.test",
+    phone: { display: "+966 50 000 0001", e164: "+966500000001" },
+    mapsQuery: "Test Industrial Area 1, Test City",
+    mapsPlaceUrl: "https://maps.app.goo.gl/TestPlace123",
+    en: { legalName: "Test Legal Name Company", addressLines: ["Test line one", "Test line two"], addressFull: "Test line one, Test line two" },
+    ar: { legalName: "اسم قانوني تجريبي", addressLines: ["سطر تجريبي أول", "سطر تجريبي ثان"], addressFull: "سطر تجريبي أول، سطر تجريبي ثان" },
+  };
+  const visitor = await browser.newContext();
+  contexts.push(visitor);
+  const publicHtml = async () => Promise.all((["en", "ar"] as const).map(async (l) => (await visitor.request.get(`/${l}/contact`)).text()));
+  const before = await publicHtml();
+  const seed = (args: string[]) => execFileSync(process.execPath, [join(ROOT, "e2e-admin/seed-site.mjs"), ...args], { env: cliEnv(), encoding: "utf8" });
+  seed(["set", JSON.stringify(edits)]);
+  try {
+    // The public page: served unchanged while the working copy exists, and none of its values in it.
+    const during = await publicHtml();
+    expect(during).toEqual(before);
+    for (const html of during) {
+      expect(html).toContain(`mailto:${company.email}`);
+      for (const value of [edits.email, edits.phone.e164, edits.mapsPlaceUrl, encodeURIComponent(edits.mapsQuery)]) expect(html).not.toContain(value);
+    }
+
+    const query = encodeURIComponent(edits.mapsQuery);
+    for (const [locale, width, scheme] of [["en", 1280, "light"], ["ar", 390, "dark"]] as const) {
+      const other = locale === "en" ? "ar" : "en";
+      const page = await session(browser, width, scheme);
+      await settle(page, `/admin/preview/page/${ids.contact}?locale=${locale}&theme=${scheme}`);
+      const card = page.locator("#location");
+      await expect(card.locator(".cp-loc-address > span")).toHaveText(edits[locale].addressLines);
+      await expect(card.locator(".cp-loc-legal")).toHaveText(edits[locale].legalName);
+      await expect(card.locator(".cp-loc-legal-other")).toHaveText(edits[other].legalName);
+      await expect(card.locator(`a[href="tel:${edits.phone.e164}"]`)).toHaveCount(1);
+      await expect(card.locator(`a[href="mailto:${edits.email}"]`)).toHaveCount(1);
+      await expect(card.locator("iframe")).toHaveAttribute("src", `https://www.google.com/maps?q=${query}&hl=${locale}&z=15&output=embed`);
+      await expect(card.locator("a.btn-steel")).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${query}`);
+      await expect(card.locator("a.link-arrow")).toHaveAttribute("href", edits.mapsPlaceUrl);
+      await expect(card.locator(".cp-map-surface-text")).toHaveText(edits[locale].addressFull);
+      const shown = await card.evaluate((el) => el.outerHTML);
+      for (const today of [company.email, company.phones[0].e164, company.legalName.en, company.legalName.ar, encodeURIComponent(company.address.en.full)]) expect(shown).not.toContain(today);
+
+      // The quote form: without script its form opens the working email address; with it, the prepared request goes to
+      // the working email address and WhatsApp number (the first number, which has WhatsApp).
+      const form = page.locator("#quote form");
+      await expect(form).toHaveAttribute("action", new RegExp(`^mailto:${edits.email.replace(/\./g, "\\.")}\\?subject=`));
+      await expect(form).toHaveJSProperty("noValidate", true);
+      await page.fill("#quote-fullName", "Test Person");
+      await page.fill("#quote-email", "test.visitor@example.test");
+      await page.fill("#quote-phone", "+966 50 123 4567");
+      await page.selectOption("#quote-service", "laser-cutting");
+      await page.fill("#quote-message", "A synthetic request for the preview fidelity test only.");
+      await form.locator('button[type="submit"]').evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+      await form.locator('button[type="submit"]').click();
+      await expect(page.locator(".qf-ready")).toBeVisible();
+      await expect(page.locator(`.qf-ready a[href^="mailto:${edits.email}?subject="]`)).toHaveCount(1);
+      await expect(page.locator(`.qf-ready a[href^="https://wa.me/${edits.phone.e164.slice(1)}?text="]`)).toHaveCount(1);
+      expect(await page.locator("#quote").evaluate((el) => el.outerHTML)).not.toContain(company.email);
+    }
+  } finally {
+    seed(["clear"]);
+  }
+  // Emptied again: the preview's card is today's once more, and the public page never changed.
+  const page = await session(browser, 1280, "light");
+  await settle(page, `/admin/preview/page/${ids.contact}?locale=en&theme=light`);
+  await expect(page.locator("#location a.link-arrow")).toHaveAttribute("href", `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address.en.full)}`);
+  await expect(page.locator(`#location a[href="mailto:${company.email}"]`)).toHaveCount(1);
+  expect(await publicHtml()).toEqual(before);
 });

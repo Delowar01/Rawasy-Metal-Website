@@ -1,4 +1,5 @@
 import { company } from "@/content/company";
+import type { CompanyInfo } from "@/content/types";
 import type { Locale } from "@/i18n/config";
 import { directionsUrl, mapEmbedUrl, mapSearchUrl } from "@/lib/maps";
 import { SectionHead } from "../home/SectionHead";
@@ -24,16 +25,38 @@ export interface LocationText {
   external: string;
 }
 
+/** What the card and the map show: the address, the registered names, the first phone, the email and the map's links. */
+export interface LocationPlace {
+  lines: string[];
+  full: string;
+  legalName: CompanyInfo["legalName"];
+  phone: { display: string; e164: string };
+  email: string;
+  map: { embed: string; directions: string; search: string };
+}
+
+/** Today's: the company's facts (company.ts) and the address search (maps.ts). */
+function todaysPlace(locale: Locale): LocationPlace {
+  return {
+    lines: company.address[locale].lines,
+    full: company.address[locale].full,
+    legalName: company.legalName,
+    phone: company.phones[0],
+    email: company.email,
+    map: { embed: mapEmbedUrl(locale), directions: directionsUrl, search: mapSearchUrl },
+  };
+}
+
 /**
  * Where RAWASY is: the verified address, the registered name and direct contact beside a Google map of the address.
  * The map itself is unchanged from the previous design (decision D10): the keyless, lazy embed of an address search
  * (src/lib/maps.ts), its title and referrer policy, and the "Get directions" and "Open in Google Maps" links. Only its
  * frame is Modern Commerce: a rounded, bordered plate whose surface carries the address until the map loads (or if it
- * is blocked). Stacked on phones, details first, so directions are one tap away.
+ * is blocked). Stacked on phones, details first, so directions are one tap away. The website passes no `place`: it
+ * shows today's facts; the admin preview passes the company settings' working copy (A6).
  */
-export function Location({ locale, text }: { locale: Locale; text: LocationText }) {
+export function Location({ locale, text, place = todaysPlace(locale) }: { locale: Locale; text: LocationText; place?: LocationPlace }) {
   const other: Locale = locale === "ar" ? "en" : "ar";
-  const address = company.address[locale];
   return (
     <section id="location" aria-labelledby="location-title" className="sec cp-location">
       <div className="shell">
@@ -48,7 +71,7 @@ export function Location({ locale, text }: { locale: Locale; text: LocationText 
               <div className="min-w-0">
                 <p className="cp-label">{text.address}</p>
                 <address className="cp-loc-address">
-                  {address.lines.map((line) => (
+                  {place.lines.map((line) => (
                     <span key={line} className="block">
                       {line}
                     </span>
@@ -58,12 +81,12 @@ export function Location({ locale, text }: { locale: Locale; text: LocationText 
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-4">
-              <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-steel">
+              <a href={place.map.directions} target="_blank" rel="noopener noreferrer" className="btn btn-steel">
                 {text.directions}
                 <span className="sr-only"> ({text.external})</span>
                 <Icon name="arrow-up-right" size={17} />
               </a>
-              <a href={mapSearchUrl} target="_blank" rel="noopener noreferrer" className="link-arrow">
+              <a href={place.map.search} target="_blank" rel="noopener noreferrer" className="link-arrow">
                 <span>{text.openMap}</span>
                 <span className="sr-only"> ({text.external})</span>
                 <Icon name="arrow-up-right" size={15} />
@@ -72,9 +95,9 @@ export function Location({ locale, text }: { locale: Locale; text: LocationText 
 
             <div className="cp-loc-name">
               <p className="cp-label">{text.name}</p>
-              <p className="cp-loc-legal">{company.legalName[locale]}</p>
+              <p className="cp-loc-legal">{place.legalName[locale]}</p>
               <p lang={other} dir={other === "ar" ? "rtl" : "ltr"} className={`cp-loc-legal-other ${locale === "ar" ? "text-right" : "text-left"}`}>
-                {company.legalName[other]}
+                {place.legalName[other]}
               </p>
             </div>
 
@@ -83,12 +106,12 @@ export function Location({ locale, text }: { locale: Locale; text: LocationText 
               <div className="grid gap-2">
                 <ContactRow
                   compact
-                  row={{ icon: "phone", tone: "steel", label: text.callLabel, value: company.phones[0].display, href: `tel:${company.phones[0].e164}`, action: text.call, ltr: true }}
+                  row={{ icon: "phone", tone: "steel", label: text.callLabel, value: place.phone.display, href: `tel:${place.phone.e164}`, action: text.call, ltr: true }}
                   externalLabel={text.external}
                 />
                 <ContactRow
                   compact
-                  row={{ icon: "mail", tone: "steel", label: text.emailLabel, value: breakableEmail(company.email), href: `mailto:${company.email}`, action: text.send, ltr: true }}
+                  row={{ icon: "mail", tone: "steel", label: text.emailLabel, value: breakableEmail(place.email), href: `mailto:${place.email}`, action: text.send, ltr: true }}
                   externalLabel={text.external}
                 />
               </div>
@@ -101,10 +124,10 @@ export function Location({ locale, text }: { locale: Locale; text: LocationText 
                 <span className="icon-chip icon-chip-lg" data-tone="brand">
                   <Icon name="pin" size={24} />
                 </span>
-                <span className="cp-map-surface-text">{address.full}</span>
+                <span className="cp-map-surface-text">{place.full}</span>
               </div>
               <iframe
-                src={mapEmbedUrl(locale)}
+                src={place.map.embed}
                 title={text.mapTitle}
                 loading="lazy"
                 referrerPolicy="strict-origin-when-cross-origin"

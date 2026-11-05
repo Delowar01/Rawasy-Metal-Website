@@ -1,7 +1,7 @@
 /**
  * What every renderer of the page builder's preview receives (A5): the section (its id, type, anchor, validated settings
  * and the chosen language's texts) and the render context — the language, the working records and media the page
- * names, the static shell (header, footer, the company's current contact details: read-only until A6) and the address
+ * names, the shell (header, footer, the company's contact details: the A6 working copy, or today's) and the address
  * function of the site's routes. Built once per preview request by the preview route; nothing here is cached or
  * published.
  */

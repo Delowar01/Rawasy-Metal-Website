@@ -105,16 +105,20 @@ export function DirectContact({ title, rows, externalLabel }: { title: string; r
 
 /**
  * The quote section (`#quote`): how a request works, the note that it is prepared for the visitor to send, and the form.
- * No reveal here: every quote action lands on it, and the form must be there at once.
+ * No reveal here: every quote action lands on it, and the form must be there at once. The website passes no `reach`: the
+ * prepared request goes to today's email address and WhatsApp number; the admin preview passes the company settings'
+ * working copy (A6).
  */
 export function QuoteSection({
   head,
   text,
   privacyHref,
+  reach,
 }: {
   head: { label: string; title: string; intro: string; stepsLabel: string; steps: string[]; status: string };
   text: QuoteFormText;
   privacyHref: string;
+  reach?: { email: string; whatsapp: string };
 }) {
   return (
     <section id="quote" aria-labelledby="quote-title" className="sec sec-sheet sec-muted cp-quote">
@@ -150,7 +154,7 @@ export function QuoteSection({
         </div>
 
         <div className="card cp-form lg:col-span-8">
-          <QuoteForm text={text} email={company.email} whatsapp={whatsappUrl()} privacyHref={privacyHref} />
+          <QuoteForm text={text} email={reach?.email ?? company.email} whatsapp={reach?.whatsapp ?? whatsappUrl()} privacyHref={privacyHref} />
         </div>
       </div>
     </section>

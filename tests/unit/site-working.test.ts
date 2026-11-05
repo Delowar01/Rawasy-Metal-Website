@@ -16,7 +16,7 @@ import { footerNav, headerNav, legalNav } from "../../src/content/navigation.ts"
 import { getDictionary } from "../../src/i18n/dictionaries.ts";
 import { LOCALES, MENU_SLOTS, routePath, type Locale, type SiteRouteKey } from "../../src/server/site/registry.ts";
 import { staticMenus, staticSettings, staticUiTexts } from "../../src/server/site/static-source.ts";
-import { overlayShell, uiValue, workingCompany, workingDictionary, workingWhatsappHref, workingWhatsappPhone, type WorkingSite } from "../../src/server/site/working.ts";
+import { overlayShell, uiValue, workingCompany, workingDictionary, workingMap, workingWhatsappHref, workingWhatsappPhone, type WorkingSite } from "../../src/server/site/working.ts";
 
 /** Today's shell, the fields `overlayShell` reads, as `getShellView` fills them (route and path null: nothing marked). */
 function todayShell(locale: Locale): ShellView {
@@ -105,6 +105,7 @@ describe("nothing set up", () => {
     const site = emptySite();
     assert.equal(workingCompany(company, site), company);
     assert.equal(workingWhatsappHref(site, whatsappUrl()), whatsappUrl());
+    assert.deepEqual(workingMap(site, company), { query: company.address.en.full, placeUrl: "" });
     for (const locale of LOCALES) {
       assert.deepEqual(workingDictionary(getDictionary(locale), site, locale), getDictionary(locale));
       assert.deepEqual(overlayShell(todayShell(locale), site, locale), todayShell(locale));
@@ -117,6 +118,8 @@ describe("copied from today's website", () => {
     const site = copiedSite();
     assert.deepEqual(workingCompany(company, site), company);
     assert.equal(workingWhatsappHref(site, "unused"), whatsappUrl());
+    // The map searches today's text (the English address) and has no place link: the set-up invents none.
+    assert.deepEqual(workingMap(site, company), { query: company.address.en.full, placeUrl: "" });
     for (const locale of LOCALES) {
       assert.deepEqual(workingDictionary(getDictionary(locale), site, locale), getDictionary(locale));
       assert.deepEqual(overlayShell(todayShell(locale), site, locale), todayShell(locale), locale);
@@ -168,5 +171,27 @@ describe("an edited working copy", () => {
     assert.equal(uiValue(site, "navigation.footerCompanyTitle", "ar", "today"), "today");
     // Everything outside the shell's working parts is today's.
     for (const key of ["locale", "current", "self", "alternate", "links"] as const) assert.deepEqual(shell[key], base[key]);
+  });
+});
+
+describe("the map of the working copy (the Contact page's location card and map in the preview)", () => {
+  test("its search and RAWASY's own place link; an empty search falls back to the working English address, then today's", () => {
+    const site = copiedSite();
+    site.settings.values.mapsQuery = "Test Street 1, Test City";
+    site.settings.values.mapsPlaceUrl = "https://maps.app.goo.gl/TestPlace123";
+    assert.deepEqual(workingMap(site, company), { query: "Test Street 1, Test City", placeUrl: "https://maps.app.goo.gl/TestPlace123" });
+    site.settings.values.mapsQuery = "   ";
+    site.settings.values.texts.en.addressFull = "Test working address";
+    assert.equal(workingMap(site, company).query, "Test working address");
+    site.settings.values.texts.en.addressFull = "";
+    assert.equal(workingMap(site, company).query, company.address.en.full);
+  });
+
+  test("a stored place link the settings would refuse now is never drawn (defence in depth)", () => {
+    const site = copiedSite();
+    for (const url of ["http://maps.google.com/?cid=1", "https://evil.example.test/maps", "javascript:alert(1)", "https://www.google.com/search?q=x"]) {
+      site.settings.values.mapsPlaceUrl = url;
+      assert.equal(workingMap(site, company).placeUrl, "", url);
+    }
   });
 });

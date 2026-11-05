@@ -1,8 +1,8 @@
 /**
  * The bespoke blocks of Industries, Clients, Certificates, Contact, the legal pages and the 404 (A1-CONTENT-MODEL §5.3,
  * §16): the copy and choices of `src/components/commerce/{industries,clients,certificates,contact,legal}/*` and
- * `inner/NotFound.tsx`. Records (industries, clients, certificates) stay in their A3 tables and the company's details
- * stay in the code until Site settings (A6); the blocks hold the pages' labels, notes and selections only.
+ * `inner/NotFound.tsx`. Records (industries, clients, certificates) stay in their A3 tables and the company's details in
+ * the company settings (A6); the blocks hold the pages' labels, notes and selections only.
  *
  * - The certificate register shows only the redacted previews (A4's public-class `public_preview` documents); a private
  *   original never reaches a page. The redaction note is a required part of the page.
@@ -133,7 +133,7 @@ export const COMPANY_BLOCKS: BlockDefinition[] = [
       steps: lines("Steps (one per line)", 5, 300),
       status: textarea("How the request is sent (required)", 400, { required: true }),
     },
-    note: "The form is the approved handoff form, unchanged: it prepares an email or a WhatsApp message for the visitor to send. Nothing is submitted to or stored by the website (enquiries are A7).",
+    note: "The form is the approved handoff form, unchanged: it prepares an email or a WhatsApp message for the visitor to send, to the email address and WhatsApp number of the company settings (today's while those are not set up). Nothing is submitted to or stored by the website.",
   },
   {
     ...required,
@@ -163,7 +163,7 @@ export const COMPANY_BLOCKS: BlockDefinition[] = [
       send: text("Email action text", 60),
       emailLabel: text("Email label", 60),
     },
-    note: "The address, registered name, phone and email are the company's current details (read-only until Site settings, A6); the map is the approved address search, unchanged.",
+    note: "The address, registered names, phone, email and the map's search come from the company settings (today's while those are not set up); the map is the approved address search, and \"Open in Google Maps\" opens RAWASY's own place link once one is set.",
   },
   {
     ...required,

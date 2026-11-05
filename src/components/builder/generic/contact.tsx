@@ -9,8 +9,8 @@ import { GenericSection, Head, motionProps, readClass } from "../frame";
 import { specOf } from "../parts";
 
 /**
- * Contact details (A5 brief §21, the A6 boundary): the company's current details exactly as the website shows them today
- * (read-only: Site settings, A6, will manage them), or details written for this block — phone numbers (optionally also
+ * Contact details (A5 brief §21): the company's details as the company settings' working copy holds them (A6; today's,
+ * exactly as the website shows them, while those are not set up), or details written for this block — phone numbers (optionally also
  * on WhatsApp), an email address, an address and opening hours. Every number and address comes from a validated value.
  */
 export async function GenericContactDetails({ section, ctx }: BlockProps) {

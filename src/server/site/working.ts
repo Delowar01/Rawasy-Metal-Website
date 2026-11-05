@@ -12,7 +12,7 @@ import type { Dictionary } from "../../i18n/dictionaries.ts";
 import type { Db } from "../db/client.ts";
 import { readMenus, type MenuModel } from "./menus.ts";
 import { routePath, type Locale, type MenuSlotKey } from "./registry.ts";
-import { readSettings, type SettingsModel } from "./settings.ts";
+import { mapsUrlProblem, readSettings, type SettingsModel } from "./settings.ts";
 import { readTheme, type ThemeModel } from "./theme.ts";
 import { readUiValues } from "./ui-text.ts";
 
@@ -45,6 +45,20 @@ export function workingWhatsappPhone(site: WorkingSite): { display: string; e164
   if (!site.settings.setUp) return null;
   const shown = site.settings.values.phones.filter((p) => p.isVisible && p.hasWhatsapp);
   return shown.find((p) => p.id === site.settings.primaryWhatsappPhoneId) ?? shown[0] ?? null;
+}
+
+/**
+ * The map of the working copy: the address text it searches and RAWASY's own place link. Nothing set up: today's search
+ * (the English address) and no link. Set up: the stored search (or, should it be empty, the working English address,
+ * today's rule), and the place link only while it is still one the settings accept (a Google Maps https address).
+ */
+export function workingMap(site: WorkingSite, base: CompanyInfo): { query: string; placeUrl: string } {
+  const today = { query: base.address.en.full, placeUrl: "" };
+  const s = site.settings;
+  if (!s.setUp) return today;
+  const { mapsQuery, mapsPlaceUrl } = s.values;
+  const query = mapsQuery.trim() || s.values.texts.en.addressFull.trim() || today.query;
+  return { query, placeUrl: mapsPlaceUrl && mapsUrlProblem(mapsPlaceUrl) === null ? mapsPlaceUrl : "" };
 }
 
 /** Today's company facts with the working settings laid over them (when set up). */

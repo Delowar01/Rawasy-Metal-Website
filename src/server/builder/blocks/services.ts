@@ -277,6 +277,6 @@ export const SERVICE_BLOCKS: BlockDefinition[] = [
       services: text("Services link text", 60),
       projects: text("Projects link text", 60),
     },
-    note: "The phone number comes from the company's current details (read-only until Site settings, A6).",
+    note: "The phone number comes from the company settings (today's while those are not set up).",
   },
 ];
