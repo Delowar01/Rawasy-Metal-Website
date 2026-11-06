@@ -10,11 +10,12 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-11-06-admin-a7-forms-enquiries.md` (Admin / CMS program, Phase A7 — forms and
-  enquiries, local implementation only: the quote form's working copy, the private inbox and workflow, notifications,
-  attachments, export and retention, all gated; the A6 closure summary; the A8 roadmap; its last section, "A7 FINAL
-  CORRECTION AND CLOSURE": the inbox search kept out of every address, the keyboard walkthrough, the closure QA and freeze)
-  (earlier: `2026-10-30-admin-a6-global-site-controls.md` (Phase A6 — global site controls; its last section, "A6 FINAL
+- Latest report: `docs/reports/2026-11-06-admin-a8-publishing-revisions-audit-backup.md` (Admin / CMS program, Phase A8
+  — publishing, revisions, the reference index, slug redirects, the audit log viewer, backup and restore tools, carried
+  hardening, local implementation only; the A7 closure; the security review; the restore drill; the A9 cutover plan)
+  (earlier: `2026-11-06-admin-a7-forms-enquiries.md` (Phase A7 — forms and enquiries; its last section, "A7 FINAL
+  CORRECTION AND CLOSURE": the inbox search kept out of every address, the keyboard walkthrough, the closure QA and
+  freeze), `2026-10-30-admin-a6-global-site-controls.md` (Phase A6 — global site controls; its last section, "A6 FINAL
   CORRECTION AND CLOSURE": the Contact preview correction, the closure QA and freeze),
   `2026-10-30-admin-a5-final-correction.md` (Phase A5 — final security and data-preservation correction:
   Next.js 16.4.1 / Zod 4.6.6, unsaved builder work when a session ends),
@@ -408,6 +409,30 @@
   identical on both servers). **A7 is technically closed** (formal closure authorized by that brief once
   the checks passed); rollback checkpoint: GitHub branch `preserve/pre-admin-a8` at the closure docs commit, pushed
   before any A8 commit.
+  **Phase A8 (Publishing, revisions, references, audit & backup safety) is built — local implementation only** (the same
+  brief; report `2026-11-06-admin-a8-publishing-revisions-audit-backup.md`; rollback checkpoint `preserve/pre-admin-a8`
+  at `c0e1074`) and awaits the Owner's review — not Owner-approved: see "Phase A8 implementation" below. Its commits,
+  each on its own: `10f19e8` schema, migrations 0010–0012 and their proofs; `5ead275` revisions, comparison, restore and
+  the reference index; `c5ea813` publication checks, the projection, the cache record, taking content offline; `7852a17`
+  slug-change redirects; `6b514b0` the workflow; `2da6e00` the audit log's query and sealed search; `47d67ca` admin
+  screens; `c3e0b68` backups and the runbook; `8628d63` carried hardening; `d123462` tests; the independent security
+  review (no High; 1 Medium, 7 Low, Info) corrected in `84ed520` (M1 the legal step-up, L1–L4, Info) and `cd9ef74`
+  (backups L5–L7), tests `08b309d` (each fails on `d123462`); `9b8b7f6` and `d2803b9` found by the admin suite (nothing
+  listed twice next to "Used by"; 24 px targets in the A8 tables), `13c5c29` and `361aefc` found by the evidence capture
+  (hints that said publishing comes later; phone labels). Every commit typechecks and lints on its own. QA on a fresh
+  clone of `361aefc` (from GitHub), every suite once (public twice): `npm ci`, audit `--omit=dev` 0 (all: 12 moderate,
+  dev-only), lint, typecheck, build (no warning), `db:check` (13 files), packaging (13 held back), unit 392 / 392,
+  integration 578 / 578, admin 176 / 176, public 611 / 612 in the first run (the homepage showcase race: its 12 tests ×
+  10 at 8 workers failed 1 / 120 on this build and 1 / 120 on the A7 baseline) and 612 / 612 in a second full run.
+  Restore drill (local, disposable): 84 / 88 tables identical (the 4 intended), files identical, new cache epoch, every
+  refusal as designed. Public freeze against `preserve/pre-admin-a8`: no public source changed; 890 / 890 files (0
+  different), 16 / 16 public entries from identical sources, CSS and JS on 104 / 104 pages, HTTP 229 / 229, pixels 378 /
+  398 identical at once (the other 20: the Arabic phone gallery's srcset choice; both builds make both choices, 0 pixels
+  between same-choice captures), heights equal in 136 views. Evidence `rawasy-a8-evidence.zip` (not committed): 64
+  captures on the final build, 8 contact sheets, 0 overflow. **Do not start A9** (the database-backed public site, the
+  content import, the cache handler, redirects resolving, `/media/u` decoupled from the gate, the public enquiry route)
+  and never activate public enquiry collection, SMTP, real email, stored attachments, automatic retention, a backup
+  schedule or off-site copies, or claim a key escrowed, without the Owner's explicit decision.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -518,7 +543,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A7 implemented locally)
+## Admin / CMS program (A1 specification; A2–A8 implemented locally)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -1254,6 +1279,73 @@
   `tests/integration/forms-helpers.ts`, `forms-definitions`, `forms-migration` (A–G), `enquiries-submission`,
   `enquiries-workflow`, `enquiries-review`; `e2e-admin/enquiries.spec.ts` (+ `seed-enquiries.mjs`, `gate-helpers.ts`;
   `afterAll` empties the A7 tables and resets the form's root). The A3–A6 migration tests take 0008/0009.
+
+### Phase A8 implementation (local only; report `2026-11-06-admin-a8-publishing-revisions-audit-backup.md`)
+
+- Scope (the A7/A8 brief, A8.1–A8.7): revisions of every aggregate, history, comparison, restore; the publishing
+  workflow and the public read model; the reference index; slug-change redirects; the audit log viewer; backup /
+  restore tools and the runbook; carried hardening. T1 Option B: **no public page reads any of it** —
+  `published_documents`, `content_references`, `cache_*` and the redirects are the admin's database until the A9
+  cutover; the public site still renders `src/content/*`. No scheduled publication, no revision pruning, no backup
+  schedule, no audit export (Owner decisions, report item 12).
+- Schema: `src/server/db/schema-publishing.ts` → `drizzle/0010_publishing.sql` (6 tables: `published_documents`,
+  `content_references`, `review_comments`, `cache_generation`, `cache_invalidations`, `system_job_runs`),
+  `0011_seed_publishing.sql` (the cache generation's row, from `src/server/publishing/registry.ts`),
+  `0012_menu_positions.sql` (`menu_items.top_position`, unique per menu, `ck_menu_items_top`: equal to `position` for
+  top-level items, NULL for nested ones; written by `menus.ts`). A3's `revisions` table is now used.
+- Code `src/server/publishing/` (framework-free, `.ts` imports): `registry.ts` (13 aggregate types, `workflowKeys` —
+  the seeded keys per step, never role names —, `allowed`, `canApprove`, `displayedState`, limits), `snapshot.ts`
+  (canonical snapshots per type, bookkeeping left out; `canonicalJson`, `sha256`), `revisions.ts` (`ROOTS`,
+  `writeRevision`, `closeRevisions`, history, `readRevision`, `submitterOf`), `compare.ts` (`diffSnapshots`: repeated
+  items matched by id; `changeLabel`), `restore.ts` (a snapshot replayed through the normal save services),
+  `references.ts` (`referencesOfSnapshot`, `writeReferences`, `usedBy`), `validate.ts` (`publicationIssues`,
+  `shownSnapshot`, the rendered-page certificate guard), `projection.ts` (`projectSnapshot`: admin-only fields out),
+  `cache.ts` (`tagsFor`, `recordInvalidations`, `newCacheEpoch`), `offline.ts` (`takeOffline`), `slug-redirects.ts`,
+  `workflow.ts` (every step), `rebuild.ts` (`npm run content:references`). `src/server/cms/changes.ts` is the
+  per-transaction change record (AsyncLocalStorage). Audit viewer `src/server/audit/viewer.ts`, sealed search
+  `src/server/admin/audit-search.ts`; backups `src/server/backup/{crypto,backup}.ts`, `scripts/backup.mjs`, runbook
+  `docs/admin/A8-BACKUP-RESTORE.md`. Next side: `src/server/admin/actions/publishing.ts`,
+  `src/app/(admin)/admin/_components/publishing.tsx` (`PublishingPanel`, `HistoryScreen`, `CompareScreen`,
+  `AuditScreen`), `src/components/admin/publishing/Workflow.tsx`, routes `(shell)/history/[type]/[id]`,
+  `…/compare`, `(shell)/audit`.
+- Rules to keep (each has tests):
+  - **Every change writes its revision in its own transaction.** `contentTransaction` keeps a change store; the root
+    locks (`lockRoot`, `lockOrdering`, the builder's `readOwner` / `readReusable` lock, `site/common.ts`, `lockForm`)
+    call `noteLocked`, creates call `noteCreated` (version −1); as it closes, `closeRevisions` writes one revision for
+    every root whose `lock_version` moved (kind from `setIntent`, default `save`; a service that wrote its own calls
+    `markRecorded`). A new root lock must call `noteLocked`, a new create `noteCreated`, or its changes leave no
+    version. `contentTransaction` is re-entrant for the same user (a restore replays a record's and its layout's save
+    as one change); another user's call opens its own transaction.
+  - Revisions are immutable: inserted once, never updated except `live_until` when a newer version goes live; a save
+    that changes nothing (same SHA-256) writes none. Snapshots carry `SNAPSHOT_SCHEMA_VERSION`; read older ones
+    through upcasters (none yet), never rewrite stored JSON.
+  - Every workflow step: `actionContext` first; then one transaction that locks the root FOR UPDATE, re-decides the
+    keys (`workflowKeys`), compares the version the page showed (stale → refused, audited), checks the state it starts
+    from (A1 §3), audits with the revisions before / after. `publish_reviewed` never approves one's own submission
+    (`submitterOf`: the newest `submit` revision's author); legal pages need `legal.publish` and a named legal
+    reviewer; menus, settings and the form have no review keys (published directly by `<resource>.publish`).
+  - Strict validation (`publicationIssues`) at submit and publish on the exact version: both languages complete,
+    layout set up and complete, media in `public_media` (share-locked), no blocking flag, the certificate guard on what
+    certificate blocks draw from live records, slug unique among live versions, redirects without conflict. Linked
+    records not live are warnings (an Owner decision pending).
+  - Taking content offline (unpublish, archive, a blocking flag on a live project, a reusable section's archive) goes
+    through `takeOffline` and clears `published_revision_id` in the same UPDATE as the status (A3's `ck_*_live` checks
+    refuse a published state without it, and an archived one with it).
+  - Restore never publishes and never bypasses a rule: it builds the save services' own inputs from the snapshot
+    (`contentForm`, `layoutPayload`, …) at the version the page showed; any refusal rolls the whole restore back
+    (`Rollback`) and is audited in its own transaction.
+  - The audit log's search is A7's sealing with purpose `audit_search` (`search-state.ts` takes a purpose), its own
+    `__Host-rawasy_audit_search` cookie, cleared at sign-in and sign-out (`clearSessionCookie`); the address carries
+    filters only (`auditAddress`); filters are parsed to fixed grammars (`parseAuditQuery`); `changes` go through
+    `redactChanges`. Review comments live in `review_comments`, never in an audit summary.
+  - Relation rows are written as a diff (`replaceRelation`): kept rows change position only. Never go back to
+    delete-and-reinsert (the A3 project/service deadlock).
+  - Backups: never inside a Git repository (refused), credentials only in a 0600 option file, encrypted with the
+    Owner's public key, restore only into an empty database and folder, then a new cache epoch. Run the drill only on
+    disposable local databases.
+- Tests: `tests/unit/publishing-core.test.ts`, `backup-crypto.test.ts`; `tests/integration/publishing-migration.test.ts`
+  (A–G), `publishing-workflow.test.ts`, `publishing-aggregates.test.ts`; `e2e-admin/publishing.spec.ts`. The A3–A7
+  migration tests take 0010–0012; A3's "no revision exists" test now checks that a save publishes nothing.
 
 ## Rules from the brief
 
@@ -2814,3 +2906,27 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   the later steps after the move (`fresh(role)` in the A7 tests).
 - A Content-Disposition name cut to a length can end in a different extension ("….bat.pdf" cut to "….bat"): cut the stem
   and put the proven extension back (`downloadName`).
+- MariaDB refuses a generated (virtual or stored) column over a column whose foreign key cascades (error 1901): A8's
+  `menu_items.top_position` is a written column kept equal to `position` by the service and a CHECK (with `IS NOT NULL`:
+  a CHECK passes on NULL).
+- A locking read (`FOR UPDATE` / `LOCK IN SHARE MODE`) of a row that does not exist yet takes a gap lock; two
+  transactions that both take it and then both insert into that gap deadlock (A8's concurrent creates and first
+  publications: 12 / 12 rounds before the fix). Read through a pointer on a row you already hold (`current_revision_id`,
+  `published_revision_id`), skip deletes when you know there are no rows, and let a unique index decide (catch 1062).
+- `INSERT … ON DUPLICATE KEY UPDATE` fires on any unique key, not only the primary key: on a table with a second unique
+  index (`published_documents`' slug) a collision there updates the other row. Insert or update by the key you mean.
+- To count deadlocks in one integration file, wrap its own pool's connections (`countingPool` in
+  `tests/integration/publishing-review.test.ts`): the suite runs four files at once, so MariaDB's global
+  `Innodb_deadlocks` counter mixes them.
+- A test id that must pass a ULID check uses Crockford's alphabet: no I, L, O or U ("…LEGAL1" was silently "not found").
+- axe's `target-size` result depends on the data: short labels kept a table row's links on one line in a spec run alone,
+  long ones in the full suite wrapped them 17 px apart. Seed the dense case in the test itself.
+- A table that stacks on phones (`.adm-table.is-stack`) loses its header row: give every cell `data-label`.
+- The MariaDB client's `--sandbox` (11.4.2+) refuses `\!`, `source` and other file or shell commands inside a dump;
+  restores use it.
+- The review wrapper configs (`review.playwright*.config.ts`, untracked) take the browser from `PW_EXEC`. Without it,
+  Playwright looks for its own headless shell (1194, not installed here), and every test fails at launch: 120 "failed"
+  that never ran. Read the error before reading a count.
+- The homepage showcase's race (the gotcha above) also showed in A8's first fresh-clone public run (611 / 612). Its 12
+  tests × 10 at 8 workers failed 1 / 120 on the A8 build and 1 / 120 on the A7 baseline build, the same way each time
+  (the clicked machine's link stayed `tabindex=-1`).
