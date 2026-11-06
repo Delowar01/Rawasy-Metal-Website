@@ -23,7 +23,9 @@
     "db:status": "node scripts/db-migrate.mjs status",
     "media:import-release": "node scripts/media-import-release.mjs",
     "media:baseline": "node scripts/media-release-baseline.mjs",
-    "media:maintenance": "node scripts/media-maintenance.mjs"
+    "media:maintenance": "node scripts/media-maintenance.mjs",
+    "email:outbox": "node scripts/email-outbox.mjs",
+    "enquiries:retention": "node scripts/enquiry-retention.mjs"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",
