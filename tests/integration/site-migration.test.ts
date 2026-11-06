@@ -25,6 +25,10 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const CLI = join(ROOT, "scripts/db-migrate.mjs");
 const A5_TAGS = ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library", "0005_page_builder"];
 const ALL_TAGS = [...A5_TAGS, "0006_site_controls", "0007_seed_site_controls"];
+/** A7 added 0008_forms_enquiries and 0009_seed_forms_enquiries after the A6 files: every committed migration applies. */
+const COMMITTED = [...ALL_TAGS, "0008_forms_enquiries", "0009_seed_forms_enquiries"];
+/** The tables 0008 adds (A7's own proofs: tests/integration/forms-migration.test.ts). */
+const A7_TABLE_COUNT = 10;
 const A6_TABLES = [
   "company_phones",
   "design_token_overrides",
@@ -137,14 +141,14 @@ async function seedA5(c: Conn) {
 }
 
 describe("A. an empty database", () => {
-  test("takes all eight migrations, then reports nothing pending", async () => {
+  test("takes every migration (A6's eight, then A7's 0008–0009), then reports nothing pending", async () => {
     const database = await freshDatabase("a6mig_a");
     const up = await cli(database, ["up"]);
     assert.equal(up.code, 0, up.stderr);
-    for (const tag of ALL_TAGS) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
+    for (const tag of COMMITTED) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, new RegExp(`Applied \\(8\\): ${ALL_TAGS.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(10\\): ${COMMITTED.join(", ")}`));
     assert.match(status.stdout, /Pending \(0\): none/);
   });
 });
@@ -155,7 +159,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
   const columnsBefore: Record<string, string[]> = {};
   let before: Record<string, string> = {};
 
-  test("B. an A5 database takes exactly the two A6 files", async () => {
+  test("B. an A5 database takes exactly the two A6 files (and, since A7, 0008–0009 after them)", async () => {
     database = await freshDatabase("a6mig_b");
     const c = await serverConnection(database);
     try {
@@ -174,6 +178,8 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
     assert.equal(up.code, 0, up.stderr);
     assert.match(up.stdout, /Applied 0006_site_controls/);
     assert.match(up.stdout, /Applied 0007_seed_site_controls/);
+    assert.match(up.stdout, /Applied 0008_forms_enquiries/);
+    assert.match(up.stdout, /Applied 0009_seed_forms_enquiries/);
     assert.doesNotMatch(up.stdout, /Applied 000[0-5]/);
   });
 
@@ -182,7 +188,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
     assert.equal(again.code, 0);
     assert.match(again.stdout, /Nothing to apply/);
     const status = await cli(database, ["status"]);
-    assert.match(status.stdout, new RegExp(`Applied \\(8\\): ${ALL_TAGS.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(10\\): ${COMMITTED.join(", ")}`));
   });
 
   test("D. the hash and order checks refuse a changed or reordered A6 file", async () => {
@@ -222,7 +228,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
       );
       const a6 = all.filter((r) => A6_TABLES.includes(r.t));
       assert.equal(a6.length, A6_TABLES.length);
-      assert.equal(all.length, tables.length + A6_TABLES.length);
+      assert.equal(all.length, tables.length + A6_TABLES.length + A7_TABLE_COUNT);
       for (const table of a6) assert.deepEqual([table.e, table.co], ["InnoDB", "utf8mb4_unicode_520_ci"], table.t);
       const keys = await rows<{ t: string; c: string; co: string }>(
         c,
@@ -353,7 +359,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
   test("G. npm run db:check passes (drizzle-kit check, the migration files, the seed against the registries)", async () => {
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
     const { stdout } = await run(npm, ["run", "--silent", "db:check"], { cwd: ROOT, env: { ...process.env, NODE_ENV: "test" } });
-    assert.match(stdout, /Migration files OK: 8/);
+    assert.match(stdout, /Migration files OK: 10/);
     assert.match(stdout, /Seed migrations match the registries/);
   });
 });

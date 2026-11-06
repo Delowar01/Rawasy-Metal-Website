@@ -23,9 +23,11 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const CLI = join(ROOT, "scripts/db-migrate.mjs");
 const ALL_TAGS = ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library", "0005_page_builder"];
 /** A6 added 0006_site_controls and 0007_seed_site_controls after the A5 file: every committed migration applies, A5's among them. */
-const COMMITTED = [...ALL_TAGS, "0006_site_controls", "0007_seed_site_controls"];
+const COMMITTED = [...ALL_TAGS, "0006_site_controls", "0007_seed_site_controls", "0008_forms_enquiries", "0009_seed_forms_enquiries"];
 /** The tables 0006 adds (A6's own proofs: tests/integration/site-migration.test.ts). */
 const A6_TABLE_COUNT = 11;
+/** The tables 0008 adds (A7's own proofs: tests/integration/forms-migration.test.ts). */
+const A7_TABLE_COUNT = 10;
 const A5_TABLES = ["page_sections", "page_section_translations", "reusable_sections", "reusable_section_translations"];
 
 async function cli(database: string, args: string[]) {
@@ -148,7 +150,7 @@ describe("A. an empty database", () => {
     for (const tag of COMMITTED) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, new RegExp(`Applied \\(8\\): ${COMMITTED.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(10\\): ${COMMITTED.join(", ")}`));
     assert.match(status.stdout, /Pending \(0\): none/);
   });
 });
@@ -179,6 +181,7 @@ describe("B–G. a database at A4 with accounts, content and media, upgraded to 
     assert.match(up.stdout, /Applied 0005_page_builder/);
     assert.match(up.stdout, /Applied 0006_site_controls/);
     assert.match(up.stdout, /Applied 0007_seed_site_controls/);
+    assert.match(up.stdout, /Applied 0009_seed_forms_enquiries/);
     assert.doesNotMatch(up.stdout, /Applied 000[0-4]/);
   });
 
@@ -187,7 +190,7 @@ describe("B–G. a database at A4 with accounts, content and media, upgraded to 
     assert.equal(again.code, 0);
     assert.match(again.stdout, /Nothing to apply/);
     const status = await cli(database, ["status"]);
-    assert.match(status.stdout, new RegExp(`Applied \\(8\\): ${COMMITTED.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(10\\): ${COMMITTED.join(", ")}`));
   });
 
   test("D. the hash and order checks still refuse a changed or reordered A5 file", async () => {
@@ -221,7 +224,7 @@ describe("B–G. a database at A4 with accounts, content and media, upgraded to 
       );
       const a5 = all.filter((r) => A5_TABLES.includes(r.t));
       assert.equal(a5.length, A5_TABLES.length);
-      assert.equal(all.length, tables.length + A5_TABLES.length + A6_TABLE_COUNT);
+      assert.equal(all.length, tables.length + A5_TABLES.length + A6_TABLE_COUNT + A7_TABLE_COUNT);
       for (const table of a5) assert.deepEqual([table.e, table.co], ["InnoDB", "utf8mb4_unicode_520_ci"], table.t);
       const keys = await rows<{ t: string; c: string; co: string }>(
         c,
@@ -314,7 +317,7 @@ describe("B–G. a database at A4 with accounts, content and media, upgraded to 
   test("G. npm run db:check passes (drizzle-kit check, the migration files, the seed against the registries)", async () => {
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
     const { stdout } = await run(npm, ["run", "--silent", "db:check"], { cwd: ROOT, env: { ...process.env, NODE_ENV: "test" } });
-    assert.match(stdout, /Migration files OK: 8/);
+    assert.match(stdout, /Migration files OK: 10/);
     assert.match(stdout, /Seed migrations match the registries/);
   });
 });
