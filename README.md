@@ -602,6 +602,33 @@ reaches the website — until the approved cutover (A9): no public route or acti
 - Attachments are stored in `RAWASY_DATA_DIR/enquiries/YYYY/MM/` (private, never under `public/`); `npm run
   media:maintenance` lists files there that no enquiry holds (never deleting them).
 
+**10. Publishing, versions, audit and backups (A8).** Every saved change leaves a version; publishing makes a version
+live in the database's public read model — which **no public page reads before the content cutover (A9)**: the
+website keeps showing today's approved content.
+
+- **The publishing panel** (on every record, layout owner, reusable section, menu, the settings and the quote form):
+  the state (Draft, In review, Published, Published · changes in draft …), what keeps it from being published, the
+  live version, and the steps the signed-in person may take — **Submit for review** (an optional note), **Request
+  changes** (a comment is required), **Withdraw**, **Approve and publish** (someone else's submission), **Publish**,
+  **Unpublish**, **Discard draft changes**. The permission keys decide who sees which (Editors submit, Reviewers review
+  and approve others' submissions, Owners and Admins publish; certificates and legal pages are the Owner's, and a legal
+  page asks for a recent sign-in and who reviewed its text). A step taken on a page opened before a newer change is
+  refused, never applied over it.
+- **Version history** (`/admin/history/<type>/<id>`, linked from the panel): every version with who, when and what;
+  **compare** two versions (or one with the working copy) field by field, English and Arabic side by side; **Restore**
+  makes an earlier version the working copy again as a new version (nothing is published); **Roll back** publishes an
+  earlier published version again.
+- **Where it is named**: the reference index lists the pages, sections, menus, collections and settings that name an
+  item (media items too). `npm run content:references` rebuilds it whole (after a database restore).
+- **Redirects**: publishing a page, service or project under a new address adds a 308 redirect from each language's old
+  address (stored, inactive until A9).
+- **Audit log** (`/admin/audit`, Owner and Admin): filters by outcome, kind of record, record, person, action and
+  dates (in the address); the search stays out of the address (a sealed cookie, like the inbox search).
+- **Backups** (operator tools, never run by the app): `npm run backup -- keygen | create | verify | restore` — see
+  [`docs/admin/A8-BACKUP-RESTORE.md`](docs/admin/A8-BACKUP-RESTORE.md) (encryption to the Owner's key, the manifest
+  fingerprint to record, restore drills into an empty database and folder, key escrow). Never into Git, the release
+  folder or `public_html` (refused).
+
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
 ```bash
