@@ -2769,3 +2769,222 @@ ol.adm-bld-rich-reads {
     border: 1px solid CanvasText;
   }
 }
+
+/* --- Forms and enquiries (A7): the form editor, the inbox and an enquiry's page ------------------------------------ */
+/* As A4–A6: every grid has minmax(0, 1fr) columns and long buttons wrap, so nothing passes a 320 px screen. */
+
+.adm-form-editor {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.adm-form-choice > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.adm-form-choice-hint {
+  margin: 0;
+}
+
+.adm-form-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+}
+
+.adm-form-fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.adm-form-field {
+  min-width: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: var(--adm-surface);
+}
+
+.adm-form-field > details > summary {
+  cursor: pointer;
+  padding: 0.65rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-form-field-name {
+  font-weight: 600;
+}
+
+.adm-form-field-body {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.adm-form-locales {
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .adm-form-locales {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.adm-form-locale {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.adm-enq-summary .adm-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
+}
+
+.adm-enq-summary .adm-stat a {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  text-decoration: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-enq-summary .adm-stat a:is(:hover, :focus-visible) {
+  border-color: var(--adm-border-strong);
+}
+
+.adm-stat-label {
+  color: var(--adm-muted);
+  font-size: 0.875rem;
+}
+
+.adm-enq-from {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-enq-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .adm-enq-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.adm-enq-main,
+.adm-enq-side {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.adm-enq-message {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+
+.adm-enq-files,
+.adm-enq-notes,
+.adm-enq-history,
+.adm-enq-mail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-enq-notes > li,
+.adm-enq-history > li {
+  padding-block-end: 0.6rem;
+  border-block-end: 1px solid var(--adm-border);
+}
+
+.adm-enq-notes p {
+  margin: 0 0 0.2rem;
+}
+
+.adm-enq-file-name {
+  overflow-wrap: anywhere;
+}
+
+.adm-enq-controls,
+.adm-enq-reason,
+.adm-enq-assign,
+.adm-enq-note-form,
+.adm-enq-export {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.adm-enq-controls .adm-btn,
+.adm-enq-reason .adm-btn,
+.adm-enq-assign .adm-btn,
+.adm-enq-note-form .adm-btn,
+.adm-enq-export .adm-btn,
+.adm-enq-files .adm-btn,
+.adm-enq-mail .adm-btn,
+.adm-form-field .adm-btn {
+  white-space: normal;
+  text-align: center;
+}
+
+.adm-enq-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.adm-enq-inline > select {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.adm-enq-export > p:empty {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .adm-form-field,
+  .adm-enq-summary .adm-stat a {
+    border: 1px solid CanvasText;
+  }
+}

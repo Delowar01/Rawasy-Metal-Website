@@ -34,6 +34,8 @@ const ICONS = {
   text: "M4 18 8 6l4 12M5.5 14h5M14 18v-5.5a2.5 2.5 0 0 1 5 0V18M14 15h5",
   redirects: "M4 7h11a4 4 0 0 1 0 8H8M8 11l-4 4 4 4",
   theme: "M12 3a9 9 0 1 0 0 18c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.3-4-7.8-9-7.8z",
+  inbox: "M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z",
+  forms: "M6 3h12v18H6zM9 8h6M9 12h6M9 16h3",
 };
 
 /** The Core CMS areas (A3), in the brief's order. */
@@ -110,6 +112,23 @@ function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {
             <NavLink href="/admin/theme">
               <Icon d={ICONS.theme} />
               Theme
+            </NavLink>
+          ) : null}
+        </div>
+      ) : null}
+      {permissions.has("enquiries.view") || permissions.has("content.view") ? (
+        <div className="adm-nav-group">
+          <p className="adm-nav-title">Enquiries</p>
+          {permissions.has("enquiries.view") ? (
+            <NavLink href="/admin/enquiries">
+              <Icon d={ICONS.inbox} />
+              Enquiry inbox
+            </NavLink>
+          ) : null}
+          {permissions.has("content.view") ? (
+            <NavLink href="/admin/forms">
+              <Icon d={ICONS.forms} />
+              Forms
             </NavLink>
           ) : null}
         </div>

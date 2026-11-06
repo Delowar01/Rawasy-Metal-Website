@@ -14,6 +14,7 @@ import { canSeePrivate } from "@/server/media/access";
 import { privateMediaIds, publicView, readLastReport, reportHasProblems, type MaintenanceReport } from "@/server/media/maintenance";
 import { MEDIA_LIMITS } from "@/server/media/registry";
 import { mediaStore } from "@/server/media/storage";
+import { enquirySummary } from "@/server/enquiries/enquiries";
 import { formatBytes } from "../_components/media";
 import { formatTime, PageHeader, RIYADH_NOTE, RoleBadges } from "../_components/parts";
 
@@ -200,7 +201,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const deps = authDeps();
   const now = deps.clock();
-  const [sessions, codes, events, facts, counts, media] = await guarded(() =>
+  const [sessions, codes, events, facts, counts, media, enquiries] = await guarded(() =>
     Promise.all([
       countLiveSessions(deps.db, actor.user.id, now),
       mfa.enrolled ? remainingRecoveryCodes(deps.db, actor.user.id) : Promise.resolve(0),
@@ -213,6 +214,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       actor.permissions.has("users.view") ? accountFacts(deps) : Promise.resolve(null),
       actor.permissions.has("content.view") ? Promise.all(COUNTED.map((type) => countItems(deps.db, type))) : Promise.resolve(null),
       actor.permissions.has("media.view") ? mediaStats(deps.db, actor.permissions, now, MEDIA_LIMITS.stuckProcessingMs) : Promise.resolve(null),
+      actor.permissions.has("enquiries.view") ? enquirySummary(deps.db, actor.user.id, now) : Promise.resolve(null),
     ]),
   );
   // The last storage check (Owner and Admin): read from the data folder when it is configured on this server.
@@ -285,6 +287,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <dd>{facts.locked}</dd>
             </dl>
             <Link href="/admin/users">Users &amp; access</Link>
+          </section>
+        ) : null}
+        {enquiries ? (
+          <section className="adm-card" aria-labelledby="dash-enquiries">
+            <h2 id="dash-enquiries">Enquiries</h2>
+            <dl className="adm-dl">
+              <dt>New</dt>
+              <dd>{enquiries.byStatus.new}</dd>
+              <dt>Open</dt>
+              <dd>{enquiries.byStatus.open}</dd>
+              <dt>Not assigned</dt>
+              <dd>{enquiries.unassigned}</dd>
+            </dl>
+            <Link href="/admin/enquiries">Enquiry inbox</Link>
           </section>
         ) : null}
       </div>

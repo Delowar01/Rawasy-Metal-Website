@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PreviewCanvas } from "@/components/builder/PreviewCanvas";
+import { FormPreview } from "@/components/builder/FormPreview";
 import { SiteShellPreview } from "@/components/builder/SiteShellPreview";
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
 import { loadPreview, type PreviewDevice, type PreviewKind } from "@/server/builder/preview";
+import { readForm } from "@/server/forms/forms";
 import { readWorkingSite } from "@/server/site/working";
 
 /*
@@ -17,6 +19,8 @@ import { readWorkingSite } from "@/server/site/working";
  *
  * A6: every preview draws the site's working copy (company details, navigation, interface text; today's values where
  * it is not set up), and /admin/preview/site/shell shows the header and footer on their own.
+ *
+ * A7: /admin/preview/form/{id} draws a form's working copy in the approved quote section (`FormPreview`).
  */
 
 const KINDS: readonly PreviewKind[] = ["page", "service", "reusable"];
@@ -30,11 +34,17 @@ export default async function PreviewPage({ params, searchParams }: PageProps<"/
   if (!actor.permissions.has("content.view") || !actor.permissions.has("preview.use")) notFound();
   const { kind, id } = await params;
   const site = kind === "site" && id === "shell";
-  if (!site && (!(KINDS as readonly string[]).includes(kind) || !ULID.test(id))) notFound();
+  const form = kind === "form" && ULID.test(id);
+  if (!site && !form && (!(KINDS as readonly string[]).includes(kind) || !ULID.test(id))) notFound();
   const query = await searchParams;
   const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
   const locale = one(query.locale) === "ar" ? "ar" : "en";
   if (site) return <SiteShellPreview site={await guarded(() => readWorkingSite(authDeps().db))} locale={locale} />;
+  if (form) {
+    const [model, working] = await guarded(() => Promise.all([readForm(authDeps().db, { id }), readWorkingSite(authDeps().db)]));
+    if (!model) notFound();
+    return <FormPreview form={model} site={working} locale={locale} />;
+  }
   const device = (DEVICES as readonly string[]).includes(one(query.device) ?? "") ? (one(query.device) as PreviewDevice) : "desktop";
   const frame = one(query.frame) === "1";
   const [model, working] = await guarded(() => Promise.all([loadPreview(authDeps().db, kind as PreviewKind, id, { locale, device }), readWorkingSite(authDeps().db)]));
