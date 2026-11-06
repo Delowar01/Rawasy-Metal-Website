@@ -97,7 +97,7 @@ export function MediaPicker({
             </button>
           </div>
           <p className="adm-hint">
-            Public-class media only. Pending and restricted items can be prepared in drafts, but only an approved item can ever be published (A8). Private documents are
+            Public-class media only. Pending and restricted items can be prepared in drafts, but publishing refuses any item that isn&apos;t approved and deliverable. Private documents are
             never offered.
           </p>
           <div className="adm-picker-search" role="search">

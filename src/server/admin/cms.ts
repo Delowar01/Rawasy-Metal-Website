@@ -142,7 +142,7 @@ const textField = (spec: KindSpec, key: string): TextFieldModel => {
 };
 
 const SLUG_HINTS: Record<EntityType, string> = {
-  page: "The page's address: /en/<slug> and /ar/<slug> once publishing exists. Lowercase English letters, digits and hyphens.",
+  page: "The page's address: /en/<slug> and /ar/<slug> once it is published (live on the public website from the content cutover, A9). Lowercase English letters, digits and hyphens.",
   service: "The service's address part, shared by both languages. Lowercase English letters, digits and hyphens.",
   machine: "Also the machine's anchor on the Capabilities page (/capabilities#<slug>).",
   project: "The project's address part and its anchor in the gallery (/projects#<slug>).",

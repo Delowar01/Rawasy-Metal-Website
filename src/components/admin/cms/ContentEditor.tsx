@@ -362,7 +362,7 @@ export function ContentEditor({
           <section className="adm-card" id="media" aria-labelledby="media-title">
             <h2 id="media-title">Media</h2>
             <p className="adm-hint">
-              Choosing an item only links it to this draft: it never approves or publishes the item. Items not yet approved show why, and publishing (A8) will refuse
+              Choosing an item only links it to this draft: it never approves or publishes the item. Items not yet approved show why, and publishing refuses
               them.
             </p>
             {mediaSlots.map(slotField)}

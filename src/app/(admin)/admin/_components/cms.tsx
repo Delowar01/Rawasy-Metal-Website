@@ -59,7 +59,7 @@ export function StateBadge({ locale, state }: { locale: "en" | "ar"; state: CmsL
 
 /** The A3 boundary, said once on every content screen: drafts only, nothing public. */
 export function DraftNote() {
-  return <p className="adm-hint">Working records only: nothing here changes the public website. Publishing arrives in a later phase (A8).</p>;
+  return <p className="adm-hint">Working records: publishing fills the database&apos;s public read model; the public website keeps today&apos;s content until the content cutover (A9).</p>;
 }
 
 // --- Lists -------------------------------------------------------------------------------------------------------------
@@ -513,7 +513,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
         <section className="adm-card" id="restrictions" aria-labelledby="restrictions-title">
           <h2 id="restrictions-title">Restrictions</h2>
           <p className="adm-hint">
-            Safety flags keep a project off the public site once publishing exists. They never publish or approve anything; each photo&apos;s own rights and approval are
+            Safety flags keep a project from being published, and a blocking flag takes a live version offline at once. They never publish or approve anything; each photo&apos;s own rights and approval are
             kept on the photo, in the media library.
           </p>
           <FlagsPanel
@@ -668,7 +668,7 @@ export async function ContentOrder({ type }: { type: EntityType }) {
       <PageHeader
         title={`Order of ${info.many.toLowerCase()}`}
         crumbs={[{ label: info.many, href: info.path }, { label: "Order" }]}
-        lead="The order the public site will use once publishing exists. Archived items keep their place and are stepped over."
+        lead="The order the public site uses once it is published (read from the content cutover, A9). Archived items keep their place and are stepped over."
       />
       {!canMove ? <p className="adm-alert is-info">Your roles let you view this order, not change it.</p> : null}
       <section className="adm-card" aria-label={`Order of ${info.many.toLowerCase()}`}>

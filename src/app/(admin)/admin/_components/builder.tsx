@@ -27,7 +27,7 @@ const DONE: Record<string, string> = {
   linked: "Created the reusable section; the section now shows it.",
 };
 
-const WORKING_NOTE = "Working layout only: the public website does not use it until publishing exists (A8) and the website switches to the database (A9).";
+const WORKING_NOTE = "Working layout: the public website does not use it before the content cutover (A9); publishing makes it the live version in the database.";
 
 /** The layout builder of a page or a service. */
 export async function BuilderScreen({ type, id, searchParams }: { type: "page" | "service"; id: string; searchParams: SearchParams }) {
@@ -61,7 +61,7 @@ export async function BuilderScreen({ type, id, searchParams }: { type: "page" |
       <p className="adm-hint">{WORKING_NOTE}</p>
       {done ? (
         <div className="adm-alert is-success" role="status">
-          <p>{done} The preview shows the saved working copy; nothing is public until publishing exists (A8).</p>
+          <p>{done} The preview shows the saved working copy; the live version changes only when someone publishes.</p>
         </div>
       ) : null}
       {!actor.permissions.has("preview.use") ? (

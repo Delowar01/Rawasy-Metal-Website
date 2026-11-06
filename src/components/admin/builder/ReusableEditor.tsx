@@ -218,7 +218,7 @@ export function ReusableEditor({ model, viewer }: { model: ReusableEditorModel; 
               <strong>
                 Used by {model.uses.length} section{model.uses.length === 1 ? "" : "s"}.
               </strong>{" "}
-              Saving changes the working preview of every page and service that links it; no visitor sees it until publishing exists (A8).
+              Saving changes the working preview of every page and service that links it; its live version changes only when someone publishes it, and no visitor sees any of it before the content cutover (A9).
             </p>
             {model.uses.length ? (
               <ul>

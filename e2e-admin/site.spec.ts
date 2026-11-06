@@ -256,7 +256,7 @@ test.describe("the Site screens by role", () => {
       for (const path of SCREENS.slice(0, 3)) {
         await open(page, path);
         await expect(main(page).getByRole("heading", { name: "Not set up yet" }), `${role} ${path}`).toBeVisible();
-        await expect(main(page).getByText("Working copy only: the public website keeps today's settings, menus and text", { exact: false })).toBeVisible();
+        await expect(main(page).getByText("Working copy: the public website keeps today's settings, menus and text until the content cutover (A9)", { exact: false })).toBeVisible();
         const copy = main(page).getByRole("button", { name: /^Copy today's/ });
         if (role === "owner" || role === "admin") await expect(copy, `${role} ${path}`).toBeVisible();
         else {

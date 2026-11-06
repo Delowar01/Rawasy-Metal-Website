@@ -642,7 +642,7 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
             {removing?.reusable
               ? "It shows a reusable section; removing it removes only this link (the reusable section stays)."
               : `It holds ${holdsContent(removing ? blockOf(removing) : undefined, removing?.data ?? null).join(", ")}.`}{" "}
-            Until you save, Undo brings it back. A saved removal is kept in the layout&apos;s history once revisions exist (A8).
+            Until you save, Undo brings it back. After saving, an earlier version can be restored from the version history.
           </p>
           <div className="adm-actions">
             <button

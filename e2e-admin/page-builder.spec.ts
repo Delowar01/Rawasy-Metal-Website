@@ -176,7 +176,7 @@ test.describe("a generic page", () => {
     await editor.getByRole("link", { name: "Edit page layout" }).click();
     await editor.waitForURL(`**/admin/pages/${ids.page}/builder`);
     await expect(editor.getByRole("heading", { level: 1 })).toHaveText("Layout: Test Builder Page");
-    await expect(editor.getByText("Working layout only: the public website does not use it")).toBeVisible();
+    await expect(editor.getByText("Working layout: the public website does not use it before the content cutover (A9)")).toBeVisible();
     await expect(outline(editor)).toContainText("This layout is not set up yet.");
     await editor.getByRole("button", { name: "Set up this layout" }).click();
     await editor.waitForURL(/done=setup/);
