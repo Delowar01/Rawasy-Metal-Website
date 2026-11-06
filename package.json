@@ -26,7 +26,8 @@
     "media:maintenance": "node scripts/media-maintenance.mjs",
     "email:outbox": "node scripts/email-outbox.mjs",
     "enquiries:retention": "node scripts/enquiry-retention.mjs",
-    "content:references": "node scripts/content-references.mjs"
+    "content:references": "node scripts/content-references.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",
