@@ -237,6 +237,9 @@ export async function submitEnquiry(deps: SubmissionDeps, input: SubmissionInput
         projectLocation: values.location || null,
         message: values.message,
         consentAt: values.consent ? now : null,
+        // A8: the privacy policy version live when the visitor sent it (its sealed publish revision; none before the
+        // policy is published). Read with a share lock: a publish of the policy waits for this, or this sees it.
+        privacyRevisionId: await livePrivacyRevision(tx),
         ip: input.ip ? input.ip.slice(0, 45) : null,
         userAgent: input.userAgent ? input.userAgent.slice(0, 255) : null,
         notificationStatus: notify ? "pending" : "not_required",
@@ -311,3 +314,12 @@ async function removeAll(store: MediaStore | undefined, keys: string[]) {
 
 /** A fresh random nonce (exported for tests that make tokens by hand). */
 export const randomNonce = () => randomBytes(16);
+
+/** The live privacy policy's revision (A1 `enquiries.privacy_revision_id`), or null while it has none. */
+async function livePrivacyRevision(tx: Db): Promise<string | null> {
+  const [row] = await rowsOf<{ published_revision_id: string | null }>(
+    tx,
+    sql`SELECT published_revision_id FROM pages WHERE system_key = 'privacy' AND page_type = 'legal' AND deleted_at IS NULL AND publication_status = 'published' LOCK IN SHARE MODE`,
+  );
+  return row?.published_revision_id ?? null;
+}

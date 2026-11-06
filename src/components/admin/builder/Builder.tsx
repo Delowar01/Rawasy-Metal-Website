@@ -98,7 +98,10 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
   useStickyBar(root, bar);
 
   const sectionsKey = layoutKey(sections);
-  const dirty = sectionsKey !== openedKey;
+  // A8.7 (A5 acceptance review, item 3): the layout the server last confirmed as stored. A save the server answers with
+  // "Nothing to save" (the same version) makes this working copy the base, so the builder is no longer "unsaved".
+  const [baseKey, setBaseKey] = useState(openedKey);
+  const dirty = sectionsKey !== baseKey;
 
   // The copy of this working copy kept in the tab, and the one an earlier visit kept (until restored or discarded).
   const keeper = useDraft({
@@ -293,6 +296,12 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
   // --- Save and the immediate actions -----------------------------------------------------------------------------------------
 
   // `done` names what the screen confirms once it has reloaded the stored layout (fixed wording on the server side).
+  /** Reloads the stored layout without the last action's banner in the address (A5 acceptance review, item 4). */
+  const reloadLatest = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("done");
+    window.location.replace(url.toString());
+  };
   const afterSave = (result: BuilderSaveState, done: Done) => {
     if (result.status === "ok") {
       // The builder opens again with the saved layout (a new version: a new history), the selection kept in the address;
@@ -311,6 +320,7 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
         // Should the reload not arrive (a lost connection), editing comes back rather than staying locked.
         window.setTimeout(() => setReloading(false), 20_000);
       }
+      if (result.lockVersion === model.lockVersion) setBaseKey(sectionsKey);
       router.replace(`${url.pathname}${url.search}`, { scroll: false });
     } else if (result.status === "stale") setSave({ status: "stale", message: result.message });
     else if (result.status === "signed_out") setSave({ status: "signed_out", message: result.message, reason: result.reason });
@@ -487,7 +497,7 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
             Your edits are still here. Reloading shows the latest saved layout; your edits are not applied to it, but a copy stays in this tab and is
             offered for download after the reload.
           </p>
-          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version? Your edits are not applied to it; a copy stays in this tab for download.") && window.location.reload()}>
+          <button type="button" className="adm-btn" onClick={() => window.confirm("Reload the latest version? Your edits are not applied to it; a copy stays in this tab for download.") && reloadLatest()}>
             Reload the latest version
           </button>
         </div>
@@ -495,13 +505,15 @@ export function Builder({ model, initialSection, viewer }: { model: BuilderModel
       {save.status === "error" ? (
         <div className="adm-alert is-error" role="alert">
           <p>{save.message}</p>
-          {issues.filter((i) => !i.ref || !sections.some((s) => s.ref === i.ref)).length ? (
+          {issues.length ? (
             <ul>
-              {issues
-                .filter((i) => !i.ref || !sections.some((s) => s.ref === i.ref))
-                .map((i, n) => (
-                  <li key={n}>{i.message}</li>
-                ))}
+              {/* A8.7 (A5 acceptance review, item 1): every reason is said here, a section's with its place in the layout. */}
+              {[...new Set(issues.map((i) => {
+                const at = i.ref ? sections.findIndex((s) => s.ref === i.ref) : -1;
+                return at >= 0 ? `Section ${at + 1}: ${i.message}` : i.message;
+              }))].map((text, n) => (
+                <li key={n}>{text}</li>
+              ))}
             </ul>
           ) : null}
           {issues.some((i) => i.ref && sections.some((s) => s.ref === i.ref)) ? <p>The sections marked “Needs attention” in the outline say what to change.</p> : null}

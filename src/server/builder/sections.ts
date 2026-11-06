@@ -31,7 +31,7 @@ import { contentTransaction, type CmsDeps } from "../cms/store.ts";
 import { noteCreated } from "../cms/changes.ts";
 import { ulid } from "../security/ids.ts";
 import type { BlockDefinition, OwnerKind } from "./block.ts";
-import { cloneWithNewIds, defaultsOf, LOCALES, referencesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type Settings } from "./fields.ts";
+import { BUILDER_LIMITS, cloneWithNewIds, defaultsOf, LOCALES, referencesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type Settings } from "./fields.ts";
 import { layoutInputSchema, NEW_REF, reusableNameSchema, sectionActionSchema, type SectionInput } from "./input.ts";
 import { certificateAnchorProblem, certificateIssues, isCertificateCopy, referenceIssues } from "./references.ts";
 import { REGISTRY, type ReadResult } from "./registry.ts";
@@ -67,6 +67,17 @@ import {
   type LayoutSection,
 } from "./structure.ts";
 import { planTexts } from "./texts.ts";
+
+/** Refusals of input the builder never produces (audited when a save meets one: A8.7). */
+const FORGED_INPUT: ReadonlySet<string> = new Set([
+  "A section's block type and reusable link can't be changed here.",
+  "This section shows a reusable section: edit it in Reusable sections, or detach it first.",
+  "A linked section shows the reusable section's own settings and texts.",
+  "The reusable section's block type doesn't match.",
+  "Unknown block type.",
+  "This reusable section is archived: restore it before linking it.",
+  "This reusable section no longer exists.",
+]);
 
 export const LAYOUT_STALE = "This page layout changed after you opened it. Reload and review the latest version before saving.";
 export const SECTION_GONE = "A section of this layout is no longer on this page. Reload the builder.";
@@ -236,6 +247,9 @@ async function checkData(
 
 /** One layout save (A5 brief §31–§35). `raw` is the parsed JSON the action received; it is validated here. */
 export async function saveLayout(change: BuilderChange, raw: unknown): Promise<LayoutResult> {
+  // A8.7 (A5 acceptance review, item 6): too many sections is said as such (the schema's limit answered "couldn't be read").
+  const count = raw && typeof raw === "object" && Array.isArray((raw as { sections?: unknown }).sections) ? (raw as { sections: unknown[] }).sections.length : 0;
+  if (count > BUILDER_LIMITS.sectionsPerOwner) return { kind: "invalid", message: `A layout holds at most ${BUILDER_LIMITS.sectionsPerOwner} sections (this one has ${count}). Remove some, then save.`, issues: [] };
   const parsed = layoutInputSchema.safeParse(raw);
   if (!parsed.success) return { kind: "invalid", message: "The layout couldn't be read. Reload the builder and try again.", issues: [] };
   const input = parsed.data;
@@ -433,7 +447,13 @@ export async function saveLayout(change: BuilderChange, raw: unknown): Promise<L
       const problem = p.def && isCertificateCopy(owner.kind, p.def) ? certificateAnchorProblem(p.write.anchor) : null;
       if (problem) issues.push({ ref: p.ref, path: "anchor", message: problem });
     }
-    if (issues.length) return { kind: "invalid", message: "Some sections need attention. Nothing was saved.", issues };
+    if (issues.length) {
+      // A8.7 (A5 acceptance review, item 10): input the builder never sends — a stored section's block type or link
+      // changed, texts for a linked section, a link to a missing or archived reusable section — is audited as a failed
+      // change, like a refused structure change; ordinary field problems are not (they are typing, not refusals).
+      if (issues.some((i) => FORGED_INPUT.has(i.message))) return refused(tx, change, now, owner, "layout.save", "Some sections need attention. Nothing was saved.", issues);
+      return { kind: "invalid", message: "Some sections need attention. Nothing was saved.", issues };
+    }
 
     // The change against the stored layout, then the final layout against the owner's contract.
     const before = stored.map((s) => layoutSection(s, s.settings));

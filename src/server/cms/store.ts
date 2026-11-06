@@ -6,7 +6,7 @@
  * Table and column names in the raw statements come from the code registry (`registry.ts`), never from input; values
  * are always bound parameters.
  */
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyMySqlColumn, AnyMySqlTable } from "drizzle-orm/mysql-core";
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { recordAudit, type AuditOutcome } from "../audit/audit.ts";
@@ -268,13 +268,47 @@ export async function readRelation(db: Db, relation: RelationTable, ownerId: str
   return rows.map((r) => r.target);
 }
 
-/** Replaces an item's relation with the given ordered targets (positions 1, 2, 3 …). */
+/**
+ * Sets an item's relation to the given ordered targets (positions 1, 2, 3 …), written as a diff (A8.7, the A3/A4
+ * hardening offered to the Owner): rows of targets that stay keep their row and only change position; only removed
+ * targets are deleted and only added ones inserted. Before, every row was deleted and inserted again, so InnoDB's
+ * foreign-key check share-locked every target's root late in the save — a project save and a service save that named
+ * each other then waited on each other's roots and deadlocked whenever they overlapped (settled by one retry). Now a
+ * save locks only the targets it adds (they are share-locked first anyway: `targetStates(…, { lock: true })`).
+ * The item's own rows are read FOR UPDATE (its root lock is held already, so nobody else writes them).
+ */
 export async function replaceRelation(tx: Db, relation: RelationTable, ownerId: string, targetIds: readonly string[]): Promise<void> {
-  await tx.delete(relation.table).where(eq(relation.owner, ownerId));
-  if (targetIds.length) {
-    // The table is chosen from code (a fixed relation); Drizzle's insert typing cannot follow a table chosen at run time.
-    await tx.insert(relation.table).values(targetIds.map((id, i) => relation.row(ownerId, id, i + 1)) as never);
+  const rows = (await tx
+    .select({ target: relation.target, position: relation.position })
+    .from(relation.table)
+    .where(eq(relation.owner, ownerId))
+    .for("update")) as { target: string; position: number }[];
+  const before = new Map(rows.map((r) => [r.target, Number(r.position)]));
+  const next = new Map(targetIds.map((id, i) => [id, i + 1]));
+  const removed = [...before.keys()].filter((id) => !next.has(id));
+  if (removed.length) await tx.delete(relation.table).where(and(eq(relation.owner, ownerId), inArray(relation.target, removed)));
+  for (const [id, position] of next) {
+    const was = before.get(id);
+    if (was !== undefined && was !== position) {
+      await tx
+        .update(relation.table)
+        .set({ [relationKey(relation, "position")]: position } as never)
+        .where(and(eq(relation.owner, ownerId), eq(relation.target, id)));
+    }
   }
+  const added = targetIds.filter((id) => !before.has(id));
+  if (added.length) {
+    // The table is chosen from code (a fixed relation); Drizzle's insert typing cannot follow a table chosen at run time.
+    await tx.insert(relation.table).values(added.map((id) => relation.row(ownerId, id, next.get(id)!)) as never);
+  }
+}
+
+/** The table's own property name of one of a relation's columns (from its row builder). */
+function relationKey(relation: RelationTable, column: "position"): string {
+  const sample = relation.row("o", "t", 7);
+  const key = Object.keys(sample).find((k) => sample[k] === 7);
+  if (!key) throw new Error(`The relation has no ${column} property.`);
+  return key;
 }
 
 /**
