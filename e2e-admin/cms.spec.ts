@@ -501,7 +501,7 @@ test.describe("lists, archive, search", () => {
 });
 
 test.describe("certificates and the media boundary", () => {
-  test("certificate metadata: the files note (A4), uploads only inside the media pickers, no publishing, the digit guard", async ({ browser }) => {
+  test("certificate metadata: the files note (A4), uploads only inside the media pickers, nothing to publish before a save, the digit guard", async ({ browser }) => {
     const owner = await as(browser, "owner");
     await open(owner, "/admin/certificates/new");
     await expect(owner.getByText("Public and private files are kept apart.")).toBeVisible();
@@ -517,7 +517,9 @@ test.describe("certificates and the media boundary", () => {
       // A4: a file input exists only inside a media picker's dialog (closed until asked for) — none on the page itself.
       await expect(owner.locator('input[type="file"]:visible'), path).toHaveCount(0);
       for (const input of await owner.locator('input[type="file"]').all()) expect(await input.evaluate((el) => !!el.closest("dialog.adm-picker")), path).toBe(true);
-      await expect(owner.getByRole("button", { name: /upload|download|publish/i }), path).toHaveCount(0);
+      await expect(owner.getByRole("button", { name: /upload|download/i }), path).toHaveCount(0);
+      // A8 brought publishing (the publishing panel of a saved record); a new record still has nothing to publish.
+      if (path.endsWith("/new")) await expect(owner.getByRole("button", { name: /publish/i }), path).toHaveCount(0);
     }
   });
 });
