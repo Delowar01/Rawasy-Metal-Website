@@ -317,7 +317,16 @@ Against `preserve/pre-admin-a7` (`da1fe11`; its public sources are `fcc37c9`'s, 
   names are normalised: 102 documents (`/en/contact`, `/ar/contact` among them), 102 page-data requests and 25 others
   (404s, `/admin` and `/api` paths with the gate off, `/media`, the image optimizer). Each server on its own fresh copy
   of its clean build, the admin gate off (production without `ADMIN_ENABLED`).
-- **Pixels:** pending.
+- **Pixels** (resting, reduced motion; 17 pages × EN / AR × light / dark × 1440 / 390; 398 captures per build): **377
+  identical at once**; page heights equal in all 136 views. The other 21:
+  - 20 screens of the Arabic Projects gallery on a phone (dark): the browser's timing choice of one gallery photo's
+    srcset candidate (`tulip-roundabout-1.webp` at `w=384` or `w=640`), the effect the A5, A6 and A6-closure freezes
+    recorded. Recaptured three times per build per theme: every two captures with the same choice are pixel-identical
+    (0 pixels in 17 such pairs, between the builds and within one), every pair with different choices differs; 21,401 px
+    high in all 12 runs. This baseline build made both choices in the A6 closure's recapture.
+  - 1 capture of the Arabic Projects page on the desktop (dark): 25 pixels in rows 5,398–5,404. Recaptured four times
+    per build, alternating: all 8 captures pixel-identical to each other (0 pixels in 28 pairs), 9,219 px high each — a
+    capture-timing difference that did not reproduce.
 - **Public E2E:** 612 / 612 in the fresh clone's first run (after the image warm-up).
 - **In the browser:** the A7 spec records `/en/contact` and `/ar/contact` before any A7 data exists and compares them
   byte for byte after the form's working copy, a storing form and stored enquiries exist (equal); the A6 parity tests
@@ -356,7 +365,20 @@ cron) and key escrow; RAWASY's confirmations from A6 (place link, SEO descriptio
 
 ## 10. A7 acceptance recommendation
 
-**Pending** the QA and freeze results; it is not self-approved either way.
+**READY for the Owner's acceptance review.** Not self-approved; A8 is not started.
+
+- Every authorized item A7.1–A7.8 is built, local and gated: the quote form's working copy and preview, enquiry
+  storage prepared but reachable by nothing public, the inbox, workflow, assignment, notes and history, notifications
+  through an outbox with no SMTP, private attachments, the Owner's formula-safe export behind a step-up, and retention
+  configurable but inactive.
+- The independent security review found no High or Medium issue; its 6 Low and 5 Info findings are corrected, each
+  with a test that fails on the code before. The evidence capture's two display findings are corrected the same way.
+- Every suite passed in its first run on a fresh clone, above the A6 baselines (unit 364, integration 529, admin 164,
+  public 612); the production audit is 0.
+- The public website is proven unchanged against `preserve/pre-admin-a7` (sources, build output, server sources, HTTP,
+  pixels, the public suite). Nothing collects customer data.
+- Owner and legal decisions remain open (item 9); each is gated until decided. The 12 dev-only audit entries are
+  recorded there.
 
 ## 11. Proposed A8 roadmap (not started)
 

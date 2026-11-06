@@ -384,11 +384,18 @@
   inbox and workflow; `02cf850` outbox and attachments; `ca33ed0` export and retention; `67e3054` admin screens;
   `06a90a4` tests; `e3071c1` the independent security review's corrections (no High or Medium; 6 Low, 5 Info) and
   `7f0d2ca` their tests (each fails on `06a90a4`); `c1ed475` README; `19c08c7` the project type's label and who assigned
-  by name (found by the evidence capture). QA on a fresh clone of `19c08c7`: pending (the report's item 6). The public
-  quote form is unchanged (handoff); nothing public stores an enquiry. **Do not start A8** (publishing, revisions in
-  use, database-backed public pages, redirects resolving, content migration, cache handler, the public site switched to
-  `/media/u`) or anything of A9, and never activate public enquiry collection, a public storage endpoint, SMTP, real
-  email, automatic retention or a legal retention period without the Owner's explicit decision.
+  by name (found by the evidence capture). QA on a fresh clone of `19c08c7`, every suite in its first run: `npm ci`,
+  audit `--omit=dev` 0 (all: 12 moderate, dev-only), lint, typecheck, build (no warning), `db:check` (10 files),
+  packaging (13 held back), unit 364 / 364, integration 529 / 529, admin 164 / 164, public 612 / 612. Public freeze
+  against `preserve/pre-admin-a7`: no public source changed; 890 / 890 files (0 different), CSS and JS on 104 / 104
+  pages, 16 / 16 public entries from identical sources, HTTP 229 / 229, pixels 377 / 398 identical at once (the other
+  21: the Arabic phone gallery's srcset choice, 0 pixels between same-choice captures, and one desktop capture that did
+  not reproduce in 8 recaptures). Evidence `rawasy-a7-evidence.zip` (not committed): 64 captures, 8 contact sheets, 0
+  overflow. The public quote form is unchanged (handoff); nothing public stores an enquiry. **Do not start A8**
+  (publishing, revisions in use, database-backed public pages, redirects resolving, content migration, cache handler,
+  the public site switched to `/media/u`) or anything of A9, and never activate public enquiry collection, a public
+  storage endpoint, SMTP, real email, automatic retention or a legal retention period without the Owner's explicit
+  decision.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
