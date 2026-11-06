@@ -374,16 +374,18 @@ in one terminal and `npm run test:e2e` in another (Playwright reuses a server al
 
 ## Admin (local development)
 
-Phases A2–A6 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`,
+Phases A2–A7 of the admin / CMS program (reports `docs/reports/2026-10-09-admin-a2-auth-rbac-shell.md`,
 `docs/reports/2026-10-15-admin-a3-core-cms.md`, `docs/reports/2026-10-16-admin-a4-media-library.md`,
-`docs/reports/2026-10-16-admin-a5-page-builder.md` and `docs/reports/2026-10-30-admin-a6-global-site-controls.md`; design
-in `docs/admin/`): sign-in, two-factor authentication, sessions, invitations, password reset, users and roles (A2), the
-core content records — pages, services, projects and their categories, machinery, industries, clients and certificate
+`docs/reports/2026-10-16-admin-a5-page-builder.md`, `docs/reports/2026-10-30-admin-a6-global-site-controls.md` and
+`docs/reports/2026-11-06-admin-a7-forms-enquiries.md`; design in `docs/admin/`): sign-in, two-factor authentication,
+sessions, invitations, password reset, users and roles (A2), the core content records — pages, services, projects and
+their categories, machinery, industries, clients and certificate
 metadata — as working copies in the database (A3), the media library — uploads, versions, rights and approval,
 certificate documents and the media pickers of those records (A4) — the page builder — the sections of pages and
 service pages, reusable sections and a private preview (A5) — and the site controls — company and website settings,
-navigation, interface text, the theme and redirects, shown in the preview (A6), at `/admin` (English, `noindex`).
-Enquiries and publishing come in later phases.
+navigation, interface text, the theme and redirects, shown in the preview (A6) — and forms and enquiries — the quote
+form's working copy, the private enquiry inbox and its workflow, notifications through an outbox, attachments, export
+and retention, all for local tests (A7) — at `/admin` (English, `noindex`). Publishing comes in a later phase.
 It runs **locally only**, against a local MariaDB: never point it at the hosting account's database, and nothing of it
 is deployed until the user decides. The public website is unaffected: it never reads the database (the content records
 are not shown on it before the A9 cutover) and builds without one.
@@ -439,12 +441,16 @@ media library, `public_media` and the content records' media relations; the reco
 tables: the page builder's sections and reusable sections, with their texts per language; no rows), from A5; `0006` (11
 tables: site settings, company phones, interface text, menus and their items, the theme and its token overrides,
 redirects) and `0007` (the settings and theme singletons, the four menu slots and the 34 interface-text keys — no company
-fact, label or text), from A6. A database migrated earlier takes the newer files with the same `up`. The runner takes
-a named lock, checks the journal order and the hash of every applied file, sets the database's default collation
+fact, label or text), from A6; `0008` (10 tables: forms, their texts and fields, the private enquiries with their files,
+notes and status history, the reference counter and the outgoing-mail queue) and `0009` (the quote form's root row:
+today's handoff delivery, no retention period — no field, text or enquiry), from A7. A database migrated earlier takes
+the newer files with the same `up`. The runner takes a named lock, checks the journal order and the hash of every
+applied file, sets the database's default collation
 (`utf8mb4_unicode_520_ci`) while it is empty and verifies every table's character set; outside `APP_ENV=local` it also requires `--backup-file=<a backup less than 60
 minutes old>` once tables exist. Exit codes are listed in `scripts/db-migrate.mjs`. `npm run db:generate` (drizzle-kit)
 writes a new migration from `src/server/db/schema.ts`, `schema-cms.ts` (A3), `schema-media.ts` (A4),
-`schema-builder.ts` (A5) and `schema-site.ts` (A6) for review; `drizzle-kit push` and `pull` are never used.
+`schema-builder.ts` (A5), `schema-site.ts` (A6) and `schema-forms.ts` (A7) for review; `drizzle-kit push` and `pull`
+are never used.
 
 **4. The first Owner.**
 
@@ -569,6 +575,33 @@ public website keeps today's company details, menus, labels and design until pub
 - **The preview** of the header and footer as the working copy sets them: `/admin/preview/site/shell?locale=en|ar&
   theme=light|dark` (links on each screen); every page preview draws them too.
 
+**9. Forms and enquiries (A7).** The sidebar's ENQUIRIES group: **Enquiry inbox** (`/admin/enquiries`, Owner and
+Admin only: enquiries are private) and **Forms** (`/admin/forms`, every role reads; Owner and Admin change). The
+website's quote form stays today's handoff form — the visitor sends the prepared email or WhatsApp message and nothing
+reaches the website — until the approved cutover (A9): no public route or action stores a request.
+
+- **Forms**: **Copy today's form** fills the working copy (texts and the ten fields, both languages; the consent box's
+  wording starts empty — it is RAWASY's). Then: each field's texts, its order inside its group, whether an optional
+  field is required, lengths inside today's bounds; the form's own texts; the delivery mode (handoff, store, store and
+  notify), stored attachments (PDF, JPEG, PNG only, never SVG or office files), the consent mode and the retention
+  period are the Owner's decisions (an Admin sees them read-only). The preview links draw the approved quote section
+  with the working words: `/admin/preview/form/<id>?locale=en|ar&theme=light|dark`.
+- **Enquiries** for local tests: `e2e-admin/seed-enquiries.mjs` stores synthetic ones through the prepared submission
+  service (origin, honeypot, timing token, rate limits and field checks all apply; refused outside `APP_ENV=local` and
+  a `rawasy_e2e_*` database). The inbox: summary counts, search (reference, name, company, email, phone), filters,
+  sorting; an enquiry's page: the request, private files (downloaded only there, each download recorded), the workflow
+  New → Open → Answered → Closed (reopening; closing without an answer needs a reason), assignment, internal notes, the
+  history and its notifications. Export: the Owner, after confirming their identity (10 minutes), gets a CSV of the
+  current filters (formulas written as text).
+- **Notifications**: `npm run email:outbox` sends what is due once (by hand; a schedule is pre-staging work). With
+  `MAIL_TRANSPORT=disabled` (the default) nothing is sent and the rows wait; `sink` (local only) writes JSON files. No
+  SMTP exists until the Owner chooses a provider.
+- **Retention**: `npm run enquiries:retention` reports what a retention period would anonymize; `-- --apply`
+  anonymizes it. No period is chosen (the Owner's and legal review's decision), so it lists nothing and refuses to apply.
+  An apply that could not remove an attachment file exits 4 and prints its key.
+- Attachments are stored in `RAWASY_DATA_DIR/enquiries/YYYY/MM/` (private, never under `public/`); `npm run
+  media:maintenance` lists files there that no enquiry holds (never deleting them).
+
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
 ```bash
@@ -585,7 +618,8 @@ integration tests use their own temporary folders and synthetic files only. The 
 (`e2e-admin/seed-parity.mjs`, refused outside `APP_ENV=local` and a `rawasy_e2e_*` database) and compare what the
 preview draws with the public page, part by part; nothing is imported into a real database. They run after the other
 admin tests, in a browser of their own (the config's `parity` project). The site controls' spec (`e2e-admin/site.spec.ts`,
-A6) empties the working copy again when it ends, so the parity tests see today's website. The public suite
+A6) empties the working copy again when it ends, so the parity tests see today's website; the forms and enquiries spec
+(`e2e-admin/enquiries.spec.ts`, A7) empties the A7 tables when it ends. The public suite
 (`npm run test:e2e`) needs no database.
 
 ### Admin: keys
