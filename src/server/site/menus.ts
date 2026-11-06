@@ -99,6 +99,7 @@ async function insertItem(
     id,
     menuKey: slot,
     position,
+    topPosition: position,
     linkType: item.linkType,
     routeKey: item.route,
     collection: item.collection,
@@ -248,7 +249,7 @@ export async function saveMenu(change: SiteChange, raw: unknown): Promise<SiteRe
     const kept = new Set(input.items.map((i) => i.id).filter(Boolean));
     const removed = stored.items.filter((i) => !kept.has(i.id));
     for (const item of removed) await tx.delete(menuItems).where(eq(menuItems.id, item.id));
-    await tx.execute(sql`UPDATE menu_items SET position = position + ${FREE_RANGE} WHERE menu_key = ${input.key} AND parent_id IS NULL`);
+    await tx.execute(sql`UPDATE menu_items SET top_position = position + ${FREE_RANGE}, position = position + ${FREE_RANGE} WHERE menu_key = ${input.key} AND parent_id IS NULL`);
     let added = 0;
     for (const [i, item] of input.items.entries()) {
       const storedItem = stored.items.find((s) => s.id === item.id);
@@ -257,6 +258,7 @@ export async function saveMenu(change: SiteChange, raw: unknown): Promise<SiteRe
           .update(menuItems)
           .set({
             position: i + 1,
+            topPosition: i + 1,
             ...(storedItem.linkType === "route" ? { routeKey: item.route } : {}),
             isVisible: item.isVisible,
             updatedAt: now,

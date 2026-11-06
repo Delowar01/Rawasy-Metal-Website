@@ -71,6 +71,27 @@
       "when": 1793922740134,
       "tag": "0009_seed_forms_enquiries",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1793944411326,
+      "tag": "0010_publishing",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1793944823332,
+      "tag": "0011_seed_publishing",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1793947385933,
+      "tag": "0012_menu_positions",
+      "breakpoints": true
     }
   ]
 }

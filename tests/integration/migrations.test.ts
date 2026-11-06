@@ -64,7 +64,7 @@ describe("applying", () => {
     assert.match(first.stdout, /backup hook dormant \(APP_ENV=local\)/);
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, /Applied \(10\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library, 0005_page_builder, 0006_site_controls, 0007_seed_site_controls, 0008_forms_enquiries, 0009_seed_forms_enquiries/);
+    assert.match(status.stdout, /Applied \(13\): 0000_access_control, 0001_seed_access_control, 0002_core_cms, 0003_seed_core_cms, 0004_media_library, 0005_page_builder, 0006_site_controls, 0007_seed_site_controls, 0008_forms_enquiries, 0009_seed_forms_enquiries, 0010_publishing, 0011_seed_publishing, 0012_menu_positions/);
     assert.match(status.stdout, /Pending \(0\): none/);
     const c = await serverConnection(database);
     const [audit] = (await c.query("SELECT action, actor_type, outcome FROM audit_events")) as unknown as [{ action: string; actor_type: string; outcome: string }[]];
@@ -143,7 +143,7 @@ describe("journal checks (before any database work)", () => {
   test("the committed migrations pass (check)", async () => {
     const result = await cli("unused_db", ["check"]);
     assert.equal(result.code, 0);
-    assert.match(result.stdout, /Migration files OK: 10/);
+    assert.match(result.stdout, /Migration files OK: 13/);
   });
 });
 

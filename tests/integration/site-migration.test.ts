@@ -26,9 +26,11 @@ const CLI = join(ROOT, "scripts/db-migrate.mjs");
 const A5_TAGS = ["0000_access_control", "0001_seed_access_control", "0002_core_cms", "0003_seed_core_cms", "0004_media_library", "0005_page_builder"];
 const ALL_TAGS = [...A5_TAGS, "0006_site_controls", "0007_seed_site_controls"];
 /** A7 added 0008_forms_enquiries and 0009_seed_forms_enquiries after the A6 files: every committed migration applies. */
-const COMMITTED = [...ALL_TAGS, "0008_forms_enquiries", "0009_seed_forms_enquiries"];
+const COMMITTED = [...ALL_TAGS, "0008_forms_enquiries", "0009_seed_forms_enquiries", "0010_publishing", "0011_seed_publishing", "0012_menu_positions"];
 /** The tables 0008 adds (A7's own proofs: tests/integration/forms-migration.test.ts). */
 const A7_TABLE_COUNT = 10;
+/** A8 (0010–0012) added six tables after them. */
+const A8_TABLE_COUNT = 6;
 const A6_TABLES = [
   "company_phones",
   "design_token_overrides",
@@ -148,7 +150,7 @@ describe("A. an empty database", () => {
     for (const tag of COMMITTED) assert.match(up.stdout, new RegExp(`Applied ${tag}`));
     const status = await cli(database, ["status"]);
     assert.equal(status.code, 0, status.stderr);
-    assert.match(status.stdout, new RegExp(`Applied \\(10\\): ${COMMITTED.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(13\\): ${COMMITTED.join(", ")}`));
     assert.match(status.stdout, /Pending \(0\): none/);
   });
 });
@@ -188,7 +190,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
     assert.equal(again.code, 0);
     assert.match(again.stdout, /Nothing to apply/);
     const status = await cli(database, ["status"]);
-    assert.match(status.stdout, new RegExp(`Applied \\(10\\): ${COMMITTED.join(", ")}`));
+    assert.match(status.stdout, new RegExp(`Applied \\(13\\): ${COMMITTED.join(", ")}`));
   });
 
   test("D. the hash and order checks refuse a changed or reordered A6 file", async () => {
@@ -228,7 +230,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
       );
       const a6 = all.filter((r) => A6_TABLES.includes(r.t));
       assert.equal(a6.length, A6_TABLES.length);
-      assert.equal(all.length, tables.length + A6_TABLES.length + A7_TABLE_COUNT);
+      assert.equal(all.length, tables.length + A6_TABLES.length + A7_TABLE_COUNT + A8_TABLE_COUNT);
       for (const table of a6) assert.deepEqual([table.e, table.co], ["InnoDB", "utf8mb4_unicode_520_ci"], table.t);
       const keys = await rows<{ t: string; c: string; co: string }>(
         c,
@@ -267,9 +269,11 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
       await assert.rejects(phone(id(101), {}), /uq_company_phones_position/);
       // Menu items: exactly one target, a position from 1, shown on some device. One position per item within a menu is
       // kept by the menu service (the slot's root lock and the renumbering): A1's unique (menu, parent, position) index
-      // covers nested items only, since top-level items have no parent and a unique index admits repeated NULLs.
+      // covers nested items only, since top-level items have no parent and a unique index admits repeated NULLs. Since
+      // A8 (0012) a top-level item also carries its position as top_position, which a unique index holds (A8's proof).
       const item = (iid: string, fields: Record<string, unknown>) => {
-        const row = { id: iid, menu_key: "footer_legal", position: 1, link_type: "route", route_key: "privacy", ...fields };
+        const base: Record<string, unknown> = { id: iid, menu_key: "footer_legal", position: 1, link_type: "route", route_key: "privacy", ...fields };
+        const row = { ...base, top_position: base.parent_id ? null : base.position };
         const names = Object.keys(row);
         return c.query(`INSERT INTO menu_items (${names.map((n) => `\`${n}\``).join(", ")}) VALUES (${names.map(() => "?").join(", ")})`, Object.values(row));
       };
@@ -359,7 +363,7 @@ describe("B–G. a database at A5 with accounts, content, media and sections, up
   test("G. npm run db:check passes (drizzle-kit check, the migration files, the seed against the registries)", async () => {
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
     const { stdout } = await run(npm, ["run", "--silent", "db:check"], { cwd: ROOT, env: { ...process.env, NODE_ENV: "test" } });
-    assert.match(stdout, /Migration files OK: 10/);
+    assert.match(stdout, /Migration files OK: 13/);
     assert.match(stdout, /Seed migrations match the registries/);
   });
 });

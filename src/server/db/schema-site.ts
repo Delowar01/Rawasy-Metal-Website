@@ -206,9 +206,18 @@ export const menuItems = mysqlTable(
     showDesktop: boolean("show_desktop").notNull().default(true),
     showMobile: boolean("show_mobile").notNull().default(true),
     ...ts(),
+    /**
+     * A8 (A6 review I1): a top-level item's position again (NULL for a nested one), so a unique index holds top-level
+     * positions unique — A1's (menu_key, parent_id, position) admits repeated NULL parents. Written with `position` by
+     * the menu service; `ck_menu_items_top` keeps the two equal. (MariaDB refuses a generated column over `parent_id`,
+     * whose foreign key cascades.)
+     */
+    topPosition: int("top_position", { unsigned: true }),
   },
   (t) => [
     uniqueIndex("uq_menu_items_position").on(t.menuKey, t.parentId, t.position),
+    uniqueIndex("uq_menu_items_top_position").on(t.menuKey, t.topPosition),
+    check("ck_menu_items_top", sql`(${t.parentId} IS NULL AND ${t.topPosition} IS NOT NULL AND ${t.topPosition} = ${t.position}) OR (${t.parentId} IS NOT NULL AND ${t.topPosition} IS NULL)`),
     foreignKey({ name: "fk_menu_items_menu", columns: [t.menuKey], foreignColumns: [menus.key] }).onDelete("cascade"),
     foreignKey({ name: "fk_menu_items_parent", columns: [t.parentId], foreignColumns: [t.id] }).onDelete("cascade"),
     foreignKey({ name: "fk_menu_items_page", columns: [t.pageId], foreignColumns: [pages.id] }).onDelete("restrict"),
