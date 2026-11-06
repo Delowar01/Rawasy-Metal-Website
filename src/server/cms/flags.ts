@@ -13,7 +13,7 @@
  * Nothing here publishes or approves anything: a flag only records a restriction for the publishing step (A8/A9) and
  * the media library (A4).
  */
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { users } from "../db/schema.ts";
 import { projectFlags, projectTranslations } from "../db/schema-cms.ts";
 import { isUlid } from "../security/ids.ts";
@@ -104,12 +104,22 @@ export async function addProjectFlag(ctx: ChangeContext, projectId: string, flag
     if (existing) return { kind: "unchanged", message: `“${flagLabel(flag)}” is already set on this project.` } as const;
     await tx.insert(projectFlags).values({ projectId, flag, note: note || null, createdAt: now, createdBy: actor.user.id });
     const title = await projectTitle(tx, projectId);
+    // A8: a blocking flag keeps the project off the public site — a live version goes offline at once (safety first;
+    // only a new publish, once the flag is cleared, brings it back). The working copy and its version are untouched.
+    let offline = false;
+    if (isBlockingFlag(flag) && state.publicationStatus === "published") {
+      const { takeOffline } = await import("../publishing/offline.ts");
+      const { writeRevision } = await import("../publishing/revisions.ts");
+      offline = await takeOffline(tx, "project", projectId, now, meta.requestId);
+      await tx.execute(sql`UPDATE projects SET publication_status = 'unpublished', draft_status = 'draft', published_revision_id = NULL WHERE id = ${projectId}`);
+      await writeRevision(tx, { type: "project", id: projectId, kind: "unpublish", actorId: actor.user.id, now, force: true, message: `Taken offline: the blocking flag “${flagLabel(flag)}” was added.` });
+    }
     await contentAudit(tx, actor, meta, now, {
       action: "project.restriction_add",
       type: "project",
       id: projectId,
       label: title || state.slug,
-      summary: `Added the flag “${flagLabel(flag)}” to project ${labelOf(title, state.slug)}${isBlockingFlag(flag) ? " (blocking)" : ""}.`,
+      summary: `Added the flag “${flagLabel(flag)}” to project ${labelOf(title, state.slug)}${isBlockingFlag(flag) ? " (blocking)" : ""}${offline ? "; its live version was taken offline" : ""}.`,
       changes: { after: { flag }, ...(note ? { reason: note } : {}) },
     });
     return { kind: "ok", summary: `Added “${flagLabel(flag)}”.` } as const;

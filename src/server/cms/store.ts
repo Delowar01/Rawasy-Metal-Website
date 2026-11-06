@@ -14,7 +14,7 @@ import { lockActor } from "../auth/sessions.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "../auth/types.ts";
 import { inTransaction, type Db } from "../db/client.ts";
 import { dbErrorInfo } from "../db/pool.ts";
-import { currentStore, noteLocked, runWithStore, type ChangeStore } from "./changes.ts";
+import { currentStore, noteLocked, runWithStore, setIntent, type ChangeStore } from "./changes.ts";
 import { entityOrderingItems, entityOrderings, searchDocuments } from "../db/schema-cms.ts";
 import { ENTITIES, LOCALES, type EntityInfo, type EntityType, type Locale, type OrderingKey } from "./registry.ts";
 import { planMove, type MoveDirection } from "./reorder.ts";
@@ -136,9 +136,15 @@ export async function bumpRoot(tx: Db, type: EntityType, id: string, actorId: st
 /** Archive or restore (A1 T12 / T13): archived · none, or back to unpublished · draft. */
 export async function setArchived(tx: Db, type: EntityType, id: string, archived: boolean, actorId: string, now: Date): Promise<void> {
   const t = table(ENTITIES[type]);
+  if (archived) {
+    // A8 (A1 T12): an archived item has no live version; the archive revision is written as the transaction closes.
+    setIntent(tx, type, id, { kind: "archive" });
+    const { takeOffline } = await import("../publishing/offline.ts");
+    await takeOffline(tx, type, id, now);
+  }
   await tx.execute(
     archived
-      ? sql`UPDATE ${t} SET publication_status = 'archived', draft_status = 'none', archived_at = ${now}, archived_by = ${actorId}, lock_version = lock_version + 1, updated_at = ${now}, updated_by = ${actorId} WHERE id = ${id}`
+      ? sql`UPDATE ${t} SET publication_status = 'archived', draft_status = 'none', published_revision_id = NULL, archived_at = ${now}, archived_by = ${actorId}, lock_version = lock_version + 1, updated_at = ${now}, updated_by = ${actorId} WHERE id = ${id}`
       : sql`UPDATE ${t} SET publication_status = 'unpublished', draft_status = 'draft', archived_at = NULL, archived_by = NULL, lock_version = lock_version + 1, updated_at = ${now}, updated_by = ${actorId} WHERE id = ${id}`,
   );
 }

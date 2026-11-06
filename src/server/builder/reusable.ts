@@ -34,7 +34,7 @@ import { REGISTRY } from "./registry.ts";
 import { readSectionData, type BuilderChange, type SectionIssue } from "./sections.ts";
 import { ownerKindsOf, readReusable, reusableUses, writeReusableTranslations, type OwnerRef, type TranslationWrite } from "./store.ts";
 import { planTexts } from "./texts.ts";
-import { noteCreated } from "../cms/changes.ts";
+import { noteCreated, setIntent } from "../cms/changes.ts";
 
 export const REUSABLE_STALE = "This reusable section changed after you opened it. Reload and review the latest version before saving.";
 
@@ -194,11 +194,17 @@ export async function setReusableArchived(change: BuilderChange, raw: { id: unkn
         return { kind: "denied", message: `This reusable section is still used by ${uses.length} section${uses.length === 1 ? "" : "s"}. Detach or remove them first.` };
       }
     }
+    if (raw.archived) {
+      // A8: an archived reusable section has no live version (it was unused, so no live page linked it).
+      setIntent(tx, "reusable_section", id, { kind: "archive" });
+      const { takeOffline } = await import("../publishing/offline.ts");
+      await takeOffline(tx, "reusable_section", id, now, change.meta.requestId);
+    }
     await tx
       .update(reusableSections)
       .set(
         raw.archived
-          ? { publicationStatus: "archived", draftStatus: "none", archivedAt: now, archivedBy: actor.user.id, lockVersion: sql`${reusableSections.lockVersion} + 1`, updatedAt: now, updatedBy: actor.user.id }
+          ? { publicationStatus: "archived", draftStatus: "none", publishedRevisionId: null, archivedAt: now, archivedBy: actor.user.id, lockVersion: sql`${reusableSections.lockVersion} + 1`, updatedAt: now, updatedBy: actor.user.id }
           : { publicationStatus: "unpublished", draftStatus: "draft", archivedAt: null, archivedBy: null, lockVersion: sql`${reusableSections.lockVersion} + 1`, updatedAt: now, updatedBy: actor.user.id },
       )
       .where(eq(reusableSections.id, id));
