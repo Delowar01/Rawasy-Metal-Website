@@ -104,6 +104,11 @@ export function contentTransaction<T>(deps: CmsDeps, actor: Actor, work: (tx: Db
         const { closeRevisions } = await import("../publishing/revisions.ts");
         await closeRevisions(tx, store, actor);
       }
+      // The cache record is the last write of every change (A8 review L3).
+      if (store.invalidations?.tags.size) {
+        const { recordInvalidations } = await import("../publishing/cache.ts");
+        await recordInvalidations(tx, [...store.invalidations.tags], store.invalidations.requestId, now);
+      }
       return result;
     });
   });

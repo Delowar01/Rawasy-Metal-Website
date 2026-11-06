@@ -23,6 +23,7 @@ import type { Db } from "../db/client.ts";
 import { readSections } from "../builder/store.ts";
 import { sql } from "drizzle-orm";
 import { lockOrdering, readOrder, touchOrdering } from "../cms/store.ts";
+import { currentStore } from "../cms/changes.ts";
 import { can } from "../cms/permissions.ts";
 import { ORDERINGS, ORDERING_KEYS, type OrderingKey } from "../cms/registry.ts";
 import { readMenus, saveMenu } from "../site/menus.ts";
@@ -302,6 +303,6 @@ async function restoreOrdering(change: RestoreChange, tx: Db, key: string, snaps
   const order = [...wanted, ...current.map((c) => c.id).filter((id) => !wanted.includes(id))];
   await tx.execute(sql`UPDATE entity_ordering_items SET position = position + 100000 WHERE ordering_key = ${key}`);
   for (const [i, id] of order.entries()) await tx.execute(sql`UPDATE entity_ordering_items SET position = ${i + 1} WHERE ordering_key = ${key} AND entity_id = ${id}`);
-  await touchOrdering(tx, key as OrderingKey, change.actor.user.id, new Date());
+  await touchOrdering(tx, key as OrderingKey, change.actor.user.id, currentStore(tx)?.now ?? change.deps.clock());
   return { kind: "ok", notes: wanted.length < (Array.isArray(snapshot.items) ? snapshot.items.length : 0) ? ["Items of that version that no longer exist were left out."] : [] };
 }

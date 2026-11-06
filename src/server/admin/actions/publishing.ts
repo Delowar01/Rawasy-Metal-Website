@@ -25,6 +25,7 @@ import {
   type WorkflowResult,
 } from "@/server/publishing/workflow";
 import { cleanSearch } from "@/server/enquiries/search-state";
+import { auditAddress, parseAuditQuery } from "@/server/audit/viewer";
 import { guarded } from "../context";
 import { keepAuditSearch } from "../audit-search";
 import { actionContext, failure, type ActionState } from "../guards";
@@ -65,6 +66,8 @@ function stateOf(result: WorkflowResult): ActionState {
       return failure(NOT_FOUND);
     case "denied":
       return failure(result.message);
+    case "step_up":
+      return failure(result.message, { stepUp: true });
     case "refused": {
       const details = [
         ...(result.issues ?? []).filter((i) => i.blocking).map((i) => i.message),
@@ -131,12 +134,13 @@ export async function searchAuditAction(form: FormData): Promise<void> {
   const ctx = await actionContext("audit.search", { permission: "audit.view" });
   if (!ctx.ok) redirect("/admin/audit");
   await keepAuditSearch(ctx.context.actor, cleanSearch(form.get("q")));
-  const keep = new URLSearchParams();
+  // The address takes the filters only as the log's own parser accepts them (never the search, never raw form values).
+  const filters: Record<string, string> = {};
   for (const name of ["outcome", "type", "actor", "action", "from", "to", "size", "entity"]) {
     const value = form.get(name);
-    if (typeof value === "string" && value && value.length <= 80) keep.set(name, value);
+    if (typeof value === "string") filters[name] = value;
   }
-  redirect(`/admin/audit${keep.size ? `?${keep}` : ""}`);
+  redirect(auditAddress(parseAuditQuery(filters, ""), 1));
 }
 
 export async function clearAuditSearchAction(): Promise<void> {

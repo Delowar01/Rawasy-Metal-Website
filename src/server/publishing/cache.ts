@@ -19,7 +19,10 @@ export function tagsFor(type: AggregateType, id: string, slugs: readonly (string
   return [...tags].map((t) => t.slice(0, 255));
 }
 
-/** Takes the next generation and stamps the tags with it (in the caller's transaction; call it last). */
+/**
+ * Takes the next generation and stamps the tags with it (in the caller's transaction, as its last write: inside a
+ * content transaction callers defer their tags with `deferInvalidations`, and `contentTransaction` records them once).
+ */
 export async function recordInvalidations(tx: Db, tags: readonly string[], requestId: string | null, now: Date): Promise<number> {
   await tx.execute(sql`UPDATE cache_generation SET value = value + 1, updated_at = ${now} WHERE id = 1`);
   const [row] = await rowsOf<{ value: number }>(tx, sql`SELECT value FROM cache_generation WHERE id = 1`);

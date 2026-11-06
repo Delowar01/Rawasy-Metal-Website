@@ -195,7 +195,19 @@ export async function setReusableArchived(change: BuilderChange, raw: { id: unkn
       }
     }
     if (raw.archived) {
-      // A8: an archived reusable section has no live version (it was unused, so no live page linked it).
+      // A8 (review L1): unused in every working layout is not enough — a page's live version may still show it (its
+      // working copy detached or removed the section since). Archiving would pull it from that live page unseen, so it
+      // is refused until those pages are published without it or unpublished (a locking read of the published index).
+      const [live] = await rowsOf<{ n: number }>(
+        tx,
+        sql`SELECT COUNT(DISTINCT source_type, source_id) AS n FROM content_references
+             WHERE scope = 'published' AND target_type = 'reusable_section' AND target_id = ${id} LOCK IN SHARE MODE`,
+      );
+      const shown = Number(live?.n ?? 0);
+      if (shown) {
+        await audit(tx, change, now, { action, id, label: stored.name, outcome: "failed", summary: `Refused: still shown by the live version of ${shown} page${shown === 1 ? "" : "s"}.`, changes: { count: shown } });
+        return { kind: "denied", message: `This reusable section is still shown by the live version of ${shown} page${shown === 1 ? "" : "s"} or service${shown === 1 ? "" : "s"}. Publish ${shown === 1 ? "it" : "them"} without it, or unpublish ${shown === 1 ? "it" : "them"}, first.` };
+      }
       setIntent(tx, "reusable_section", id, { kind: "archive" });
       const { takeOffline } = await import("../publishing/offline.ts");
       await takeOffline(tx, "reusable_section", id, now, change.meta.requestId);

@@ -69,11 +69,17 @@ export interface LatestRevision {
   snapshot: Snapshot;
 }
 
-/** The newest revision of an aggregate (a locking read: the root lock already serializes its writers). */
+/**
+ * The newest revision of an aggregate, through its root's `current_revision_id` (the root is locked FOR UPDATE by the
+ * change, so its writers are serialized). Never a locking range scan of `revisions`: for an aggregate without a revision
+ * yet it took a gap lock that two concurrent creates both held and then both inserted into — a deadlock (A8 review L3).
+ */
 export async function latestRevision(db: Db, type: AggregateType, id: string): Promise<LatestRevision | null> {
+  const [root] = await rowsOf<{ current_revision_id: string | null }>(db, sql`SELECT current_revision_id FROM ${rootTable(type)} WHERE ${rootKey(type)} = ${id} FOR UPDATE`);
+  if (!root?.current_revision_id) return null;
   const [row] = await rowsOf<{ id: string; revision_number: number; kind: LatestRevision["kind"]; snapshot_sha256: Buffer; snapshot: unknown }>(
     db,
-    sql`SELECT id, revision_number, kind, snapshot_sha256, snapshot FROM revisions WHERE entity_type = ${type} AND entity_id = ${id} ORDER BY revision_number DESC LIMIT 1 FOR UPDATE`,
+    sql`SELECT id, revision_number, kind, snapshot_sha256, snapshot FROM revisions WHERE id = ${root.current_revision_id} AND entity_type = ${type} AND entity_id = ${id} LOCK IN SHARE MODE`,
   );
   if (!row) return null;
   return { id: row.id, number: Number(row.revision_number), kind: row.kind, sha: Buffer.from(row.snapshot_sha256), snapshot: jsonOf(row.snapshot) as Snapshot };
@@ -91,6 +97,8 @@ export interface WriteRevision {
   message?: string | null;
   /** A save that changed nothing is skipped; any other kind is always written (a submit, a publish…). */
   force?: boolean;
+  /** Created in this transaction: it has no reference rows yet. */
+  created?: boolean;
 }
 
 export interface WrittenRevision {
@@ -134,8 +142,10 @@ export async function writeRevision(tx: Db, input: WriteRevision): Promise<Writt
     createdBy: input.actorId,
   });
   await tx.execute(sql`UPDATE ${rootTable(input.type)} SET current_revision_id = ${id} WHERE ${rootKey(input.type)} = ${input.id}`);
-  // A1: the working copy's references are rebuilt with every save, in the same transaction.
-  await writeReferences(tx, input.type, input.id, "working", referencesOfSnapshot(input.type, canonical(snapshot) as Snapshot));
+  // A1: the working copy's references are rebuilt with every save, in the same transaction. The rows are the previous
+  // revision's references (or none for a new aggregate), so unchanged or empty sets take no range lock (review L3).
+  const previous = latest ? referencesOfSnapshot(input.type, latest.snapshot) : input.created ? [] : undefined;
+  await writeReferences(tx, input.type, input.id, "working", referencesOfSnapshot(input.type, canonical(snapshot) as Snapshot), previous);
   return { id, number, snapshot: canonical(snapshot) as Snapshot, sha, baseId: latest?.id ?? null };
 }
 
@@ -158,6 +168,7 @@ export async function closeRevisions(tx: Db, store: ChangeStore, actor: Actor): 
       restoredFromId: intent.restoredFromId,
       message: intent.message,
       force: intent.kind !== "save",
+      created: noted.version === -1,
     });
     if (written && (intent.kind === "save" || intent.kind === "restore") && status.publicationStatus !== "archived") {
       const draft = intent.draft ?? "draft";

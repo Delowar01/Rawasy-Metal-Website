@@ -9,7 +9,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Actor } from "@/server/auth/types";
 import { authDeps, guarded } from "@/server/admin/context";
-import { requireActor } from "@/server/admin/guards";
+import { hasRecentAuth, requireActor } from "@/server/admin/guards";
+import { SENSITIVE_PERMISSIONS } from "@/server/policy/registry";
+import { StepUpForm } from "@/components/admin/StepUp";
 import { currentAuditSearch } from "@/server/admin/audit-search";
 import { clearAuditSearchAction, searchAuditAction } from "@/server/admin/actions/publishing";
 import { auditActors, auditAddress, auditEntityTypes, listAudit, parseAuditQuery, AUDIT_OUTCOMES } from "@/server/audit/viewer";
@@ -18,7 +20,7 @@ import { ENTITY_TYPES, ORDERING_KEYS, type EntityType } from "@/server/cms/regis
 import { MENU_SLOTS } from "@/server/site/registry";
 import { changeLabel, diffSnapshots, displayValue, localesOf } from "@/server/publishing/compare";
 import { adminPath, sourceLabel, usedBy } from "@/server/publishing/references";
-import { AGGREGATES, allowed, displayedState, isAggregateType, type AggregateType } from "@/server/publishing/registry";
+import { AGGREGATES, allowed, displayedState, isAggregateType, workflowKeys, type AggregateType } from "@/server/publishing/registry";
 import { listRevisions, readRevision, readRootStatus } from "@/server/publishing/revisions";
 import { readSnapshot, type Snapshot } from "@/server/publishing/snapshot";
 import { readPublishing } from "@/server/publishing/workflow";
@@ -69,6 +71,10 @@ export async function PublishingPanel({ type, id, actor, label, anchor = "publis
   const others = used.filter((u) => !(u.sourceType === type && u.sourceId === id));
   const linkedFrom = others.filter((u) => u.scope === "published").length;
   const titleId = `${anchor}-title`;
+  // A step that needs a sensitive key (a legal page's publish, unpublish and rollback: legal.publish) asks for a recent
+  // re-authentication first; the service refuses it otherwise (A1-SECURITY-RBAC §3.7).
+  const sensitive = (state.can.publish || state.can.unpublish) && workflowKeys(type, "publish", state.facts).some((key) => SENSITIVE_PERMISSIONS.has(key));
+  const stepUp = sensitive && !hasRecentAuth(actor) ? (await requireActor()).mfa.enrolled : null;
   return (
     <>
       <section className="adm-card" id={anchor} aria-labelledby={titleId}>
@@ -121,6 +127,7 @@ export async function PublishingPanel({ type, id, actor, label, anchor = "publis
             ) : null}
           </div>
         ) : null}
+        {stepUp !== null ? <StepUpForm mfa={stepUp} reason="Publishing, unpublishing or rolling back a legal page is a sensitive action." /> : null}
         <WorkflowButtons
           type={type}
           id={id}

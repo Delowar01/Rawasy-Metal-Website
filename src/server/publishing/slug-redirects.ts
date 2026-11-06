@@ -48,13 +48,17 @@ const targetsRecord = (row: RedirectHit, type: RoutableType, id: string) =>
 /** The redirects a slug change from `oldSlug` to `newSlug` needs (decided under locks; nothing written). */
 export async function planSlugRedirects(tx: Db, type: RoutableType, id: string, oldSlug: string | null, newSlug: string | null): Promise<RedirectPlan> {
   const plan: RedirectPlan = { create: [], reactivate: [], deactivate: [], issues: [], notes: [] };
-  if (!oldSlug || !newSlug || oldSlug === newSlug) return plan;
+  // A first publication (no old address) still checks its new address (A8 review L4): a redirect from it, left by an
+  // earlier record's slug change, would otherwise stay on over this live address without anyone being told.
+  if (!newSlug || oldSlug === newSlug) return plan;
   const table = sql.identifier(ENTITIES[type].table);
-  const [other] = await rowsOf<{ id: string }>(tx, sql`SELECT id FROM ${table} WHERE slug = ${oldSlug} AND id <> ${id} LOCK IN SHARE MODE`);
+  const [other] = oldSlug ? await rowsOf<{ id: string }>(tx, sql`SELECT id FROM ${table} WHERE slug = ${oldSlug} AND id <> ${id} LOCK IN SHARE MODE`) : [];
   for (const locale of LOCALES) {
-    const source = addressOf(type, locale, oldSlug);
+    const source = oldSlug ? addressOf(type, locale, oldSlug) : null;
     const target = addressOf(type, locale, newSlug);
-    if (other) {
+    if (!source) {
+      // First publication: only the new address's check below.
+    } else if (other) {
       if (locale === "en") plan.notes.push(`The old address “${oldSlug}” now belongs to another ${ENTITIES[type].one}: no redirect from it.`);
     } else {
       const [existing] = await rowsOf<RedirectHit>(

@@ -55,6 +55,9 @@ export interface ChangeStore {
   actorId: string;
   noted: Map<string, Noted>;
   intents: Map<string, RevisionIntent>;
+  /** Cache tags to invalidate, recorded once as the transaction's last write (A8 review L3: the cache generation's row
+   *  lock is always taken last, after every root and collection lock, so no two changes take them in opposite orders). */
+  invalidations?: { tags: Set<string>; requestId: string | null };
 }
 
 const storage = new AsyncLocalStorage<ChangeStore>();
@@ -92,6 +95,15 @@ export function setIntent(tx: unknown, type: AggregateType, id: string, intent: 
 
 export function intentOf(store: ChangeStore, type: AggregateType, id: string): RevisionIntent {
   return store.intents.get(keyOf(type, id)) ?? { kind: "save" };
+}
+
+/** Defers cache tags to the end of the open content transaction; false when none is open (the caller records them). */
+export function deferInvalidations(tx: unknown, tags: readonly string[], requestId: string | null): boolean {
+  const store = currentStore(tx);
+  if (!store) return false;
+  store.invalidations ??= { tags: new Set(), requestId };
+  for (const tag of tags) store.invalidations.tags.add(tag);
+  return true;
 }
 
 /** Records that a revision was written at this root version (by a publish, a submit…), so none is added for it. */

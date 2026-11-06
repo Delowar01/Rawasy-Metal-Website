@@ -110,9 +110,20 @@ export function referencesOfSnapshot(type: AggregateType, snapshot: Snapshot | n
   }
 }
 
-/** Replaces a source's references of one scope (in the caller's transaction). */
-export async function writeReferences(tx: Db, type: AggregateType, id: string, scope: "working" | "published", refs: readonly Reference[]): Promise<void> {
-  await tx.execute(sql`DELETE FROM content_references WHERE source_type = ${type} AND source_id = ${id} AND scope = ${scope}`);
+const refKey = (r: Reference) => `${r.fieldPath}\u0000${r.targetType}\u0000${r.targetId}\u0000${r.sectionId ?? ""}`;
+
+/**
+ * Replaces a source's references of one scope (in the caller's transaction). `previous`, when the caller knows it (the
+ * previous revision's references; none for a new aggregate or a first publication), spares the delete: an unchanged
+ * set writes nothing, and an empty one only inserts — a delete that matches no row takes a gap lock in the index that a
+ * concurrent writer of a neighbouring source then deadlocks against (A8 review L3). Unknown (`undefined`): delete first.
+ */
+export async function writeReferences(tx: Db, type: AggregateType, id: string, scope: "working" | "published", refs: readonly Reference[], previous?: readonly Reference[]): Promise<void> {
+  if (previous) {
+    const before = previous.map(refKey).sort().join("\n");
+    if (before === refs.map(refKey).sort().join("\n")) return;
+  }
+  if (!previous || previous.length) await tx.execute(sql`DELETE FROM content_references WHERE source_type = ${type} AND source_id = ${id} AND scope = ${scope}`);
   if (!refs.length) return;
   for (let i = 0; i < refs.length; i += 200) {
     await tx.insert(contentReferences).values(

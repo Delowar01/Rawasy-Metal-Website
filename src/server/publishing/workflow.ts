@@ -13,11 +13,13 @@
  */
 import { sql } from "drizzle-orm";
 import { recordAudit, type AuditOutcome } from "../audit/audit.ts";
+import { isRecentlyAuthenticated } from "../auth/sessions.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "../auth/types.ts";
+import { SENSITIVE_PERMISSIONS } from "../policy/registry.ts";
 import type { Db } from "../db/client.ts";
 import { reviewComments } from "../db/schema-publishing.ts";
-import { noteLocked, setIntent, markRecorded } from "../cms/changes.ts";
-import { contentTransaction, instantOf, rowsOf, type CmsDeps, type FieldErrors } from "../cms/store.ts";
+import { deferInvalidations, noteLocked, setIntent, markRecorded } from "../cms/changes.ts";
+import { contentTransaction, duplicateKey, instantOf, rowsOf, type CmsDeps, type FieldErrors } from "../cms/store.ts";
 import { plainText } from "../cms/text.ts";
 import type { PageType } from "../cms/registry.ts";
 import { ulid } from "../security/ids.ts";
@@ -25,7 +27,7 @@ import { recordInvalidations, tagsFor } from "./cache.ts";
 import { takeOffline } from "./offline.ts";
 import { projectSnapshot } from "./projection.ts";
 import { referencesOfSnapshot, sourceLabel, usedBy, writeReferences } from "./references.ts";
-import { AGGREGATES, allowed, canApprove, PUBLISHING_LIMITS, type AggregateType, type RecordFacts, type WorkflowAction } from "./registry.ts";
+import { AGGREGATES, allowed, canApprove, PUBLISHING_LIMITS, workflowKeys, type AggregateType, type RecordFacts, type WorkflowAction } from "./registry.ts";
 import { restoreSnapshot, type RestoreOutcome } from "./restore.ts";
 import { readRevision, readRootStatus, ROOTS, submitterOf, writeRevision } from "./revisions.ts";
 import { readSnapshot, sha256, canonicalJson } from "./snapshot.ts";
@@ -43,7 +45,10 @@ export type WorkflowResult =
   | { kind: "stale" }
   | { kind: "not_found" }
   | { kind: "denied"; message: string }
+  | { kind: "step_up"; message: string }
   | { kind: "refused"; message: string; issues?: PublishIssue[]; errors?: FieldErrors; details?: { path?: string; ref?: string; message: string }[] };
+
+export const STEP_UP_MESSAGE = "Confirm your identity first (valid for 10 minutes), then try again.";
 
 export const STALE_MESSAGE = "This content changed after you opened it. Reload and review the latest version before continuing.";
 
@@ -140,6 +145,18 @@ const keyList = (type: AggregateType, action: WorkflowAction, facts: RecordFacts
   }
 };
 
+/**
+ * A step whose keys include a sensitive one (`legal.publish` today: publishing, unpublishing or rolling back a legal page)
+ * needs a re-authentication within the last 10 minutes (A1-SECURITY-RBAC §3.7), decided here on the session as it is,
+ * like A7's export. Null when it may go on; otherwise the refusal, audited as denied.
+ */
+async function stepUpRefusal(tx: Db, change: PublishingChange, now: Date, locked: Locked, step: string, action: WorkflowAction): Promise<WorkflowResult | null> {
+  const sensitive = workflowKeys(locked.type, action, locked.facts).filter((key) => SENSITIVE_PERMISSIONS.has(key));
+  if (!sensitive.length || isRecentlyAuthenticated(change.actor.session, now)) return null;
+  await audit(tx, change, now, locked, { action: step, outcome: "denied", summary: `Refused: ${step.replace(/_/g, " ")} of ${what(locked)} needs ${sensitive.join(", ")} confirmed within the last 10 minutes.` });
+  return { kind: "step_up", message: STEP_UP_MESSAGE };
+}
+
 /** The common start of a step: lock, permission, version. Returns the locked root or the refusal (audited). */
 async function begin(tx: Db, change: PublishingChange, now: Date, type: AggregateType, id: string, step: string, needs: WorkflowAction | null, expectedVersion: number): Promise<Locked | WorkflowResult> {
   const locked = await lockAggregate(tx, type, id);
@@ -147,6 +164,10 @@ async function begin(tx: Db, change: PublishingChange, now: Date, type: Aggregat
   if (needs && !allowed(change.actor.permissions, type, needs, locked.facts)) {
     await audit(tx, change, now, locked, { action: step, outcome: "denied", summary: `Refused: ${step.replace(/_/g, " ")} of ${what(locked)} needs ${keyList(type, needs, locked.facts)}.` });
     return { kind: "denied", message: `You don't have permission to ${step.replace(/_/g, " ")} this ${AGGREGATES[type].one}.` };
+  }
+  if (needs) {
+    const stepUp = await stepUpRefusal(tx, change, now, locked, step, needs);
+    if (stepUp) return stepUp;
   }
   if (locked.version !== expectedVersion) {
     await audit(tx, change, now, locked, { action: step, outcome: "failed", summary: `Refused: ${what(locked)} changed after the page was opened (version ${expectedVersion}, now ${locked.version}).` });
@@ -276,12 +297,21 @@ const cleanNote = (raw: unknown): string | null => {
 };
 
 /** The publish itself, on a locked root whose working copy is the version going live (shared by publish and rollback). */
-async function publishLocked(tx: Db, change: PublishingChange, now: Date, locked: Locked, options: { message: string | null; fromReview: boolean; restoredFromId?: string | null; stepName: string }): Promise<WorkflowResult> {
+async function publishLocked(
+  tx: Db,
+  change: PublishingChange,
+  now: Date,
+  locked: Locked,
+  options: { message: string | null; fromReview: boolean; restoredFromId?: string | null; stepName: string; legalReviewer?: string | null },
+): Promise<WorkflowResult> {
   const snapshot = await readSnapshot(tx, locked.type, locked.id);
   if (!snapshot) return { kind: "not_found" };
   const issues = await publicationIssues(tx, locked.type, locked.id, snapshot);
   const routable = AGGREGATES[locked.type].routable;
-  const [current] = await rowsOf<{ slug: string | null; revision_id: string }>(tx, sql`SELECT slug, revision_id FROM published_documents WHERE entity_type = ${locked.type} AND entity_id = ${locked.id} FOR UPDATE`);
+  // Read only when the root names a live version: a locking read of a missing row takes a gap lock (A8 review L3).
+  const [current] = locked.publishedRevisionId
+    ? await rowsOf<{ slug: string | null; revision_id: string }>(tx, sql`SELECT slug, revision_id FROM published_documents WHERE entity_type = ${locked.type} AND entity_id = ${locked.id} FOR UPDATE`)
+    : [];
   const newSlug = typeof (snapshot.root as Record<string, unknown> | undefined)?.slug === "string" ? String((snapshot.root as Record<string, unknown>).slug) : null;
   const plan = routable ? await planSlugRedirects(tx, locked.type as RoutableType, locked.id, current?.slug ?? null, newSlug) : null;
   if (plan) issues.push(...plan.issues);
@@ -300,23 +330,41 @@ async function publishLocked(tx: Db, change: PublishingChange, now: Date, locked
   markRecorded(tx, locked.type, locked.id, await versionNow(tx, locked.type, locked.id));
   const projection = projectSnapshot(locked.type, written.snapshot);
   const json = canonicalJson(projection.document);
-  await tx.execute(
-    sql`INSERT INTO published_documents (entity_type, entity_id, revision_id, slug, schema_version, document, content_sha256, published_at)
-        VALUES (${locked.type}, ${locked.id}, ${written.id}, ${projection.slug}, ${projection.schemaVersion}, ${json}, ${sha256(json)}, ${now})
-        ON DUPLICATE KEY UPDATE revision_id = VALUES(revision_id), slug = VALUES(slug), schema_version = VALUES(schema_version), document = VALUES(document),
-          content_sha256 = VALUES(content_sha256), published_at = VALUES(published_at)`,
-  );
-  await writeReferences(tx, locked.type, locked.id, "published", referencesOfSnapshot(locked.type, shownSnapshot(written.snapshot)));
+  // The live document: inserted on a first publication, otherwise updated by its own key. Never `ON DUPLICATE KEY
+  // UPDATE`, which fires on any unique key — a slug taken by another live record meanwhile would have overwritten that
+  // record's document. The slug's unique index is the final word (the check above reads without locks, so two first
+  // publications never share a gap lock and deadlock: A8 review L3); a collision refuses the publication.
+  try {
+    if (current) {
+      await tx.execute(
+        sql`UPDATE published_documents SET revision_id = ${written.id}, slug = ${projection.slug}, schema_version = ${projection.schemaVersion}, document = ${json},
+              content_sha256 = ${sha256(json)}, published_at = ${now} WHERE entity_type = ${locked.type} AND entity_id = ${locked.id}`,
+      );
+    } else {
+      await tx.execute(
+        sql`INSERT INTO published_documents (entity_type, entity_id, revision_id, slug, schema_version, document, content_sha256, published_at)
+            VALUES (${locked.type}, ${locked.id}, ${written.id}, ${projection.slug}, ${projection.schemaVersion}, ${json}, ${sha256(json)}, ${now})`,
+      );
+    }
+  } catch (error) {
+    if (duplicateKey(error) !== "uq_published_documents_slug") throw error;
+    const message = `Another live ${AGGREGATES[locked.type].one} already uses the address “${projection.slug ?? ""}”.`;
+    throw new Rollback({ kind: "refused", message: "This version can't be published yet.", issues: [{ code: "slug.live", message, blocking: true }] }, { action: options.stepName, outcome: "failed", summary: `Refused: ${what(locked)} can't be published yet (slug.live).` });
+  }
+  // A first publication has no published references yet (going offline removes them): insert only.
+  await writeReferences(tx, locked.type, locked.id, "published", referencesOfSnapshot(locked.type, shownSnapshot(written.snapshot)), current ? undefined : []);
   const redirected = plan ? await applySlugRedirects(tx, plan, locked.type as RoutableType, locked.id, change.actor.user.id, now) : null;
   await tx.execute(sql`UPDATE review_comments SET status = 'resolved', resolved_by = ${change.actor.user.id}, resolved_at = ${now} WHERE entity_type = ${locked.type} AND entity_id = ${locked.id} AND status = 'open'`);
-  await recordInvalidations(tx, tagsFor(locked.type, locked.id, [current?.slug ?? null, projection.slug]), change.meta.requestId, now);
+  const tags = tagsFor(locked.type, locked.id, [current?.slug ?? null, projection.slug]);
+  if (!deferInvalidations(tx, tags, change.meta.requestId)) await recordInvalidations(tx, tags, change.meta.requestId, now);
   const warnings = issues.filter((i) => !i.blocking).map((i) => i.message);
   const notes = [...(plan?.notes ?? [])];
   const redirectNote = redirected && redirected.created + redirected.reactivated ? ` Added ${redirected.created + redirected.reactivated} redirect${redirected.created + redirected.reactivated === 1 ? "" : "s"} from the old address.` : "";
   await audit(tx, change, now, locked, {
     action: options.stepName,
     summary: `${options.stepName === "rollback" ? "Rolled back and published" : "Published"} ${what(locked)}${options.fromReview ? " after review" : " without review"} (revision ${written.number}).${redirectNote}${warnings.length ? ` ${warnings.length} warning${warnings.length === 1 ? "" : "s"}.` : ""}`,
-    changes: { reviewed: options.fromReview, revision: written.number, ...(redirected ? { redirects: redirected } : {}), warnings: warnings.length },
+    // A1 §4.3: the legal review's confirmation is kept with the publish revision and in the audit event (a staff name).
+    changes: { reviewed: options.fromReview, revision: written.number, ...(options.legalReviewer ? { legalReviewer: options.legalReviewer } : {}), ...(redirected ? { redirects: redirected } : {}), warnings: warnings.length },
     before: locked.publishedRevisionId,
     after: written.id,
   });
@@ -338,16 +386,20 @@ export function publish(change: PublishingChange, type: AggregateType, id: strin
       await audit(tx, change, now, locked, { action: "publish", outcome: "denied", summary: `Refused: publishing ${what(locked)} needs ${keyList(type, "publish", locked.facts)}${AGGREGATES[type].review && locked.facts.pageType !== "legal" ? ` or, after someone else's submission, ${AGGREGATES[type].resource}.publish_reviewed` : ""}${why}.` });
       return { kind: "denied", message: `You don't have permission to publish this ${AGGREGATES[type].one}${why}.` };
     }
+    const stepUp = await stepUpRefusal(tx, change, now, locked, "publish", "publish");
+    if (stepUp) return stepUp;
     let message = cleanNote(options.message);
+    let legalReviewer: string | null = null;
     if (locked.facts.pageType === "legal") {
       const reviewer = reviewerSchema.safeParse(typeof options.legalReviewer === "string" ? options.legalReviewer.trim() : "");
       if (!reviewer.success || !reviewer.data) {
         await audit(tx, change, now, locked, { action: "publish", outcome: "failed", summary: `Refused: ${what(locked)} is a legal page and its legal review was not confirmed.` });
         return { kind: "refused", message: "A legal page is published only once its legal text has been reviewed: say who reviewed it.", errors: { legalReviewer: "Say who reviewed the legal text." } };
       }
+      legalReviewer = reviewer.data;
       message = `Legal text reviewed by ${reviewer.data}.${message ? ` ${message}` : ""}`.slice(0, PUBLISHING_LIMITS.message);
     }
-    return publishLocked(tx, change, now, locked, { message, fromReview, stepName: "publish" });
+    return publishLocked(tx, change, now, locked, { message, fromReview, stepName: "publish", legalReviewer });
   });
 }
 
@@ -407,8 +459,19 @@ export function discardChanges(change: PublishingChange, type: AggregateType, id
       const result = restoreRefusal(outcome);
       throw new Rollback(result, { action: "discard", outcome: result.kind === "denied" ? "denied" : "failed", summary: `Refused: the draft changes of ${what(locked)} could not be discarded (${outcome.kind}).` });
     }
-    await audit(tx, change, now, locked, { action: "discard", summary: `Discarded the draft changes of ${what(locked)} (back to revision ${live.number}, the live version).`, before: locked.currentRevisionId });
-    return { kind: "ok", summary: "Discarded: the working copy is the live version again.", lockVersion: await versionNow(tx, type, id), warnings: outcome.notes };
+    // "No draft changes" only when the working copy now equals the live version: a restore keeps what this person may not
+    // change (robots / canonical / sitemap without seo.advanced, project flags, a layout the live version never set up),
+    // and those leave a difference that stays a draft (A8 review L2).
+    const after = await readSnapshot(tx, type, id);
+    const same = after !== null && canonicalJson(after) === canonicalJson(live.snapshot);
+    setIntent(tx, type, id, { kind: "restore", restoredFromId: live.id, message: "Discarded the draft changes: back to the live version.", draft: same ? "none" : "draft" });
+    await audit(tx, change, now, locked, { action: "discard", summary: `Discarded the draft changes of ${what(locked)} (back to revision ${live.number}, the live version${same ? "" : "; some settings this person may not change stay as they were, so it remains a draft"}).`, before: locked.currentRevisionId });
+    return {
+      kind: "ok",
+      summary: same ? "Discarded: the working copy is the live version again." : "Discarded what you may change. Some settings you may not change differ from the live version, so it stays a draft.",
+      lockVersion: await versionNow(tx, type, id),
+      warnings: outcome.notes,
+    };
   });
 }
 
@@ -425,9 +488,14 @@ export function rollback(change: PublishingChange, type: AggregateType, id: stri
     if (!revision || revision.kind !== "publish") return refuse(tx, change, now, locked, "rollback", "Only a version that was published can be rolled back to.");
     if (revision.id === locked.publishedRevisionId && locked.draft === "none") return refuse(tx, change, now, locked, "rollback", "That version is already the live version.");
     let message: string | null = `Rolled back to revision ${revision.number}.`;
+    let legalReviewer: string | null = null;
     if (locked.facts.pageType === "legal") {
       const reviewer = reviewerSchema.safeParse(typeof options.legalReviewer === "string" ? options.legalReviewer.trim() : "");
-      if (!reviewer.success || !reviewer.data) return { kind: "refused", message: "A legal page is published only once its legal text has been reviewed: say who reviewed it.", errors: { legalReviewer: "Say who reviewed the legal text." } };
+      if (!reviewer.success || !reviewer.data) {
+        await audit(tx, change, now, locked, { action: "rollback", outcome: "failed", summary: `Refused: ${what(locked)} is a legal page and its legal review was not confirmed.` });
+        return { kind: "refused", message: "A legal page is published only once its legal text has been reviewed: say who reviewed it.", errors: { legalReviewer: "Say who reviewed the legal text." } };
+      }
+      legalReviewer = reviewer.data;
       message = `${message} Legal text reviewed by ${reviewer.data}.`;
     }
     setIntent(tx, type, id, { kind: "restore", restoredFromId: revision.id, message: `Restored revision ${revision.number} to roll back.` });
@@ -439,7 +507,7 @@ export function rollback(change: PublishingChange, type: AggregateType, id: stri
     await revisionNow(tx, type, id, "restore", change.actor.user.id, now, { restoredFromId: revision.id, message: `Restored revision ${revision.number} to roll back.` });
     const relocked = await lockAggregate(tx, type, id);
     if (!relocked) return { kind: "not_found" };
-    return publishLocked(tx, change, now, relocked, { message, fromReview: false, restoredFromId: revision.id, stepName: "rollback" });
+    return publishLocked(tx, change, now, relocked, { message, fromReview: false, restoredFromId: revision.id, stepName: "rollback", legalReviewer });
   });
 }
 

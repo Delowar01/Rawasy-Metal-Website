@@ -192,7 +192,9 @@ export async function publicationIssues(tx: Db, type: AggregateType, id: string,
     }
     const slug = asRecord(snapshot.root).slug;
     if (typeof slug === "string" && slug) {
-      const [taken] = await rowsOf<{ entity_id: string }>(tx, sql`SELECT entity_id FROM published_documents WHERE entity_type = ${type} AND slug = ${slug} AND entity_id <> ${id} LOCK IN SHARE MODE`);
+      // A plain read for the message: the slug's unique index decides at the write (a locking read of a free slug took
+      // a gap lock two first publications both held, then both inserted into — a deadlock; A8 review L3).
+      const [taken] = await rowsOf<{ entity_id: string }>(tx, sql`SELECT entity_id FROM published_documents WHERE entity_type = ${type} AND slug = ${slug} AND entity_id <> ${id}`);
       if (taken) issues.push({ code: "slug.live", message: `Another live ${AGGREGATES[type].one} already uses the address “${slug}”.`, blocking: true });
     }
   } else if (type === "reusable_section") {

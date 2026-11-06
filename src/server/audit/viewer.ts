@@ -88,7 +88,8 @@ function whereOf(query: AuditQuery): SQL {
   if (query.type) parts.push(sql`entity_type = ${query.type}`);
   if (query.entity) parts.push(sql`entity_type = ${query.entity.type} AND entity_id = ${query.entity.id}`);
   if (query.actor) parts.push(sql`actor_user_id = ${query.actor}`);
-  if (query.action) parts.push(query.action.includes(".") ? sql`action = ${query.action}` : sql`action LIKE ${`${query.action}.%`}`);
+  // A kind of action ("client") matches "client.<anything>": its own `_` is taken literally, not as a LIKE wildcard.
+  if (query.action) parts.push(query.action.includes(".") ? sql`action = ${query.action}` : sql`action LIKE ${`${query.action.replace(/[\\%_]/g, (c) => `\\${c}`)}.%`}`);
   if (query.from) parts.push(sql`occurred_at >= ${riyadhDayStart(query.from)}`);
   if (query.to) parts.push(sql`occurred_at < ${new Date(riyadhDayStart(query.to).getTime() + 24 * 60 * 60 * 1000)}`);
   if (query.q) {
