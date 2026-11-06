@@ -10,10 +10,12 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-10-30-admin-a6-global-site-controls.md` (Admin / CMS program, Phase A6 — global site
-  controls, local implementation only: settings, navigation, interface text, theme, redirects, the preview; the A7 plan;
-  its last section, "A6 FINAL CORRECTION AND CLOSURE": the Contact preview correction, the closure QA and freeze)
-  (earlier: `2026-10-30-admin-a5-final-correction.md` (Phase A5 — final security and data-preservation correction:
+- Latest report: `docs/reports/2026-11-06-admin-a7-forms-enquiries.md` (Admin / CMS program, Phase A7 — forms and
+  enquiries, local implementation only: the quote form's working copy, the private inbox and workflow, notifications,
+  attachments, export and retention, all gated; the A6 closure summary; the A8 roadmap)
+  (earlier: `2026-10-30-admin-a6-global-site-controls.md` (Phase A6 — global site controls; its last section, "A6 FINAL
+  CORRECTION AND CLOSURE": the Contact preview correction, the closure QA and freeze),
+  `2026-10-30-admin-a5-final-correction.md` (Phase A5 — final security and data-preservation correction:
   Next.js 16.4.1 / Zod 4.6.6, unsaved builder work when a session ends),
   `2026-10-30-admin-a5-acceptance-review.md` (Phase A5 — acceptance review, readiness and the A6 plan),
   `2026-10-16-admin-a5-page-builder.md` (Phase A5 — Page builder, local implementation only; its "A5 FINAL CORRECTION"
@@ -375,11 +377,18 @@
   (0 pixels between same-choice captures, both builds). **A6 is closed** (formal closure authorized by that brief once
   the checks passed); rollback checkpoint: GitHub branch `preserve/pre-admin-a7` at the closure docs commit, pushed
   before any A7 commit.
-  **Phase A7 (Forms & Enquiries) is authorized by the same brief — local implementation only** (its commits follow the
-  checkpoint; its notes are added with them). **Do not start A8** (publishing, revisions in use, database-backed public
-  pages, redirects resolving, content migration, cache handler, the public site switched to `/media/u`) or anything of
-  A9, and never activate public enquiry collection, a public storage endpoint, SMTP, real email, automatic retention or
-  a legal retention period without the Owner's explicit decision.
+  **Phase A7 (Forms & Enquiries) is built — local implementation only** (the same brief; report
+  `2026-11-06-admin-a7-forms-enquiries.md`; rollback checkpoint `preserve/pre-admin-a7` at `da1fe11`) and awaits the
+  Owner's review: see "Phase A7 implementation" below. Its commits, each on its own: `476bf2f` schema, migration 0008
+  and seed 0009; `f6a845c` the form's working copy and validation; `230c715` storage (the prepared submission service),
+  inbox and workflow; `02cf850` outbox and attachments; `ca33ed0` export and retention; `67e3054` admin screens;
+  `06a90a4` tests; `e3071c1` the independent security review's corrections (no High or Medium; 6 Low, 5 Info) and
+  `7f0d2ca` their tests (each fails on `06a90a4`); `c1ed475` README; `19c08c7` the project type's label and who assigned
+  by name (found by the evidence capture). QA on a fresh clone of `19c08c7`: pending (the report's item 6). The public
+  quote form is unchanged (handoff); nothing public stores an enquiry. **Do not start A8** (publishing, revisions in
+  use, database-backed public pages, redirects resolving, content migration, cache handler, the public site switched to
+  `/media/u`) or anything of A9, and never activate public enquiry collection, a public storage endpoint, SMTP, real
+  email, automatic retention or a legal retention period without the Owner's explicit decision.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -490,7 +499,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A6 implemented locally)
+## Admin / CMS program (A1 specification; A2–A7 implemented locally)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -1151,6 +1160,75 @@
 - Recorded for later (A8 / A9 / Owner), accepted at A6's closure: the review's I1 (A1's menu index → A8, with the
   revisions), I5 (the preview's coordinates → A9's parity proof), I6 (the accepted read-before-gate naming → kept), L2's
   redirect re-check (A8's slug redirects and the A9 cutover), and the items in the A6 report's "unresolved" list.
+
+### Phase A7 implementation (local only; report `2026-11-06-admin-a7-forms-enquiries.md`)
+
+- Scope (the A6/A7 brief, A7.1–A7.8): the quote form as a CMS definition (`/admin/forms`, `/admin/forms/[id]`, preview
+  `/admin/preview/form/[id]?locale=&theme=`), the enquiry inbox (`/admin/enquiries`, `/admin/enquiries/[id]`, the
+  dashboard's Enquiries card), attachments (`/api/admin/enquiries/[id]/files/[fileId]`), the outbox and retention CLIs.
+  T1 Option B: **the public quote form is unchanged (handoff) and nothing public stores an enquiry** — the submission
+  service (`src/server/enquiries/submission.ts`) is reachable by no route or Server Action (the browser spec checks the
+  action manifest); only tests and `e2e-admin/seed-enquiries.mjs` (local `rawasy_e2e_*` only) call it. A9's cutover wires
+  it, with the Owner's go-ahead (its contract: cap the streamed body, A2's client address, log via `describeDbError`).
+- Schema: `src/server/db/schema-forms.ts` → `drizzle/0008_forms_enquiries.sql` (10 tables: `forms` (+ `form_translations`,
+  `form_fields`, `form_field_translations`), `enquiries`, `enquiry_reference_counters`, `enquiry_files`, `enquiry_notes`,
+  `enquiry_status_history`, `email_outbox`) and `0009_seed_forms_enquiries.sql` (the quote form's root only: `handoff`,
+  no retention, no stored files; generated from `src/server/forms/registry.ts` by `scripts/generate-access-seed.mjs`).
+  No new permission.
+- Code: `src/server/forms/` (`registry.ts` keys, fields `QUOTE_FIELDS`, limits, statuses, `TRANSITIONS`, references,
+  outbox; `copy.ts` today's words from `quoteFormText()` / `src/content/contact.ts`, the copy schemas,
+  `workingQuoteFormText`; `forms.ts` `readForm` / `setUpForm` / `saveForm`; `common.ts`), `src/server/enquiries/`
+  (`token.ts`, `validate.ts`, `submission.ts`, `enquiries.ts` lists / detail / workflow / assignment / notes /
+  `mailtoHref` / `telHref`, `outbox.ts`, `files.ts` `decideFileDownload` / `downloadName`, `export.ts`, `retention.ts`);
+  Next side `src/server/admin/actions/forms.ts` (+ `forms-model.ts`), `src/app/(admin)/admin/_components/enquiries.tsx`,
+  `src/components/admin/forms/FormEditor.tsx`, `src/components/admin/enquiries/EnquiryActions.tsx`,
+  `src/components/builder/FormPreview.tsx`; CLIs `npm run email:outbox`, `npm run enquiries:retention` (by hand, no
+  schedule, no HTTP route).
+- Permissions (keys only): forms read `content.view`, saved `forms.edit`; delivery mode, attachments, their types and
+  the consent mode also `forms.delivery_mode` (Owner); retention also `enquiries.delete` (Owner); inbox, enquiry and
+  attachments `enquiries.view`; workflow, assignment, notes, retry `enquiries.manage` (Owner, Admin); export
+  `enquiries.export` + a step-up within 10 minutes (Owner; sensitive, so `actionContext` enforces it and the service
+  re-checks). Every action calls `actionContext` before reading input; every service re-decides in
+  `contentTransaction`, locks the form or enquiry row, compares `lock_version`, audits refusals and stale changes.
+- Rules to keep (each has tests; the review's fail on `06a90a4`, before `e3071c1`):
+  - Privacy: audit summaries, labels and changes carry references, ids, statuses and counts only (never a name, email,
+    phone, message, note, reason, file name or search text; the specs scan every enquiry audit row); the received event
+    has no client address; page titles carry no personal data; notification mail = reference + admin link only. The
+    inbox search is a GET form (terms in the address): recorded for the Owner.
+  - References `Q-YYYY-NNNNN` (Riyadh year): one upsert `INSERT … ON DUPLICATE KEY UPDATE last_number = last_number + 1`
+    takes the year's counter row exclusively, read back `FOR UPDATE` inside the enquiry's transaction (an `INSERT IGNORE`
+    first took a shared lock and 20 concurrent submissions deadlocked upgrading it). Gapless on rollback.
+  - The prepared submission's order: origin → declared size → the form stores → per address (IPv6 by /64,
+    `addressBucket`) → honeypot (any value but "") → timing token (HMAC, `tokenKeyFrom(AUTH_ENCRYPTION_KEY)` purpose
+    `rawasy:enquiry-form-token:v1`, ≥ min fill, ≤ 2 h) → fields (`validate.ts`: today's rules; the email domain held to
+    letters/marks/digits/dots/hyphens) and files (A4 signatures + extension list; PDF/JPEG/PNG only) → per email
+    (`normalizeEmail`) → files written to the private `enquiries` area → nonce claimed (`rate_limits` INSERT IGNORE) →
+    one transaction: the form share-locked and still the version read (`changed` otherwise), counter, enquiry, history,
+    files, outbox, audit. Errors rethrown as `SubmissionStoreError` (code only: the driver's message holds the values).
+  - Attachments: area `enquiries` (`KEY_GRAMMAR.enquiries`: `YYYY/MM/<ULID>.(jpg|png|pdf)`), never public, never the
+    optimizer; download only by `enquiries.view`, file joined to the enquiry in the address, size must match, attachment
+    + `nosniff` + `no-store` + sandbox CSP, name from `downloadName` (always the stored extension), audited
+    (`enquiry.file_download`, reference only). The media maintenance report lists strays in the area (left out of
+    `publicView`).
+  - Workflow: `TRANSITIONS` only; "Close without an answer" needs a reason (≤ 500, kept in the history). Assignment only
+    to an active Owner / Admin (share-locked). Notes plain text; refused on an anonymized enquiry.
+  - Outbox: lease claim by one conditional UPDATE; an outcome is written only `WHERE status = 'sending' AND
+    claimed_until = <own lease>` (`superseded` otherwise); a row without a body is cancelled; backoff 1/5/15/60/240 min,
+    5 attempts → `failed`; retry (`enquiries.manage`) refused for an anonymized enquiry. Transport = A2's mailer
+    (`disabled` default / local `sink`); a future SMTP transport must time out inside the 5-minute lease.
+  - Staff views show labels, never stored keys: `projectTypeLabel` (the page and the export); who acted by display name
+    (the assignment history joins `users`; the audit label carries the email).
+  - CSV: `csvCell` prefixes `'` to cells starting (after spaces) with `= + - @` tab CR; BOM; CRLF; ≤ 5,000 rows;
+    anonymized rows blank; audited with counts and filter kinds only.
+  - Retention: inactive (no period; no schedule; no admin deletion). `--apply` refused without a period; anonymizes
+    personal fields, notes, reasons, files (only removed ones counted; `failedFiles` printed, exit 4), mail bodies
+    (unsent rows cancelled); keeps reference, dates, status, history steps.
+  - The form editor: the Owner's settings are read-only for an Admin and refused in the service; a field's type, key and
+    choices are code; required name / email / message locked; the consent box needs both languages' words.
+- Tests: `tests/unit/forms-registry.test.ts`, `enquiries-submission.test.ts`, `enquiries-review.test.ts`;
+  `tests/integration/forms-helpers.ts`, `forms-definitions`, `forms-migration` (A–G), `enquiries-submission`,
+  `enquiries-workflow`, `enquiries-review`; `e2e-admin/enquiries.spec.ts` (+ `seed-enquiries.mjs`, `gate-helpers.ts`;
+  `afterAll` empties the A7 tables and resets the form's root). The A3–A6 migration tests take 0008/0009.
 
 ## Rules from the brief
 
@@ -2699,3 +2777,15 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   (`env.clock.advance`) and change who acts, or the old and new stamps are equal anyway.
 - A unique index with a nullable column admits repeated NULLs: A1's `uq_menu_items_position (menu_key, parent_id,
   position)` does not protect top-level items (no parent); the service's root lock and renumbering do.
+- `key in OBJECT` also accepts `Object.prototype`'s names ("constructor", "toString", "__proto__"): a lookup table read
+  that way and fed to `sql.raw` turned `?sort=constructor` into a SQL error (A7 review L3). Read fixed maps with
+  `Object.hasOwn`.
+- mysql2 returns `DATE` columns as JavaScript `Date` objects (local midnight), not strings: format them with `dateOnly`
+  (`src/server/cms/store.ts`), never `String(value).slice(0, 10)`.
+- `INSERT IGNORE` of an existing row takes a shared lock; a later `UPDATE` of that row in two transactions then
+  deadlocks upgrading it (20 concurrent enquiry submissions did). A counter row is taken exclusively at once with
+  `INSERT … ON DUPLICATE KEY UPDATE n = n + 1`, then read back `FOR UPDATE`.
+- An integration test that moves the clock by days outlives the team's sessions (12 h absolute): make the actors for
+  the later steps after the move (`fresh(role)` in the A7 tests).
+- A Content-Disposition name cut to a length can end in a different extension ("….bat.pdf" cut to "….bat"): cut the stem
+  and put the proven extension back (`downloadName`).
