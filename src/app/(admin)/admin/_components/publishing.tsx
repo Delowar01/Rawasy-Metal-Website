@@ -258,19 +258,19 @@ export async function HistoryScreen({ rawType, rawId, searchParams }: { rawType:
                         </>
                       ) : null}
                     </th>
-                    <td>
+                    <td data-label="What">
                       {KIND_LABELS[r.kind] ?? r.kind}
                       {r.restoredFromNumber ? ` (from version ${r.restoredFromNumber})` : ""}
                       {r.localesChanged.length ? <span className="adm-muted"> · {r.localesChanged.map((l) => (l === "en" ? "English" : "Arabic")).join(", ")}</span> : null}
                       {r.message ? <p className="adm-hint">{r.message}</p> : null}
                       {r.liveUntil ? <p className="adm-hint">Live until {formatTime(r.liveUntil)}</p> : null}
                     </td>
-                    <td>
+                    <td data-label="Who and when">
                       {r.createdByName ?? "Someone"}
                       <br />
                       <span className="adm-muted">{formatTime(r.createdAt)}</span>
                     </td>
-                    <td>
+                    <td data-label="Compare">
                       <span className="adm-actions">
                         {previous ? (
                           <Link className="adm-btn is-small" href={`${historyHref(type, id)}/compare?a=${previous.id}&b=${r.id}`}>
@@ -282,7 +282,7 @@ export async function HistoryScreen({ rawType, rawId, searchParams }: { rawType:
                         </Link>
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Actions">
                       <RevisionButtons type={type} id={id} version={status.lockVersion} revision={{ id: r.id, number: r.number, kind: r.kind }} canRestore={canRestore} canRollback={canRollback} legal={facts.pageType === "legal"} live={isLive} />
                     </td>
                   </tr>
@@ -364,10 +364,10 @@ export async function CompareScreen({ rawType, rawId, searchParams }: { rawType:
                       {changeLabel(change, { before: a.snapshot, after: b.snapshot, fieldLabel })}
                       {change.kind !== "changed" ? <span className="adm-muted"> ({change.kind})</span> : null}
                     </th>
-                    <td {...(arabic ? { dir: "rtl", lang: "ar" } : {})} className="adm-pre">
+                    <td data-label="Before" {...(arabic ? { dir: "rtl", lang: "ar" } : {})} className="adm-pre">
                       {displayValue(change.before)}
                     </td>
-                    <td {...(arabic ? { dir: "rtl", lang: "ar" } : {})} className="adm-pre">
+                    <td data-label="After" {...(arabic ? { dir: "rtl", lang: "ar" } : {})} className="adm-pre">
                       {displayValue(change.after)}
                     </td>
                   </tr>
@@ -488,12 +488,12 @@ export async function AuditScreen({ searchParams }: { searchParams: SearchParams
                 const aggregate = row.entityType && isAggregateType(row.entityType) && row.entityId ? adminPath(row.entityType, row.entityId) : null;
                 return (
                   <tr key={row.id}>
-                    <td>{formatTime(row.occurredAt)}</td>
-                    <td>
+                    <td data-label="When">{formatTime(row.occurredAt)}</td>
+                    <td data-label="Who">
                       {row.actorLabel ?? (row.actorType === "cli" ? "Server tool" : row.actorType === "system" ? "System" : "Unknown")}
                       {row.actorRoles ? <span className="adm-muted"> · {row.actorRoles}</span> : null}
                     </td>
-                    <td>
+                    <td data-label="What">
                       <p>{row.summary}</p>
                       <p className="adm-hint">
                         <code>{row.action}</code>
@@ -519,7 +519,7 @@ export async function AuditScreen({ searchParams }: { searchParams: SearchParams
                         </details>
                       ) : null}
                     </td>
-                    <td>
+                    <td data-label="Outcome">
                       <span className={`adm-badge ${row.outcome === "success" ? "is-success" : row.outcome === "denied" ? "is-error" : "is-warning"}`}>
                         {row.outcome === "success" ? "Succeeded" : row.outcome === "denied" ? "Denied" : "Failed"}
                       </span>

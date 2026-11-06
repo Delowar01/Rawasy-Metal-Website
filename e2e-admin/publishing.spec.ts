@@ -277,6 +277,13 @@ test.describe("phones, accessibility and the keyboard", () => {
         await open(phone, path);
         expect(await pageOverflow(phone), `${path} at ${width}`).toBeLessThanOrEqual(0);
         expect(await pastScreen(phone), `${path} at ${width}`).toBe(0);
+        // Stacked on phones, every cell says which column it is (the comparison's Before / After above all).
+        if (path.includes("/compare")) {
+          const labels = await phone.locator("main td[data-label]").evaluateAll((cells) => cells.map((c) => getComputedStyle(c, "::before").content));
+          expect(labels.length, `${path} at ${width}`).toBeGreaterThan(0);
+          expect(labels).toContain('"Before: "');
+          expect(labels).toContain('"After: "');
+        }
       }
       await phone.context().close();
     }
