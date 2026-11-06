@@ -62,27 +62,40 @@ node scripts/backup.mjs verify --from ~/rawasy-backups/rawasy-<env>-…        #
   extra layer.
 - Each run is recorded in the source database: `system_job_runs` (`job_key = 'backup'`, counts only) and an audit event
   (`system.backup`, actor `cli`).
-- A database-only backup: `--no-files`. An unencrypted backup (no `--public-key`) is allowed for local work and says so;
-  keep it only where the database itself may be kept.
+- A database-only backup: `--no-files`. An unencrypted backup (no `--public-key`) is made only with `--unencrypted`
+  outside `APP_ENV=local`; keep it only where the database itself may be kept.
+- **Record the manifest fingerprint.** `create` prints `Manifest fingerprint (SHA-256): <64 hex>`. Write it into the
+  operations log and next to the escrow record — somewhere the backup storage's users can't change. Anyone who can write
+  to the backup storage could replace a whole backup (a manifest that matches its files, files encrypted to the public
+  key, which is on the server); only that recorded fingerprint proves a backup is the one that was made.
+- Where backups, keys and restored data may go: never inside a Git repository, inside the application's folder (the
+  release, its `public/` and `.next`) or under `public_html` — the tool refuses those, following symbolic links. The
+  backup folder is made 0700 (an existing empty one is tightened); every file in it is 0600. Plain dumps and the file
+  archive are made in a private staging folder inside it and removed as soon as they are encrypted or copied; a run
+  that fails leaves nothing of itself behind.
 - The MariaDB client programs: `MARIADB_DUMP_BIN` / `MARIADB_BIN` (defaults `mariadb-dump`, `mariadb`). Use the same or a
   newer client than the server (MariaDB 11 dumps start with a sandbox-mode line older clients reject).
 
 ## 5. Verifying and restoring
 
-**Routine verification** (monthly proposed): `verify --from <backup>` checks sizes and hashes; with `--private-key` (on
-the Owner's computer, from escrow) it also decrypts every file, checks the contents' hashes and that each dump ran to its
-end. A changed byte, a missing file or another key is reported (exit code 4).
+**Routine verification** (monthly proposed): `verify --from <backup> --manifest-sha256 <recorded fingerprint>` checks the
+manifest against its recorded fingerprint, then sizes and hashes; with `--private-key` (on the Owner's computer, from
+escrow) it also decrypts every file, checks the contents' hashes, that each dump ran to its end, and that the file
+archive holds only regular files and folders with relative names (no links, devices, absolute paths or `..`). A changed
+byte, a replaced manifest, a missing file, an unsafe archive member or another key is reported (exit code 4).
 
 **Restore drill** (A1 §11: every quarter and after any schema change, into staging or a local copy — never production):
 
 ```bash
 node scripts/backup.mjs restore --from <backup> --database rawasy_restore_<date> --data-dir <new empty folder> \
-  --private-key <escrowed private key>
+  --private-key <escrowed private key> --manifest-sha256 <recorded fingerprint>
 node scripts/db-migrate.mjs status          # with DB_NAME=rawasy_restore_<date>: every migration applied, unchanged
 ```
 
-The tool verifies the backup first, refuses a database or data folder that is not empty, loads the dump and the excluded
-tables' structure, extracts the files, **sets a new cache epoch** (A1 §8.2: no page cached before the restore is
+Outside `APP_ENV=local` a restore requires `--manifest-sha256`. The tool verifies the backup first (the fingerprint, the
+hashes, the archive's members), refuses a database or data folder that is not empty or not in an allowed place, loads
+the dump and the excluded tables' structure through the MariaDB client in `--sandbox` mode (a dump can't run shell or
+file commands; the client must be 11.4.2 or newer, as on the host's MariaDB 11.4), extracts the files, **sets a new cache epoch** (A1 §8.2: no page cached before the restore is
 served), compares every table's row count with the manifest and records the restore in `system_job_runs`
 (`job_key = 'restore'`). Record the drill's result (date, backup, counts, problems) in the operations log.
 

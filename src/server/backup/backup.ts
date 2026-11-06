@@ -18,14 +18,15 @@
  * itself. Framework-free; the commands run through an injected runner (the tests and the local drill use a container).
  */
 import { spawn } from "node:child_process";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
+import { chmod, copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { pipeline } from "node:stream/promises";
 import type { Readable, Writable } from "node:stream";
 import { createGunzip, createGzip } from "node:zlib";
-import { createPublicKey } from "node:crypto";
+import { createHash, createPublicKey } from "node:crypto";
 import { createConnection, type Connection } from "mysql2/promise";
 import { decryptFile, encryptFile, keyFingerprint, newDataKey, sha256File, unwrapKey, wrapKey } from "./crypto.ts";
 
@@ -99,9 +100,25 @@ export interface BackupManifest {
 
 export class BackupError extends Error {}
 
-/** The repository a path lies in (a folder holding `.git`), or null. */
-export function repositoryOf(path: string): string | null {
+/** A path with its existing part's symbolic links resolved (the rest, not yet created, appended as given). */
+export function realPathOf(path: string): string {
   let dir = resolve(path);
+  const tail: string[] = [];
+  for (;;) {
+    try {
+      return join(realpathSync(dir), ...tail);
+    } catch {
+      const parent = dirname(dir);
+      if (parent === dir) return resolve(path);
+      tail.unshift(basename(dir));
+      dir = parent;
+    }
+  }
+}
+
+/** The repository a path lies in (a folder holding `.git`, symbolic links resolved), or null. */
+export function repositoryOf(path: string): string | null {
+  let dir = realPathOf(path);
   for (;;) {
     if (existsSync(join(dir, ".git"))) return dir;
     const parent = dirname(dir);
@@ -110,13 +127,133 @@ export function repositoryOf(path: string): string | null {
   }
 }
 
-/** A backup's folder must be new (or empty) and outside every repository (A1: never in Git). */
+/** The application's own folder (the release: its code, `public/` and `.next`), from this file's place in it. */
+export const APP_ROOT = realPathOf(resolve(dirname(fileURLToPath(import.meta.url)), "../../.."));
+
+/**
+ * Why a backup, key or restored-data folder may not be at `path` (A8 review L7), or null: never inside a Git repository,
+ * never inside the application's folder (its `public/` is served, a release folder is replaced), never under a
+ * `public_html` (the host's web root). Symbolic links are resolved first.
+ */
+export function placeProblem(path: string, what: string, appRoot = APP_ROOT): string | null {
+  const real = realPathOf(path);
+  if (repositoryOf(real)) return `Refused: the ${what} folder is inside a Git repository. Backups and keys never go into Git.`;
+  if (real === appRoot || real.startsWith(appRoot + sep)) return `Refused: the ${what} folder is inside the application's folder (${appRoot}). Keep backups, keys and data outside the release.`;
+  if (real.split(sep).includes("public_html")) return `Refused: the ${what} folder is inside public_html (the web root).`;
+  return null;
+}
+
+/** A backup's folder must be new (or empty), private (0700) and in an allowed place. */
 async function freshFolder(path: string, what: string): Promise<string> {
   const full = resolve(path);
-  if (repositoryOf(full)) throw new BackupError(`Refused: the ${what} folder is inside a Git repository. Backups and keys never go into Git.`);
+  const problem = placeProblem(full, what);
+  if (problem) throw new BackupError(problem);
   if (existsSync(full) && (await readdir(full)).length) throw new BackupError(`Refused: the ${what} folder is not empty.`);
   await mkdir(full, { recursive: true, mode: 0o700 });
+  await chmod(full, 0o700);
   return full;
+}
+
+/** The SHA-256 of a manifest file's bytes: printed when a backup is made, to be recorded outside it (A8 review L6). */
+export const manifestFingerprint = (bytes: Buffer | string) => createHash("sha256").update(bytes).digest("hex");
+
+export interface TarMember {
+  name: string;
+  type: string;
+}
+
+/** The 512-byte blocks of a gzipped tar file. */
+async function* tarBlocks(path: string): AsyncGenerator<Buffer> {
+  let pending: Buffer = Buffer.alloc(0);
+  for await (const chunk of createReadStream(path).pipe(createGunzip())) {
+    pending = pending.length ? Buffer.concat([pending, chunk as Buffer]) : (chunk as Buffer);
+    while (pending.length >= 512) {
+      yield pending.subarray(0, 512);
+      pending = pending.subarray(512);
+    }
+  }
+}
+
+const cString = (block: Buffer, start: number, length: number) => {
+  const raw = block.subarray(start, start + length);
+  const end = raw.indexOf(0);
+  return raw.subarray(0, end === -1 ? raw.length : end).toString("utf8");
+};
+
+function tarSize(block: Buffer): number {
+  const field = block.subarray(124, 136);
+  if (field[0] & 0x80) {
+    let n = 0;
+    for (let i = 1; i < field.length; i++) n = n * 256 + field[i];
+    return n;
+  }
+  const text = cString(block, 124, 12).trim();
+  return text ? parseInt(text, 8) : 0;
+}
+
+/**
+ * Reads a gzipped tar archive's member list without extracting anything (ustar, GNU long names, pax paths), so a
+ * restore can refuse an archive whose members would land outside the target folder or are anything but regular files
+ * and folders (A8 review L6: links, devices, absolute paths, `..`).
+ */
+export async function tarMembers(path: string, limit = 2_000_000): Promise<TarMember[]> {
+  const members: TarMember[] = [];
+  let zeros = 0;
+  let longName: string | null = null;
+  let paxPath: string | null = null;
+  let collecting: { type: string; left: number; parts: Buffer[]; size: number } | null = null;
+  let skip = 0;
+  for await (const block of tarBlocks(path)) {
+    if (collecting) {
+      collecting.parts.push(Buffer.from(block));
+      collecting.left -= 1;
+      if (collecting.left === 0) {
+        const data = Buffer.concat(collecting.parts).subarray(0, collecting.size);
+        if (collecting.type === "L") longName = cString(data, 0, data.length);
+        else if (collecting.type === "x") {
+          for (const record of data.toString("utf8").split("\n")) {
+            const match = /^\d+ path=(.*)$/.exec(record);
+            if (match) paxPath = match[1];
+          }
+        }
+        collecting = null;
+      }
+      continue;
+    }
+    if (skip) {
+      skip -= 1;
+      continue;
+    }
+    if (block.every((byte) => byte === 0)) {
+      zeros += 1;
+      if (zeros >= 2) break;
+      continue;
+    }
+    zeros = 0;
+    const type = block[156] === 0 ? "0" : String.fromCharCode(block[156]);
+    const size = tarSize(block);
+    const blocks = Math.ceil(size / 512);
+    if (type === "L" || type === "x" || type === "g") {
+      if (blocks) collecting = { type, left: blocks, parts: [], size };
+      continue;
+    }
+    const prefix = cString(block, 257, 6).startsWith("ustar") ? cString(block, 345, 155) : "";
+    const plain = prefix ? `${prefix}/${cString(block, 0, 100)}` : cString(block, 0, 100);
+    members.push({ name: longName ?? paxPath ?? plain, type });
+    if (members.length > limit) throw new BackupError("The file archive holds too many members.");
+    longName = null;
+    paxPath = null;
+    skip = type === "5" ? 0 : blocks;
+  }
+  return members;
+}
+
+/** What makes a member unsafe to extract, or null. */
+export function tarMemberProblem(member: TarMember): string | null {
+  if (member.type !== "0" && member.type !== "5") return `${member.name.slice(0, 80)} is not a regular file or folder (type ${member.type}).`;
+  if (!member.name || member.name.startsWith("/") || member.name.includes("\0")) return `${member.name.slice(0, 80)} has an absolute or empty name.`;
+  if (member.name.split("/").some((part) => part === "..")) return `${member.name.slice(0, 80)} climbs out of the folder.`;
+  return null;
 }
 
 const optionValue = (value: string) => `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
@@ -176,16 +313,22 @@ export interface CreateOptions {
   now: Date;
 }
 
-export async function createBackup(options: CreateOptions): Promise<{ folder: string; manifest: BackupManifest }> {
+export async function createBackup(options: CreateOptions): Promise<{ folder: string; manifest: BackupManifest; manifestSha256: string }> {
   const folder = await freshFolder(options.out, "backup");
   const { access } = options;
+  // Plain dumps and the archive are made in a private (0700) staging folder inside the backup folder (same disk), then
+  // encrypted (or copied, 0600) into it; the staging folder goes whatever happens, and a failed run leaves nothing of
+  // itself behind (A8 review L5).
+  const stage = await mkdtemp(join(folder, ".stage-"));
+  const written: string[] = [];
+  let finished = false;
   const option = await optionFile(access);
   const conn = await connect(access, access.database);
   try {
     const files: ManifestFile[] = [];
     const base = [`--defaults-extra-file=${option.path}`, "--single-transaction", "--quick", "--routines", "--triggers", "--hex-blob", "--default-character-set=utf8mb4", "--no-tablespaces"];
     const dump = async (name: string, kind: ManifestFile["kind"], args: string[]) => {
-      const path = join(folder, name);
+      const path = join(stage, name);
       const gzip = createGzip();
       const out = createWriteStream(path, { mode: 0o600 });
       const written = pipeline(gzip, out);
@@ -200,11 +343,12 @@ export async function createBackup(options: CreateOptions): Promise<{ folder: st
 
     if (options.dataDir) {
       const parts = (await readdir(options.dataDir)).filter((name) => name !== "tmp" && !name.startsWith("."));
-      const path = join(folder, "files.tar.gz");
+      const path = join(stage, "files.tar.gz");
       const result = parts.length
-        ? await options.run("tar", ["-C", options.dataDir, "-czf", path, "--no-xattrs", ...parts], {})
+        ? await options.run("tar", ["-C", options.dataDir, "-czf", path, "--no-xattrs", "--", ...parts], {})
         : await options.run("tar", ["-czf", path, "--files-from=/dev/null"], {});
       if (result.code !== 0) throw new BackupError(`tar failed (exit ${result.code}): ${result.stderr.trim().split("\n").slice(-2).join(" ")}`);
+      await chmod(path, 0o600);
       files.push({ name: "files.tar.gz", kind: "files", bytes: (await stat(path)).size, sha256: await sha256File(path) });
     }
 
@@ -216,7 +360,7 @@ export async function createBackup(options: CreateOptions): Promise<{ folder: st
       node: process.version,
       note: "Names only: no value of any variable is in this backup. Restore the recovery-critical keys from escrow (docs/admin/A8-BACKUP-RESTORE.md).",
     };
-    const configPath = join(folder, "config.json");
+    const configPath = join(stage, "config.json");
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
     files.push({ name: "config.json", kind: "config", bytes: (await stat(configPath)).size, sha256: await sha256File(configPath) });
 
@@ -234,8 +378,9 @@ export async function createBackup(options: CreateOptions): Promise<{ folder: st
     if (options.publicKeyPem) {
       const dataKey = newDataKey();
       for (const file of files) {
-        const plain = join(folder, file.name);
-        const encrypted = `${plain}.enc`;
+        const plain = join(stage, file.name);
+        const encrypted = join(folder, `${file.name}.enc`);
+        written.push(`${file.name}.enc`);
         await encryptFile(plain, encrypted, dataKey);
         file.plain = { bytes: file.bytes, sha256: file.sha256 };
         await rm(plain);
@@ -245,12 +390,23 @@ export async function createBackup(options: CreateOptions): Promise<{ folder: st
       }
       manifest.encryption = { scheme: "aes-256-gcm+rsa-oaep-sha256", recipient: keyFingerprint(options.publicKeyPem), wrappedKey: wrapKey(options.publicKeyPem, dataKey) };
       dataKey.fill(0);
+    } else {
+      for (const file of files) {
+        written.push(file.name);
+        await copyFile(join(stage, file.name), join(folder, file.name));
+        await chmod(join(folder, file.name), 0o600);
+      }
     }
-    await writeFile(join(folder, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
-    return { folder, manifest };
+    const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+    written.push("manifest.json");
+    await writeFile(join(folder, "manifest.json"), manifestText, { mode: 0o600 });
+    finished = true;
+    return { folder, manifest, manifestSha256: manifestFingerprint(manifestText) };
   } finally {
     await conn.end().catch(() => undefined);
     await option.remove();
+    await rm(stage, { recursive: true, force: true });
+    if (!finished) for (const name of written) await rm(join(folder, name), { force: true });
   }
 }
 
@@ -270,11 +426,17 @@ const SAFE_NAME = /^[a-z][a-z0-9-]*\.(sql\.gz|tar\.gz|json)(\.enc)?$/;
  * or the private key given) — the decrypted contents' hashes and the dumps' completion. `keepPlain`: leaves decrypted
  * files in a private temporary folder for a restore (the caller removes it).
  */
-export async function verifyBackup(folder: string, privateKeyPem: string | null, options: { keepPlain?: boolean } = {}): Promise<VerifyResult> {
+export async function verifyBackup(folder: string, privateKeyPem: string | null, options: { keepPlain?: boolean; manifestSha256?: string | null } = {}): Promise<VerifyResult> {
   const problems: string[] = [];
   let manifest: BackupManifest;
   try {
-    manifest = JSON.parse(await readFile(join(folder, "manifest.json"), "utf8")) as BackupManifest;
+    const bytes = await readFile(join(folder, "manifest.json"));
+    // Anyone who can write to the backup storage can make a manifest that matches its files, and anyone with the public
+    // key can encrypt to it: only the fingerprint recorded elsewhere when the backup was made proves it is that backup.
+    if (options.manifestSha256 && manifestFingerprint(bytes) !== options.manifestSha256.trim().toLowerCase()) {
+      return { ok: false, manifest: null, problems: ["manifest.json does not match the fingerprint recorded when the backup was made (replaced or changed)."], plainFiles: {}, workDir: null };
+    }
+    manifest = JSON.parse(bytes.toString("utf8")) as BackupManifest;
   } catch {
     return { ok: false, manifest: null, problems: ["manifest.json is missing or unreadable."], plainFiles: {}, workDir: null };
   }
@@ -320,6 +482,14 @@ export async function verifyBackup(folder: string, privateKeyPem: string | null,
     for (const kind of ["database", "database-schema"] as const) {
       if (plainFiles[kind] && !(await dumpComplete(plainFiles[kind]).catch(() => false))) problems.push(`The ${kind === "database" ? "database dump" : "excluded tables' schema"} is incomplete.`);
     }
+    if (plainFiles.files) {
+      try {
+        const unsafe = (await tarMembers(plainFiles.files)).map(tarMemberProblem).filter((p): p is string => p !== null);
+        if (unsafe.length) problems.push(`The file archive holds ${unsafe.length} member${unsafe.length === 1 ? "" : "s"} a restore must not write: ${unsafe.slice(0, 3).join(" ")}`);
+      } catch {
+        problems.push("The file archive could not be read.");
+      }
+    }
   }
   if (!options.keepPlain && workDir) {
     await rm(workDir, { recursive: true, force: true });
@@ -343,6 +513,8 @@ export interface RestoreOptions {
   run: Runner;
   now: Date;
   newEpoch: string;
+  /** The manifest's fingerprint as recorded when the backup was made (checked when given; see the runbook). */
+  manifestSha256?: string | null;
 }
 
 export interface RestoreResult {
@@ -355,7 +527,7 @@ export interface RestoreResult {
 /** Restores a verified backup into an empty database (created if missing) and an empty data folder. */
 export async function restoreBackup(options: RestoreOptions): Promise<RestoreResult> {
   if (!/^[A-Za-z0-9_]{1,64}$/.test(options.database)) throw new BackupError("The target database name may hold letters, digits and _ only.");
-  const verified = await verifyBackup(options.from, options.privateKeyPem, { keepPlain: true });
+  const verified = await verifyBackup(options.from, options.privateKeyPem, { keepPlain: true, manifestSha256: options.manifestSha256 ?? null });
   try {
     if (!verified.ok || !verified.manifest) throw new BackupError(`The backup did not verify: ${verified.problems.join(" ")}`);
     if (verified.manifest.encryption && !options.privateKeyPem) throw new BackupError("This backup is encrypted: give the private key (from escrow).");
@@ -370,12 +542,14 @@ export async function restoreBackup(options: RestoreOptions): Promise<RestoreRes
     }
     if (options.dataDir) {
       if (existsSync(options.dataDir) && (await readdir(options.dataDir)).length) throw new BackupError("Refused: the data folder is not empty. A restore never overwrites files.");
-      if (repositoryOf(options.dataDir)) throw new BackupError("Refused: the data folder is inside a Git repository.");
+      const problem = placeProblem(options.dataDir, "data");
+      if (problem) throw new BackupError(problem);
     }
     const option = await optionFile({ ...options.access, database: options.database });
     try {
       for (const kind of ["database", "database-schema"] as const) {
-        const result = await options.run(options.clientBin, [`--defaults-extra-file=${option.path}`, "--default-character-set=utf8mb4", options.database], { stdin: createReadStream(verified.plainFiles[kind]).pipe(createGunzip()) });
+        // --sandbox: a dump runs no client command that reaches the file system or a shell (`\!`, `source`…; A8 review L6).
+        const result = await options.run(options.clientBin, [`--defaults-extra-file=${option.path}`, "--sandbox", "--default-character-set=utf8mb4", options.database], { stdin: createReadStream(verified.plainFiles[kind]).pipe(createGunzip()) });
         if (result.code !== 0) throw new BackupError(`mariadb failed (exit ${result.code}): ${result.stderr.trim().split("\n").slice(-2).join(" ")}`);
       }
     } finally {
