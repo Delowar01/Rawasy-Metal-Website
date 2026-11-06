@@ -133,6 +133,7 @@ export async function clearSessionCookie() {
   jar.delete({ name: SESSION_COOKIE, ...COOKIE_OPTIONS });
   // The enquiry inbox's sealed search goes with the session (A7 final correction: nothing of it outlives a sign-out).
   jar.delete({ name: ENQUIRY_SEARCH_COOKIE, ...COOKIE_OPTIONS });
+  jar.delete({ name: AUDIT_SEARCH_COOKIE, ...COOKIE_OPTIONS });
 }
 
 /** The enquiry inbox's sealed search (`src/server/enquiries/search-state.ts`): never in an address. */
@@ -148,4 +149,17 @@ export async function writeEnquirySearchCookie(sealed: string | null) {
 /** The sealed search as the browser sent it (opened by its reader for the signed-in user only). */
 export async function readEnquirySearchCookie(): Promise<string | undefined> {
   return (await cookies()).get(ENQUIRY_SEARCH_COOKIE)?.value;
+}
+
+/** The audit log's sealed search (A8.5): the same sealing, its own purpose and cookie, never in an address. */
+export const AUDIT_SEARCH_COOKIE = "__Host-rawasy_audit_search";
+
+export async function writeAuditSearchCookie(sealed: string | null) {
+  const jar = await cookies();
+  if (sealed) jar.set(AUDIT_SEARCH_COOKIE, sealed, COOKIE_OPTIONS);
+  else jar.delete({ name: AUDIT_SEARCH_COOKIE, ...COOKIE_OPTIONS });
+}
+
+export async function readAuditSearchCookie(): Promise<string | undefined> {
+  return (await cookies()).get(AUDIT_SEARCH_COOKIE)?.value;
 }

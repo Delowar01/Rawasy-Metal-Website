@@ -23,7 +23,9 @@ import { ENQUIRY_LIMITS } from "../forms/registry.ts";
 export const SEARCH_STATE_MS = 2 * 60 * 60 * 1000;
 
 const SEALED = /^([1-9][0-9]{0,5})\.([0-9]{13})\.([A-Za-z0-9_-]{40,})$/;
-const boundTo = (userId: string, expiresAt: number) => `enquiry_search:v1:${userId}:${expiresAt}`;
+/** What a sealed search is for: the enquiry inbox (A7) or the audit log (A8); one never opens as the other. */
+export type SearchPurpose = "enquiry_search" | "audit_search";
+const boundTo = (userId: string, expiresAt: number, purpose: SearchPurpose) => `${purpose}:v1:${userId}:${expiresAt}`;
 
 /** A search as the list reads it: trimmed, at most the list's limit (code points); control characters dropped. */
 export function cleanSearch(raw: unknown): string {
@@ -33,9 +35,9 @@ export function cleanSearch(raw: unknown): string {
 }
 
 /** Seals a search for one user: "<key version>.<expiry ms>.<base64url of iv | tag | ciphertext>". */
-export function sealSearch(ring: KeyRing, userId: string, search: string, now: Date): string {
+export function sealSearch(ring: KeyRing, userId: string, search: string, now: Date, purpose: SearchPurpose = "enquiry_search"): string {
   const expiresAt = now.getTime() + SEARCH_STATE_MS;
-  const { blob, version } = encryptSecret(ring, Buffer.from(cleanSearch(search), "utf8"), boundTo(userId, expiresAt));
+  const { blob, version } = encryptSecret(ring, Buffer.from(cleanSearch(search), "utf8"), boundTo(userId, expiresAt, purpose));
   return `${version}.${expiresAt}.${blob.toString("base64url")}`;
 }
 
@@ -43,13 +45,13 @@ export function sealSearch(ring: KeyRing, userId: string, search: string, now: D
  * Opens a sealed search: "" when there is none, or when it is malformed, expired, sealed further ahead than a search
  * can be, tampered with, sealed for another user, or its key version is no longer configured.
  */
-export function openSearch(ring: KeyRing, sealed: string | undefined, userId: string, now: Date): string {
+export function openSearch(ring: KeyRing, sealed: string | undefined, userId: string, now: Date, purpose: SearchPurpose = "enquiry_search"): string {
   const match = sealed ? SEALED.exec(sealed) : null;
   if (!match) return "";
   const expiresAt = Number(match[2]);
   if (expiresAt <= now.getTime() || expiresAt > now.getTime() + SEARCH_STATE_MS) return "";
   try {
-    return cleanSearch(decryptSecret(ring, Buffer.from(match[3], "base64url"), Number(match[1]), boundTo(userId, expiresAt)).toString("utf8"));
+    return cleanSearch(decryptSecret(ring, Buffer.from(match[3], "base64url"), Number(match[1]), boundTo(userId, expiresAt, purpose)).toString("utf8"));
   } catch {
     return "";
   }
