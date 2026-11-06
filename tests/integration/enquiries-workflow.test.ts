@@ -146,7 +146,10 @@ describe("the workflow", () => {
     assert.deepEqual(mine.rows.map((r) => r.reference), [ids.c.reference]);
     assert.equal((await assign("")).kind, "ok");
     assert.equal((await enquiryRow(env, id)).assigned_to, null);
-    assert.equal((await readEnquiry(env.deps.db, id))!.assignments.length, 2);
+    const history = (await readEnquiry(env.deps.db, id))!.assignments;
+    assert.equal(history.length, 2);
+    // Who assigned reads as the rest of the history: the person's name, never the audit label's email.
+    assert.deepEqual(history.map((h) => h.by), [t.owner.user.displayName, t.owner.user.displayName]);
   });
 
   test("notes: plain text, added whatever changed meanwhile; empty or marked-up text refused; never in the audit", async () => {

@@ -22,7 +22,15 @@ import { permissionsOf } from "../policy/registry.ts";
 import { ulid } from "../security/ids.ts";
 import { formsAudit, INVALID, refuse, stale, STALE_ENQUIRY, versionSchema, zodIssues, type FormsChange, type Result } from "../forms/common.ts";
 import { ENQUIRY_LIMITS, ENQUIRY_STATUSES, STATUS_LABELS, transitionOf, type EnquiryStatus } from "../forms/registry.ts";
+import { staticFieldTexts } from "../forms/copy.ts";
+import { fieldDefinition } from "../forms/registry.ts";
 import { latinDigits } from "./validate.ts";
+
+/** A project type's words (today's English label, as the inbox and the export show it); an unknown key as stored. */
+export function projectTypeLabel(key: string): string {
+  const field = fieldDefinition("projectType");
+  return (key && field && staticFieldTexts(field, "en").optionLabels[key]) || key;
+}
 
 /**
  * The enquiry page's Email link: the address's own characters percent-encoded on each side of its last "@", so nothing
@@ -223,7 +231,9 @@ export async function readEnquiry(db: Db, id: string): Promise<EnquiryDetail | n
   );
   const assignments = await rowsOf<Record<string, unknown>>(
     db,
-    sql`SELECT occurred_at, actor_label, summary FROM audit_events WHERE entity_type = 'enquiry' AND entity_id = ${id} AND action = 'enquiry.assign' AND outcome = 'success' ORDER BY occurred_at, id`,
+    // Who assigned: the person's name as the rest of the history shows it (the audit label also carries the email).
+    sql`SELECT a.occurred_at, u.display_name, a.summary FROM audit_events a LEFT JOIN users u ON u.id = a.actor_user_id
+        WHERE a.entity_type = 'enquiry' AND a.entity_id = ${id} AND a.action = 'enquiry.assign' AND a.outcome = 'success' ORDER BY a.occurred_at, a.id`,
   );
   const outbox = await rowsOf<Record<string, unknown>>(
     db,
@@ -263,7 +273,7 @@ export async function readEnquiry(db: Db, id: string): Promise<EnquiryDetail | n
       by: h.display_name ? s(h.display_name) : null,
       note: h.note ? s(h.note) : null,
     })),
-    assignments: assignments.map((a) => ({ at: instantOf(a.occurred_at), by: a.actor_label ? s(a.actor_label) : null, summary: s(a.summary) })),
+    assignments: assignments.map((a) => ({ at: instantOf(a.occurred_at), by: a.display_name ? s(a.display_name) : null, summary: s(a.summary) })),
     outbox: outbox.map((o) => ({
       id: s(o.id),
       to: s(o.to_address),

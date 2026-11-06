@@ -276,6 +276,8 @@ test.describe("the inbox", () => {
     await open(admin, path);
     await expect(main(admin).getByRole("heading", { name: `Enquiry ${stored[0].reference}`, level: 1 })).toBeVisible();
     await expect(main(admin).locator(".adm-enq-dl")).toContainText("Test Alpha Visitor");
+    await expect(main(admin).locator(".adm-enq-dl")).toContainText("Custom piece or one-off"); // the label, not the stored key
+    await expect(main(admin).locator(".adm-enq-dl")).not.toContainText("custom-piece");
     expect(await admin.title()).not.toContain("Alpha");
     for (const step of ["Open", "Mark answered", "Close"]) {
       await main(admin).getByRole("button", { name: step, exact: true }).click();
@@ -304,6 +306,7 @@ test.describe("the inbox", () => {
     await main(admin).getByRole("button", { name: "Assign" }).click();
     await reopened(admin, path);
     await expect(main(admin).locator(".adm-enq-history")).toContainText(`Assigned to ${USERS.owner.name}.`);
+    await expect(main(admin).locator(".adm-enq-history")).not.toContainText("@"); // who acted, by name only
     await main(admin).getByLabel("Add an internal note").fill("Test note: call back on Sunday.");
     await main(admin).getByRole("button", { name: "Add note" }).click();
     await reopened(admin, path);

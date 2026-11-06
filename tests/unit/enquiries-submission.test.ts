@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { projectTypeLabel } from "../../src/server/enquiries/enquiries.ts";
 import { csvCell, csvRow } from "../../src/server/enquiries/export.ts";
 import { issueToken, tokenKeyFrom, verifyToken } from "../../src/server/enquiries/token.ts";
 import { latinDigits, validateSubmission } from "../../src/server/enquiries/validate.ts";
@@ -158,5 +159,13 @@ describe("the CSV export's cells", () => {
       assert.equal(csvCell(value), cell, String(value));
     }
     assert.equal(csvRow(["a", "=b"]), `"a","'=b"`);
+  });
+});
+
+describe("an enquiry's project type", () => {
+  test("shown and exported as today's English label, never the stored key; an unknown key as stored", () => {
+    assert.equal(projectTypeLabel("custom-piece"), "Custom piece or one-off");
+    assert.equal(projectTypeLabel("not-a-type"), "not-a-type");
+    assert.equal(projectTypeLabel(""), "");
   });
 });

@@ -17,7 +17,7 @@ import { FormEditor, SetUpFormButton } from "@/components/admin/forms/FormEditor
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
 import type { FormEditorModel } from "@/server/admin/actions/forms-model";
-import { assignableUsers, enquirySummary, listEnquiries, mailtoHref, parseQuery, readEnquiry, telHref } from "@/server/enquiries/enquiries";
+import { assignableUsers, enquirySummary, listEnquiries, mailtoHref, parseQuery, projectTypeLabel, readEnquiry, telHref } from "@/server/enquiries/enquiries";
 import { listForms, readForm } from "@/server/forms/forms";
 import { ATTACHMENT_EXTENSIONS, DELIVERY_LABELS, ENQUIRY_STATUSES, FORM_LIMITS, STATUS_LABELS, TRANSITIONS, type EnquiryStatus } from "@/server/forms/registry";
 import type { SearchParams } from "./cms";
@@ -361,7 +361,7 @@ export async function EnquiryScreen({ id, searchParams }: { id: string; searchPa
     ["Email", enquiry.email, true],
     ["Phone", enquiry.phone, true],
     ["Service", enquiry.serviceLabel],
-    ["Project type", enquiry.projectType],
+    ["Project type", projectTypeLabel(enquiry.projectType)],
     ["Estimated requirement", enquiry.requirement],
     ["Project location", enquiry.projectLocation],
   ];

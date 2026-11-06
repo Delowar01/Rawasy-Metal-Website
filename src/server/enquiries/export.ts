@@ -14,7 +14,7 @@ import type { Db } from "../db/client.ts";
 import { instantOf, rowsOf } from "../cms/store.ts";
 import { formsAudit, refuse, type FormsChange } from "../forms/common.ts";
 import { ENQUIRY_LIMITS, STATUS_LABELS, type EnquiryStatus } from "../forms/registry.ts";
-import { SORTS, type EnquiryQuery } from "./enquiries.ts";
+import { SORTS, type EnquiryQuery, projectTypeLabel } from "./enquiries.ts";
 import { likePattern } from "../cms/text.ts";
 
 /** A cell as a spreadsheet must read it: text, never a formula. */
@@ -104,7 +104,7 @@ async function exportRows(db: Db, query: EnquiryQuery, actorId: string): Promise
       personal(r.email),
       personal(r.phone),
       r.service_label ?? "",
-      r.project_type ?? "",
+      projectTypeLabel(String(r.project_type ?? "")),
       personal(r.requirement),
       personal(r.project_location),
       personal(r.message),
