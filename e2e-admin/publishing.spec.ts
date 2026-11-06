@@ -75,10 +75,10 @@ const AXE = require.resolve("axe-core/axe.min.js");
 async function axe(page: Page) {
   await page.evaluate(readFileSync(AXE, "utf8"));
   return page.evaluate(async () => {
-    const result = await (window as unknown as { axe: { run: (o: object) => Promise<{ violations: { id: string; impact: string; nodes: unknown[] }[] }> } }).axe.run({
+    const result = await (window as unknown as { axe: { run: (o: object) => Promise<{ violations: { id: string; impact: string; nodes: { target: unknown[] }[] }[] }> } }).axe.run({
       runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"] },
     });
-    return result.violations.map((v) => `${v.id} (${v.impact}, ${v.nodes.length})`);
+    return result.violations.map((v) => `${v.id} (${v.impact}, ${v.nodes.length}): ${v.nodes.slice(0, 3).map((n) => String(n.target)).join(" | ")}`);
   });
 }
 
@@ -283,6 +283,14 @@ test.describe("phones, accessibility and the keyboard", () => {
   });
 
   test("axe finds nothing on the A8 screens (light and dark)", async ({ browser }) => {
+    // Rows whose record labels are long enough that a row's two links wrap onto two lines (the full suite's audit log
+    // has such rows; this file alone did not, so the target-size rule once passed here and failed there).
+    for (let i = 0; i < 8; i++) {
+      await queryTestDb(
+        "INSERT INTO audit_events (occurred_at, request_id, actor_type, actor_label, action, entity_type, entity_id, entity_label, outcome, summary, changes) VALUES (NOW(3), ?, 'system', 'Test system', 'client.update', 'client', ?, ?, 'success', ?, ?)",
+        [`01KA00000000000000AXETEST${i}`.slice(0, 26), ids.client, `Test Publishing Client with a deliberately long record label number ${i}`, `Test edit ${i} of the client with a long label.`, JSON.stringify({ count: i })],
+      );
+    }
     for (const scheme of ["light", "dark"] as const) {
       const page = await signedIn(browser, "owner", { colorScheme: scheme });
       const rev = (await queryTestDb<{ id: string }>("SELECT id FROM revisions WHERE entity_id = ? ORDER BY revision_number LIMIT 1", [ids.client]))[0].id;

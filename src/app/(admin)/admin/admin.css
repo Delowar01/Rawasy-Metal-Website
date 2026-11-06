@@ -3016,3 +3016,17 @@ pre.adm-pre {
   white-space: normal;
   text-align: center;
 }
+
+/* Inline links and the "Details" toggles of the history and audit tables keep 24 px line boxes, so a row's links that
+   wrap onto two lines stay 24 px apart (WCAG 2.5.8: the record's link and "this record's events" under a long label). */
+.adm-history .adm-hint a,
+.adm-history td > a {
+  display: inline-block;
+  min-block-size: 24px;
+  line-height: 24px;
+}
+
+.adm-history summary {
+  min-block-size: 24px;
+  line-height: 24px;
+}
