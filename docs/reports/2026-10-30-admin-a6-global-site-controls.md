@@ -1,8 +1,10 @@
 # RAWASY Metal Website — Admin / CMS Phase A6: Global site controls
 
 **Brief:** "RAWASY METAL WEBSITE — OWNER ACCEPTANCE OF A5 & AUTHORIZATION TO EXECUTE A6".
-**Status:** A6 is built — **local implementation only** — and awaits the Owner's review. It is not self-approved. A7 is
-not started. Nothing was deployed. No hosting, DNS or cPanel change was made, nothing was merged into `main`, and no
+**Status (closure update):** A6 is corrected and **closed** under the A6/A7 brief's authorization — see the last
+section, "A6 FINAL CORRECTION AND CLOSURE"; rollback checkpoint `preserve/pre-admin-a7`.
+**Status (as first reported):** A6 is built — **local implementation only** — and awaits the Owner's review. It is not
+self-approved. A7 is not started. Nothing was deployed. No hosting, DNS or cPanel change was made, nothing was merged into `main`, and no
 production credential was used.
 **A5:** recorded as approved and closed (`CLAUDE.md`, "Where the project stands"). Its final implementation is A6's
 baseline. Its Low / Info backlog stays with the later milestones named in the A5 reports.
@@ -373,7 +375,8 @@ Against `preserve/pre-admin-a6` (`7722640`), its clean build made in a worktree:
 **Known limitations:**
 - **Preview fidelity.** The Contact page's map section and quote form (`Location`, `QuoteSection`) still read today's
   company inside the preview, and their preview notes say so. The header, footer, contact rows, About's legal name and
-  every generic block read the working copy.
+  every generic block read the working copy. **Resolved by the A6 final correction (`fcc37c9`): see "A6 FINAL
+  CORRECTION AND CLOSURE" at the end of this report.**
 - **Redirects** that a later change elsewhere breaks are only marked. A8 (slug redirects) and the A9 cutover must
   re-check every redirect, resolve visitors' addresses through the same normaliser, and let pages win (item 10's notes).
 - **Carried open items:**
@@ -451,3 +454,113 @@ retention).
    - The A9 cutover must re-check every redirect (source not answered, target live, one step).
    - A9 must resolve visitor addresses through `normalizeSitePath` (NFC, one encoding) and let pages win.
    - A9 publishes the settings, menus, interface text and the share image through the public projections.
+
+---
+
+## A6 FINAL CORRECTION AND CLOSURE
+
+**Brief:** "RAWASY METAL WEBSITE — A6 FINAL ACCEPTANCE & A7 FORMS / ENQUIRIES IMPLEMENTATION", items 1–3. The brief
+authorized formal closure of A6 only if the correction and every acceptance check passed with no material A6 defect
+left. They did (below): **A6 is closed** by that authorization, and the rollback checkpoint **`preserve/pre-admin-a7`**
+was created at this section's commit and pushed before any A7 commit.
+
+### 1. Context recovered
+
+- Local and remote `claude/new-session-5eijs6` both at `bb1bbcb` (docs only after `10f862b`, A6's last code), clean
+  tree; `preserve/pre-admin-a6` at `7722640`; migrations 0000–0007 (`db:check`: 8 files, seeds match the registries);
+  baselines unit 336, integration 470, admin 146, public 612, production audit 0 (this report's item 5).
+
+### 2. The correction (`fcc37c9`)
+
+The limitation item 8 recorded ("Preview fidelity"): inside the admin preview, the Contact page's map section and
+quotation section read today's static company facts while everything else read the A6 working copy.
+
+- **Location** (`src/components/commerce/contact/Location.tsx`) takes an optional `place` (address lines and full
+  address, registered names, the first phone, the email, the three map links). Without it — every public route — it
+  builds today's values exactly as before (`todaysPlace`).
+- **QuoteSection** (`ContactPage.tsx`) takes an optional `reach` (the email address and WhatsApp link the prepared
+  request goes to). Without it: today's `company.email` and `whatsappUrl()`.
+- **`mapLinksFor(address)`** (`src/lib/maps.ts`) builds the embed, directions and search links; today's exports
+  (`mapEmbedUrl`, `directionsUrl`, `mapSearchUrl`) are defined through it with byte-identical strings.
+- **The preview** passes `workingPlace` / `workingReach` (`src/components/builder/site.ts`): `workingMap`
+  (`src/server/site/working.ts`) uses the working map search, else the working English address (today's rule), and
+  "Open in Google Maps" opens RAWASY's own place link only once one is set and still passes the settings' rule; nothing
+  set up gives today's values. The builder notes for `contact.quote`, `contact.location`, `home.contact` and the
+  service template's phone line now say where the details come from.
+- **Data boundaries unchanged:** no validation was relaxed; the place link is re-checked when read; public files still
+  import nothing from `src/server/**`; the public routes pass neither input, so their output cannot change.
+
+**Tests:** unit `site-working` (+2: today's, copied, edited, the fallbacks, a stored link the settings would refuse);
+browser, the parity project's last test: a synthetic working copy written through the A6 services
+(`e2e-admin/seed-site.mjs`) — the location card, the map frame and links, and the quote form's prepared email and
+WhatsApp request read it in English and Arabic, light and dark, at 1280 and 390, while `/en/contact` and `/ar/contact`
+are served byte for byte as before. Negative control: with the preview's two inputs removed the test fails.
+
+### 3. Acceptance checks (fresh clone of `fcc37c9`)
+
+Node 22.22.2, MariaDB 11.4.13 (local Docker), Playwright 1.56.1 driving Chrome for Testing 153 (untracked wrapper
+configs, as in A5 and A6):
+
+| Check | Result | A6 baseline |
+|---|---|---|
+| `npm ci` | pass (403 packages; `@next/swc-linux-x64-gnu` present) | |
+| `npm audit --omit=dev` | **0 vulnerabilities** | 0 |
+| `npm audit` (all) | 12 moderate, **all dev-only** (below) | 4 |
+| `npm run lint` / `npm run typecheck` | pass / pass | |
+| `npm run build` (no database settings) | pass, **no warning** (0 "dynamic filesystem access") | |
+| `npm run db:check` | pass: 8 migration files, seeds match the registries | 8 |
+| Packaging check | PASS: 0 of 13 held-back files; 111 / 111 public files; 102 sitemap pages | same |
+| Unit | **338 / 338** | 336 |
+| Integration | **470 / 470** | 470 |
+| Admin browser (every spec, the parity project included) | **147 / 147** in the first run (28.5 min) | 146 |
+| Public E2E (against `server.js`, after the warm-up: 1,484 / 1,484 sizes) | **611 / 612** in the first run (25.0 min), **612 / 612** in a second full run (23.7 min) | 612 |
+
+**The first public run's one failure.** `commerce-transitions.spec.ts`, "with reduced motion › the theme switch and a
+gallery choice run no animated update", timed out (60 s) waiting for a Projects filter chip to stand still. The
+Projects page is not touched by the correction, and the run shared the machine with integration tests I started
+alongside it (load average about 8 on 4 CPUs). The test passed **20 / 20** alone on this build and **20 / 20** on the
+`preserve/pre-admin-a6` build (`--repeat-each=20`, the same wrapper), and the whole suite passed 612 / 612 in a second
+run with nothing alongside. Reported, not hidden by a retry; no product change.
+
+**The audit's new entries.** The 8 entries added since A6 are one advisory published after A6's QA,
+GHSA-g3hv-75wg-m249 (`minimatch` 7.0.0–11.0.0, a pattern-expansion denial of service), reached only through the lint
+toolchain (`eslint-config-next` → `typescript-eslint` → `@typescript-eslint/typescript-estree` → `minimatch` 10.2.6).
+With the 4 accepted `drizzle-kit` / `esbuild` entries, all 12 are dev-only; nothing is served or packaged. `npm audit
+fix` offers no non-breaking fix (its dry run changes nothing). No dependency was changed (a version change is the
+Owner's decision); offered to the Owner.
+
+### 4. Public preservation
+
+Against `preserve/pre-admin-a6` (`7722640`):
+
+- **Sources.** The correction changes three public files (`ContactPage.tsx`, `Location.tsx`, `maps.ts`): optional
+  inputs that only the preview passes, and the map links built by one function from the same strings.
+- **Build output** (the fresh clone's clean build): 890 / 890 public files, none added or missing; every prerendered
+  file equal (114 identical, 601 equal once the build id and hashed asset names are normalised, 0 different); CSS and
+  JS identical on 104 / 104 pages.
+- **Server code:** 15 of the 16 public server entries are built from identical sources; the Contact entry differs by
+  exactly the three files above.
+- **HTTP:** 229 / 229 answers equal — status, the compared headers and the bodies once the build id and hashed asset
+  names are normalised: 102 documents (`/en/contact` and `/ar/contact` among them), 102 page-data requests and 25 others
+  (404s, `/admin` and `/api` paths with the gate off, `/media`, the image optimizer). Each server on its own fresh copy of
+  its clean build.
+- **Pixels** (resting, reduced motion; 17 pages × EN / AR × light / dark × 1440 / 390; 398 captures per build):
+  **378 identical at once**; page heights equal in all 136 views. The other 20 are all screens of the Arabic Projects
+  gallery on a phone (light): the browser's timing choice of one gallery photo's srcset candidate, as in the A6 freeze.
+  Recaptured three times per build per theme: every two captures with the same photo choices are pixel-identical
+  (0 pixels), between the builds and within one build; both builds make both choices; the page is 21,401 px high in all
+  12 runs.
+- **In the browser:** the parity test compares `/en/contact` and `/ar/contact` byte for byte before and after the working
+  copy exists, and the public suite passed (612 / 612 in the second full run; the first run's one failure below).
+
+### 5. Closure
+
+- No material A6 defect is open. The correction removed the one recorded limitation.
+- **Accepted Low / Info items, allocated:**
+  - I1 (A1's menu index): A8, with the revisions;
+  - I5 (the preview's coordinates): A9's parity proof;
+  - I6 (the accepted read-before-gate naming): kept as the A3–A6 pattern;
+  - L2's follow-up (re-checking redirects): A8's slug redirects and the A9 cutover;
+  - the RAWASY / Owner confirmations of item 8 (place link, SEO description, share image, company facts, design
+    tokens).
+- **Checkpoint:** `preserve/pre-admin-a7` at this section's commit, pushed before A7.

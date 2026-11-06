@@ -11,7 +11,8 @@
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
 - Latest report: `docs/reports/2026-10-30-admin-a6-global-site-controls.md` (Admin / CMS program, Phase A6 — global site
-  controls, local implementation only: settings, navigation, interface text, theme, redirects, the preview; the A7 plan)
+  controls, local implementation only: settings, navigation, interface text, theme, redirects, the preview; the A7 plan;
+  its last section, "A6 FINAL CORRECTION AND CLOSURE": the Contact preview correction, the closure QA and freeze)
   (earlier: `2026-10-30-admin-a5-final-correction.md` (Phase A5 — final security and data-preservation correction:
   Next.js 16.4.1 / Zod 4.6.6, unsaved builder work when a session ends),
   `2026-10-30-admin-a5-acceptance-review.md` (Phase A5 — acceptance review, readiness and the A6 plan),
@@ -340,7 +341,7 @@
   found; its Low / Info backlog stays allocated to the later milestones named in the A5 reports).
   **Phase A6 (Global site controls) is built — local implementation only** (that brief; report
   `2026-10-30-admin-a6-global-site-controls.md`; rollback checkpoint: GitHub branch `preserve/pre-admin-a6` at `7722640`)
-  and awaits the Owner's review: see "Phase A6 implementation" below. Its commits, each on its own: `87343f0` registry;
+  and is closed (below): see "Phase A6 implementation" below. Its commits, each on its own: `87343f0` registry;
   `ea9bb20` schema, migration 0006 and seed 0007; `6a07830` services; `70ecf6c` the interface text saved as one form;
   `920e4fa` Server Actions; `9a98a43` admin screens; `e44266a` the preview reads the working copy; `b35d173` service
   tests; corrections `d7bb07b` (hidden characters in redirect addresses, readable addresses), `a9cb651` (the preview's
@@ -360,9 +361,25 @@
   candidate (`tulip-roundabout-1.webp` `w=384` / `w=640`) that both builds make — the same choice gave 0 differing pixels
   across builds in 12 recaptures; page heights equal in all 136 views. Evidence `rawasy-a6-evidence.zip`
   (not committed): 64 captures, 8 contact sheets, 0 horizontal overflow.
-  **Do not start A7** (no public forms or enquiries, quote-form backend, spam controls, CSV export or notifications;
-  nothing of A8/A9 either: publishing, revisions in use, database-backed public pages, redirects resolving, content
-  migration, cache handler, the public site switched to `/media/u`) until the user approves A6 and says so.
+  **The A6 final correction and closure** (the user's "A6 FINAL ACCEPTANCE & A7 FORMS / ENQUIRIES IMPLEMENTATION" brief;
+  section "A6 FINAL CORRECTION AND CLOSURE" at the end of the A6 report): `fcc37c9` makes the admin preview's Contact
+  location card, map and quote form read the A6 working copy (optional `place` / `reach` inputs only the preview passes;
+  the public page unchanged). QA on a fresh clone of `fcc37c9`: `npm ci`, audit `--omit=dev` 0 (all: 12 moderate,
+  dev-only — the 4 accepted plus GHSA-g3hv-75wg-m249, `minimatch` in the lint toolchain, published after A6; no
+  non-breaking fix, nothing changed, offered to the Owner), lint, typecheck, build (no warning), `db:check` (8 files),
+  packaging (13 held back), unit 338 / 338, integration 470 / 470, admin 147 / 147 (first run), public 611 / 612 in the
+  first run (a `commerce-transitions` reduced-motion timeout while integration tests ran alongside; 20 / 20 alone on
+  this build and on the baseline) and 612 / 612 in a second full run. Public freeze against `preserve/pre-admin-a6`:
+  build output (890 / 890 files, CSS and JS on 104 / 104 pages), server sources (only the Contact entry, by the three
+  files), HTTP 229 / 229, pixels 378 / 398 identical at once and the other 20 the Arabic phone gallery's srcset choice
+  (0 pixels between same-choice captures, both builds). **A6 is closed** (formal closure authorized by that brief once
+  the checks passed); rollback checkpoint: GitHub branch `preserve/pre-admin-a7` at the closure docs commit, pushed
+  before any A7 commit.
+  **Phase A7 (Forms & Enquiries) is authorized by the same brief — local implementation only** (its commits follow the
+  checkpoint; its notes are added with them). **Do not start A8** (publishing, revisions in use, database-backed public
+  pages, redirects resolving, content migration, cache handler, the public site switched to `/media/u`) or anything of
+  A9, and never activate public enquiry collection, a public storage endpoint, SMTP, real email, automatic retention or
+  a legal retention period without the Owner's explicit decision.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -1120,13 +1137,20 @@
     `normalizeSitePath`, and let pages win.
   - The preview: `overlayShell` lays a set-up part over `getShellView`'s output (menus, labels, the "every service"
     label, contact details, statement, legal name, interface strings); a part not set up shows today's. Set up from
-    today's website, the shell preview equals the public shell word for word (`site.spec.ts`). Location and the quote
-    form still read the static company (their notes say so). `e2e-admin/site.spec.ts` empties the A6 working copy in
-    `afterAll`, so the parity project sees today's website.
+    today's website, the shell preview equals the public shell word for word (`site.spec.ts`). Since the A6 final
+    correction (`fcc37c9`) the Contact page's location card, map and quote form read it too: the approved components
+    take optional inputs the website never passes (`Location`'s `place`, `QuoteSection`'s `reach`; `mapLinksFor` in
+    `src/lib/maps.ts` builds the three map links, today's exports are defined through it with the same strings), and
+    the preview passes `workingPlace` / `workingReach` (`src/components/builder/site.ts`; `workingMap` in `working.ts`:
+    the working map search, else the working English address; RAWASY's own place link only once set and still valid).
+    Nothing set up: today's values. Keep such inputs optional and absent on the public routes (the public page's HTML
+    stays byte-identical: `preview-parity.spec.ts`'s last test, with `e2e-admin/seed-site.mjs`).
+    `e2e-admin/site.spec.ts` empties the A6 working copy in `afterAll`, so the parity project sees today's website.
 - Settings form UI: `.adm-site-pair` aligns its fields at the start (a hint under one field stretched the other); the
   redirects list's old address is a plain `th` (the lists' grid `.adm-cell-title` ended short of a taller row).
-- Recorded for later (A8 / A9 / Owner): the review's I1 (A1's menu index), I5 (the preview's coordinates), I6 (accepted
-  pattern) and the items in the A6 report's "unresolved" list.
+- Recorded for later (A8 / A9 / Owner), accepted at A6's closure: the review's I1 (A1's menu index → A8, with the
+  revisions), I5 (the preview's coordinates → A9's parity proof), I6 (the accepted read-before-gate naming → kept), L2's
+  redirect re-check (A8's slug redirects and the A9 cutover), and the items in the A6 report's "unresolved" list.
 
 ## Rules from the brief
 
