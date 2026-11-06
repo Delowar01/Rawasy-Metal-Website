@@ -16,7 +16,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { FORM_IDS } from "../src/server/forms/registry";
 import { countingDatabase, startGateServer } from "./gate-helpers";
 import { ageAuthentication, cliEnv, freshCode, queryTestDb, run } from "./helpers";
@@ -109,6 +109,19 @@ const forge = (page: Page, name: string, args: unknown[]) =>
 
 const seedEnquiries = (options: Record<string, unknown>) =>
   JSON.parse(execFileSync(process.execPath, [join(ROOT, "e2e-admin/seed-enquiries.mjs"), JSON.stringify(options)], { env: { ...cliEnv(), RAWASY_DATA_DIR: run().dataDir }, encoding: "utf8" })) as typeof stored;
+
+/** Searches through the inbox's form (a Server Action; the list reopens without the search in its address). */
+async function search(page: Page, text: string) {
+  await main(page).getByLabel("Search").fill(text);
+  await Promise.all([page.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/admin/enquiries"), main(page).getByRole("button", { name: "Show" }).click()]);
+  await page.locator("main :is(h1, h2)").first().waitFor();
+  await expect(main(page).getByLabel("Search")).toHaveValue(text);
+}
+
+async function clearSearch(page: Page) {
+  await Promise.all([page.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/admin/enquiries"), main(page).getByRole("button", { name: "Clear" }).click()]);
+  await expect(main(page).getByLabel("Search")).toHaveValue("");
+}
 
 const version = async (id: string) => Number((await queryTestDb<{ v: number }>("SELECT lock_version AS v FROM enquiries WHERE id = ?", [id]))[0].v);
 
@@ -258,12 +271,12 @@ test.describe("the inbox", () => {
     await expect(rows).toHaveCount(3);
     await expect(rows.first()).toContainText(stored[2].reference);
     await expect(main(admin).locator("tbody")).toContainText("اختبار باء");
-    await main(admin).getByLabel("Search").fill(stored[0].reference.toLowerCase());
-    await main(admin).getByRole("button", { name: "Show" }).click();
+    await search(admin, stored[0].reference.toLowerCase());
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText("Test Alpha Visitor");
-    await open(admin, "/admin/enquiries?q=nothing-matches-this");
+    await search(admin, "nothing-matches-this");
     await expect(main(admin).getByText("No enquiry matches these filters.")).toBeVisible();
+    await clearSearch(admin);
     await open(admin, "/admin/enquiries?status=closed");
     await expect(main(admin).getByText("No enquiry matches these filters.")).toBeVisible();
     await open(admin, "/admin/enquiries?sort=oldest");
@@ -387,6 +400,172 @@ test.describe("the inbox", () => {
     expect((await queryTestDb<{ n: number }>("SELECT COUNT(*) AS n FROM audit_events WHERE outcome = 'denied' AND action IN ('enquiry.status', 'enquiry.assign', 'enquiry.note', 'form.update', 'form.setup')"))[0].n).toBeGreaterThanOrEqual(10);
   });
 
+  test("A7 final correction: a search never reaches an address, a link, the history or a redirect; it holds over pages, an enquiry and Back; Clear, sign-out and the next sign-in end it", async ({ browser }) => {
+    test.setTimeout(300_000);
+    seedEnquiries({ count: 12, names: Array.from({ length: 12 }, (_, i) => `Test Paging Visitor ${i + 1}`) });
+    const term = "Paging Visitor";
+    const leaks: string[] = [];
+    const check = (where: string, text: string | undefined | null) => {
+      if (!text) return;
+      let plain = text;
+      try {
+        plain = decodeURIComponent(text.replace(/\+/g, " "));
+      } catch {
+        // keep it as it is
+      }
+      if (/paging/i.test(plain)) leaks.push(`${where}: ${text}`);
+    };
+    const watch = (page: Page) => {
+      page.on("request", (r) => check("request address", r.url()));
+      page.on("response", (r) => check("redirect location", r.headers()["location"]));
+      page.on("framenavigated", (f) => f === page.mainFrame() && check("history entry", f.url()));
+    };
+    const links = (page: Page) => page.locator("a[href]").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+    const cookie = async (page: Page) => (await page.context().cookies()).find((c) => c.name === "__Host-rawasy_enq_search");
+    const rows = (page: Page) => main(page).locator("tbody tr");
+
+    const owner = await signedIn(browser, "owner");
+    watch(owner);
+    await open(owner, "/admin/enquiries?size=10");
+    await search(owner, term);
+    await expect(rows(owner)).toHaveCount(10);
+    expect(new URL(owner.url()).search, "the list's address keeps its filters only").toBe("?size=10");
+    for (const href of await links(owner)) check("link", href);
+    // The browser holds only a sealed, session-only cookie: no words, no expiry date, not readable by script.
+    const kept = (await cookie(owner))!;
+    expect(kept.value).not.toMatch(/paging|visitor/i);
+    expect([kept.httpOnly, kept.secure, kept.sameSite, kept.expires]).toEqual([true, true, "Strict", -1]);
+    expect(await owner.evaluate(() => document.cookie)).not.toContain("rawasy_enq_search");
+    // Pages keep the search.
+    await main(owner).getByRole("link", { name: "Next page" }).click();
+    await owner.waitForURL((u) => u.searchParams.get("page") === "2");
+    await expect(rows(owner)).toHaveCount(2);
+    for (const text of await rows(owner).allTextContents()) expect(text).toContain("Test Paging Visitor");
+    // An enquiry, then Back: the same filtered page.
+    await rows(owner).first().getByRole("link").click();
+    await owner.waitForURL(/\/admin\/enquiries\/[0-9A-Z]{26}$/);
+    await owner.goBack();
+    await owner.locator("main :is(h1, h2)").first().waitFor();
+    await expect(main(owner).getByLabel("Search")).toHaveValue(term);
+    await expect(rows(owner)).toHaveCount(2);
+    // The export reads the same search on the server: the twelve, and a POST, never an address.
+    const [download] = await Promise.all([owner.waitForEvent("download"), main(owner).getByRole("button", { name: "Export CSV" }).click()]);
+    const csv = readFileSync((await download.path())!, "utf8").trim().split("\r\n");
+    expect(csv).toHaveLength(13);
+    for (const line of csv.slice(1)) expect(line).toContain("Test Paging Visitor");
+    // An old address with a search is sent on without it; the search in it is never read.
+    // (The admin streams after its loading skeleton, so the redirect arrives in the page, not as a 307.)
+    const old = await owner.context().request.get("/admin/enquiries?q=Alpha&status=all", { maxRedirects: 0 });
+    expect(old.status()).toBeLessThan(400);
+    expect(await old.text(), "nothing was searched for 'Alpha'").not.toContain("Test Alpha Visitor");
+    await owner.goto("/admin/enquiries?q=Alpha");
+    await owner.waitForURL((u) => u.pathname === "/admin/enquiries" && !u.searchParams.has("q"));
+    await expect(main(owner).getByLabel("Search")).toHaveValue(term);
+    // Clear ends it: the cookie goes and the list opens whole.
+    await clearSearch(owner);
+    expect(await cookie(owner)).toBeUndefined();
+    await expect(rows(owner)).toHaveCount(15);
+    // Sign-out ends it, and the next person to sign in on this browser starts with none.
+    await search(owner, term);
+    expect(await cookie(owner)).toBeDefined();
+    await owner.locator('summary[aria-label^="Account:"]').click();
+    await owner.getByRole("button", { name: "Sign out" }).click();
+    await expect(owner).toHaveURL(/\/admin\/login\?signed_out=1$/);
+    expect(await cookie(owner)).toBeUndefined();
+    await owner.getByLabel("Email", { exact: true }).fill(USERS.admin.email);
+    await owner.getByLabel("Password", { exact: true }).fill(USERS.admin.password);
+    await owner.getByRole("button", { name: "Sign in" }).click();
+    await owner.waitForURL("**/admin/login/verify**");
+    await owner.getByLabel("Authentication code").fill(await freshCode(secrets.admin!));
+    await owner.getByRole("button", { name: "Verify" }).click();
+    await owner.waitForURL((url) => !url.pathname.startsWith("/admin/login"));
+    await open(owner, "/admin/enquiries");
+    await expect(main(owner).getByLabel("Search")).toHaveValue("");
+    await expect(rows(owner)).toHaveCount(15);
+    expect(leaks, "the search reached an address").toEqual([]);
+    // A search names nobody in the audit trail, and a role without the inbox can't set one (refused, audited).
+    expect(JSON.stringify(await queryTestDb("SELECT summary, changes, entity_label FROM audit_events WHERE action LIKE 'enquiry.%'"))).not.toMatch(/paging/i);
+    const editor = await as(browser, "editor");
+    await open(editor, "/admin");
+    await forge(editor, "searchEnquiriesAction", []);
+    expect((await queryTestDb<{ n: number }>("SELECT COUNT(*) AS n FROM audit_events WHERE action = 'enquiry.search' AND outcome = 'denied'"))[0].n).toBeGreaterThanOrEqual(1);
+    await owner.context().close();
+  });
+
+  test("A7 final correction: the A7 screens work from the keyboard alone, with focus visible at every step", async ({ browser }) => {
+    test.setTimeout(240_000);
+    const page = await signedIn(browser, "admin");
+    const focusVisible = () =>
+      page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || el === document.body) return false;
+        const style = getComputedStyle(el);
+        return style.outlineStyle !== "none" || style.boxShadow !== "none";
+      });
+    /** Tabs (at most 150 times, wrapping round the page) until the target has focus, checking that focus is drawn. */
+    const tabTo = async (target: Locator) => {
+      for (let i = 0; i < 150; i++) {
+        await page.keyboard.press("Tab");
+        if (await target.evaluate((el) => el === document.activeElement)) {
+          expect(await focusVisible(), `focus drawn on ${target}`).toBe(true);
+          return;
+        }
+      }
+      throw new Error(`Tab never reached ${target}`);
+    };
+    const m = main(page);
+    // The inbox: the search field, typed and sent with Enter, then a reference opened with Enter.
+    await open(page, "/admin/enquiries");
+    await tabTo(m.getByLabel("Search"));
+    await page.keyboard.type("Test Paging Visitor 3");
+    await Promise.all([page.waitForResponse((r) => r.request().method() === "POST"), page.keyboard.press("Enter")]);
+    await expect(m.locator("tbody tr")).toHaveCount(1);
+    await tabTo(m.locator("tbody a").first());
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/admin\/enquiries\/[0-9A-Z]{26}$/);
+    const path = new URL(page.url()).pathname;
+    await page.locator("main :is(h1, h2)").first().waitFor();
+    // A note typed and sent with the keyboard.
+    await tabTo(m.getByLabel("Add an internal note"));
+    await page.keyboard.type("Test note from the keyboard.");
+    await tabTo(m.getByRole("button", { name: "Add note" }));
+    await page.keyboard.press("Enter");
+    await reopened(page, path);
+    await expect(m.locator(".adm-enq-notes")).toContainText("Test note from the keyboard.");
+    // The workflow's next step, by Enter.
+    await tabTo(m.getByRole("button", { name: "Open", exact: true }));
+    await page.keyboard.press("Enter");
+    await reopened(page, path);
+    // Closing without an answer: Space opens the reason, Tab reaches it, the closing button sends it.
+    await tabTo(m.locator(".adm-enq-controls > .adm-actions").getByRole("button", { name: "Close without an answer" }));
+    await page.keyboard.press("Space");
+    await expect(m.locator(".adm-enq-reason")).toBeVisible();
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("TEXTAREA");
+    await page.keyboard.type("Test closed from the keyboard.");
+    await tabTo(m.locator(".adm-enq-reason").getByRole("button", { name: "Close without an answer" }));
+    await page.keyboard.press("Enter");
+    await reopened(page, path);
+    await expect(m.locator(".adm-enq-history")).toContainText("Test closed from the keyboard.");
+    // The assignment's list and its button are in the tab order.
+    await tabTo(m.getByLabel("Assigned to"));
+    // The form editor: a field's details open and close with Enter; the save button is reachable.
+    await open(page, `/admin/forms/${FORM}`);
+    const summary = m.locator("li.adm-form-field summary").first();
+    await tabTo(summary);
+    await page.keyboard.press("Enter");
+    await expect(m.locator("li.adm-form-field details").first()).toHaveAttribute("open", "");
+    await page.keyboard.press("Enter");
+    await expect(m.locator("li.adm-form-field details").first()).not.toHaveAttribute("open", "");
+    await tabTo(m.getByRole("button", { name: "Save form" }));
+    // The forms list's link and the inbox's summary cards are links in the tab order.
+    await open(page, "/admin/forms");
+    await tabTo(m.getByRole("link", { name: "Quote request form" }));
+    await open(page, "/admin/enquiries");
+    await tabTo(m.locator(".adm-stat a").first());
+    await page.context().close();
+  });
+
   test("the prepared submission service is reachable by nothing in the build", async () => {
     const manifest = readFileSync(join(ROOT, ".next/server/server-reference-manifest.json"), "utf8");
     expect(manifest).not.toContain("submitEnquiry");
@@ -409,6 +588,7 @@ test.describe("layout and accessibility", () => {
       const page = await signedIn(browser, "admin", { viewport: { width, height: 900 }, colorScheme: scheme });
       for (const path of screens) {
         await open(page, path);
+        if (path === "/admin/enquiries") await search(page, "Test"); // the inbox with a search kept (its Clear button)
         await page.locator("main details").evaluateAll((all) => all.forEach((d) => ((d as HTMLDetailsElement).open = true)));
         expect(await pageOverflow(page), `${path} at ${width}`).toBeLessThanOrEqual(0);
         expect(await pastTheScreen(page), `${path} at ${width}`).toEqual([]);
