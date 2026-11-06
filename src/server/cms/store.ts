@@ -46,6 +46,12 @@ export async function rowsOf<T>(db: Db, query: SQL): Promise<T[]> {
  * A DATETIME of a raw query as an instant. Drizzle's mysql2 session reads DATETIME columns as text (it maps them itself
  * for its own selects), so raw rows hold "YYYY-MM-DD HH:MM:SS.fff" in UTC (every connection runs at UTC).
  */
+/** A DATE column's value as 'YYYY-MM-DD' (mysql2 gives a Date at UTC midnight on these connections, raw SQL a string). */
+export function dateOnly(value: unknown): string | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null;
+}
+
 export function instantOf(value: unknown): Date | null {
   if (value instanceof Date) return value;
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?$/.test(value)) return null;
