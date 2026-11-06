@@ -2988,3 +2988,31 @@ ol.adm-bld-rich-reads {
     border: 1px solid CanvasText;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* Publishing, history and the audit log (Phase A8): the same tokens, cards, tables, badges and buttons; nothing above
+   this block changed. Text people wrote (comments, compared values, stored changes) keeps its lines and wraps anywhere,
+   in its own direction. */
+
+.adm-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+
+pre.adm-pre {
+  font-family: var(--adm-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8125rem;
+  max-height: 20rem;
+  overflow: auto;
+}
+
+.adm-history .adm-actions {
+  flex-wrap: wrap;
+}
+
+.adm-history .adm-btn.is-small {
+  white-space: normal;
+  text-align: center;
+}

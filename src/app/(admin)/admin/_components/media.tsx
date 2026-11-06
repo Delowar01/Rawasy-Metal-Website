@@ -5,6 +5,7 @@
  * permissions — a private item does not exist for anyone without private access; the Server Actions and Route Handlers
  * check every change and download again. Never a server path or storage key on screen.
  */
+import { usedBy } from "@/server/publishing/references";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -324,6 +325,8 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
   const now = deps.clock();
   const [detail, folders] = await guarded(() => Promise.all([loadMediaDetail(deps.db, actor.permissions, id, now), folderOptions(deps.db)]));
   if (!detail) notFound();
+  // A8.3: everywhere the item is named — record fields, layout sections, reusable sections, settings — from the index.
+  const named = await guarded(() => usedBy(deps.db, "media", id));
   const tr = detail.translations;
   const label = tr.en.title || tr.ar.title || detail.legacyKey || detail.current?.filename || "(untitled)";
   const status = detail.status as UsageStatusName;
@@ -543,7 +546,23 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
             </div>
           ))
         )}
-        <p className="adm-hint">Working content only: nothing here is public before publishing (A8).</p>
+        {named.length ? (
+          <>
+            <h3>Everywhere it is named</h3>
+            <ul className="adm-list">
+              {named.map((u) => (
+                <li key={`${u.sourceType}:${u.sourceId}:${u.scope}`}>
+                  {u.path ? <Link href={u.path}>{u.label}</Link> : u.label} <span className="adm-muted">({u.sourceType.replace(/_/g, " ")})</span>{" "}
+                  <span className={`adm-badge${u.scope === "published" ? " is-success" : ""}`}>{u.scope === "published" ? "Live version" : "Working copy"}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+        <p className="adm-hint">
+          Records&apos; fields above; the reference index also lists layout sections, reusable sections and settings. A live version shows an item only while it
+          is approved and deliverable: restricting it or moving it to the Trash withdraws it from every live version at once.
+        </p>
       </section>
 
       <section className="adm-card" id="storage" aria-labelledby="storage-title">

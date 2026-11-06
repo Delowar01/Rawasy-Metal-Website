@@ -18,6 +18,7 @@ const ICONS = {
   account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M5 20a7 7 0 0 1 14 0",
   security: "M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6zM12 15v2",
   sessions: "M4 5h16v11H4zM8 20h8M12 16v4",
+  audit: "M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4",
   website: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
   pages: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6",
   services: "M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z",
@@ -131,6 +132,15 @@ function Navigation({ permissions }: { permissions: ReadonlySet<string> }) {
               Forms
             </NavLink>
           ) : null}
+        </div>
+      ) : null}
+      {permissions.has("audit.view") ? (
+        <div className="adm-nav-group">
+          <p className="adm-nav-title">Safety</p>
+          <NavLink href="/admin/audit">
+            <Icon d={ICONS.audit} />
+            Audit log
+          </NavLink>
         </div>
       ) : null}
       {permissions.has("users.view") ? (

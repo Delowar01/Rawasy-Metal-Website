@@ -39,6 +39,9 @@ import {
   type EntityType,
   type PageType,
 } from "@/server/cms/registry";
+import { PublishingPanel } from "./publishing";
+import { usedBy } from "@/server/publishing/references";
+import { displayedState } from "@/server/publishing/registry";
 import { Forbidden, formatTime, PageHeader, RIYADH_NOTE } from "./parts";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -378,6 +381,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
   );
   const title = item.values.en[spec.titleKey] || item.values.ar[spec.titleKey] || item.slug || "(untitled)";
   const pageType = type === "page" ? pageTypeOf(root) : null;
+  const liveLinks = (await guarded(() => usedBy(deps.db, type, id))).filter((u) => u.scope === "published" && !(u.sourceType === type && u.sourceId === id)).length;
   const canArchive = can(actor.permissions, type, "archive") && !(pageType && isFixedPage(pageType));
   const notice = searchParams.created ? `Created “${title}” as a draft.` : searchParams.saved ? `Saved “${title}”.` : null;
   const by = (key: string) => {
@@ -386,6 +390,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
   };
   const extraSections = [
     { id: "status", label: "Status" },
+    { id: "publishing", label: "Publishing" },
     ...(privateOriginals ? [{ id: "private-original", label: "Private original" }] : []),
     ...(type === "project" ? [{ id: "restrictions", label: "Restrictions" }] : []),
     ...(usage.length ? [{ id: "used-by", label: "Used by" }] : []),
@@ -399,7 +404,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
           <span className="adm-badges">
             <StateBadge locale="en" state={item.states.en} />
             <StateBadge locale="ar" state={item.states.ar} />
-            {item.archived ? <span className="adm-badge">Archived</span> : <span className="adm-badge is-success">Draft</span>}
+            <span className={`adm-badge${root.publicationStatus === "published" ? " is-success" : ""}`}>{displayedState(String(root.publicationStatus), String(root.draftStatus))}</span>
           </span>
         }
         actions={
@@ -413,7 +418,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
       />
       {notice ? (
         <div className="adm-alert is-success" role="status">
-          <p>{notice} Nothing is public until publishing exists.</p>
+          <p>{notice} The live version (if any) changes only when someone publishes.</p>
         </div>
       ) : null}
       {model.page?.legal ? (
@@ -439,9 +444,9 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
         <h2 id="status-title">Status</h2>
         <dl className="adm-dl">
           <dt>Working state</dt>
-          <dd>{item.archived ? "Archived (read-only, restorable)" : "Draft"}</dd>
-          <dt>Public</dt>
-          <dd>No. Nothing in this admin is public before publishing exists (A8).</dd>
+          <dd>{item.archived ? "Archived (read-only, restorable)" : displayedState(String(root.publicationStatus), String(root.draftStatus))}</dd>
+          <dt>Public website</dt>
+          <dd>Unchanged until the content cutover (A9): publishing fills the database&apos;s public read model only.</dd>
           <dt>Created</dt>
           <dd>
             {formatTime(item.createdAt)}
@@ -467,12 +472,22 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
           <p className="adm-hint">Fixed pages of the site (homepage, system, legal and template pages) are never archived.</p>
         ) : canArchive ? (
           <div className="adm-actions">
-            <ArchiveControl type={type} id={id} version={item.lockVersion} archived={item.archived} one={info.one} label={title} />
+            <ArchiveControl
+              type={type}
+              id={id}
+              version={item.lockVersion}
+              archived={item.archived}
+              one={info.one}
+              label={title}
+              live={root.publicationStatus === "published"}
+              linkedFrom={liveLinks}
+            />
           </div>
         ) : (
           <p className="adm-hint">Only roles allowed to archive {info.many.toLowerCase()} can archive or restore this {info.one}.</p>
         )}
       </section>
+      <PublishingPanel type={type} id={id} actor={actor} label={title} />
       {privateOriginals ? (
         <section className="adm-card" id="private-original" aria-labelledby="private-original-title">
           <h2 id="private-original-title">Private original (Owner only)</h2>

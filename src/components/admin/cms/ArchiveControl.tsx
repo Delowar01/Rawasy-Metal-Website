@@ -7,7 +7,7 @@
 import { setArchivedAction } from "@/server/admin/actions/cms";
 import { ConfirmAction } from "../ConfirmAction";
 
-export function ArchiveControl({ type, id, version, archived, one, label }: { type: string; id: string; version: number; archived: boolean; one: string; label: string }) {
+export function ArchiveControl({ type, id, version, archived, one, label, live = false, linkedFrom = 0 }: { type: string; id: string; version: number; archived: boolean; one: string; label: string; live?: boolean; linkedFrom?: number }) {
   return archived ? (
     <ConfirmAction
       action={setArchivedAction}
@@ -31,6 +31,12 @@ export function ArchiveControl({ type, id, version, archived, one, label }: { ty
         The {one} leaves the active list and becomes read-only. Its translations and relations are kept, items that link to it keep the link (marked
         archived), and it can be restored at any time. Nothing is deleted.
       </p>
+      {live ? <p>Its live version is taken out of the public read model at once.</p> : null}
+      {linkedFrom ? (
+        <p>
+          {linkedFrom} live item{linkedFrom === 1 ? " links" : "s link"} to it and will leave it out.
+        </p>
+      ) : null}
     </ConfirmAction>
   );
 }

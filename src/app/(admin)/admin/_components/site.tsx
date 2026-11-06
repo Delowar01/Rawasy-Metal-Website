@@ -5,6 +5,8 @@
  * `menus.edit`, `redirects.manage`; the theme is the Owner's `theme.edit` alone). Route files are thin wrappers.
  * Everything here is a working copy: the public website keeps today's values (T1 = Option B).
  */
+import { Fragment } from "react";
+import { PublishingPanel } from "./publishing";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MenuEditor } from "@/components/admin/site/MenuEditor";
@@ -85,6 +87,7 @@ export async function SettingsScreen({ searchParams }: { searchParams: SearchPar
         <>
           <p className="adm-muted">Last changed {formatTime(settings.updatedAt)} · version {settings.lockVersion}</p>
           <SettingsForm key={settings.lockVersion} model={model} cards={cards} canEdit={canEdit} canUpload={actor.permissions.has("media.upload")} />
+          <PublishingPanel type="site_settings" id="site" actor={actor} label="Company & website settings and interface text" compact />
         </>
       ) : (
         <section className="adm-card" aria-labelledby="settings-setup-title">
@@ -128,7 +131,12 @@ export async function NavigationScreen({ searchParams }: { searchParams: SearchP
       <p className="adm-hint">{SITE_WORKING_NOTE}</p>
       <Saved show={Boolean(saved && menus.some((m) => m.key === saved))} text="Saved. The preview shows the working copy; visitors still see today's website." />
       {setUp ? (
-        models.map((model) => <MenuEditor key={`${model.key}:${model.lockVersion}`} model={model} routes={routeChoices()} canEdit={canEdit} />)
+        models.map((model) => (
+          <Fragment key={`${model.key}:${model.lockVersion}`}>
+            <MenuEditor model={model} routes={routeChoices()} canEdit={canEdit} />
+            <PublishingPanel type="menu" id={model.key} actor={actor} label={model.name} anchor={`publishing-${model.key}`} compact />
+          </Fragment>
+        ))
       ) : (
         <section className="adm-card" aria-labelledby="nav-setup-title">
           <div className="adm-card-head">

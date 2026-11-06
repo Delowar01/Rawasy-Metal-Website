@@ -11,6 +11,7 @@
  * list's address, its page links, the summary cards and every redirect carry only the filters that hold no personal
  * data; an old address with `?q=` is sent on without it, and the search is ignored.
  */
+import { PublishingPanel } from "./publishing";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AssignForm, ExportButton, NoteForm, RetryButton, StatusControls } from "@/components/admin/enquiries/EnquiryActions";
@@ -143,6 +144,7 @@ export async function FormEditScreen({ id, searchParams }: { id: string; searchP
             {DELIVERY_LABELS[form.settings.deliveryMode]} · last changed {formatTime(form.updatedAt)} · version {form.lockVersion}
           </p>
           <FormEditor key={form.lockVersion} model={model} />
+          <PublishingPanel type="form" id={form.id} actor={actor} label={title} compact />
         </>
       ) : (
         <section className="adm-card" aria-labelledby="form-setup-title">

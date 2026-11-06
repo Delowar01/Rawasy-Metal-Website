@@ -3,6 +3,7 @@
  * list, new-item and editor pages. Server components: each one checks the session again (`requireActor`) and reads with
  * the acting user's permissions; every save is decided again by the Server Actions and the builder services.
  */
+import { PublishingPanel } from "./publishing";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Builder } from "@/components/admin/builder/Builder";
@@ -172,10 +173,11 @@ export async function ReusableEdit({ id, searchParams }: { id: string; searchPar
         </div>
       ) : one(searchParams.done) === "saved" ? (
         <div className="adm-alert is-success" role="status">
-          <p>Saved. Every page and service that links it shows the change in its preview; nothing is public until publishing exists (A8).</p>
+          <p>Saved. Every page and service that links it shows the change in its preview; its live version changes only when someone publishes it.</p>
         </div>
       ) : null}
       <ReusableEditor key={`${model.id}:${model.lockVersion}`} model={model} viewer={actor.user.id} />
+      <PublishingPanel type="reusable_section" id={model.id} actor={actor} label={model.name} />
     </>
   );
 }
