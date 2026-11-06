@@ -235,7 +235,49 @@ single use); reference allocation; the signature checks (no SVG); CSV formula ne
 
 ## 6. Test results
 
-**Pending:** the fresh-clone QA of `19c08c7` is running (results are added here when it ends).
+Fresh clone of `19c08c7` (the last code), Node 22.22.2, MariaDB 11.4.13 (local Docker), Playwright 1.56.1 driving the
+container's Chrome for Testing 153 through untracked wrapper configs (as in A5 and A6). Every suite in its first run:
+
+| Check | Result | Baseline (A6 closure) |
+|---|---|---|
+| `npm ci` | pass (403 packages; `@next/swc-linux-x64-gnu` present) | |
+| `npm audit --omit=dev` | **0 vulnerabilities** | 0 |
+| `npm audit` (all) | 12 moderate, dev-only (item 9) | 12 |
+| `npm run lint` / `npm run typecheck` | pass / pass | |
+| `npm run build` (no database settings) | pass, **no warning** | |
+| `npm run db:check` | pass: **10** migration files, seeds match the registries | 8 |
+| Packaging check | PASS: 0 of 13 held-back files in the archive; 111 / 111 public files; 102 sitemap pages | same |
+| Unit | **364 / 364** | 338 |
+| Integration (MariaDB) | **529 / 529** | 470 |
+| Admin browser (every spec, the parity project included) | **164 / 164** in the first run (29.3 min) | 147 |
+| Public E2E (against `server.js`, after the warm-up: 1,484 / 1,484 sizes) | **612 / 612** in the first run (23.5 min) | 612 |
+
+**New A7 tests:**
+- **Unit (26):** `forms-registry` (12: the quote form's fields, words and choices equal to the website's form; limits; the
+  workflow; references), `enquiries-submission` (9: the timing token, field checks, CSV cells, project-type labels),
+  `enquiries-review` (5: the review's L1, L2, L3, I7).
+- **Integration (59):** `forms-definitions` (9: set-up, saves, stale, the Owner's settings, statuses, audit),
+  `enquiries-submission` (15: every refusal before storage, references gapless under 20 concurrent submissions,
+  attachments by their bytes, nothing left behind, notifications without personal data), `enquiries-workflow` (17:
+  lists, the workflow, stale pages, roles, assignment, notes, the audit trail's privacy, downloads, export, retention,
+  the outbox), `forms-migration` (7: proofs A–G), `enquiries-review` (11: the review's findings); the A3–A6 migration
+  tests take 0008/0009.
+- **Admin browser (17, `e2e-admin/enquiries.spec.ts`):** the Enquiries group by role; the form's set-up, editing, the
+  Owner's settings closed to an Admin, errors with typing kept, a stale tab, the preview; synthetic enquiries through
+  the prepared service; the inbox (summary, search, filters, sorting, empty states); an enquiry's workflow step by step,
+  the reason, reopening, assignment, notes, a stale tab; a private attachment (Admin download audited; 404 to an Editor,
+  to another enquiry's address; 401 without a session); the CSV export (not offered to an Admin, the Owner after a
+  step-up, formulas as text, audited); forged actions of a Reviewer and an Editor refused and audited; the submission
+  service absent from the build's action manifest; every screen at 1280 / 768 / 390 / 320 in light and dark, nothing
+  past the screen, axe clean; the gate off (every A7 address the public 404 path, the file route 404, no database
+  connection); the public Contact page byte for byte unchanged.
+- **Proven failing before their fix:** the 16 review tests on `06a90a4` (unit 0 / 5, integration 0 / 11); the label and
+  history tests on `c1ed475`.
+
+**Earlier runs on the working checkout** (before the fresh clone): unit 363 / 363 and integration 529 / 529 on
+`7f0d2ca`; admin 164 / 164 on `7f0d2ca`'s build; the A7 spec alone 17 / 17 on `7f0d2ca` and on `19c08c7`.
+
+**How to run:** README, "Admin (local development)", part 9 and "Tests".
 
 ## 7. Desktop / mobile evidence
 
@@ -271,9 +313,12 @@ Against `preserve/pre-admin-a7` (`da1fe11`; its public sources are `fcc37c9`'s, 
   build id and hashed asset names are normalised, 0 different; stylesheets and scripts identical on 104 / 104 pages.
 - **Server code:** 28 server-bundle files differ by chunk grouping (admin code now imports more content modules); all
   16 public entries are built from the same 299 source files (49 of ours) with identical content.
-- **HTTP:** pending (runs after the QA suites).
+- **HTTP:** 229 / 229 answers equal — status, the compared headers and the bodies once the build id and hashed asset
+  names are normalised: 102 documents (`/en/contact`, `/ar/contact` among them), 102 page-data requests and 25 others
+  (404s, `/admin` and `/api` paths with the gate off, `/media`, the image optimizer). Each server on its own fresh copy
+  of its clean build, the admin gate off (production without `ADMIN_ENABLED`).
 - **Pixels:** pending.
-- **Public E2E:** pending (the fresh clone's run).
+- **Public E2E:** 612 / 612 in the fresh clone's first run (after the image warm-up).
 - **In the browser:** the A7 spec records `/en/contact` and `/ar/contact` before any A7 data exists and compares them
   byte for byte after the form's working copy, a storing form and stored enquiries exist (equal); the A6 parity tests
   keep comparing the preview with the public pages.
