@@ -34,6 +34,7 @@ import { REGISTRY } from "./registry.ts";
 import { readSectionData, type BuilderChange, type SectionIssue } from "./sections.ts";
 import { ownerKindsOf, readReusable, reusableUses, writeReusableTranslations, type OwnerRef, type TranslationWrite } from "./store.ts";
 import { planTexts } from "./texts.ts";
+import { noteCreated } from "../cms/changes.ts";
 
 export const REUSABLE_STALE = "This reusable section changed after you opened it. Reload and review the latest version before saving.";
 
@@ -84,6 +85,7 @@ export async function createReusable(change: BuilderChange, input: { name: unkno
     const checked = REGISTRY.validate(def, defaults.settings, {});
     if (!checked.ok) throw new Error(`The defaults of ${def.key} are invalid.`);
     const id = ulid(now.getTime());
+    noteCreated(tx, "reusable_section", id);
     await tx.insert(reusableSections).values({
       id,
       name: name.data,

@@ -46,6 +46,7 @@ import {
   type RelationTable,
   type SaveResult,
 } from "./store.ts";
+import { noteCreated } from "./changes.ts";
 import { altText, digitGuardProblem, docToPlain, EMPTY_DOC, isDocEmpty, linesList, plainText, richTextFromPlain, sitePathProblem, storedLines } from "./text.ts";
 import { checkMediaChoices, type ContentMediaKind } from "./media-refs.ts";
 import { diffOrdered } from "./reorder.ts";
@@ -822,6 +823,7 @@ export async function createItem(ctx: ChangeContext, spec: KindSpec, form: FormO
       const source = spec.hasSource
         ? { sourceBasis: input.sourceBasis ?? null, sourcePages: input.sourcePages ?? null, sourceNote: (input.sourceNote as string) || null }
         : {};
+      noteCreated(tx, spec.type, id);
       await tx.insert(spec.root).values({
         id,
         ...(usesSlug ? { slug } : {}),

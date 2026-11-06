@@ -160,10 +160,14 @@ describe("attribution and nothing public", () => {
     assert.equal(event.actorUserId, t.editor.user.id);
   });
 
-  test("the database itself refuses a published state without a published revision (none exists in A3)", async () => {
+  test("the database itself refuses a published state without a published revision (nothing is published by a save)", async () => {
     const [{ id }] = await query<{ id: string }>(env, "SELECT id FROM services LIMIT 1");
     await assert.rejects(env.pool.query("UPDATE services SET publication_status = 'published' WHERE id = ?", [id]), /CONSTRAINT|ck_services_live/i);
-    assert.equal((await query(env, "SELECT COUNT(*) AS n FROM revisions"))[0].n, 0);
+    // Since A8 every save writes a revision (A8.1), but a save publishes nothing: no live version, no public document.
+    assert.ok(Number((await query(env, "SELECT COUNT(*) AS n FROM revisions"))[0].n) > 0);
+    assert.equal(Number((await query(env, "SELECT COUNT(*) AS n FROM revisions WHERE kind = 'publish' OR live_from IS NOT NULL"))[0].n), 0);
+    assert.equal(Number((await query(env, "SELECT COUNT(*) AS n FROM services WHERE published_revision_id IS NOT NULL"))[0].n), 0);
+    assert.equal(Number((await query(env, "SELECT COUNT(*) AS n FROM published_documents"))[0].n), 0);
   });
 
   test("audit summaries name the item and what changed, never its long texts", async () => {

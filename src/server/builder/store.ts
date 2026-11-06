@@ -15,6 +15,7 @@ import { instantOf, rowsOf } from "../cms/store.ts";
 import type { OwnerKind, RecordCollection } from "./block.ts";
 import { LOCALES, type Content, type Locale, type Settings } from "./fields.ts";
 import { ownerKindOf } from "./structure.ts";
+import { noteLocked } from "../cms/changes.ts";
 
 export type OwnerType = "page" | "service";
 
@@ -57,6 +58,7 @@ export async function readOwner(db: Db, ref: OwnerRef, options: { lock: boolean 
     kind = found ? "service" : null;
   }
   if (!row || !kind) return null;
+  if (options.lock) noteLocked(db, ref.type, ref.id, Number(row.lock_version));
   const [named] = await refsByIds(db, ref.type, [ref.id]);
   return {
     ref,
@@ -303,6 +305,7 @@ export async function readReusable(db: Db, id: string, options: { lock?: "update
           FROM reusable_sections WHERE id = ${id} AND deleted_at IS NULL${lock}`,
   );
   if (!r) return null;
+  if (options.lock === "update") noteLocked(db, "reusable_section", id, Number(r.lock_version));
   const rows = await rowsOf<{ locale: string; content: unknown; translation_status: TranslationStatus; completed_at: unknown; completed_by: string | null }>(
     db,
     sql`SELECT locale, content, translation_status, completed_at, completed_by

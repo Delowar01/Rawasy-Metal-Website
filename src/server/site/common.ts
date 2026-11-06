@@ -10,6 +10,7 @@ import { recordAudit, type AuditOutcome } from "../audit/audit.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "../auth/types.ts";
 import type { Db } from "../db/client.ts";
 import { rowsOf, type CmsDeps } from "../cms/store.ts";
+import { noteLocked } from "../cms/changes.ts";
 
 export interface SiteChange {
   deps: CmsDeps;
@@ -83,12 +84,14 @@ export interface RootRow {
 /** The site settings root, FOR UPDATE (every change to settings, phones or interface text). */
 export async function lockSettingsRoot(tx: Db): Promise<RootRow | null> {
   const [row] = await rowsOf<{ lock_version: number }>(tx, sql`SELECT lock_version FROM site_settings WHERE id = 'site' FOR UPDATE`);
+  if (row) noteLocked(tx, "site_settings", "site", Number(row.lock_version));
   return row ? { lockVersion: Number(row.lock_version) } : null;
 }
 
 /** A menu slot's root, FOR UPDATE. */
 export async function lockMenuRoot(tx: Db, key: string): Promise<RootRow | null> {
   const [row] = await rowsOf<{ lock_version: number }>(tx, sql`SELECT lock_version FROM menus WHERE \`key\` = ${key} FOR UPDATE`);
+  if (row) noteLocked(tx, "menu", key, Number(row.lock_version));
   return row ? { lockVersion: Number(row.lock_version) } : null;
 }
 

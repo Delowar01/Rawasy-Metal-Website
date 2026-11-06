@@ -36,6 +36,9 @@ export interface AuditEvent {
   summary: string;
   changes?: Record<string, unknown>;
   at: Date;
+  /** A8: the revisions a content transition went from and to (A1-SECURITY-RBAC §11). */
+  beforeRevisionId?: string | null;
+  afterRevisionId?: string | null;
 }
 
 /** Keys that are never stored in `changes`, whatever their value. */
@@ -77,6 +80,8 @@ export async function recordAudit(db: Db, event: AuditEvent): Promise<void> {
     outcome: event.outcome,
     summary: event.summary.slice(0, 500),
     changes: event.changes ? redactChanges(event.changes) : null,
+    beforeRevisionId: event.beforeRevisionId ?? null,
+    afterRevisionId: event.afterRevisionId ?? null,
   });
 }
 

@@ -28,6 +28,7 @@ import { auditActorOf, type Actor, type RequestMeta } from "../auth/types.ts";
 import type { Db } from "../db/client.ts";
 import { pageSectionTranslations, reusableSections } from "../db/schema-builder.ts";
 import { contentTransaction, type CmsDeps } from "../cms/store.ts";
+import { noteCreated } from "../cms/changes.ts";
 import { ulid } from "../security/ids.ts";
 import type { BlockDefinition, OwnerKind } from "./block.ts";
 import { cloneWithNewIds, defaultsOf, LOCALES, referencesOf, type BlockReferences, type Content, type FieldIssue, type Locale, type Settings } from "./fields.ts";
@@ -717,6 +718,7 @@ export async function createReusableFromSection(change: BuilderChange, raw: unkn
     const read = readSectionData(section);
     if (read.state !== "ok") return { kind: "invalid", message: "This section's data can't be read, so it can't be copied.", issues: [] };
     const reusableId = ulid(now.getTime());
+    noteCreated(tx, "reusable_section", reusableId);
     await tx.insert(reusableSections).values({
       id: reusableId,
       name: name.data,

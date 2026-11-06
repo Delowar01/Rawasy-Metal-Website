@@ -26,6 +26,7 @@ import { contentTransaction, instantOf, rowsOf } from "../cms/store.ts";
 import { ulid } from "../security/ids.ts";
 import { fieldTextsSchema, quoteCopySchema, staticCopy, staticFieldTexts, type FieldTexts, type QuoteCopy } from "./copy.ts";
 import { FREE_RANGE, INVALID, refuse, stale, STALE_FORM, formsAudit, versionSchema, zodIssues, type FormsChange, type Issue, type Result } from "./common.ts";
+import { noteLocked } from "../cms/changes.ts";
 import {
   ATTACHMENT_EXTENSIONS,
   CONSENT_MODES,
@@ -183,6 +184,7 @@ export async function readForm(db: Db, by: { key: string } | { id: string }): Pr
 /** The form's root, FOR UPDATE (every change to the form, its copy or its fields). */
 export async function lockForm(tx: Db, id: string): Promise<{ lockVersion: number; key: string } | null> {
   const [row] = await rowsOf<{ lock_version: number; key: string }>(tx, sql`SELECT lock_version, \`key\` FROM forms WHERE id = ${id} FOR UPDATE`);
+  if (row) noteLocked(tx, "form", id, Number(row.lock_version));
   return row ? { lockVersion: Number(row.lock_version), key: String(row.key) } : null;
 }
 

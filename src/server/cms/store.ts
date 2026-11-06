@@ -14,6 +14,7 @@ import { lockActor } from "../auth/sessions.ts";
 import { auditActorOf, type Actor, type RequestMeta } from "../auth/types.ts";
 import { inTransaction, type Db } from "../db/client.ts";
 import { dbErrorInfo } from "../db/pool.ts";
+import { currentStore, noteLocked, runWithStore, type ChangeStore } from "./changes.ts";
 import { entityOrderingItems, entityOrderings, searchDocuments } from "../db/schema-cms.ts";
 import { ENTITIES, LOCALES, type EntityInfo, type EntityType, type Locale, type OrderingKey } from "./registry.ts";
 import { planMove, type MoveDirection } from "./reorder.ts";
@@ -86,10 +87,25 @@ const table = (info: EntityInfo) => sql.identifier(info.table);
  * retries it once — every attempt decides on locking reads, so the invariants hold whichever commits.
  */
 export function contentTransaction<T>(deps: CmsDeps, actor: Actor, work: (tx: Db, now: Date) => Promise<T>): Promise<T> {
+  // Re-entrant (A8): a service called inside an open content transaction of the same user joins it (a revision restore
+  // replays a record's save and its layout's save as one change), instead of opening a connection that would wait on
+  // this one's locks. The outer transaction already holds the actor's rows.
+  const open = currentStore();
+  if (open && open.actorId === actor.user.id) return work(open.tx as Db, open.now);
   const now = deps.clock();
   return inTransaction(deps.pool, async (tx) => {
-    await lockActor(tx, actor, now);
-    return work(tx, now);
+    const store: ChangeStore = { tx, now, actorId: actor.user.id, noted: new Map(), intents: new Map() };
+    return runWithStore(store, async () => {
+      await lockActor(tx, actor, now);
+      const result = await work(tx, now);
+      // A8.1: one revision for every aggregate root this change moved (A1-PUBLISHING-VERSIONS §1, T2). Loaded on use,
+      // after every module is evaluated (the revision engine reads the CMS kinds, which import this module).
+      if (store.noted.size) {
+        const { closeRevisions } = await import("../publishing/revisions.ts");
+        await closeRevisions(tx, store, actor);
+      }
+      return result;
+    });
   });
 }
 
@@ -108,6 +124,7 @@ export async function lockRoot(tx: Db, type: EntityType, id: string): Promise<Ro
     sql`SELECT id, slug, lock_version, publication_status, draft_status FROM ${table(ENTITIES[type])} WHERE id = ${id} AND deleted_at IS NULL FOR UPDATE`,
   );
   if (!row) return null;
+  noteLocked(tx, type, id, Number(row.lock_version));
   return { id: row.id, slug: row.slug, lockVersion: Number(row.lock_version), publicationStatus: row.publication_status, draftStatus: row.draft_status };
 }
 
@@ -147,6 +164,7 @@ export function duplicateKey(error: unknown): string | null {
 
 export async function lockOrdering(tx: Db, key: OrderingKey): Promise<{ lockVersion: number } | null> {
   const [row] = await tx.select({ lockVersion: entityOrderings.lockVersion }).from(entityOrderings).where(eq(entityOrderings.key, key)).for("update");
+  if (row) noteLocked(tx, "ordering", key, Number(row.lockVersion));
   return row ? { lockVersion: Number(row.lockVersion) } : null;
 }
 
