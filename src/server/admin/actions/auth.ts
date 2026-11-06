@@ -10,7 +10,7 @@ import { acceptInvitation } from "@/server/auth/invitations";
 import { completePasswordReset, requestPasswordReset } from "@/server/auth/passwords";
 import { reauthenticate, rotateIfDue, signIn, signOut, verifySecondFactor } from "@/server/auth/sign-in";
 import { PASSWORD_MESSAGES } from "@/server/security/password-policy";
-import { clearSessionCookie, getAdminState, guarded, signInPathFor, writeSessionCookie } from "../context";
+import { clearSessionCookie, getAdminState, guarded, signInPathFor, writeEnquirySearchCookie, writeSessionCookie } from "../context";
 import { actionContext, failure, LOCKED_MESSAGE, publicActionContext, type ActionState } from "../guards";
 import { safeNext } from "../paths";
 
@@ -34,6 +34,8 @@ export async function signInAction(_prev: ActionState, form: FormData): Promise<
     return failure("Too many sign-in attempts from your network. Wait 15 minutes, then try again.", { fields: { email } });
   }
   if (result.kind === "failed") return failure(SIGN_IN_FAILED, { fields: { email } });
+  // Another person may be signing in on this browser: no enquiry search survives a sign-in (A7 final correction).
+  await writeEnquirySearchCookie(null);
   await writeSessionCookie(result.token);
   const target = safeNext(next);
   if (result.kind === "mfa_required") redirect(target === "/admin" ? "/admin/login/verify" : `/admin/login/verify?next=${encodeURIComponent(target)}`);

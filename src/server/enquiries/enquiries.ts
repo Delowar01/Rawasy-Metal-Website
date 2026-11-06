@@ -79,6 +79,21 @@ export function parseQuery(params: Record<string, string | string[] | undefined>
   };
 }
 
+/**
+ * The list's address for a query: only the filters that hold no personal data, and only where they differ from the
+ * defaults. Never the search (A7 final correction: it lives in a sealed cookie, `search-state.ts`).
+ */
+export function listAddress(query: EnquiryQuery): string {
+  const params = new URLSearchParams();
+  if (query.status !== DEFAULT_QUERY.status) params.set("status", query.status);
+  if (query.assigned !== DEFAULT_QUERY.assigned) params.set("assigned", query.assigned);
+  if (query.sort !== DEFAULT_QUERY.sort) params.set("sort", query.sort);
+  if (query.size !== DEFAULT_QUERY.size) params.set("size", String(query.size));
+  if (query.page !== 1) params.set("page", String(query.page));
+  const text = params.toString();
+  return text ? `/admin/enquiries?${text}` : "/admin/enquiries";
+}
+
 export interface EnquiryRow {
   id: string;
   reference: string;

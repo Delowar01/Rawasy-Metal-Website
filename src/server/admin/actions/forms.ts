@@ -10,11 +10,14 @@
  * No action here receives a public submission: the website's quote form stays today's handoff form, and the prepared
  * submission service (`src/server/enquiries/submission.ts`) is called by nothing in the build (A7 brief §6).
  */
+import { redirect } from "next/navigation";
 import { actionContext, type ActionContext } from "../guards";
 import { guarded } from "../context";
+import { currentEnquirySearch, keepEnquirySearch } from "../enquiry-search";
+import { cleanSearch } from "@/server/enquiries/search-state";
 import type { FormsChange, Result } from "@/server/forms/common";
 import { saveForm, setUpForm } from "@/server/forms/forms";
-import { addNote, assignEnquiry, changeStatus, parseQuery } from "@/server/enquiries/enquiries";
+import { addNote, assignEnquiry, changeStatus, listAddress, parseQuery } from "@/server/enquiries/enquiries";
 import { exportEnquiries } from "@/server/enquiries/export";
 import { retryNotification } from "@/server/enquiries/outbox";
 import type { ExportState, FormsActionState } from "./forms-model";
@@ -85,8 +88,34 @@ export async function retryNotificationAction(outboxId: string): Promise<FormsAc
 export async function exportEnquiriesAction(params: Record<string, string>): Promise<ExportState> {
   const ctx = await actionContext("enquiry.export", { permission: "enquiries.export" });
   if (!ctx.ok) return { status: "error", message: ctx.state.message ?? "This request was refused.", ...(ctx.state.stepUp ? { stepUp: true as const } : {}) };
-  const query = parseQuery(typeof params === "object" && params ? Object.fromEntries(Object.entries(params).filter(([, v]) => typeof v === "string")) : {});
+  // The page's filters as sent; the search as the list applies it (its sealed cookie), never one sent by the page.
+  const filters = typeof params === "object" && params ? Object.fromEntries(Object.entries(params).filter(([k, v]) => k !== "q" && typeof v === "string")) : {};
+  const query = parseQuery({ ...filters, q: await currentEnquirySearch(ctx.context.actor) });
   const result = await guarded(() => exportEnquiries(changeOf(ctx.context), { ...query, page: 1 }));
   if (result.kind === "ok") return { status: "ok", message: `Exported ${result.rows} enquir${result.rows === 1 ? "y" : "ies"}${result.truncated ? " (the first 5,000: narrow the filters for the rest)" : ""}.`, filename: result.filename, csv: result.csv };
   return { status: "error", message: result.message, ...(result.kind === "step_up" ? { stepUp: true as const } : {}) };
+}
+
+/**
+ * The inbox's search form (A7 final correction): the search is kept in its sealed cookie, never in an address; the
+ * list's address carries only the filters (status, assignment, sort, size) and starts again at page 1.
+ */
+export async function searchEnquiriesAction(form: FormData): Promise<void> {
+  const ctx = await actionContext("enquiry.search", { permission: "enquiries.view" });
+  if (!ctx.ok) redirect("/admin/enquiries");
+  const field = (name: string) => {
+    const value = form.get(name);
+    return typeof value === "string" ? value : "";
+  };
+  await keepEnquirySearch(ctx.context.actor, cleanSearch(field("q")));
+  const query = parseQuery({ status: field("status"), assigned: field("assigned"), sort: field("sort"), size: field("size") });
+  redirect(listAddress({ ...query, page: 1 }));
+}
+
+/** "Clear": the search and the filters go; the list opens as it first does. */
+export async function clearEnquirySearchAction(): Promise<void> {
+  const ctx = await actionContext("enquiry.search", { permission: "enquiries.view" });
+  if (!ctx.ok) redirect("/admin/enquiries");
+  await keepEnquirySearch(ctx.context.actor, "");
+  redirect("/admin/enquiries");
 }

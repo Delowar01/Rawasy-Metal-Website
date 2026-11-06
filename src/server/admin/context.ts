@@ -129,5 +129,23 @@ export async function writeSessionCookie(token: string) {
 }
 
 export async function clearSessionCookie() {
-  (await cookies()).delete({ name: SESSION_COOKIE, ...COOKIE_OPTIONS });
+  const jar = await cookies();
+  jar.delete({ name: SESSION_COOKIE, ...COOKIE_OPTIONS });
+  // The enquiry inbox's sealed search goes with the session (A7 final correction: nothing of it outlives a sign-out).
+  jar.delete({ name: ENQUIRY_SEARCH_COOKIE, ...COOKIE_OPTIONS });
+}
+
+/** The enquiry inbox's sealed search (`src/server/enquiries/search-state.ts`): never in an address. */
+export const ENQUIRY_SEARCH_COOKIE = "__Host-rawasy_enq_search";
+
+/** Writes the sealed search (Server Actions only); an empty search removes it. */
+export async function writeEnquirySearchCookie(sealed: string | null) {
+  const jar = await cookies();
+  if (sealed) jar.set(ENQUIRY_SEARCH_COOKIE, sealed, COOKIE_OPTIONS);
+  else jar.delete({ name: ENQUIRY_SEARCH_COOKIE, ...COOKIE_OPTIONS });
+}
+
+/** The sealed search as the browser sent it (opened by its reader for the signed-in user only). */
+export async function readEnquirySearchCookie(): Promise<string | undefined> {
+  return (await cookies()).get(ENQUIRY_SEARCH_COOKIE)?.value;
 }

@@ -6,18 +6,21 @@
  * form (T1 = Option B): nothing here reaches visitors.
  *
  * Personal data is shown as text only (React escapes it; never markup), each value isolated in its own direction, and
- * never in a page title, an enquiry's address (its id) or an audit summary (the reference stands for the enquiry). One
- * exception, for the Owner (A7 report, item 9): the inbox's search is a GET form like every list's, so a name or an
- * email typed into it is in the list's address (the browser's history, the host's access log).
+ * never in a page title, an address or an audit summary (the reference stands for the enquiry). The inbox's search is
+ * posted to a Server Action and kept in a sealed, session-only cookie (A7 final correction, `search-state.ts`): the
+ * list's address, its page links, the summary cards and every redirect carry only the filters that hold no personal
+ * data; an old address with `?q=` is sent on without it, and the search is ignored.
  */
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AssignForm, ExportButton, NoteForm, RetryButton, StatusControls } from "@/components/admin/enquiries/EnquiryActions";
 import { FormEditor, SetUpFormButton } from "@/components/admin/forms/FormEditor";
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
 import type { FormEditorModel } from "@/server/admin/actions/forms-model";
-import { assignableUsers, enquirySummary, listEnquiries, mailtoHref, parseQuery, projectTypeLabel, readEnquiry, telHref } from "@/server/enquiries/enquiries";
+import { assignableUsers, enquirySummary, listAddress, listEnquiries, mailtoHref, parseQuery, projectTypeLabel, readEnquiry, telHref } from "@/server/enquiries/enquiries";
+import { clearEnquirySearchAction, searchEnquiriesAction } from "@/server/admin/actions/forms";
+import { currentEnquirySearch } from "@/server/admin/enquiry-search";
 import { listForms, readForm } from "@/server/forms/forms";
 import { ATTACHMENT_EXTENSIONS, DELIVERY_LABELS, ENQUIRY_STATUSES, FORM_LIMITS, STATUS_LABELS, TRANSITIONS, type EnquiryStatus } from "@/server/forms/registry";
 import type { SearchParams } from "./cms";
@@ -165,12 +168,16 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
 export async function EnquiriesScreen({ searchParams }: { searchParams: SearchParams }) {
   const { actor } = await requireActor();
   if (!actor.permissions.has("enquiries.view")) return <Forbidden />;
-  const query = parseQuery(searchParams);
+  // An address that still carries a search (an old link or bookmark) is sent on without it; the search is never read
+  // from an address.
+  if ("q" in searchParams) redirect(listAddress(parseQuery({ ...searchParams, q: "" })));
+  const query = parseQuery({ ...searchParams, q: await currentEnquirySearch(actor) });
   const db = authDeps().db;
   const now = authDeps().clock();
   const [list, summary] = await guarded(() => Promise.all([listEnquiries(db, query, actor.user.id), enquirySummary(db, actor.user.id, now)]));
-  const params: Record<string, string> = { q: query.q, status: query.status, assigned: query.assigned, sort: query.sort };
-  const href = (page: number) => `/admin/enquiries?${new URLSearchParams({ ...params, size: String(query.size), page: String(page) })}`;
+  // The export's filters: never the search (the export reads the sealed search on the server).
+  const params: Record<string, string> = { status: query.status, assigned: query.assigned, sort: query.sort };
+  const href = (page: number) => listAddress({ ...query, page });
   const filtered = query.q !== "" || query.status !== "all" || query.assigned !== "all";
   const cards: { label: string; value: number; href: string }[] = [
     { label: "New", value: summary.byStatus.new, href: "/admin/enquiries?status=new" },
@@ -199,12 +206,13 @@ export async function EnquiriesScreen({ searchParams }: { searchParams: SearchPa
         </ul>
       </section>
 
-      <form className="adm-filters" method="get" action="/admin/enquiries" role="search" aria-label="Find enquiries">
+      <form className="adm-filters" action={searchEnquiriesAction} role="search" aria-label="Find enquiries" autoComplete="off">
+        <input type="hidden" name="size" value={query.size} />
         <div className="adm-field">
           <label className="adm-label" htmlFor="enq-q">
             Search
           </label>
-          <input id="enq-q" className="adm-input" type="search" name="q" defaultValue={query.q} maxLength={100} placeholder="Reference, name, company, email or phone" />
+          <input id="enq-q" className="adm-input" type="search" name="q" defaultValue={query.q} maxLength={100} placeholder="Reference, name, company, email or phone" autoComplete="off" />
         </div>
         <div className="adm-field">
           <label className="adm-label" htmlFor="enq-status">
@@ -243,9 +251,9 @@ export async function EnquiriesScreen({ searchParams }: { searchParams: SearchPa
           Show
         </button>
         {filtered ? (
-          <Link className="adm-btn is-small" href="/admin/enquiries">
+          <button type="submit" className="adm-btn is-small" formAction={clearEnquirySearchAction}>
             Clear
-          </Link>
+          </button>
         ) : null}
       </form>
 
