@@ -15,7 +15,7 @@ import { join } from "node:path";
 import type { MailTransport } from "../config/env.ts";
 import { ulid } from "../security/ids.ts";
 
-export type MailKind = "invitation" | "password_reset" | "security_notice";
+export type MailKind = "invitation" | "password_reset" | "security_notice" | "enquiry_notification";
 
 export interface MailMessage {
   kind: MailKind;
