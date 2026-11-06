@@ -12,7 +12,8 @@
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
 - Latest report: `docs/reports/2026-11-06-admin-a7-forms-enquiries.md` (Admin / CMS program, Phase A7 — forms and
   enquiries, local implementation only: the quote form's working copy, the private inbox and workflow, notifications,
-  attachments, export and retention, all gated; the A6 closure summary; the A8 roadmap)
+  attachments, export and retention, all gated; the A6 closure summary; the A8 roadmap; its last section, "A7 FINAL
+  CORRECTION AND CLOSURE": the inbox search kept out of every address, the keyboard walkthrough, the closure QA and freeze)
   (earlier: `2026-10-30-admin-a6-global-site-controls.md` (Phase A6 — global site controls; its last section, "A6 FINAL
   CORRECTION AND CLOSURE": the Contact preview correction, the closure QA and freeze),
   `2026-10-30-admin-a5-final-correction.md` (Phase A5 — final security and data-preservation correction:
@@ -391,11 +392,22 @@
   pages, 16 / 16 public entries from identical sources, HTTP 229 / 229, pixels 377 / 398 identical at once (the other
   21: the Arabic phone gallery's srcset choice, 0 pixels between same-choice captures, and one desktop capture that did
   not reproduce in 8 recaptures). Evidence `rawasy-a7-evidence.zip` (not committed): 64 captures, 8 contact sheets, 0
-  overflow. The public quote form is unchanged (handoff); nothing public stores an enquiry. **Do not start A8**
-  (publishing, revisions in use, database-backed public pages, redirects resolving, content migration, cache handler,
-  the public site switched to `/media/u`) or anything of A9, and never activate public enquiry collection, a public
-  storage endpoint, SMTP, real email, automatic retention or a legal retention period without the Owner's explicit
-  decision.
+  overflow. The public quote form is unchanged (handoff); nothing public stores an enquiry. Never activate public
+  enquiry collection, a public storage endpoint, SMTP, real email, stored attachments, automatic retention or a legal
+  retention period without the Owner's explicit decision (A7's technical closure authorizes none of them).
+  **The A7 final correction and closure** (the user's "A7 FINAL ACCEPTANCE & A8 IMPLEMENTATION AUTHORIZATION" brief;
+  section "A7 FINAL CORRECTION AND CLOSURE" at the end of the A7 report): `2ce4889` keeps the inbox search out of every
+  address (a Server Action seals it into its own `__Host-` cookie; see "Phase A7 implementation"), tests `db587d2` (the
+  privacy walkthrough and the keyboard walkthrough of the A7 screens; the privacy test fails on the code before). QA on a
+  fresh clone of `db587d2`, every suite in its first run: `npm ci`, audit `--omit=dev` 0 (all: 12 moderate, dev-only),
+  lint, typecheck, build (no warning), `db:check` (10 files), packaging (13 held back), unit 369 / 369, integration
+  529 / 529, admin 166 / 166, public 612 / 612. Public freeze against `preserve/pre-admin-a7`: no public source changed
+  (`git diff 19c08c7 db587d2` over the public paths empty); 890 / 890 files (0 different), CSS and JS on 104 / 104
+  pages, HTTP 229 / 229, pixels 396 / 398 identical at once (the other two, the Projects page on a dark desktop: Arabic
+  0 pixels in 8 recaptures; English, one photo's drawing, 23 of 24 recaptures identical across builds, the photo's bytes
+  identical on both servers). **A7 is technically closed** (formal closure authorized by that brief once
+  the checks passed); rollback checkpoint: GitHub branch `preserve/pre-admin-a8` at the closure docs commit, pushed
+  before any A8 commit.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -1200,8 +1212,14 @@
 - Rules to keep (each has tests; the review's fail on `06a90a4`, before `e3071c1`):
   - Privacy: audit summaries, labels and changes carry references, ids, statuses and counts only (never a name, email,
     phone, message, note, reason, file name or search text; the specs scan every enquiry audit row); the received event
-    has no client address; page titles carry no personal data; notification mail = reference + admin link only. The
-    inbox search is a GET form (terms in the address): recorded for the Owner.
+    has no client address; page titles carry no personal data; notification mail = reference + admin link only.
+  - The inbox search never reaches an address (A7 final correction, `2ce4889`): the form posts to
+    `searchEnquiriesAction` (`enquiries.view`), which seals the words into `__Host-rawasy_enq_search`
+    (`src/server/enquiries/search-state.ts`: AES-256-GCM under the active `AUTH_ENCRYPTION_KEY` version, bound to the
+    user's id and a 2-hour expiry as associated data; HttpOnly, Secure, SameSite=Strict, a session cookie); the list's
+    address carries only status, assignment, sort, size and page (`listAddress`); an old `?q=` address redirects without
+    it; Clear, an empty search, sign-out and every sign-in remove it; the CSV export reads the same sealed search; the
+    box is `autocomplete="off"`. Never put search words in a URL, redirect, link, audit row or log.
   - References `Q-YYYY-NNNNN` (Riyadh year): one upsert `INSERT … ON DUPLICATE KEY UPDATE last_number = last_number + 1`
     takes the year's counter row exclusively, read back `FOR UPDATE` inside the enquiry's transaction (an `INSERT IGNORE`
     first took a shared lock and 20 concurrent submissions deadlocked upgrading it). Gapless on rollback.

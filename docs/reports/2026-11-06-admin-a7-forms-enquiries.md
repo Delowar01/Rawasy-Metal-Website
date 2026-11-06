@@ -408,3 +408,79 @@ Proposed scope, from A1-PUBLISHING-VERSIONS and the items earlier phases allocat
 
 Tests as in A2–A7 (unit, integration on MariaDB with migration proofs, admin browser at 1280–320 px with axe, the public
 suite and the freeze proof against `preserve/pre-admin-a8`).
+
+## A7 FINAL CORRECTION AND CLOSURE
+
+**Brief:** "RAWASY METAL WEBSITE — A7 FINAL ACCEPTANCE & A8 IMPLEMENTATION AUTHORIZATION", items 2 and 3. The Owner
+authorized formal A7 technical closure once the privacy correction passed verification and no material A7 defect
+remained. Technical closure authorizes nothing else: no real visitor enquiry is collected, no SMTP or real email, no
+stored attachments, no retention deletion — those stay the Owner's (and legal review's) decisions.
+
+### The correction: the inbox search never reaches an address
+
+The search for a name, an email or a phone number was a GET form (`?q=` in the address bar, the browser's history, the
+host's access log and every page link of the list) — recorded for the Owner in item 5 above; the brief made it a
+correction. Now (`2ce4889`, tests `db587d2`):
+
+- The search form posts to a Server Action (`searchEnquiriesAction`, `enquiries.view`, audited when refused) that keeps
+  the search in a cookie of its own, `__Host-rawasy_enq_search`: sealed with AES-256-GCM under the active
+  `AUTH_ENCRYPTION_KEY` version (the browser holds ciphertext only), bound to the user's id and a 2-hour expiry (the
+  associated data: another user's or an expired seal opens as no search), HttpOnly, Secure, SameSite=Strict, no expiry
+  date (gone when the browser closes). `src/server/enquiries/search-state.ts` (framework-free), `src/server/admin/enquiry-search.ts`.
+- The list's address carries only the filters that hold no personal data (status, assignment, sort, size, page:
+  `listAddress`); pagination, sorting and filters keep working with the search applied from the cookie; an old
+  `?q=` address is redirected to the same list without it (the words are dropped, never applied).
+- "Clear", an empty search, sign-out (with the session cookie) and every sign-in remove it; a search sealed for another
+  user never opens. The CSV export reads the same sealed search on the server (what is exported is what the list shows).
+- Nothing of a search reaches the audit log, analytics (there are none), a redirect location or a generated link; the
+  search box is `autocomplete="off"`.
+
+Tests: `tests/unit/enquiries-search-state.test.ts` (5: round trip, ciphertext only, another user, expired and far-ahead
+seals, a changed byte, a retired key, malformed values, cleaning, the list's address never carries the search) and two
+new tests in `e2e-admin/enquiries.spec.ts`: the privacy walkthrough (every request URL, every `Location` header, every
+main-frame navigation and every link watched for the search's words; the cookie's flags and its absence from
+`document.cookie`; paging with the search kept; an enquiry opened and Back; the export matching the list; an old `?q=`
+address; Clear; sign-out and another user's sign-in on the same browser; no search words in any audit row; a Reviewer's
+forged search refused and audited) and the **keyboard walkthrough of the A7 screens** (Tab only, a visible focus ring at
+every stop: the search with Enter, opening an enquiry, a note, Open, Close without an answer with Space and its reason,
+the assignment, the form editor's sections with Enter, Save form, the forms list, the dashboard's card). On the code
+before the correction the privacy test fails at its first search (7 passed, 1 failed, 11 not run); on the correction
+19 / 19.
+
+### Closure verification (fresh clone of `db587d2`)
+
+| Check | Result |
+|---|---|
+| `npm ci` · both SWC binaries | ✓ · ✓ |
+| `npm audit --omit=dev` | **0** |
+| `npm audit` (all) | 12 moderate, dev-only (the accepted lint / drizzle-kit chains; no non-breaking fix) |
+| lint · typecheck | ✓ · ✓ |
+| build | ✓, no warning, 0 dynamic-filesystem warnings |
+| packaging check (13 held back) | ✓ |
+| `db:check` | ✓ (10 migration files, seeds match the registries) |
+| unit | **369 / 369** (364 + the 5 search-state tests) |
+| integration | **529 / 529** |
+| admin (browser) | **166 / 166** (164 + the privacy and keyboard tests), first run |
+| public E2E | **612 / 612**, first run (after the image warm-up, 1,484 / 1,484) |
+
+Public freeze against `preserve/pre-admin-a7` (its public sources `fcc37c9`, clean builds on fresh copies): no public
+source changed (`git diff 19c08c7 db587d2` over every public path: empty).
+
+| Check | Result |
+|---|---|
+| build output | 890 / 890 public files, none added or missing, 0 different (114 identical, 601 once normalised) |
+| CSS and JS per page | 104 / 104 identical |
+| against the A7 QA build (`19c08c7`) | 890 / 890 public files, 0 different |
+| HTTP | 229 / 229 answers equal (102 documents, 102 page-data requests, 25 others) |
+| resting pixels (EN/AR × light/dark × 1440 / 390 px, reduced motion) | **396 / 398 identical at once** |
+
+The two other captures, both the Projects page on the desktop in the dark theme: Arabic, 25 pixels — 8 recaptures per
+build, every pair across the builds 0 pixels apart; English, 48,698 pixels of one gallery photo (`lighting-tree-1`,
+rows 5,154–5,382) — 12 recaptures per build: 23 of the 24 identical across the builds, and once more the same variant on
+the current build, with the same image sources chosen and the photo's optimized bytes identical on both servers at every
+width (sha256, 9 sizes). Both servers deliver the same HTML, CSS, JS and image bytes, so the variant is the browser's
+drawing of that photo (a decode-timing choice), not the build.
+
+**No material A7 defect remains.** The A7 items the Owner keeps (no real collection, SMTP, attachments, retention period,
+consent wording) are decisions, not defects (item 9 above). **A7 is technically closed**; rollback checkpoint:
+GitHub branch `preserve/pre-admin-a8` at the closure docs commit, pushed before any A8 commit.
