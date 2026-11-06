@@ -487,7 +487,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
           <p className="adm-hint">Only roles allowed to archive {info.many.toLowerCase()} can archive or restore this {info.one}.</p>
         )}
       </section>
-      <PublishingPanel type={type} id={id} actor={actor} label={title} />
+      <PublishingPanel type={type} id={id} actor={actor} label={title} listed={usage.flatMap((group) => group.items.map((ref) => `${ref.type}:${ref.id}`))} />
       {privateOriginals ? (
         <section className="adm-card" id="private-original" aria-labelledby="private-original-title">
           <h2 id="private-original-title">Private original (Owner only)</h2>

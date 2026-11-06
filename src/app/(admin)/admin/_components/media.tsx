@@ -326,7 +326,10 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
   const [detail, folders] = await guarded(() => Promise.all([loadMediaDetail(deps.db, actor.permissions, id, now), folderOptions(deps.db)]));
   if (!detail) notFound();
   // A8.3: everywhere the item is named — record fields, layout sections, reusable sections, settings — from the index.
-  const named = await guarded(() => usedBy(deps.db, "media", id));
+  const indexed = await guarded(() => usedBy(deps.db, "media", id));
+  // Records listed in "Used by" below are not listed again as working copies; their live versions are.
+  const listed = new Set(detail.usage.flatMap((group) => group.items.map((ref) => `${group.owner}:${ref.id}`)));
+  const named = indexed.filter((u) => !(u.scope === "working" && listed.has(`${u.sourceType}:${u.sourceId}`)));
   const tr = detail.translations;
   const label = tr.en.title || tr.ar.title || detail.legacyKey || detail.current?.filename || "(untitled)";
   const status = detail.status as UsageStatusName;
@@ -548,7 +551,7 @@ export async function MediaItem({ id, searchParams }: { id: string; searchParams
         )}
         {named.length ? (
           <>
-            <h3>Everywhere it is named</h3>
+            <h3>Also named in</h3>
             <ul className="adm-list">
               {named.map((u) => (
                 <li key={`${u.sourceType}:${u.sourceId}:${u.scope}`}>

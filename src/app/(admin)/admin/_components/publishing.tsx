@@ -60,7 +60,30 @@ function StateLine({ publication, draft }: { publication: string; draft: string 
 }
 
 /** The publishing panel of one item (placed on its editor page). */
-export async function PublishingPanel({ type, id, actor, label, anchor = "publishing", compact = false }: { type: AggregateType; id: string; actor: Actor; label: string; anchor?: string; compact?: boolean }) {
+/**
+ * The publishing panel of one aggregate. `listed`: the sources the page already lists in its own "Used by" (A3 / A4 / A5:
+ * `type:id`), left out of the index's list as working copies so nothing is listed twice (their live versions still show);
+ * `references={false}` leaves the index's list out (the reusable section's page lists its uses itself).
+ */
+export async function PublishingPanel({
+  type,
+  id,
+  actor,
+  label,
+  anchor = "publishing",
+  compact = false,
+  listed = [],
+  references = true,
+}: {
+  type: AggregateType;
+  id: string;
+  actor: Actor;
+  label: string;
+  anchor?: string;
+  compact?: boolean;
+  listed?: readonly string[];
+  references?: boolean;
+}) {
   const deps = authDeps();
   const [state, used, history] = await guarded(() => Promise.all([readPublishing(deps.db, actor, type, id), usedBy(deps.db, type, id), listRevisions(deps.db, type, id)]));
   if (!state) return null;
@@ -69,6 +92,8 @@ export async function PublishingPanel({ type, id, actor, label, anchor = "publis
   const blocking = state.issues.filter((i) => i.blocking);
   const warnings = state.issues.filter((i) => !i.blocking);
   const others = used.filter((u) => !(u.sourceType === type && u.sourceId === id));
+  const alreadyListed = new Set(listed);
+  const shown = others.filter((u) => !(u.scope === "working" && alreadyListed.has(`${u.sourceType}:${u.sourceId}`)));
   const linkedFrom = others.filter((u) => u.scope === "published").length;
   const titleId = `${anchor}-title`;
   // A step that needs a sensitive key (a legal page's publish, unpublish and rollback: legal.publish) asks for a recent
@@ -146,12 +171,12 @@ export async function PublishingPanel({ type, id, actor, label, anchor = "publis
           <Link href={historyHref(type, id)}>Version history ({history.total})</Link>
         </p>
       </section>
-      {compact ? null : (
+      {compact || !references ? null : (
       <section className="adm-card" id={`${anchor}-references`} aria-labelledby={`${titleId}-refs`}>
-        <h2 id={`${titleId}-refs`}>Used by (all content)</h2>
-        {others.length ? (
+        <h2 id={`${titleId}-refs`}>{listed.length ? "Also named in" : "Where it is named"}</h2>
+        {shown.length ? (
           <ul className="adm-list">
-            {others.map((u) => (
+            {shown.map((u) => (
               <li key={`${u.sourceType}:${u.sourceId}:${u.scope}`}>
                 {u.path ? <Link href={u.path}>{u.label}</Link> : u.label} <span className="adm-muted">({AGGREGATES[u.sourceType].one})</span>{" "}
                 <span className={`adm-badge ${u.scope === "published" ? "is-success" : ""}`.trim()}>{u.scope === "published" ? "Live version" : "Working copy"}</span>
@@ -160,7 +185,7 @@ export async function PublishingPanel({ type, id, actor, label, anchor = "publis
             ))}
           </ul>
         ) : (
-          <p className="adm-muted">Nothing else names it (pages, sections, menus, collections and settings included).</p>
+          <p className="adm-muted">{listed.length ? "Nothing else names it" : "Nothing names it"} (pages, sections, menus, collections and settings included).</p>
         )}
       </section>
       )}

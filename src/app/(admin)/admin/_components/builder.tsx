@@ -177,7 +177,7 @@ export async function ReusableEdit({ id, searchParams }: { id: string; searchPar
         </div>
       ) : null}
       <ReusableEditor key={`${model.id}:${model.lockVersion}`} model={model} viewer={actor.user.id} />
-      <PublishingPanel type="reusable_section" id={model.id} actor={actor} label={model.name} />
+      <PublishingPanel type="reusable_section" id={model.id} actor={actor} label={model.name} references={false} />
     </>
   );
 }
