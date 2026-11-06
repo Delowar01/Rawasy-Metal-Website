@@ -7,26 +7,38 @@
  * 1. the Origin header must be exactly the site's origin (and `Sec-Fetch-Site`, when sent, `same-origin`);
  * 2. the declared body and the text fields stay under their limits (files: the form's count and size);
  * 3. the form must be on and store submissions (`delivery_mode` store / store_and_notify): 'handoff' stores nothing;
- * 4. per address: 5 in 10 minutes, 20 a day (A2's shared `rate_limits`, keys hashed);
- * 5. the hidden honeypot field must be empty; the signed timing token valid, at least the form's minimum fill time old
- *    and at most two hours;
- * 6. every field checked against the form's working definition (`validate.ts`); per email address: 5 an hour;
+ * 4. per address: 5 in 10 minutes, 20 a day (A2's shared `rate_limits`, keys hashed; an IPv6 address counts by its
+ *    /64, `addressBucket`, since one subscriber holds a whole /64);
+ * 5. the hidden honeypot field must be empty (any value but an empty string trips it, a list or a file included); the
+ *    signed timing token valid, at least the form's minimum fill time old and at most two hours;
+ * 6. every field checked against the form's working definition (`validate.ts`); per email address (A2's
+ *    `normalizeEmail`): 5 an hour;
  * 7. files only when the form accepts them: the extension on the form's list and the bytes agreeing (A4's signatures:
  *    PDF, JPEG, PNG; never SVG, office or executable files), at most the form's count and size, stored in the private
  *    `enquiries` area under a key the server makes;
- * 8. the token's nonce claimed (a replay is refused); then one transaction: the reference (Q-YYYY-NNNNN, gapless, from
- *    a locked per-year counter), the enquiry, its first status, the notification rows (store_and_notify: the reference
- *    and a link to the admin only — no personal data in the mail), an audit event (the reference only).
+ * 8. the token's nonce claimed (a replay is refused); then one transaction: the form share-locked and still the version
+ *    the checks read (a form changed meanwhile — files turned off, a field made required — refuses the submission,
+ *    `changed`), the reference (Q-YYYY-NNNNN, gapless, from a locked per-year counter), the enquiry, its first status,
+ *    the notification rows (store_and_notify: the reference and a link to the admin only — no personal data in the
+ *    mail), an audit event (the reference only; no address: the enquiry row holds it, under retention).
  * "Received, reference …" is the answer only after that commit. A refused submission is not audited (a flood would fill
  * the audit log); the rate limits count it.
+ *
+ * For the route A9 wires to it (none exists): cap the body while it streams (A4's `json-body`: a chunked body declares
+ * no length, and `contentLength` is only what was declared), pass the client address from A2's trusted-proxy reading,
+ * and log a failure through `describeDbError` — this service already throws only an error code, never the driver's
+ * message (which holds the INSERT's values: a visitor's name, email and message).
  */
 import { randomBytes } from "node:crypto";
+import { isIPv4, isIPv6 } from "node:net";
 import { sql } from "drizzle-orm";
 import { recordAudit } from "../audit/audit.ts";
 import { inTransaction, type Db } from "../db/client.ts";
 import type { CmsDeps } from "../cms/store.ts";
 import { emailOutbox, enquiries, enquiryFiles, enquiryStatusHistory } from "../db/schema-forms.ts";
 import { hitRateLimit } from "../auth/rate-limit.ts";
+import { normalizeEmail } from "../auth/accounts.ts";
+import { dbErrorInfo, describeDbError } from "../db/pool.ts";
 import { rowsOf } from "../cms/store.ts";
 import { displayFilename, extensionOf, sniff, pdfTailOk } from "../media/signature.ts";
 import { enquiryFileKey, type MediaStore } from "../media/storage.ts";
@@ -34,6 +46,7 @@ import { sha256, ulid } from "../security/ids.ts";
 import { services as todaysServices } from "../../content/services.ts";
 import { readForm, type FormModel } from "../forms/forms.ts";
 import { ATTACHMENT_TYPES, SERVICE_NOT_SURE, SUBMISSION_LIMITS, formatReference, referenceYear, type Locale } from "../forms/registry.ts";
+import { downloadName } from "./files.ts";
 import { claimToken, verifyToken } from "./token.ts";
 import { textBytes, validateSubmission, type FieldErrors } from "./validate.ts";
 
@@ -71,7 +84,22 @@ export interface SubmissionInput {
   files: SubmittedFile[];
 }
 
-export type RefusalReason = "origin" | "too_large" | "closed" | "rate_limited" | "honeypot" | "token" | "too_fast" | "expired" | "replayed";
+export type RefusalReason = "origin" | "too_large" | "closed" | "changed" | "rate_limited" | "honeypot" | "token" | "too_fast" | "expired" | "replayed";
+
+/**
+ * The per-address limit's bucket: an IPv4 address as it is (an IPv4-mapped IPv6 address as its IPv4), an IPv6 address
+ * by its first 64 bits (written out, lower case), anything else as given.
+ */
+export function addressBucket(ip: string): string {
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  if (mapped && isIPv4(mapped[1])) return mapped[1];
+  if (!isIPv6(ip)) return ip;
+  const [head, tail = ""] = ip.toLowerCase().split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = ip.includes("::") ? [...left, ...Array(8 - left.length - right.length).fill("0"), ...right] : left;
+  return `${groups.slice(0, 4).map((g) => g.padStart(4, "0")).join(":")}::/64`;
+}
 
 export type SubmissionResult =
   | { kind: "received"; reference: string; enquiryId: string; notify: boolean }
@@ -116,7 +144,8 @@ function checkFiles(form: FormModel, locale: Locale, files: SubmittedFile[], now
     if (found !== allowed.kind || (found === "pdf" && !pdfTailOk(file.bytes.subarray(Math.max(0, file.bytes.byteLength - 1024))))) return { ok: false, error: copy.errors.fileType.replace("{name}", name) };
     const id = ulid(now.getTime());
     const type = storedType(found);
-    out.push({ id, key: enquiryFileKey(id, type.extension, now), name, extension: type.extension, mime: type.mime, size: file.bytes.byteLength, sha256: sha256(Buffer.from(file.bytes)), bytes: file.bytes });
+    // The stored name ends with the type the bytes proved, however it is cut (security review L1).
+    out.push({ id, key: enquiryFileKey(id, type.extension, now), name: downloadName(name, type.extension, 255), extension: type.extension, mime: type.mime, size: file.bytes.byteLength, sha256: sha256(Buffer.from(file.bytes)), bytes: file.bytes });
   }
   return { ok: true, files: out };
 }
@@ -134,13 +163,14 @@ export async function submitEnquiry(deps: SubmissionDeps, input: SubmissionInput
   if (!form || !form.setUp || !form.settings.isEnabled || form.settings.deliveryMode === "handoff") return { kind: "refused", reason: "closed" };
   // 4. Per address.
   if (input.ip) {
-    const short = await hitRateLimit(deps.db, `enquiry:ip:${input.ip}`, SUBMISSION_LIMITS.perIpShort, now);
-    const day = await hitRateLimit(deps.db, `enquiry:ip-day:${input.ip}`, SUBMISSION_LIMITS.perIpDay, now);
+    const bucket = addressBucket(input.ip);
+    const short = await hitRateLimit(deps.db, `enquiry:ip:${bucket}`, SUBMISSION_LIMITS.perIpShort, now);
+    const day = await hitRateLimit(deps.db, `enquiry:ip-day:${bucket}`, SUBMISSION_LIMITS.perIpDay, now);
     if (!short.allowed || !day.allowed) return { kind: "refused", reason: "rate_limited" };
   }
   // 5. Honeypot, then the timing token.
   const trap = input.fields[SUBMISSION_LIMITS.honeypot];
-  if (form.settings.honeypotEnabled && typeof trap === "string" && trap.trim() !== "") return { kind: "refused", reason: "honeypot" };
+  if (form.settings.honeypotEnabled && trap !== undefined && !(typeof trap === "string" && trap.trim() === "")) return { kind: "refused", reason: "honeypot" };
   const token = verifyToken(deps.tokenKey, input.fields.token, form.key, now, form.settings.minFillSeconds);
   if (!token.ok) return { kind: "refused", reason: token.reason };
   // 6. The fields, then per email address.
@@ -152,7 +182,7 @@ export async function submitEnquiry(deps: SubmissionDeps, input: SubmissionInput
     return { kind: "invalid", errors };
   }
   const values = checked.values;
-  const perEmail = await hitRateLimit(deps.db, `enquiry:email:${values.email.toLowerCase()}`, SUBMISSION_LIMITS.perEmail, now);
+  const perEmail = await hitRateLimit(deps.db, `enquiry:email:${normalizeEmail(values.email)}`, SUBMISSION_LIMITS.perEmail, now);
   if (!perEmail.allowed) return { kind: "refused", reason: "rate_limited" };
   // 7. Files to the private area (removed again if the enquiry is not stored).
   const store = files.files.length ? await deps.store?.() : undefined;
@@ -169,11 +199,13 @@ export async function submitEnquiry(deps: SubmissionDeps, input: SubmissionInput
       return { kind: "refused", reason: "replayed" };
     }
     const stored = await inTransaction(deps.pool, async (tx) => {
-      const [row] = await rowsOf<{ delivery_mode: string; is_enabled: number; retention_days: number | null }>(
+      const [row] = await rowsOf<{ delivery_mode: string; is_enabled: number; retention_days: number | null; lock_version: number }>(
         tx,
-        sql`SELECT delivery_mode, is_enabled, retention_days FROM forms WHERE id = ${form.id} LOCK IN SHARE MODE`,
+        sql`SELECT delivery_mode, is_enabled, retention_days, lock_version FROM forms WHERE id = ${form.id} LOCK IN SHARE MODE`,
       );
-      if (!row || !Number(row.is_enabled) || row.delivery_mode === "handoff") return null;
+      if (!row || !Number(row.is_enabled) || row.delivery_mode === "handoff") return "closed" as const;
+      // Every check above read the form as it was; any save since (settings, fields, texts) refuses the submission.
+      if (Number(row.lock_version) !== form.lockVersion) return "changed" as const;
       const notify = row.delivery_mode === "store_and_notify" && form.settings.notificationEmails.length > 0;
       const year = referenceYear(now);
       // One upsert takes the year's row exclusively at once (an INSERT IGNORE first took a shared lock, and two
@@ -236,7 +268,7 @@ export async function submitEnquiry(deps: SubmissionDeps, input: SubmissionInput
         at: now,
         requestId: ulid(now.getTime()),
         actor: { type: "system", label: "Website enquiry form" },
-        ip: input.ip,
+        ip: null,
         action: "enquiry.received",
         entity: { type: "enquiry", id, label: reference },
         outcome: "success",
@@ -245,20 +277,36 @@ export async function submitEnquiry(deps: SubmissionDeps, input: SubmissionInput
       });
       return { reference, id, notify };
     });
-    if (!stored) {
+    if (typeof stored === "string") {
       await removeAll(store, created);
-      return { kind: "refused", reason: "closed" };
+      return { kind: "refused", reason: stored };
     }
     return { kind: "received", reference: stored.reference, enquiryId: stored.id, notify: stored.notify };
   } catch (error) {
     await removeAll(store, created);
-    throw error;
+    throw new SubmissionStoreError(error);
   }
 }
 
+/**
+ * A submission that could not be stored. Its message and `code` carry the error's code only: the driver's own message
+ * holds the statement's values (the visitor's name, email and message), so neither it nor the error is kept.
+ */
+export class SubmissionStoreError extends Error {
+  readonly code: string | undefined;
+  constructor(error: unknown) {
+    super(`The enquiry could not be stored (${describeDbError(error)}).`);
+    this.name = "SubmissionStoreError";
+    this.code = dbErrorInfo(error).code;
+  }
+}
+
+/** Removes the files a refused or failed submission wrote; keys that stay on disk are logged (keys only). */
 async function removeAll(store: MediaStore | undefined, keys: string[]) {
   if (!store) return;
-  for (const key of keys) await store.remove("enquiries", key).catch(() => undefined);
+  const left: string[] = [];
+  for (const key of keys) await store.remove("enquiries", key).catch(() => left.push(key));
+  if (left.length) console.error(`[enquiries] A refused submission's attachment could not be removed: ${left.join(", ")} (the media maintenance report lists it).`);
 }
 
 /** A fresh random nonce (exported for tests that make tokens by hand). */

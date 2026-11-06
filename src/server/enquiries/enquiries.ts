@@ -22,6 +22,19 @@ import { permissionsOf } from "../policy/registry.ts";
 import { ulid } from "../security/ids.ts";
 import { formsAudit, INVALID, refuse, stale, STALE_ENQUIRY, versionSchema, zodIssues, type FormsChange, type Result } from "../forms/common.ts";
 import { ENQUIRY_LIMITS, ENQUIRY_STATUSES, STATUS_LABELS, transitionOf, type EnquiryStatus } from "../forms/registry.ts";
+import { latinDigits } from "./validate.ts";
+
+/**
+ * The enquiry page's Email link: the address's own characters percent-encoded on each side of its last "@", so nothing
+ * a visitor typed becomes a mailto parameter (`?bcc=…`, `&body=…`; security review L2).
+ */
+export function mailtoHref(email: string): string {
+  const at = email.lastIndexOf("@");
+  return at > 0 ? `mailto:${encodeURIComponent(email.slice(0, at))}@${encodeURIComponent(email.slice(at + 1))}` : `mailto:${encodeURIComponent(email)}`;
+}
+
+/** The enquiry page's Phone link: digits of any script dialled as Latin digits, the plus kept, nothing else. */
+export const telHref = (phone: string) => `tel:${latinDigits(phone).replace(/[^\d+]/g, "")}`;
 
 // --- Lists ------------------------------------------------------------------------------------------------------------
 
@@ -51,7 +64,8 @@ export function parseQuery(params: Record<string, string | string[] | undefined>
     q: [...one("q").trim()].slice(0, ENQUIRY_LIMITS.search).join(""),
     status: (["all", "active", ...ENQUIRY_STATUSES] as string[]).includes(status) ? (status as EnquiryQuery["status"]) : "all",
     assigned: assigned === "me" || assigned === "none" ? assigned : "all",
-    sort: sort in SORTS ? (sort as EnquirySort) : "newest",
+    // Own keys only: `in` also accepts Object.prototype's names ("constructor"), whose text would reach `sql.raw`.
+    sort: Object.hasOwn(SORTS, sort) ? (sort as EnquirySort) : "newest",
     page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
     size: Number.isInteger(size) && size >= ENQUIRY_LIMITS.pageSize.min && size <= ENQUIRY_LIMITS.pageSize.max ? size : ENQUIRY_LIMITS.pageSize.default,
   };

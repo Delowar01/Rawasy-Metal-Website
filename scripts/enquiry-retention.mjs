@@ -8,7 +8,8 @@
  *
  * Anonymizing empties an enquiry's personal fields, deletes its notes and its files (disk and rows) and clears its
  * notification bodies; the reference, dates, status and history stay. Prints references and counts — never personal data.
- * Exit codes: 0 done · 1 usage or configuration · 2 no retention period chosen (with --apply) · 3 database error.
+ * Exit codes: 0 done · 1 usage or configuration · 2 no retention period chosen (with --apply) · 3 database error ·
+ * 4 done, but some attachment files could not be removed (their keys are printed; the media maintenance report lists them).
  */
 
 const warn = process.rawListeners("warning");
@@ -56,7 +57,14 @@ try {
       }
       if (code === 0) {
         const run = await applyRetention(context.deps, store, formKey, context.operator);
-        if (run.kind === "done") console.log(`Anonymized ${run.anonymized} enquir${run.anonymized === 1 ? "y" : "ies"}; removed ${run.files} file(s).`);
+        if (run.kind === "done") {
+          console.log(`Anonymized ${run.anonymized} enquir${run.anonymized === 1 ? "y" : "ies"}; removed ${run.files} file(s).`);
+          if (run.failedFiles.length) {
+            console.error(`${run.failedFiles.length} attachment file(s) could not be removed (keys only):`);
+            for (const key of run.failedFiles) console.error(`  enquiries/${key}`);
+            code = 4;
+          }
+        }
       }
     }
   }

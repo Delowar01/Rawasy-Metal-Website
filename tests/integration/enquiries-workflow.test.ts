@@ -228,7 +228,7 @@ describe("retention", () => {
     const detail = (await readEnquiry(env.deps.db, ids.c.enquiryId))!;
     const key = (await query<{ storage_key: string }>(env, "SELECT storage_key FROM enquiry_files WHERE enquiry_id = ?", [ids.c.enquiryId]))[0].storage_key;
     const run = await applyRetention(env.deps, sub.store, "quote", "test operator");
-    assert.deepEqual(run, { kind: "done", anonymized: 3, files: 1 });
+    assert.deepEqual(run, { kind: "done", anonymized: 3, files: 1, failedFiles: [] });
     const row = await enquiryRow(env, ids.c.enquiryId);
     assert.equal(row.full_name, "");
     assert.equal(row.email, "");

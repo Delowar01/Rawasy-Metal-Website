@@ -9,6 +9,8 @@
  *   never through a public address or the image optimizer.
  * - Every download is audited (`enquiry.file_download`, the enquiry's reference as label — never the file's name), and
  *   every refusal of a signed-in user too.
+ * - The name the browser saves always ends with the stored extension (`downloadName`): a long name cut to fit the
+ *   header could otherwise end in another extension ("….bat.pdf" cut to "….bat"; security review L1).
  */
 import { sql } from "drizzle-orm";
 import type { Actor, RequestMeta } from "../auth/types.ts";
@@ -26,21 +28,38 @@ export interface EnquiryFileTarget {
   size: number;
 }
 
+/**
+ * The name a file is saved under: the visitor's name cut (by code points) to `max` with the STORED extension at its end
+ * — the name's own one when it is that type ("photo.jpeg" for a stored "jpg"), else the stored one appended. Whatever
+ * the cut leaves, the last extension is the type the bytes proved.
+ */
+export function downloadName(name: string, extension: string, max = 200): string {
+  const ext = extension.replace(/^\./, "").toLowerCase();
+  const same = ext === "jpg" ? ["jpg", "jpeg"] : [ext];
+  const found = /\.([A-Za-z0-9]{1,10})$/.exec(name);
+  const own = found && same.includes(found[1].toLowerCase()) ? found[0] : null;
+  const suffix = own ?? `.${ext}`;
+  const stem = own ? name.slice(0, -own.length) : name;
+  const room = Math.max(1, max - [...suffix].length);
+  const cut = [...stem].slice(0, room).join("");
+  return `${cut.trim() ? cut : "file"}${suffix}`;
+}
+
 export type FileDecision = { kind: "not_found" } | { kind: "ok"; file: EnquiryFileTarget };
 
 export async function decideFileDownload(ctx: { deps: CmsDeps; actor: Actor; meta: RequestMeta }, enquiryId: string, fileId: string): Promise<FileDecision> {
   const { deps, actor } = ctx;
   const now = deps.clock();
-  const [row] = await rowsOf<Record<string, unknown>>(
-    deps.db,
-    sql`SELECT e.reference, e.anonymized_at, f.storage_key, f.original_filename, f.mime_type, f.byte_size
-        FROM enquiry_files f JOIN enquiries e ON e.id = f.enquiry_id
-        WHERE f.id = ${fileId} AND f.enquiry_id = ${enquiryId} AND e.deleted_at IS NULL`,
-  );
   if (!actor.permissions.has("enquiries.view")) {
     await formsAudit(deps.db, { deps, actor, meta: ctx.meta }, now, { action: "enquiry.file_download", type: "enquiry", id: enquiryId, outcome: "denied", summary: "Refused: missing permission enquiries.view." });
     return { kind: "not_found" };
   }
+  const [row] = await rowsOf<Record<string, unknown>>(
+    deps.db,
+    sql`SELECT e.reference, e.anonymized_at, f.storage_key, f.original_filename, f.extension, f.mime_type, f.byte_size
+        FROM enquiry_files f JOIN enquiries e ON e.id = f.enquiry_id
+        WHERE f.id = ${fileId} AND f.enquiry_id = ${enquiryId} AND e.deleted_at IS NULL`,
+  );
   if (!row || row.anonymized_at) return { kind: "not_found" };
   return {
     kind: "ok",
@@ -49,7 +68,7 @@ export async function decideFileDownload(ctx: { deps: CmsDeps; actor: Actor; met
       reference: String(row.reference),
       fileId,
       storageKey: String(row.storage_key),
-      filename: String(row.original_filename),
+      filename: downloadName(String(row.original_filename), String(row.extension)),
       mime: String(row.mime_type),
       size: Number(row.byte_size),
     },

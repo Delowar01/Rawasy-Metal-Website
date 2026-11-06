@@ -6,10 +6,13 @@
  * - `planRetention`: the enquiries past their keep-until date (stored at submission from the form's period, or, for one
  *   received while no period was set, its submission plus the period chosen since). With no period: nothing is due.
  * - `applyRetention`: anonymizes what is due — personal fields emptied (name, company, email, phone, requirement,
- *   location, message, extra answers, address, browser), notes deleted, attachments deleted from disk and their rows
- *   removed, outgoing mail rows' bodies cleared — keeping the reference, dates, status, service and history counts (so
- *   the inbox's numbers stay true). Run only by the CLI with `--apply` (`npm run enquiries:retention`), never by the
- *   website; refused while the form has no period. Each run is audited (counts only).
+ *   location, message, extra answers, address, browser), notes deleted, the reasons typed when closing without an
+ *   answer cleared, attachments deleted from disk and their rows removed, outgoing mail rows' bodies cleared and the
+ *   unsent ones cancelled (never sent empty, never queued again) — keeping the reference, dates, status, service and
+ *   history steps (so the inbox's numbers stay true). Run only by the CLI with `--apply` (`npm run
+ *   enquiries:retention`), never by the website; refused while the form has no period. Each run is audited (counts
+ *   only). A file that can't be removed is not counted as removed: its key is returned (`failedFiles`) for the operator,
+ *   and the media maintenance report lists it as a stray in the `enquiries` area until it is dealt with.
  */
 import { sql } from "drizzle-orm";
 import { recordAudit } from "../audit/audit.ts";
@@ -41,7 +44,7 @@ export async function planRetention(db: Db, formKey: string, now: Date): Promise
   return { formKey, retentionDays: days, due: rows.map((r) => ({ id: String(r.id), reference: String(r.reference), submittedAt: instantOf(r.submitted_at), keepUntil: dateOnly(r.keep_until) ?? "" })) };
 }
 
-export type RetentionRun = { kind: "no_period" } | { kind: "done"; anonymized: number; files: number };
+export type RetentionRun = { kind: "no_period" } | { kind: "done"; anonymized: number; files: number; failedFiles: string[] };
 
 /** Anonymizes what is due (the CLI's `--apply`), one enquiry per transaction; files are removed after each commit. */
 export async function applyRetention(deps: CmsDeps, store: MediaStore | null, formKey: string, operator: string): Promise<RetentionRun> {
@@ -50,6 +53,7 @@ export async function applyRetention(deps: CmsDeps, store: MediaStore | null, fo
   if (plan.retentionDays === null) return { kind: "no_period" };
   let anonymized = 0;
   let files = 0;
+  const failedFiles: string[] = [];
   for (const item of plan.due) {
     const keys = await inTransaction(deps.pool, async (tx) => {
       const [row] = await rowsOf<{ anonymized_at: unknown }>(tx, sql`SELECT anonymized_at FROM enquiries WHERE id = ${item.id} AND deleted_at IS NULL FOR UPDATE`);
@@ -61,15 +65,25 @@ export async function applyRetention(deps: CmsDeps, store: MediaStore | null, fo
             WHERE id = ${item.id}`,
       );
       await tx.execute(sql`DELETE FROM enquiry_notes WHERE enquiry_id = ${item.id}`);
+      await tx.execute(sql`UPDATE enquiry_status_history SET note = NULL WHERE enquiry_id = ${item.id} AND note IS NOT NULL`);
       await tx.execute(sql`DELETE FROM enquiry_files WHERE enquiry_id = ${item.id}`);
-      await tx.execute(sql`UPDATE email_outbox SET body_text = NULL WHERE related_type = 'enquiry' AND related_id = ${item.id}`);
+      await tx.execute(
+        sql`UPDATE email_outbox SET body_text = NULL, status = IF(status = 'sent', status, 'cancelled'), claimed_until = NULL
+            WHERE related_type = 'enquiry' AND related_id = ${item.id}`,
+      );
       return stored.map((f) => String(f.storage_key));
     });
     if (keys === null) continue;
     anonymized++;
     for (const key of keys) {
-      await store?.remove("enquiries", key).catch(() => undefined);
-      files++;
+      const removed = store
+        ? await store.remove("enquiries", key).then(
+            () => true,
+            () => false,
+          )
+        : false;
+      if (removed) files++;
+      else failedFiles.push(key);
     }
   }
   await recordAudit(deps.db, {
@@ -80,8 +94,8 @@ export async function applyRetention(deps: CmsDeps, store: MediaStore | null, fo
     action: "enquiry.retention",
     entity: { type: "enquiry_retention", id: formKey, label: "Enquiry retention" },
     outcome: "success",
-    summary: `Retention (${plan.retentionDays} days): anonymized ${anonymized} enquir${anonymized === 1 ? "y" : "ies"}, removed ${files} file${files === 1 ? "" : "s"}.`,
-    changes: { anonymized, files, days: plan.retentionDays },
+    summary: `Retention (${plan.retentionDays} days): anonymized ${anonymized} enquir${anonymized === 1 ? "y" : "ies"}, removed ${files} file${files === 1 ? "" : "s"}${failedFiles.length ? `; ${failedFiles.length} could not be removed` : ""}.`,
+    changes: { anonymized, files, failedFiles: failedFiles.length, days: plan.retentionDays },
   });
-  return { kind: "done", anonymized, files };
+  return { kind: "done", anonymized, files, failedFiles };
 }

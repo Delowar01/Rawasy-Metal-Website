@@ -3,7 +3,9 @@
  * schedule, nothing at app start (`npm run media:maintenance`).
  *
  * Report (read-only): abandoned temporary uploads (older than 24 h), stuck processing (older than 15 min), records whose
- * files are missing on disk, files on disk without a record (orphans, never deleted automatically), entries that are
+ * files are missing on disk, files on disk without a record (orphans, never deleted automatically — A7's private
+ * `enquiries` area included, against `enquiry_files`: a file a retention run or a refused submission could not remove),
+ * entries that are
  * not regular files (symbolic links …), old versions past the 30-day retention (purge candidates — never purged in A4),
  * and `public_media` rows that disagree with the deliverability rule.
  *
@@ -13,9 +15,10 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import type { Pool } from "mysql2/promise";
 import { recordAudit, type AuditActor } from "../audit/audit.ts";
+import { rowsOf } from "../cms/store.ts";
 import { inTransaction, type Db } from "../db/client.ts";
 import { mediaAssets, mediaFiles, mediaFlags, mediaVariants, publicMedia } from "../db/schema-media.ts";
 import { ulid } from "../security/ids.ts";
@@ -113,8 +116,9 @@ export async function scanMedia(ctx: MaintenanceContext): Promise<MaintenanceRep
       originals: new Set(files.filter((f) => f.storageArea === "originals").map((f) => f.storageKey)),
       private: new Set(files.filter((f) => f.storageArea === "private").map((f) => f.storageKey)),
       derived: new Set(variants.map((v) => v.storageKey)),
+      enquiries: new Set((await rowsOf<{ storage_key: string }>(db, sql`SELECT storage_key FROM enquiry_files`)).map((r) => String(r.storage_key))),
     };
-    for (const area of ["originals", "derived", "private"] as const) {
+    for (const area of ["originals", "derived", "private", "enquiries"] as const) {
       const listing = await store.listArea(area);
       for (const key of listing.files) if (!known[area].has(key)) report.orphans.push({ area, key });
       for (const key of listing.other) report.notFiles.push({ area, key });
@@ -138,7 +142,8 @@ export async function scanMedia(ctx: MaintenanceContext): Promise<MaintenanceRep
 
 /**
  * The report as a role without private access may see it (a private item does not exist for anyone who may not know of
- * it, A4 brief §16): entries about private items and the private area are left out, and so are their failures.
+ * it, A4 brief §16): entries about private items, the private area and the enquiries area are left out, and so are
+ * their failures.
  */
 export function publicView(report: MaintenanceReport, privateIds: ReadonlySet<string>): MaintenanceReport {
   const isPublic = (entry: { mediaId: string }) => !privateIds.has(entry.mediaId);
@@ -148,8 +153,8 @@ export function publicView(report: MaintenanceReport, privateIds: ReadonlySet<st
     failed: Math.max(0, report.failed - (report.failedPrivate ?? 0)),
     failedPrivate: 0,
     missing: report.missing.filter(isPublic),
-    orphans: report.orphans.filter((o) => o.area !== "private"),
-    notFiles: report.notFiles.filter((o) => o.area !== "private"),
+    orphans: report.orphans.filter((o) => o.area !== "private" && o.area !== "enquiries"),
+    notFiles: report.notFiles.filter((o) => o.area !== "private" && o.area !== "enquiries"),
     purgeCandidates: report.purgeCandidates.filter(isPublic),
     publicMediaDrift: report.publicMediaDrift.filter(isPublic),
   };

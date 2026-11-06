@@ -12,8 +12,12 @@
 import { PHONE_DIGITS, SERVICE_NOT_SURE, SUBMISSION_LIMITS, type Locale } from "../forms/registry.ts";
 import type { FieldModel, FormModel } from "../forms/forms.ts";
 
-/** Today's email rule (QuoteForm.tsx). */
-export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/**
+ * Today's email rule (QuoteForm.tsx), with the domain held to what a domain can be — letters, marks and digits of any
+ * script, dots and hyphens — so no "?", "&", "#", "%" or "=" after the "@" turns the inbox's Email link into mailto
+ * parameters (security review L2; the link also encodes the address, `mailtoHref`). The local part stays today's.
+ */
+export const EMAIL = /^[^\s@]+@[\p{L}\p{M}\p{N}.-]+\.[\p{L}\p{M}\p{N}-]{2,}$/u;
 /** Today's phone characters: digits of any of the three scripts, spaces, + ( ) . - */
 export const PHONE_CHARS = /^[\d\s+().\-\u0660-\u0669\u06f0-\u06f9]+$/;
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;

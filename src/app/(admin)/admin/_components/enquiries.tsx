@@ -6,7 +6,9 @@
  * form (T1 = Option B): nothing here reaches visitors.
  *
  * Personal data is shown as text only (React escapes it; never markup), each value isolated in its own direction, and
- * never in a page title, a URL or an audit summary (the reference stands for the enquiry).
+ * never in a page title, an enquiry's address (its id) or an audit summary (the reference stands for the enquiry). One
+ * exception, for the Owner (A7 report, item 9): the inbox's search is a GET form like every list's, so a name or an
+ * email typed into it is in the list's address (the browser's history, the host's access log).
  */
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,7 +17,7 @@ import { FormEditor, SetUpFormButton } from "@/components/admin/forms/FormEditor
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
 import type { FormEditorModel } from "@/server/admin/actions/forms-model";
-import { assignableUsers, enquirySummary, listEnquiries, parseQuery, readEnquiry } from "@/server/enquiries/enquiries";
+import { assignableUsers, enquirySummary, listEnquiries, mailtoHref, parseQuery, readEnquiry, telHref } from "@/server/enquiries/enquiries";
 import { listForms, readForm } from "@/server/forms/forms";
 import { ATTACHMENT_EXTENSIONS, DELIVERY_LABELS, ENQUIRY_STATUSES, FORM_LIMITS, STATUS_LABELS, TRANSITIONS, type EnquiryStatus } from "@/server/forms/registry";
 import type { SearchParams } from "./cms";
@@ -393,11 +395,11 @@ export async function EnquiryScreen({ id, searchParams }: { id: string; searchPa
                   <dt>{label}</dt>
                   <dd>
                     {label === "Email" && value ? (
-                      <a href={`mailto:${value}`} dir="ltr">
+                      <a href={mailtoHref(value)} dir="ltr">
                         {value}
                       </a>
                     ) : label === "Phone" && value ? (
-                      <a href={`tel:${value.replace(/[^\d+]/g, "")}`} dir="ltr">
+                      <a href={telHref(value)} dir="ltr">
                         <bdi>{value}</bdi>
                       </a>
                     ) : (
