@@ -178,14 +178,14 @@ describe("A9.4: the public read model", () => {
   });
 
   test("an unpublished record leaves the public site, and every published list that named it", async () => {
-    const [p] = await query<{ id: string; lock_version: number }>(env, "SELECT id, lock_version FROM projects WHERE slug = 'clock-tower-landmark'");
+    const [p] = await query<{ id: string; lock_version: number }>(env, "SELECT id, lock_version FROM projects WHERE slug = 'gateway-welcome-signs'");
     const generation = await count(env, "SELECT value AS n FROM cache_generation WHERE id = 1");
     const result = await unpublish(ctxOf(env, env.team.owner), "project", p.id, Number(p.lock_version));
     assert.equal(result.kind, "ok", JSON.stringify(result));
     assert.ok((await count(env, "SELECT value AS n FROM cache_generation WHERE id = 1")) > generation, "the cache generation moved");
     const { set } = await decoded(env);
-    assert.equal(set.projects.some((x) => x.slug === "clock-tower-landmark"), false);
-    for (const s of set.services) assert.equal(s.projects.includes("clock-tower-landmark"), false, s.slug);
+    assert.equal(set.projects.some((x) => x.slug === "gateway-welcome-signs"), false);
+    for (const s of set.services) assert.equal(s.projects.includes("gateway-welcome-signs"), false, s.slug);
   });
 
   test("a photo restricted in the library leaves the public site at once, without a republication", async () => {
@@ -199,22 +199,66 @@ describe("A9.4: the public read model", () => {
     assert.equal(after.projects.find((x) => x.slug === "geometric-lanterns")!.media.includes(key as Any), false);
     assert.equal(key in after.mediaRegistry, false);
   });
+
+  test("a withdrawn photo moves the cache generation; a record that cannot be drawn without it leaves (security review M1, M2)", async () => {
+    const generation = async () => count(env, "SELECT value AS n FROM cache_generation WHERE id = 1");
+    const before = await generation();
+    const [item] = await query<{ id: string }>(env, "SELECT id FROM media_assets WHERE legacy_key = 'machines/press-brake'");
+    assert.ok(item, "the press brake's photo is a release item");
+    assert.equal((await restrictMedia(mctx(env, env.team.owner), item.id, "Integration test: withdrawn")).kind, "ok");
+    assert.ok((await generation()) > before, "the generation moved with the withdrawal");
+    const { set } = await decoded(env);
+    assert.equal(set.machines.some((m) => m.slug === "cnc-press-brake"), false, "a machine without its photo is left out");
+    assert.equal(set.services.find((x) => x.slug === "cnc-bending")!.machines.includes("cnc-press-brake" as Any), false);
+  });
+});
+
+describe("A9 security review: the website's composition, and what an import may not undo", () => {
+  test("what the approved composition needs live cannot be unpublished or archived (M2)", async () => {
+    const owner = ctxOf(env, env.team.owner);
+    const row = async (table: string, slug: string) => (await query<{ id: string; lock_version: number }>(env, `SELECT id, lock_version FROM ${table} WHERE slug = ?`, [slug]))[0];
+    const laser = await row("services", "laser-cutting");
+    const refused = await unpublish(owner, "service", laser.id, Number(laser.lock_version));
+    assert.equal(refused.kind, "refused");
+    assert.match(JSON.stringify(refused), /fixed place|main service/);
+    const fabrication = await row("services", "fabrication");
+    assert.match(JSON.stringify(await unpublish(owner, "service", fabrication.id, Number(fabrication.lock_version))), /live machine names it as their main service/);
+    const tower = await row("projects", "clock-tower-landmark");
+    const { setItemArchived } = await import("../../src/server/cms/engine.ts");
+    const { projectSpec } = await import("../../src/server/cms/kinds.ts");
+    assert.equal((await setItemArchived(owner, projectSpec, tower.id, true, Number(tower.lock_version))).kind, "refused");
+    const [settings] = await query<{ lock_version: number }>(env, "SELECT lock_version FROM site_settings WHERE id = 'site'");
+    assert.equal((await unpublish(owner, "site_settings", "site", Number(settings.lock_version))).kind, "refused");
+    assert.equal(await count(env, "SELECT COUNT(*) AS n FROM published_documents WHERE entity_type = 'service' AND entity_id = '" + laser.id + "'"), 1, "still live");
+  });
+
+  test("a later import never republishes what was taken offline after its import (M3)", async () => {
+    const again = await run(env, { legalReviewer: "Integration test reviewer (not a legal review)" });
+    assert.equal(again.ok, true, JSON.stringify(again.failure));
+    const unit = again.units.find((u) => u.type === "project" && u.key === "gateway-welcome-signs")!;
+    assert.equal(unit.outcome, "edited_kept");
+    assert.equal(unit.published, false);
+    const { set } = await decoded(env);
+    assert.equal(set.projects.some((x) => x.slug === "gateway-welcome-signs"), false, "still offline");
+  });
 });
 
 describe("A9.5: redirects resolve to live pages only", () => {
   test("a redirect to a published service follows it; to an unpublished one, a live address or itself, never", async () => {
-    const [svc] = await query<{ id: string }>(env, "SELECT id FROM services WHERE slug = 'laser-cutting'");
+    const [svc] = await query<{ id: string }>(env, "SELECT id FROM services WHERE slug = 'steel-structures'");
+    const generationBefore = await count(env, "SELECT value AS n FROM cache_generation WHERE id = 1");
     const saved = await saveRedirect(siteChange(env, env.team.admin), { id: "", expectedVersion: 0, sourcePath: "/en/old-laser", targetType: "service", targetPath: "", targetId: svc.id, statusCode: 308, note: "" });
     assert.equal(saved.kind, "ok", JSON.stringify(saved));
+    assert.ok((await count(env, "SELECT value AS n FROM cache_generation WHERE id = 1")) > generationBefore, "a redirect change moves the generation (security review M1)");
     const db = env.deps.db;
-    assert.deepEqual(await resolvePublicRedirect(db, "/en/old-laser", await live(env)), { location: "/en/services/laser-cutting", permanent: true });
-    assert.equal(await resolvePublicRedirect(db, "/en/old-laser/", await live(env)).then((r) => r?.location), "/en/services/laser-cutting", "the address is normalised");
+    assert.deepEqual(await resolvePublicRedirect(db, "/en/old-laser", await live(env)), { location: "/en/services/steel-structures", permanent: true });
+    assert.equal(await resolvePublicRedirect(db, "/en/old-laser/", await live(env)).then((r) => r?.location), "/en/services/steel-structures", "the address is normalised");
     assert.equal(await resolvePublicRedirect(db, "/en/about", await live(env)), null, "a live page wins");
     assert.equal(await resolvePublicRedirect(db, "/en/never-redirected", await live(env)), null);
-    const moved = await saveRedirect(siteChange(env, env.team.admin), { id: "", expectedVersion: 0, sourcePath: "/en/old-tower", targetType: "path", targetPath: "/en/projects/clock-tower-landmark", targetId: "", statusCode: 307, note: "" });
+    const moved = await saveRedirect(siteChange(env, env.team.admin), { id: "", expectedVersion: 0, sourcePath: "/en/old-tower", targetType: "path", targetPath: "/en/projects/gateway-welcome-signs", targetId: "", statusCode: 307, note: "" });
     // The target was unpublished above: A6 refuses it, and were it stored, the public site would not follow it.
     if (moved.kind === "ok") assert.equal(await resolvePublicRedirect(db, "/en/old-tower", await live(env)), null);
-    const [s] = await query<{ id: string; lock_version: number }>(env, "SELECT id, lock_version FROM services WHERE slug = 'laser-cutting'");
+    const [s] = await query<{ id: string; lock_version: number }>(env, "SELECT id, lock_version FROM services WHERE slug = 'steel-structures'");
     assert.equal((await unpublish(ctxOf(env, env.team.owner), "service", s.id, Number(s.lock_version))).kind, "ok");
     assert.equal(await resolvePublicRedirect(db, "/en/old-laser", await live(env)), null, "the target is no longer live");
   });
@@ -225,6 +269,13 @@ describe("A9.2: all or nothing", () => {
     const fresh = await setupMediaEnv("a9fail");
     try {
       await registerReleaseMedia(fresh);
+      // A held-back photo that the library delivers (approved by mistake) refuses the import before anything (L4).
+      const [held] = await query<{ id: string; file_id: string }>(fresh, "SELECT a.id, a.current_file_id AS file_id FROM media_assets a WHERE a.legacy_key = 'projects/canopy-tree-1'");
+      await fresh.pool.query("INSERT INTO public_media (media_id, file_id, legacy_key, kind, src, width, height, updated_at) VALUES (?, ?, 'projects/canopy-tree-1', 'image', '/media/projects/canopy-tree-1.webp', 10, 10, NOW(3))", [held.id, held.file_id]);
+      const leaked = await run(fresh);
+      assert.equal(leaked.ok, false);
+      assert.match(leaked.failure!.message, /held-back photos are delivered/);
+      await fresh.pool.query("DELETE FROM public_media WHERE media_id = ?", [held.id]);
       const broken = structuredClone(STATIC);
       broken.projects[5].galleryRef = "<b>bold</b>";
       const refused = await run(fresh, { set: broken });
@@ -235,7 +286,7 @@ describe("A9.2: all or nothing", () => {
       assert.equal(dry.dryRun, true);
       for (const table of ["services", "projects", "machines", "pages", "page_sections", "published_documents", "revisions"]) assert.equal(await count(fresh, `SELECT COUNT(*) AS n FROM ${table}`), 0, table);
       const audit = await query<{ outcome: string }>(fresh, "SELECT outcome FROM audit_events WHERE action = 'content.import' ORDER BY id");
-      assert.deepEqual(audit.map((a) => a.outcome), ["failed", "success"]);
+      assert.deepEqual(audit.map((a) => a.outcome), ["failed", "failed", "success"]);
     } finally {
       await fresh.closeMedia();
     }

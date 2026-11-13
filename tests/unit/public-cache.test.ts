@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 type State = { generation: number; epoch: string };
 type Handler = { get(key: string): Promise<{ value: unknown } | null>; set(key: string, data: unknown): Promise<void> };
 const { createHandlerClass } = require("../../src/server/public/cache-handler.cjs") as {
-  createHandlerClass: (read: () => Promise<State>, max?: number) => new () => Handler;
+  createHandlerClass: (read: () => Promise<State>, max?: number, maxBytes?: number) => new () => Handler;
 };
 
 function shared(initial: State) {
@@ -92,4 +92,30 @@ describe("A9: the fail-closed page cache", () => {
     assert.equal(await cache.get("/a"), null, "the oldest was evicted");
     assert.deepEqual((await cache.get("/c"))?.value, page("/c"));
   });
+
+  test("an answer other than 200 is never stored, and the bytes are bounded (security review L2)", async () => {
+    const s = shared({ generation: 1, epoch: "E1" });
+    const cache = new (createHandlerClass(s.read, 400, 10_000))();
+    await cache.get("/en/services/no-such-service");
+    await cache.set("/en/services/no-such-service", { kind: "APP_PAGE", html: "not found", status: 404 });
+    assert.equal(await cache.get("/en/services/no-such-service"), null);
+    for (const key of ["/x1", "/x2", "/x3"]) {
+      await cache.get(key);
+      await cache.set(key, { kind: "APP_PAGE", html: "x".repeat(4000), status: 200 });
+    }
+    assert.equal(await cache.get("/x1"), null, "the oldest left to stay within the bytes");
+    assert.ok(await cache.get("/x3"));
+  });
+
+  test("after five failed reads in a row the cache fails at once, without waiting on the database (security review L2)", async () => {
+    let reads = 0;
+    const cache = new (createHandlerClass(async () => {
+      reads++;
+      throw new Error("ETIMEDOUT");
+    }))();
+    for (let i = 0; i < 5; i++) await assert.rejects(cache.get("/en"));
+    await assert.rejects(cache.get("/en"));
+    assert.equal(reads, 5, "the sixth lookup did not read");
+  });
 });
+

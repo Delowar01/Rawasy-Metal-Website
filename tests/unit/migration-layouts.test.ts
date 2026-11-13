@@ -207,4 +207,31 @@ describe("A9 corrections found by the import", () => {
     const parsed = parseInput(projectSpec, "create", form);
     assert.equal(parsed.ok, true, JSON.stringify(parsed));
   });
+
+  test("the composition the guard protects is the components' own (security review M2)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { COMPOSITION_RECORDS } = await import("../../src/server/publishing/composition.ts");
+    const listIn = (file: string, name: string) => {
+      const m = new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(readFileSync(file, "utf8"));
+      assert.ok(m, `${name} in ${file}`);
+      return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    };
+    assert.deepEqual(listIn("src/components/commerce/projects/ProjectsPage.tsx", "COLLAGE"), [...COMPOSITION_RECORDS.project]);
+    assert.deepEqual(listIn("src/components/commerce/industries/IndustriesPage.tsx", "STRIP"), [...COMPOSITION_RECORDS.industry]);
+    assert.match(readFileSync("src/components/commerce/home/Services.tsx", "utf8"), /\["laser-cutting", "laser-engraving"\]/);
+  });
+
+  test("the static website holds back exactly 13 release files (security review L4)", async () => {
+    const { heldBackMedia } = await import("../../src/server/migration/importer.ts");
+    const held = heldBackMedia(S);
+    assert.equal(held.length, 13, held.join(" "));
+    for (const key of held) assert.ok(key in S.mediaRegistry, key);
+  });
+
+  test("a published section at a block version this release does not read fails the read model (security review I1)", async () => {
+    const { decodeContentSet } = await import("../../src/server/public/decode.ts");
+    const docs = [{ type: "page", id: "01M4FTT600000000000000000A", slug: null, document: { root: { systemKey: "about" }, texts: {}, layout: [{ id: "s1", blockType: "about.overview", schemaVersion: 2, settings: {}, content: { en: {}, ar: {} } }] } }];
+    assert.throws(() => decodeContentSet({ docs: docs as Any, media: [] }, S), /version 2/);
+  });
 });
+
