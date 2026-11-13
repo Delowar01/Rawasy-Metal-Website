@@ -668,8 +668,9 @@ export async function runContentImport(deps: AuthDeps, set: ContentSet, options:
     action: "content.import",
     entity: { type: "site", label: "Content import" },
     outcome: report.ok ? "success" : "failed",
+    // A dry run says so: its counts are what a real run would do, and nothing was written (A9 drill: the two read alike).
     summary: report.ok
-      ? `Content import: ${report.units.filter((u) => u.outcome === "created").length} created, ${report.units.filter((u) => u.outcome === "updated").length} updated, ${report.units.filter((u) => u.published).length} published, ${report.units.filter((u) => u.outcome === "edited_kept" || u.outcome === "conflict").length} left as they are.`
+      ? `${report.dryRun ? "Content import dry run (nothing was written)" : "Content import"}: ${report.units.filter((u) => u.outcome === "created").length} created, ${report.units.filter((u) => u.outcome === "updated").length} updated, ${report.units.filter((u) => u.published).length} published, ${report.units.filter((u) => u.outcome === "edited_kept" || u.outcome === "conflict").length} left as they are.`
       : `Content import refused at ${report.failure?.stage} (${report.failure?.unit}); nothing was written.`,
   }).catch(() => undefined);
   return report;

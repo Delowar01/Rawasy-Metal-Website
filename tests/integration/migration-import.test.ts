@@ -285,8 +285,10 @@ describe("A9.2: all or nothing", () => {
       assert.equal(dry.ok, true);
       assert.equal(dry.dryRun, true);
       for (const table of ["services", "projects", "machines", "pages", "page_sections", "published_documents", "revisions"]) assert.equal(await count(fresh, `SELECT COUNT(*) AS n FROM ${table}`), 0, table);
-      const audit = await query<{ outcome: string }>(fresh, "SELECT outcome FROM audit_events WHERE action = 'content.import' ORDER BY id");
+      const audit = await query<{ outcome: string; summary: string }>(fresh, "SELECT outcome, summary FROM audit_events WHERE action = 'content.import' ORDER BY id");
       assert.deepEqual(audit.map((a) => a.outcome), ["failed", "failed", "success"]);
+      // The dry run's event says it was one (its counts read like a real run's otherwise).
+      assert.match(audit[2].summary, /^Content import dry run \(nothing was written\): /);
     } finally {
       await fresh.closeMedia();
     }
