@@ -30,7 +30,7 @@ export type AggregateType =
   | "site_settings"
   | "form";
 
-export type RevisionIntentKind = "save" | "submit" | "publish" | "unpublish" | "archive" | "restore";
+export type RevisionIntentKind = "save" | "submit" | "publish" | "unpublish" | "archive" | "restore" | "import";
 
 export interface RevisionIntent {
   kind: RevisionIntentKind;
