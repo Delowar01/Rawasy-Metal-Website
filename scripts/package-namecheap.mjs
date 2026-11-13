@@ -188,8 +188,16 @@ check(usedMissing.length === 0,
   `public files the build refers to, in the archive: ${used.size - usedMissing.length} of ${used.size} (${Object.entries(byTop).map(([t, n]) => `${t} ${n}`).join(", ")}; ${served.length} files read)`,
   usedMissing);
 
+// A database-content build (A9.4, CONTENT_SOURCE=database) prerenders no page: they render on the server from the
+// published documents, so the per-page checks are the deployed site's smoke checks (docs/admin/A9-CUTOVER-RUNBOOK.md).
+// Its page cache handler is read from src/ at run time: it must be in the archive.
+const serverConfig = JSON.parse(readFileSync(join(root, ".next/required-server-files.json"), "utf8")).config ?? {};
+const databaseContent = Boolean(serverConfig.cacheHandler);
+console.log(`\nContent source of this build: ${databaseContent ? "database (pages render at run time)" : "static"}`);
+if (databaseContent) check(files.has("src/server/public/cache-handler.cjs"), "the database build's page cache handler (src/server/public/cache-handler.cjs) is in the archive");
+
 // Every sitemap page: its prerendered HTML and page data, and every public file they refer to.
-const sitemap = readFileSync(join(root, ".next/server/app/sitemap.xml.body"), "utf8");
+const sitemap = databaseContent ? "" : readFileSync(join(root, ".next/server/app/sitemap.xml.body"), "utf8");
 const pages = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
 const pageProblems = [];
 let pageRefs = 0;
@@ -207,7 +215,7 @@ for (const path of pages) {
     if (heldSet.has(ref)) pageProblems.push(`${path}: refers to held-back ${ref}`);
   }
 }
-check(pages.length > 0 && pageProblems.length === 0,
+if (!databaseContent) check(pages.length > 0 && pageProblems.length === 0,
   `sitemap pages: ${pages.length}, each with its HTML and page data and the ${pageRefs} public file references they make (${pageFiles.size} files) in the archive`,
   pageProblems);
 
