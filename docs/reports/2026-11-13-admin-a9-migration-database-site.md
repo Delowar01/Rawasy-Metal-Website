@@ -254,7 +254,50 @@ pages. `tests/unit/migration-layouts.test.ts` lists each such text by name (`NOT
 
 ## 5. Database publishing and cache verification
 
-{{PUBLISHING}}
+All on the final code (`1eb7a30`), on disposable copies of the imported drill database.
+
+### 5.1 In the code (tests that run in every QA)
+
+- **A8's integration suites, unchanged and passing.** A publication writes the public projection and its references,
+  and moves the cache generation, in the publication's own transaction. So do an unpublication, a rollback and a
+  restore; a restore also starts a new epoch.
+- **A9's integration tests.**
+  - The read model, rebuilt from the published documents, is today's content apart from the documented differences.
+  - A working copy, an unpublished record or a restricted photo never reaches it.
+  - An unpublished record leaves every published list that named it.
+  - A withdrawn photo moves the generation (M1); so do redirect changes.
+  - The composition guard refuses to unpublish or archive what the approved pages need (M2).
+  - A later import never republishes what was taken offline (M3).
+  - Redirects resolve to live pages only.
+- **The page cache's unit tests (14).**
+  - An entry serves only while the generation read before its render holds; a publication during a render, overlapping
+    renders and a restore's epoch are covered.
+  - The state unreadable fails the lookup.
+  - Only 200 answers are kept, within entry and byte bounds.
+  - The breaker opens after five failed reads.
+  - A stalled read fails within its limit and drops its pool.
+  - The server's configuration follows its build and marks the process.
+
+### 5.2 On a running database release (the drills)
+
+| Drill | Result |
+|---|---|
+| Rendering and caching | First renders 43–271 ms. A cached page 6–10 ms: one generation read per request. Next.js's own route cache: **0 files** (before the D1 correction there were 764) |
+| A publication reaches the next request (marker drill) | All 113 published documents changed and the generation moved, as A8's `publish` does → on the next request, **15,072 of 17,688 text nodes** carried the change; the other 2,616 are the 86 code-owned or unmarkable texts of item 6.4. Nothing old was served |
+| A withdrawn photo (fixed-spot drill) | Both photos of a collage project removed from `public_media` and the generation moved → `/en/projects` and `/ar/projects` 500 (fail closed); the project's own page drew without them; the other pages 200. Restored → all 200 |
+| The database paused (fail-closed drill) | Every page **500 within 5 s** (an unknown address within 10 s); after five failures, 500 at once (breaker). **Never a cached or static page.** A release file (`/media/site/…`) is still served by the build. The static release answered 200 throughout |
+| The database resumed | The first request still met the open breaker (500); pages answered again **31 s** after the resume (the page cache's breaker is 30 s). Run again on the drill server: back after 1 s, its breaker not having opened |
+| Server logs during the outage | Error codes only (`PUBLIC_READ_TIMEOUT`, "could not check the content's version"); no query, value or address |
+| Negative control: the server's environment names the other source | The server refuses to start (exit 1): "This release was built with CONTENT_SOURCE=database, but the server's environment sets CONTENT_SOURCE=static …" |
+| Negative control: a database build with another page cache (its record edited to the static configuration) | Every page **500**, logged "the fail-closed page cache is not in use" (before D3's correction, 200 from Next.js's cache) |
+| Rollback to the static release | The database releases stopped. The static release served `/en`, `/ar`, `/en/about`, `/en/privacy`, `/ar/terms` and a project page (200). The published documents, revisions and generation were unchanged (counts equal before and after) |
+
+**Not exercised end to end:** a publication made through the admin's **browser screens** while a database release
+serves. Its two halves are proven:
+- the A8 tests: publishing writes the projection and moves the generation;
+- the marker drill: a moved generation is served on the next request.
+
+The runbook's staging smoke check does the whole path once, with a harmless test edit (§6).
 
 ## 6. Static vs database parity evidence
 
@@ -304,7 +347,7 @@ release passed 612 / 612.
 
 The 11 skipped are the fallback 404's checks: they read the checkout's own build output, so they skip themselves
 against an external server. Run from the database build's own folder against its own server, they passed
-{{FALLBACK}}.
+**11 / 11**.
 
 This suite covers, against the database release:
 - the homepage and every inner page (structure, words, order);
@@ -325,7 +368,7 @@ This suite covers, against the database release:
 marker (U+2063) appended, and the cache generation moved. Every page of the database release was then read, and each
 visible text node without the marker listed.
 
-**Result:** {{MARKER}}
+**Result:** on 104 pages, **15,073 of 17,689 text nodes** carried the mark. The same drill in drill 4 (its own database copy, the server it started) gave 15,072 of 17,688. The other 2,616 are 86 distinct texts.
 
 **What carries no mark, and why** (86 distinct texts):
 - **Code-owned by design.** Numbering (01–32, A–D) and punctuation. The language switch's codes ("EN", "عربي", "ع")
@@ -364,7 +407,39 @@ releases.
 
 ### 6.7 The homepage hydration race (tracked; an independent assessment)
 
-{{RACE}}
+**What it is.**
+- On the homepage, a machine pick in the showcase that is clicked while the page is still hydrating can be lost. The
+  pick takes focus but the stage stays on the first machine, so the chosen machine's title link stays hidden
+  (`tabindex="-1"`).
+- The test's next click then waits for a link that never shows (`locator.click` timeout). In one case the link
+  showed, but its panel switched as it was clicked, so no navigation followed (`waitForURL` timeout).
+- The component is frozen (`home/MachineShowcase.tsx`, byte-pinned to TM-3). A9 did not touch it.
+
+**Measured** (its 12 tests × 10 at 8 workers, two rounds per release, the final build, signatures checked on every
+failure):
+
+| Release | Round 1 | Round 2 | Total |
+|---|---|---|---|
+| Static (the rollback) | 2 / 120 | 2 / 120 | **4 / 240** |
+| Database | 1 / 120 | 1 / 120 | **2 / 240** |
+| *Earlier:* A8 build and A7 baseline (A8 report) | 1 / 120 each | — | — |
+| *Earlier:* `c9d9121` (before D1) | static 0 / 120, database 3 / 120 | — | — |
+
+All six failures this time were Arabic picks. The rate is about 1–2 %, at 8 parallel browsers on 4 CPUs. The suite's
+own 3 workers passed it in every full public run here (612 / 612 twice, and 601 / 601 non-skipped on the database
+release). **The database release is not worse than the static one.**
+
+**Assessment: low release risk; not a blocker; tracked.**
+- *Visitor effect.* A click during the first moments of hydration does nothing visible. The first machine stays shown
+  and a second click works. No wrong page, no error, no lost data, no content or security effect. Without JavaScript the
+  showcase works as a `:target` list, and the race cannot occur.
+- *Exposure.* Mostly slow phones on a first visit, where hydration takes longest.
+- *The fix:*
+  - in the component: ignore or queue a pick made before hydration, or render the picks inert until then;
+  - or, for the test alone, wait for hydration before clicking.
+
+  Either is the Owner's decision: the first changes frozen public code, the second only how the race is tested. Nothing
+  was hidden by reruns. Every failure is counted above, and no test was retried, skipped or changed for it.
 
 ## 7. Security review
 
@@ -487,7 +562,54 @@ an audited `cli` actor.
 
 ## 8. Test results
 
-{{TESTS}}
+### 8.1 The final code (`1eb7a30`) on a fresh clone from GitHub — every suite in its first run
+
+| Check | Result | Baseline (A8) |
+|---|---|---|
+| `npm ci` | ok (both `@next/swc-linux-x64-gnu` and `-musl` present) | — |
+| `npm audit --omit=dev` | **0** | 0 |
+| `npm audit` (all) | 12 moderate, dev-only (unchanged from A8) | 12 moderate |
+| lint · typecheck | 0 · 0 | — |
+| build | ok, no warning | — |
+| `db:check` | ok (13 migration files) | 13 |
+| packaging check | ok (13 held back; 111 / 111 referenced public files; 102 sitemap pages with their HTML and page data) | — |
+| unit | **419 / 419** (A9 adds 27) | 392 / 392 |
+| integration | **592 / 592** (A9 adds 14) | 578 / 578 |
+| admin | **166 passed, 1 failed, 9 did not run** (item 8.2, no. 4) — then {{ADMIN_RERUN}} | 176 / 176 |
+| public | **612 / 612** (after the image warm-up, 1,484 / 1,484) | 612 / 612 (second run) |
+
+No suite retries a failed test: the Playwright configurations set no `retries`, and `node --test` has none.
+
+### 8.2 Every failure, retry and skip in A9's runs, in order
+
+1. **Integration on the working tree, before `83a1892`: 588 / 589.** A2's sign-in timing test asserted an absolute
+   15 ms floor. It failed 5 of 8 runs alone on the A8 baseline (`babf932`) and 4 of 8 on A9: pre-existing, machine
+   speed. The test now compares the two paths (`83a1892`), 10 of 10.
+2. **Admin on the working tree, before `c9d9121`: 163 passed, 1 failed, 12 did not run.**
+   - The interface-text test read the database before its save had committed: `savedTo` matched the address the earlier
+     set-up left. It failed 2 of 3 on the A8 baseline build too.
+   - A second read race in the same spec read the public header's DOM before or after hydration, so the theme switch's
+     `aria-pressed` differed.
+   - Both were fixed, test only (`c9d9121`). The site spec then passed 24 / 24 twice.
+3. **The fresh-clone QA of `c9d9121`, every suite in its first run:** unit 413 / 413, integration 592 / 592, admin
+   176 / 176, public 612 / 612. The database drills on that build then found D1–D3 (item 7.2), so every check was run
+   again on `1eb7a30`.
+4. **Admin, fresh clone of `1eb7a30`: 166 passed, 1 failed, 9 did not run.**
+   - The redirect search test counted the table's rows the moment the address took the search, while the list was still
+     streaming in after its skeleton. The 9 later tests of that serial file did not run.
+   - Alone, that block passed 5 of 5 on the same build.
+   - The count now waits (`4a6a539`, test only). The whole site spec, the 9 included, then passed 24 / 24 twice on that
+     build.
+5. **The public suite against the database release: 601 passed, 11 skipped.** The 11 are the fallback 404's checks,
+   which skip themselves against an external server (they read the checkout's build output). Run from the database
+   build's folder: 11 / 11.
+6. **The homepage showcase's hydration race:** static 4 / 240, database 2 / 240 (item 6.7). Counted, not rerun away.
+
+### 8.3 Drills (disposable local databases only)
+
+The import drill (item 4), the publishing and cache drills (item 5), the parity proofs (item 6) and the static freeze
+(item 6.1). None touched staging or production; every drill database was a `rawasy_e2e_*` copy on the session's local
+MariaDB.
 
 ## 9. Hosting compatibility findings
 
