@@ -119,3 +119,53 @@ describe("A9: the fail-closed page cache", () => {
   });
 });
 
+
+describe("A9: a server takes the content source its build was made with (the fail-closed drill)", () => {
+  const { builtSource, contentSourceFor, SERVER_PHASE } = require("../../src/server/public/release-source.cjs") as {
+    builtSource: (distDir: string) => "static" | "database" | null;
+    contentSourceFor: (phase: string, asked: string | undefined, readBuilt: () => "static" | "database" | null) => "static" | "database";
+    SERVER_PHASE: string;
+  };
+  const { mkdtempSync, writeFileSync } = require("node:fs") as typeof import("node:fs");
+  const { join } = require("node:path") as typeof import("node:path");
+  const { tmpdir } = require("node:os") as typeof import("node:os");
+  const distWith = (config: Record<string, unknown> | null) => {
+    const dir = mkdtempSync(join(tmpdir(), "rawasy-a9-dist-"));
+    if (config) writeFileSync(join(dir, "required-server-files.json"), JSON.stringify({ version: 1, config }));
+    return dir;
+  };
+
+  test("the build's record says which source it was built with", () => {
+    assert.equal(builtSource(distWith({ cacheHandler: "../src/server/public/cache-handler.cjs", cacheMaxMemorySize: 0 })), "database");
+    assert.equal(builtSource(distWith({ cacheHandler: "/srv/app/src/server/public/cache-handler.cjs" })), "database");
+    assert.equal(builtSource(distWith({ cacheMaxMemorySize: 52428800 })), "static");
+    assert.equal(builtSource(distWith({ cacheHandler: "../some-other-handler.cjs" })), "static");
+    assert.equal(builtSource(distWith(null)), null, "no build yet");
+  });
+
+  test("a server follows its build, whatever its environment lacks; it refuses an environment that names the other source", () => {
+    const database = () => "database" as const;
+    const statics = () => "static" as const;
+    // The defect the drill found: a database build served with no CONTENT_SOURCE in the server's environment.
+    assert.equal(contentSourceFor(SERVER_PHASE, undefined, database), "database");
+    assert.equal(contentSourceFor(SERVER_PHASE, "database", database), "database");
+    assert.equal(contentSourceFor(SERVER_PHASE, undefined, statics), "static");
+    assert.throws(() => contentSourceFor(SERVER_PHASE, "static", database), /built with CONTENT_SOURCE=database/);
+    assert.throws(() => contentSourceFor(SERVER_PHASE, "database", statics), /built with CONTENT_SOURCE=static/);
+    assert.throws(() => contentSourceFor(SERVER_PHASE, "postgres", database), /must be "static" or "database"/);
+    // The build itself (and the development server) decide from the environment; a server without a build too.
+    assert.equal(contentSourceFor("phase-production-build", "database", statics), "database");
+    assert.equal(contentSourceFor("phase-production-build", undefined, database), "static");
+    assert.equal(contentSourceFor("phase-development-server", undefined, database), "static");
+    assert.equal(contentSourceFor(SERVER_PHASE, "database", () => null), "database");
+  });
+
+  test("Next.js constructing the handler marks the fail-closed page cache as in use (the live loader requires the mark)", () => {
+    const mark = Symbol.for("rawasy.public.pageCacheInUse");
+    delete (globalThis as Record<symbol, unknown>)[mark];
+    const Handler = createHandlerClass(async () => ({ generation: 1, epoch: "E" }));
+    assert.equal((globalThis as Record<symbol, unknown>)[mark], undefined, "loading the module alone marks nothing");
+    new Handler();
+    assert.equal((globalThis as Record<symbol, unknown>)[mark], true);
+  });
+});
