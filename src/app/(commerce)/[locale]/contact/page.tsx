@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { ContactPage as Contact } from "@/components/commerce/contact/ContactPage";
 import { getShellView } from "@/components/commerce/data";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/contact">): Promise<Metadata> {
+  await ensureContent("contact");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("contact", locale);
@@ -17,6 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/contact"
  * delivery backend: it prepares the request for the visitor to send by email or WhatsApp, and says so) and the location.
  */
 export default async function ContactPage({ params }: PageProps<"/[locale]/contact">) {
+  await ensureContent("contact");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "contact", path: "/contact" });

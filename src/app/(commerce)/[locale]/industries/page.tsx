@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { getShellView } from "@/components/commerce/data";
 import { IndustriesPage as Industries } from "@/components/commerce/industries/IndustriesPage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/industries">): Promise<Metadata> {
+  await ensureContent("industries");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("industries", locale);
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/industri
 
 /** Industries in the Modern Commerce design (Stage TM-2.3): the sectors by source, with their related services. */
 export default async function IndustriesPage({ params }: PageProps<"/[locale]/industries">) {
+  await ensureContent("industries");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "industries", path: "/industries" });

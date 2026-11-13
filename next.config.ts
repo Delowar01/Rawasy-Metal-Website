@@ -14,8 +14,27 @@ const API_HEADERS = [
   { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'; sandbox" },
 ];
 
+/**
+ * The content source (A9.4, A1-MIGRATION-PLAN §9): fixed into a release when it is built. `static` (the default, and the
+ * rollback) renders `src/content/*` as before A9. `database` resolves `@/content/load` to the live loader
+ * (src/content/live/load.ts): the same modules filled from the published documents, rendered per request; such a build
+ * needs NEXT_PUBLIC_SITE_URL (canonical and share addresses are never taken from the database).
+ */
+const CONTENT_SOURCE = process.env.CONTENT_SOURCE ?? "static";
+if (CONTENT_SOURCE !== "static" && CONTENT_SOURCE !== "database") throw new Error(`CONTENT_SOURCE must be "static" or "database".`);
+const DATABASE_CONTENT = CONTENT_SOURCE === "database";
+if (DATABASE_CONTENT && !process.env.NEXT_PUBLIC_SITE_URL) throw new Error("A database-content build needs NEXT_PUBLIC_SITE_URL.");
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  ...(DATABASE_CONTENT
+    ? {
+        turbopack: { resolveAlias: { "@/content/load": "./src/content/live/load.ts" } },
+        // The fail-closed page cache (src/server/public/cache-handler.cjs), and no second copy in Next's own memory.
+        cacheHandler: require.resolve("./src/server/public/cache-handler.cjs"),
+        cacheMaxMemorySize: 0,
+      }
+    : {}),
   // The admin's MariaDB driver stays a Node.js dependency (not bundled); @node-rs/argon2 is external by default.
   serverExternalPackages: ["mysql2"],
   async headers() {

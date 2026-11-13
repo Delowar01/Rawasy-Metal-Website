@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { getShellView } from "@/components/commerce/data";
 import { ServicesPage as Services } from "@/components/commerce/services/ServicesPage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/services">): Promise<Metadata> {
+  await ensureContent("services");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("services", locale);
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/services
 
 /** The services overview in the Modern Commerce design (Stage TM-2.4): the six services, each with its way in. */
 export default async function ServicesPage({ params }: PageProps<"/[locale]/services">) {
+  await ensureContent("services");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "services", path: "/services" });

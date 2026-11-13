@@ -52,6 +52,25 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // The database-mode content loader (A9.4) is the one public module that reads the database: only the public read model
+  // (published documents, delivered media, redirects) and the pool, never the admin's other server modules.
+  {
+    files: ["src/content/live/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "drizzle-kit", message: "drizzle-kit is used only by drizzle.config.ts (generate)." }],
+          patterns: [
+            {
+              regex: "^(@/server/(?!public/|db/)|(\\.\\./)+server/(?!public/|db/))",
+              message: "The live content loader reads the public read model (@/server/public, @/server/db) only.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ["src/components/admin/**"],
     rules: {

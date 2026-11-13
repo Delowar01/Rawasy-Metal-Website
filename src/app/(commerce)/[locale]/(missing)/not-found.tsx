@@ -8,6 +8,7 @@ import { BootFallback } from "@/components/commerce/inner/BootFallback";
 import { NotFoundView } from "@/components/commerce/inner/NotFound";
 import { PageShell } from "@/components/commerce/shell/PageShell";
 import { SamePageLink } from "@/components/commerce/shell/SamePageLink";
+import { ensureContent } from "@/content/load";
 
 /*
  * The localized 404 of the Modern Commerce design: unknown paths under a locale (the catch-all beside it), and unknown
@@ -21,12 +22,14 @@ import { SamePageLink } from "@/components/commerce/shell/SamePageLink";
  */
 
 export async function generateMetadata(): Promise<Metadata> {
+  await ensureContent();
   const value = await rootLocale();
   const locale = isLocale(value) ? value : defaultLocale;
   return { title: getDictionary(locale).notFound.metaTitle, robots: { index: false } };
 }
 
 export default async function NotFound() {
+  await ensureContent();
   const value = await rootLocale();
   const locale = isLocale(value) ? value : defaultLocale;
   // No route of its own: no page is marked current, and the language switch keeps the address being viewed (through

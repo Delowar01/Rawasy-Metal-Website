@@ -12,16 +12,19 @@ import { getShellView } from "@/components/commerce/data";
 import { projectDetailView } from "@/components/commerce/project-detail/data";
 import { ProjectDetailPage } from "@/components/commerce/project-detail/ProjectDetailPage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { contentIsStatic, ensureContent } from "@/content/load";
 
 // Known slugs are prerendered; unknown ones render and call notFound(): the localized 404 of this design (not-found.tsx
 // beside this page), with a real 404 status.
 export const dynamicParams = true;
 
 export function generateStaticParams() {
+  if (!contentIsStatic) return [];
   return locales.flatMap((locale) => projects.map((p) => ({ locale, slug: p.slug })));
 }
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/projects/[slug]">): Promise<Metadata> {
+  await ensureContent("project_detail");
   const { locale, slug } = await params;
   const project = await getProjectBySlug(slug);
   if (!isLocale(locale) || !project) return {};
@@ -41,6 +44,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/projects
  * (BreadcrumbList), nothing about the project beyond its name and summary.
  */
 export default async function ProjectPage({ params }: PageProps<"/[locale]/projects/[slug]">) {
+  await ensureContent("project_detail");
   const { locale, slug } = await params;
   const content = await getProjectDetailContent(slug);
   if (!isLocale(locale) || !content) notFound();

@@ -13,6 +13,7 @@ import { Motion } from "@/components/commerce/Motion";
 import { arabicFontPreloads, fontVariables } from "../fonts";
 import "../commerce.css";
 import "@/components/commerce/system.css";
+import { contentIsStatic, ensureContent } from "@/content/load";
 
 /*
  * Root layout of the website's pages, all in the Modern Commerce design since Stage TM-2.6 (TM-1: the homepage; TM-2.1
@@ -21,7 +22,8 @@ import "@/components/commerce/system.css";
  */
 
 export function generateStaticParams() {
-  return locales.map((locale) => ({ locale }));
+  // A database-content build renders every page per request (A9.4): nothing is prerendered from the database at build.
+  return contentIsStatic ? locales.map((locale) => ({ locale })) : [];
 }
 
 export const viewport: Viewport = {
@@ -33,6 +35,7 @@ export const viewport: Viewport = {
 };
 
 export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Promise<Metadata> {
+  await ensureContent();
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return {

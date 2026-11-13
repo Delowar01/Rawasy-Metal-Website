@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { ClientsPage as Clients } from "@/components/commerce/clients/ClientsPage";
 import { getShellView } from "@/components/commerce/data";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/clients">): Promise<Metadata> {
+  await ensureContent("clients");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("clients", locale);
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/clients"
 
 /** Clients in the Modern Commerce design (Stage TM-2.3): the logos from the company profile on one unnumbered wall. */
 export default async function ClientsPage({ params }: PageProps<"/[locale]/clients">) {
+  await ensureContent("clients");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "clients", path: "/clients" });

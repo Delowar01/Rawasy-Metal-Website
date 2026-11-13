@@ -9,16 +9,19 @@ import { buildMetadata } from "@/lib/seo";
 import { getShellView } from "@/components/commerce/data";
 import { ServicePage as Service } from "@/components/commerce/services/ServicePage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { contentIsStatic, ensureContent } from "@/content/load";
 
 // Known slugs are prerendered; unknown ones render and call notFound(): the localized 404 of this design (not-found.tsx
 // beside this page), with a real 404 status.
 export const dynamicParams = true;
 
 export function generateStaticParams() {
+  if (!contentIsStatic) return [];
   return locales.flatMap((locale) => services.map((s) => ({ locale, slug: s.slug })));
 }
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/services/[slug]">): Promise<Metadata> {
+  await ensureContent();
   const { locale, slug } = await params;
   const content = await getServicePageContent(slug);
   if (!isLocale(locale) || !content) return {};
@@ -33,6 +36,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/services
 
 /** A service page in the Modern Commerce design (Stage TM-2.4): the Stage 1D content and structure (decision D3). */
 export default async function ServicePage({ params }: PageProps<"/[locale]/services/[slug]">) {
+  await ensureContent();
   const { locale, slug } = await params;
   const content = await getServicePageContent(slug);
   if (!isLocale(locale) || !content) notFound();

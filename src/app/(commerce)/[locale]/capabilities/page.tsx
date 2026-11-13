@@ -7,8 +7,10 @@ import { CapabilitiesPage as Capabilities } from "@/components/commerce/capabili
 import { MachineAddressLink } from "@/components/commerce/capabilities/MachineAddressLink";
 import { getShellView } from "@/components/commerce/data";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/capabilities">): Promise<Metadata> {
+  await ensureContent("capabilities");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("capabilities", locale);
@@ -19,6 +21,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/capabili
  * /capabilities#<slug>. The header's language links keep the machine the address names (MachineAddressLink).
  */
 export default async function CapabilitiesPage({ params }: PageProps<"/[locale]/capabilities">) {
+  await ensureContent("capabilities");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "capabilities", path: path("capabilities") });

@@ -14,8 +14,10 @@ import { Machinery } from "@/components/commerce/home/Machinery";
 import { Projects } from "@/components/commerce/home/Projects";
 import { Services } from "@/components/commerce/home/Services";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]">): Promise<Metadata> {
+  await ensureContent("home");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return buildMetadata({
@@ -29,6 +31,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]">): Prom
 
 /** The homepage in the Modern Commerce design (Stage TM-1): the approved A V2 composition on the website's routes. */
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
+  await ensureContent("home");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const [shell, view] = await Promise.all([getShellView(locale, { route: "home", path: "/" }), getHomeView(locale)]);

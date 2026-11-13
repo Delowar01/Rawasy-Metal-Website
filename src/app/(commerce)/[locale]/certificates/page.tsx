@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { CertificatesPage as Certificates } from "@/components/commerce/certificates/CertificatesPage";
 import { getShellView } from "@/components/commerce/data";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/certificates">): Promise<Metadata> {
+  await ensureContent("certificates");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("certificates", locale);
@@ -17,6 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/certific
  * (the files as they are) in a native dialog, and how they were redacted.
  */
 export default async function CertificatesPage({ params }: PageProps<"/[locale]/certificates">) {
+  await ensureContent("certificates");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "certificates", path: "/certificates" });

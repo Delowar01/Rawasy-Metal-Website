@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { AboutPage as About } from "@/components/commerce/about/AboutPage";
 import { getShellView } from "@/components/commerce/data";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/about">): Promise<Metadata> {
+  await ensureContent("about");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("about", locale);
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/about">)
 
 /** About in the Modern Commerce design (Stage TM-2.3): the full company profile in fifteen parts. */
 export default async function AboutPage({ params }: PageProps<"/[locale]/about">) {
+  await ensureContent("about");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "about", path: "/about" });

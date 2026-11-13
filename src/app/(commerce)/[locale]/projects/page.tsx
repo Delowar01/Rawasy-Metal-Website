@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { getShellView } from "@/components/commerce/data";
 import { ProjectsPage as Projects } from "@/components/commerce/projects/ProjectsPage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/projects">): Promise<Metadata> {
+  await ensureContent("projects");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("projects", locale);
@@ -17,6 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/projects
  * #<slug>. The project pages (/projects/[slug]) are planned for Stage 1F; until then each shows its in-development page.
  */
 export default async function ProjectsPage({ params }: PageProps<"/[locale]/projects">) {
+  await ensureContent("projects");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "projects", path: "/projects" });

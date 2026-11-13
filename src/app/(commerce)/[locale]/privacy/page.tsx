@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { getShellView } from "@/components/commerce/data";
 import { LegalPage } from "@/components/commerce/legal/LegalPage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/privacy">): Promise<Metadata> {
+  await ensureContent("privacy");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("privacy", locale);
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/privacy"
 
 /** The privacy policy in the Modern Commerce design (Stage TM-2.1). */
 export default async function PrivacyPage({ params }: PageProps<"/[locale]/privacy">) {
+  await ensureContent("privacy");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "privacy", path: "/privacy" });

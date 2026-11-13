@@ -5,8 +5,10 @@ import { innerPageMetadata } from "@/lib/inner-page";
 import { getShellView } from "@/components/commerce/data";
 import { LegalPage } from "@/components/commerce/legal/LegalPage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
+import { ensureContent } from "@/content/load";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/terms">): Promise<Metadata> {
+  await ensureContent("terms");
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return innerPageMetadata("terms", locale);
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/terms">)
 
 /** The website terms in the Modern Commerce design (Stage TM-2.1). */
 export default async function TermsPage({ params }: PageProps<"/[locale]/terms">) {
+  await ensureContent("terms");
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const shell = await getShellView(locale, { route: "terms", path: "/terms" });

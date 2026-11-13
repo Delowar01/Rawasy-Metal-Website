@@ -22,7 +22,7 @@ export function mapLinksFor(address: string) {
   };
 }
 
-const today = mapLinksFor(company.address.en.full);
+let today = mapLinksFor(company.address.en.full);
 
 /** Keyless embed of an address search; `hl` sets the map's label language. */
 export function mapEmbedUrl(locale: Locale) {
@@ -30,7 +30,14 @@ export function mapEmbedUrl(locale: Locale) {
 }
 
 /** Opens Google Maps directions to the address (Maps URLs, no key). */
-export const directionsUrl = today.directions;
+export let directionsUrl = today.directions;
 
 /** Opens the address in Google Maps. */
-export const mapSearchUrl = today.search;
+export let mapSearchUrl = today.search;
+
+/** Builds the links again from the company's address as it is now (database mode, after new content is laid in: A9). */
+export function refreshMapLinks() {
+  today = mapLinksFor(company.address.en.full);
+  directionsUrl = today.directions;
+  mapSearchUrl = today.search;
+}

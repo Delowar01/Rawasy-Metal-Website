@@ -8,6 +8,7 @@ import { requireActor } from "@/server/admin/guards";
 import { loadPreview, type PreviewDevice, type PreviewKind } from "@/server/builder/preview";
 import { readForm } from "@/server/forms/forms";
 import { readWorkingSite } from "@/server/site/working";
+import { ensureContent } from "@/content/load";
 
 /*
  * /admin/preview/{page|service|reusable}/{id} (A5 brief §36–§40): a working page, service page or reusable section as the
@@ -30,6 +31,8 @@ const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 export const metadata: Metadata = { title: "Preview" };
 
 export default async function PreviewPage({ params, searchParams }: PageProps<"/admin/preview/[kind]/[id]">) {
+  // Database content (A9.4): the preview's “today’s” values are the published ones.
+  await ensureContent();
   const { actor } = await requireActor();
   if (!actor.permissions.has("content.view") || !actor.permissions.has("preview.use")) notFound();
   const { kind, id } = await params;
