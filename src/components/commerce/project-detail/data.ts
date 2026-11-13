@@ -90,6 +90,7 @@ export function projectDetailView(
       width: media.width,
       height: media.height,
       blurDataURL: media.blurDataURL,
+      ...(media.unoptimized ? { unoptimized: true as const } : {}),
       // One photo: the project's name. Several: the name and the photo's place in the set (nothing invented about it).
       alt: ids.length === 1 ? title : fill(page.photoAlt[locale], { title, n: String(i + 1), total: String(ids.length) }),
     };

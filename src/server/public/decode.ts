@@ -100,7 +100,11 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
     return m ? (m.legacyKey ?? m.id) : null;
   };
   out.mediaRegistry = Object.fromEntries(
-    input.media.map((m) => [m.legacyKey ?? m.id, { src: m.src, width: m.width ?? 0, height: m.height ?? 0, ...(m.blurDataUrl ? { blurDataURL: m.blurDataUrl } : {}) }]),
+    input.media.map((m) => [
+      m.legacyKey ?? m.id,
+      // An uploaded item (`/media/u/…`) is drawn as it is: the optimizer never takes its address (A4).
+      { src: m.src, width: m.width ?? 0, height: m.height ?? 0, ...(m.blurDataUrl ? { blurDataURL: m.blurDataUrl } : {}), ...(m.src.startsWith("/media/u/") ? { unoptimized: true } : {}) },
+    ]),
   );
 
   // Records in their published collection order (any published record the order does not list follows, by slug).

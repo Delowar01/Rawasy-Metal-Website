@@ -155,7 +155,7 @@ export async function IndustriesPage({ locale }: { locale: Locale }) {
               icon: industryIcon[industry.slug] ?? "factory",
               tone: industryTone[industry.slug] ?? "steel",
               services: industry.services.map((slug) => ({ href: href(locale, "service", { slug }), label: serviceName(slug) })),
-              image: { src: media.src, width: media.width, height: media.height, blurDataURL: media.blurDataURL },
+              image: { src: media.src, width: media.width, height: media.height, blurDataURL: media.blurDataURL, ...(media.unoptimized ? { unoptimized: true as const } : {}) },
             };
           }),
         }}

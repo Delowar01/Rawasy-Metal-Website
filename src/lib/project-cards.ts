@@ -46,7 +46,7 @@ export function cardImages<T extends { width: number }>(images: T[]): { mode: Pr
 export function projectCard(project: Project, locale: Locale): ProjectCardData {
   const images = projectImages(project).map((id) => {
     const media = getMedia(id);
-    return { src: media.src, width: media.width, height: media.height, blurDataURL: media.blurDataURL };
+    return { src: media.src, width: media.width, height: media.height, blurDataURL: media.blurDataURL, ...(media.unoptimized ? { unoptimized: true as const } : {}) };
   });
   const card = cardImages(images);
   const categories = categoryViews(locale, project.categories);

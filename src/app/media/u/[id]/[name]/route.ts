@@ -11,6 +11,7 @@
  *   before (the same-address move to the persistent store is A9's cutover, A4 brief §46).
  */
 import { isAdminEnabled } from "@/lib/admin-gate";
+import { contentIsStatic } from "@/content/load";
 import { dbFor } from "@/server/db/client";
 import { getPool } from "@/server/db/pool";
 import { defaultReleaseDir } from "@/server/media/presence";
@@ -26,7 +27,9 @@ const toResponse = (answer: PublicAnswer) =>
   });
 
 async function serve(request: Request, params: Promise<{ id: string; name: string }>, head: boolean): Promise<Response> {
-  if (!isAdminEnabled()) return toResponse(notFoundAnswer());
+  // A9.5: a database-content release delivers the library's public items whatever ADMIN_ENABLED says (its pages show
+  // them); a static release only while the admin runs (nothing public names these addresses there), as before A9.
+  if (contentIsStatic && !isAdminEnabled()) return toResponse(notFoundAnswer());
   const { id, name } = await params;
   return toResponse(
     await answerPublic({
