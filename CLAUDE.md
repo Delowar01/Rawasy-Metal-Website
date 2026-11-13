@@ -433,6 +433,17 @@
   content import, the cache handler, redirects resolving, `/media/u` decoupled from the gate, the public enquiry route)
   and never activate public enquiry collection, SMTP, real email, stored attachments, automatic retention, a backup
   schedule or off-site copies, or claim a key escrowed, without the Owner's explicit decision.
+  **A8 is technically closed** (the user's "A8 ACCEPTANCE & A9 IMPLEMENTATION AUTHORIZATION" brief: closure on its
+  reported implementation and evidence; its Low / Info backlog and the business decisions of its report's item 12 stay
+  open); rollback checkpoint: GitHub branch `preserve/pre-admin-a9` at the closure docs commit, pushed before any A9
+  commit. **Owner defaults for A9 development** (that brief §2, binding): required linked records must resolve and
+  meet the publication rules, optional ones may warn only where the approved renderer leaves them out; no revision
+  pruning; scheduled publishing stays off; no automatic production backups without a verified off-site location,
+  retention and key custody; audit export and automated retention off; unpublishing per the permission registry; a
+  slug rollback is checked for redirect conflicts before publication; legal pages need verified review and explicit
+  approval before production; stored enquiries, SMTP, attachments and automated retention off; staging content is not
+  imported into the final website without an explicit Owner decision. A9 may not deploy, merge into `main`, touch
+  hosting, DNS, staging or production databases, enable SMTP or cut over.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -543,7 +554,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A8 implemented locally)
+## Admin / CMS program (A1 specification; A2–A8 implemented locally, A8 closed; A9 in progress)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
