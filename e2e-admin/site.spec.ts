@@ -725,7 +725,9 @@ test.describe("redirects", () => {
     await main(admin).getByLabel("Address contains").fill("قديمة");
     await main(admin).getByRole("button", { name: "Show" }).click();
     await admin.waitForURL(/q=/);
-    expect(await main(admin).locator("tbody tr").count()).toBe(1);
+    // The list streams in after the address changes: wait for it, never count the moment the address changed (A9: the
+    // full suite counted 0 once under load; the same block passed 5 of 5 alone).
+    await expect(main(admin).locator("tbody tr")).toHaveCount(1);
     // Its own page reads the same, and saving it unchanged keeps the stored address.
     await main(admin).getByRole("link", { name: "/ar/صفحة-قديمة" }).click();
     await admin.waitForURL(`**/admin/redirects/${stored.id}`);
