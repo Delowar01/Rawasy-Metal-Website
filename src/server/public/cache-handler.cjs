@@ -54,37 +54,39 @@ async function sharedState() {
   }
 }
 
-const entries = new Map();
-const pending = new Map();
-
-class ContentCacheHandler {
-  constructor() {}
-
-  async get(key) {
-    const state = await sharedState();
-    const entry = entries.get(key);
-    if (entry && entry.generation === state.generation && entry.epoch === state.epoch) {
-      // Most recently used last (the bound evicts the oldest).
-      entries.delete(key);
-      entries.set(key, entry);
-      return entry.value;
+/** The handler class over a way to read the shared state (the tests pass their own). */
+function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES) {
+  const entries = new Map();
+  const pending = new Map();
+  return class ContentCacheHandler {
+    async get(key) {
+      const state = await readState();
+      const entry = entries.get(key);
+      if (entry && entry.generation === state.generation && entry.epoch === state.epoch) {
+        // Most recently used last (the bound evicts the oldest).
+        entries.delete(key);
+        entries.set(key, entry);
+        return entry.value;
+      }
+      if (entry) entries.delete(key);
+      // The render that follows is stamped with this state; overlapping renders keep the oldest.
+      if (!pending.has(key)) pending.set(key, state);
+      return null;
     }
-    if (entry) entries.delete(key);
-    if (!pending.has(key)) pending.set(key, state);
-    return null;
-  }
 
-  async set(key, data) {
-    const stamp = pending.get(key);
-    pending.delete(key);
-    if (!stamp || !data) return;
-    entries.set(key, { generation: stamp.generation, epoch: stamp.epoch, value: { lastModified: Date.now(), value: data } });
-    while (entries.size > MAX_ENTRIES) entries.delete(entries.keys().next().value);
-  }
+    async set(key, data) {
+      const stamp = pending.get(key);
+      pending.delete(key);
+      if (!stamp || !data) return;
+      entries.set(key, { generation: stamp.generation, epoch: stamp.epoch, value: { lastModified: Date.now(), value: data } });
+      while (entries.size > maxEntries) entries.delete(entries.keys().next().value);
+    }
 
-  async revalidateTag() {}
+    async revalidateTag() {}
 
-  resetRequestCache() {}
+    resetRequestCache() {}
+  };
 }
 
-module.exports = ContentCacheHandler;
+module.exports = createHandlerClass();
+module.exports.createHandlerClass = createHandlerClass;
