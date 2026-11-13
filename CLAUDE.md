@@ -10,10 +10,13 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-11-06-admin-a8-publishing-revisions-audit-backup.md` (Admin / CMS program, Phase A8
-  — publishing, revisions, the reference index, slug redirects, the audit log viewer, backup and restore tools, carried
-  hardening, local implementation only; the A7 closure; the security review; the restore drill; the A9 cutover plan)
-  (earlier: `2026-11-06-admin-a7-forms-enquiries.md` (Phase A7 — forms and enquiries; its last section, "A7 FINAL
+- Latest report: `docs/reports/2026-11-13-admin-a9-migration-database-site.md` (Admin / CMS program, Phase A9 — the
+  static content import, publication through A8, the database-content website behind `CONTENT_SOURCE`, public media and
+  redirects in database mode, local implementation only; the A8 closure; the security review; the static-vs-database
+  parity proof; the drills; the hosting checklist and the cutover runbook for approval)
+  (earlier: `2026-11-06-admin-a8-publishing-revisions-audit-backup.md` (Phase A8 — publishing, revisions, the reference
+  index, slug redirects, the audit log viewer, backup and restore tools, carried hardening; the restore drill),
+  `2026-11-06-admin-a7-forms-enquiries.md` (Phase A7 — forms and enquiries; its last section, "A7 FINAL
   CORRECTION AND CLOSURE": the inbox search kept out of every address, the keyboard walkthrough, the closure QA and
   freeze), `2026-10-30-admin-a6-global-site-controls.md` (Phase A6 — global site controls; its last section, "A6 FINAL
   CORRECTION AND CLOSURE": the Contact preview correction, the closure QA and freeze),
@@ -554,7 +557,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A8 implemented locally, A8 closed; A9 in progress)
+## Admin / CMS program (A1 specification; A2–A9 implemented locally, A8 closed; A9 awaits the Owner's review)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
@@ -1357,6 +1360,79 @@
 - Tests: `tests/unit/publishing-core.test.ts`, `backup-crypto.test.ts`; `tests/integration/publishing-migration.test.ts`
   (A–G), `publishing-workflow.test.ts`, `publishing-aggregates.test.ts`; `e2e-admin/publishing.spec.ts`. The A3–A7
   migration tests take 0010–0012; A3's "no revision exists" test now checks that a save publishes nothing.
+
+### Phase A9 implementation (local only; report `2026-11-13-admin-a9-migration-database-site.md`)
+
+- Scope (the A8/A9 brief, A9.1–A9.6): the static content importer, publication through A8, the database content
+  source behind the content modules, public media and redirects in database mode, the runbook
+  (`docs/admin/A9-CUTOVER-RUNBOOK.md`: hosting checklist H1–H14, staging rehearsal, package, cutover and rollback —
+  for approval only). **Nothing was deployed; no staging or production database was touched; `main` unchanged.** The
+  enquiry handoff is unchanged (A7's submission service is still reachable by no route).
+- **The switch:** `CONTENT_SOURCE` (`static` default = the rollback | `database`), read by `next.config.ts` at build
+  only. `database` aliases `@/content/load` → `src/content/live/load.ts` (`turbopack.resolveAlias`), sets the page cache
+  handler (`src/server/public/cache-handler.cjs`, `cacheMaxMemorySize: 0`), sends `Cache-Control: private, no-cache` on
+  `/en`, `/ar`, their pages and `/sitemap.xml` (Next.js would send `s-maxage` of a year), and requires
+  `NEXT_PUBLIC_SITE_URL`. `src/content/load.ts` (static) exports `contentIsStatic = true`, a no-op
+  `ensureContent(page?)`, `redirectFor(path)` → null, `isLivePage` → true. Every public entry awaits `ensureContent`
+  first (the layout's metadata, each page and its metadata with its system key, the 404s, the sitemap, the admin
+  preview); root and slug `generateStaticParams` return `[]` when `!contentIsStatic`; the services / projects slug pages
+  and the catch-all call `redirectFor` before `notFound()`. A new public route must do the same. Lint:
+  `src/content/live/**` may import `@/server/public/**` and `@/server/db/**` and nothing else of `src/server` (other
+  public files none).
+- **The live loader** fills the modules' own objects in place (`replaceInPlace`, every level; `staticContentSet()` in
+  `src/content/static-set.ts` returns those very objects — a guard throws if the modules were loaded twice), from
+  `decodeContentSet(snapshot, BASE)` (BASE = a clone of today's static set taken at module load). Per request (React
+  `cache`): the generation read with a 5 s query timeout; another generation or epoch → reload (the snapshot within
+  15 s, three attempts), never another generation's content; failure → `ContentUnavailableError` (500); breaker 5 → 60 s
+  (the pool's own full queue is not counted); logs name codes only. `connection()` is called only during `next build`
+  (at run time it throws DYNAMIC_SERVER_USAGE on these SSG-shaped routes). Module-scope values derived from content must
+  refresh after a swap (`refreshMapLinks()` in `src/lib/maps.ts`; `serviceSlugs` spliced): never add one without that.
+- **The read model** (`src/server/public/`): `read-model.ts` (one snapshot of `published_documents` + `public_media` +
+  the generation; `readGenerationWithin`, `within`), `decode.ts` (records rebuilt whole in their published ordering, no
+  static record consulted; page copy over today's values: layouts through `src/server/migration/layouts.ts`, page records
+  (SEO, navigation labels, legal dates), settings (company, site name, interface text, footer title), menus, the quote
+  form; media by legacy key or id, uploads `unoptimized`; whatever cannot be drawn is left out — a service without its
+  code look or photos, a machine without a live main service or photo, a client / industry / certificate without its
+  picture — and dangling relations dropped; a section at a block version this release does not read fails the load),
+  `redirects.ts` (pages win; one lookup; the target must be live and not the source; 308 / 307), `cache-handler.cjs`
+  (the generation read on every lookup and stamped before the render, oldest stamp kept, epoch, 200 answers only, 400
+  entries and 128 MiB, breaker 5 → 30 s; plain CommonJS with its own one-connection mysql2 pool, so the connection
+  budget is `P × (L + 1) + R ≤ U`).
+- **The generation moves on everything the public reads:** A8's publications, plus (A9 review M1) every change of
+  `public_media` (`syncPublicMedia` → `recordInvalidations(["media:<id>"])`) and every redirect save or (de)activation.
+- **The composition guard** (`src/server/publishing/composition.ts`, review M2): what the approved components require
+  live — the homepage's two laser services, the Projects collage's three projects, the Industries strip's five
+  industries, a service live machines name as their main one, the settings, menus and the quote form — can't be
+  unpublished (A8 `unpublish`) or archived (A3 `setItemArchived`); refused with the reason, audited.
+  `COMPOSITION_RECORDS` is tested equal to the components' own lists (`migration-layouts.test.ts`).
+- **The projection** keeps `sourceBasis` / `sourcePages` (the pages print them); `sourceNote`, `expiresOn` and flags stay
+  admin-only.
+- **The importer** (`src/server/migration/{importer,records,layouts}.ts`, `scripts/content-import.mjs`,
+  `npm run content:import -- --owner=<email> [--dry-run] [--legal-reviewer="…"] [--report=<file>]`, exit 0 / 1 usage /
+  2 refused / 3 database): as an existing active Owner (own short-lived session, revoked in `finally`; audit actor
+  `cli`), one `contentTransaction`: records (A3 forms), the 13 fixed pages with their layouts, A6 set-ups, the A7 form,
+  orderings; an `import` revision with the static source's fingerprint per aggregate; A8 `publish` in dependency order
+  (`PUBLISH_ORDER`). Existing aggregates: updated only if the import wrote them, nobody changed them since and the source
+  changed; otherwise `edited_kept` / `conflict`, listed; anything archived or taken offline since stays so; an unchanged
+  aggregate is published by a later run only if it was never published (the legal pages, which publish only with
+  `--legal-reviewer`). Refused (and nothing written) while any of the 13 held-back files is delivered (`heldBackMedia`).
+  Refusal or `--dry-run` → everything rolled back; a `content.import` audit event either way. Media by legacy key, only
+  delivered ones; the reconciliation lists what it left out.
+- **`layouts.ts` is the single map both ways** (encode: today's copy → A5 sections; decode: published sections → the
+  static shapes). Shared values have one canonical block (`ro` copies elsewhere): About's pillars, statements and site
+  items; the shared service labels in Laser Cutting's layout; company, vision and site name in the A6 settings;
+  dictionary values in the A6 interface text. `tests/unit/migration-layouts.test.ts` proves decode(encode(static)) =
+  static and lists every page text no layout carries (`NOT_IN_LAYOUTS`: the A7 form copy, the composed "Company profile ·
+  p.N", the previous design's unused homepage copy): a new component text gets a block field or joins that list.
+- **Public structure stays code** (a known limit for the Owner): hidden, moved or added sections of system pages and
+  generic pages show in the preview only; the service pages' optional sections follow their layout's visibility.
+- Corrections found by A9 (each with a test): A3 a gallery reference takes an en dash; A5 `linksOptional` (the service
+  hero's "See the work"); A8 a menu's collection item needs no label; A8 the projection keeps the public source fields;
+  A9.4 read time limits; A2's sign-in timing test compares the two paths; A6's site spec waits for the saved version and
+  for hydration.
+- Tests: `tests/unit/migration-layouts.test.ts`, `public-cache.test.ts`, `tests/integration/migration-import.test.ts`
+  (A9's security tests among them, each failing on `83a1892`). Database-mode parity is proven with scratch tools (the
+  report, item 6), not a committed suite: rebuild them from the report if needed.
 
 ## Rules from the brief
 
@@ -2941,3 +3017,22 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - The homepage showcase's race (the gotcha above) also showed in A8's first fresh-clone public run (611 / 612). Its 12
   tests × 10 at 8 workers failed 1 / 120 on the A8 build and 1 / 120 on the A7 baseline build, the same way each time
   (the clicked machine's link stayed `tabindex=-1`).
+- `connection()` (or any dynamic API) on a route Next.js treats as static — the public routes with
+  `generateStaticParams` — throws DYNAMIC_SERVER_USAGE when a request renders it at run time. A9's database pages are ISR
+  pages kept by the custom cache handler; `connection()` is called only while `NEXT_PHASE=phase-production-build` (so
+  the build reads no database and the sitemap becomes dynamic).
+- Next.js sets a page's `Cache-Control` only when no header set it before: a `headers()` rule in `next.config.ts` wins
+  (A9's `private, no-cache` on database pages, where Next would send `s-maxage=31536000`).
+- `cacheHandler` is a file Next.js `require`s itself at run time, outside the bundle (CommonJS; it must find `mysql2` in
+  the deployed `node_modules` and its own path under `src/`): the packaging check verifies a database build packs it.
+- A database that stalls (`docker pause`) instead of refusing connections holds every query that has no time limit:
+  give each public read a timeout (mysql2's per-query `timeout`, plus a limit on the whole load), or requests hang.
+- Mutating the content modules' objects in place keeps every importer's reference valid, but a module-scope value
+  derived from them at load (`directionsUrl` in `maps.ts`, `serviceSlugs`) stays stale unless the swap refreshes it.
+- e2e: a wait on `page.waitForURL(… has("v") …)` after a second save on the same screen matches the address the first
+  save left: pass the version the page showed and wait for another (`savedTo(…, shownVersion)` in `site.spec.ts`). A DOM
+  read of the public header right after `goto` races hydration (the theme switch's `aria-pressed` is set then): wait for
+  `header.a2-header button[aria-pressed="true"]`. Never select by an English `aria-label` in a test that also visits
+  `/ar` (the labels are Arabic there).
+- A `/proc` loop that stops servers by command line matches its own shell when the pattern (e.g. `server.js`) appears in
+  that command: match `case "$cmdline" in "node server.js"*)` (a command line that starts with it) and the server's cwd.
