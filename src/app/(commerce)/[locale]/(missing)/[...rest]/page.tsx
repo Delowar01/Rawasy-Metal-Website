@@ -9,7 +9,8 @@ export const dynamicParams = true;
  */
 export default async function CatchAll({ params }: PageProps<"/[locale]/[...rest]">) {
   // Database content (A9.5): an address no page answers follows its published redirect, if any (pages always win: this
-  // runs only where no route matched). The static source has none.
+  // runs only where no route matched). A release built from the content files resolves none. (Never the bare word for
+  // that kind of release here: Tailwind turns it into a utility of the public stylesheet.)
   const { locale, rest } = await params;
   await ensureContent();
   await redirectFor(`/${locale}/${rest.join("/")}`);
