@@ -258,7 +258,113 @@ pages. `tests/unit/migration-layouts.test.ts` lists each such text by name (`NOT
 
 ## 6. Static vs database parity evidence
 
-{{PARITY}}
+**Setup.** Every comparison below is on the final code, `1eb7a30`, from a fresh clone. Two releases of that same commit
+were compared:
+- the **static release**, on port 3400;
+- the **database release**, on port 3410, serving the drill database of item 4 as imported (with the placeholder legal
+  reviewer, so that Privacy and Terms are live and comparable).
+
+The earlier evidence on `c9d9121` (item 7.2, D1) gave the same parity figures. It is kept in the session's scratch
+folder but not relied on.
+
+### 6.1 The static release is preserved (the rollback baseline)
+
+The A8 closure build (`babf932` = `preserve/pre-admin-a9`) was compared with the A9 static build:
+
+{{FREEZE}}
+
+### 6.2 Static vs database: HTML, HTTP and the browser's files
+
+**Visible HTML** (scripts removed, build paths normalised, JSON-LD kept): **108 / 108 identical**. That covers the
+102 sitemap addresses (EN and AR), plus `/en/not-a-page`, `/ar/no/such/page`, an unknown service, an unknown project,
+`/en/admin` and `/theme-lab/en/x`.
+
+**HTTP answers:** 224. For each, status, type, robots, location, `Cache-Control` and the body's hash were compared.
+- **Status, type, robots and location:** identical on all 224.
+- **`Cache-Control`:** differs on 210 answers, as intended (L1). The database release's pages and page data send
+  `private, no-cache`; the static release's pages send `s-maxage=31536000`.
+- **Bodies:** 3 differ.
+  - `/api/nothing` and `/og/home-en.png` (an address neither release has) both answer Next's own 404 page. The
+    database release puts the page's title and meta tags later in the stream: its root metadata awaits the content
+    check. The tags themselves are the same.
+  - `/en/not-a-page` differs the same way. On the database release this varies from request to request: 1 answer in
+    12 streamed its metadata into the body, the other 11 were identical to the static release's. The static release
+    gave 12 of 12 one way. React moves the streamed tags into `<head>`, so the browser shows the same page.
+
+**The browser's files** (`.next/static`): 98 / 98.
+- 82 are identical in name and bytes, the 9 stylesheets among them.
+- 16 scripts differ in name only, in pairs of equal size. All 16 are admin chunks carrying Server Action references.
+  Once the action ids (made per build) and the minifier's local names are normalised, all 16 are equal. No sitemap
+  page of either release loads any of them.
+
+### 6.3 Static vs database: the public browser suite
+
+The full public suite (`E2E_BASE_URL` = the database release) gave **601 passed, 11 skipped, 0 failed**. The static
+release passed 612 / 612.
+
+The 11 skipped are the fallback 404's checks: they read the checkout's own build output, so they skip themselves
+against an external server. Run from the database build's own folder against its own server, they passed
+{{FALLBACK}}.
+
+This suite covers, against the database release:
+- the homepage and every inner page (structure, words, order);
+- fonts and the Arabic preloads;
+- images at their source size, the held-back photos never requested, the 13 files' absence;
+- the certificate files' hashes and the digit guard;
+- anchors and their landings, keyboard, focus;
+- motion and reduced motion, forced colours, no-JS;
+- the quote form's golden email / WhatsApp outputs and its no-JS mailto;
+- the map frame;
+- SEO, JSON-LD, canonical, hreflang, the sitemap;
+- the 404s and their status codes;
+- layout at twelve sizes.
+
+### 6.4 Every visible text comes from the published documents: the marker drill
+
+**Method.** In a copy of the imported drill database, every text of the 113 published documents got an invisible
+marker (U+2063) appended, and the cache generation moved. Every page of the database release was then read, and each
+visible text node without the marker listed.
+
+**Result:** {{MARKER}}
+
+**What carries no mark, and why** (86 distinct texts):
+- **Code-owned by design.** Numbering (01–32, A–D) and punctuation. The language switch's codes ("EN", "عربي", "ع")
+  and its labels. © and the year. The company profile's figures in `src/content/metrics.ts` (12,000 / 6,000 / 3,000,
+  W, "Peak fibre-laser power" and their Arabic). The composed "Company profile · p.7" line.
+- **From the documents, but not markable by the probe:**
+  - numbers and dates formatted from record values (powers such as "12 kW", the legal pages' dates);
+  - root fields the probe leaves unmarked (gallery references "p.3", "07–08");
+  - texts whose key is `type`, which the probe never marks so that rich-text node types stay valid ("Type" / "النوع");
+  - split strings, where the mark sits on the last piece: the e-mail's local part (the component splits it at "@") and
+    the privacy line before its link.
+
+**Not one sentence of page copy came from code** where a published document holds it.
+
+### 6.5 Pixels
+
+**Method** (static vs database, the final build):
+- every sitemap page and the two 404s;
+- at 1440 × 900, 834 × 1112 and 390 × 844;
+- in light and dark: 624 cells;
+- with reduced motion, every image eager and decoded, and the page walked to its end and back before a full capture
+  (phones in 4,000 px slices).
+
+**Result: 624 / 624 identical**, 623 at the first capture. The one recapture was the Arabic Projects page (desktop,
+dark): the gallery's photo-size choice is timing-dependent, a known gotcha. Its second capture was identical on both
+releases.
+
+### 6.6 Speed and memory (local; the account is to be measured, H7 / H8)
+
+| | Static release | Database release |
+|---|---|---|
+| Image warm-up (1,484 sizes, 102 pages) | 1,484 / 1,484, page median 15 ms, p95 47 ms | 1,484 / 1,484, page median 13 ms, p95 44 ms |
+| First render of a page after start or publication | prerendered | 40–290 ms |
+| A cached page | 2–9 ms | 5–11 ms (one generation read) |
+| Resident memory after warm-up, the public suite and the pixel run | 534 MB | 559 MB (peak 559 MB) |
+
+### 6.7 The homepage hydration race (tracked; an independent assessment)
+
+{{RACE}}
 
 ## 7. Security review
 
