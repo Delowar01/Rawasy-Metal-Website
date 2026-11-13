@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { join } from "node:path";
 
 /**
  * Static headers of the API namespaces, which stay outside the proxy (A1-SECURITY-RBAC §4): no caching, no indexing, no
@@ -14,18 +15,29 @@ const API_HEADERS = [
   { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'; sandbox" },
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- a CommonJS helper Next.js loads with this file at every start.
+const { builtSource, contentSourceFor } = require("./src/server/public/release-source.cjs") as {
+  builtSource: (distDir: string) => "static" | "database" | null;
+  contentSourceFor: (phase: string, asked: string | undefined, readBuilt: () => "static" | "database" | null) => "static" | "database";
+};
+
 /**
  * The content source (A9.4, A1-MIGRATION-PLAN §9): fixed into a release when it is built. `static` (the default, and the
  * rollback) renders `src/content/*` as before A9. `database` resolves `@/content/load` to the live loader
- * (src/content/live/load.ts): the same modules filled from the published documents, rendered per request; such a build
- * needs NEXT_PUBLIC_SITE_URL (canonical and share addresses are never taken from the database).
+ * (src/content/live/load.ts): the same modules filled from the published documents, rendered per request, kept by the
+ * fail-closed page cache; such a build needs NEXT_PUBLIC_SITE_URL (canonical and share addresses are never taken from the
+ * database). A server running a build takes the source that build was made with (src/server/public/release-source.cjs):
+ * Next.js evaluates this file again at every start, where `CONTENT_SOURCE` is usually not set.
  */
-const CONTENT_SOURCE = process.env.CONTENT_SOURCE ?? "static";
-if (CONTENT_SOURCE !== "static" && CONTENT_SOURCE !== "database") throw new Error(`CONTENT_SOURCE must be "static" or "database".`);
-const DATABASE_CONTENT = CONTENT_SOURCE === "database";
-if (DATABASE_CONTENT && !process.env.NEXT_PUBLIC_SITE_URL) throw new Error("A database-content build needs NEXT_PUBLIC_SITE_URL.");
+export default function nextConfig(phase: string): NextConfig {
+  // Next.js compiles this file as `<app folder>/next.config.compiled.js`, so `__dirname` is the app's folder.
+  const DATABASE_CONTENT = contentSourceFor(phase, process.env.CONTENT_SOURCE, () => builtSource(join(__dirname, ".next"))) === "database";
+  // Needed when building (Next.js writes NEXT_PUBLIC_* into the bundles then), not when a server starts.
+  if (DATABASE_CONTENT && phase === "phase-production-build" && !process.env.NEXT_PUBLIC_SITE_URL) throw new Error("A database-content build needs NEXT_PUBLIC_SITE_URL.");
+  return config(DATABASE_CONTENT);
+}
 
-const nextConfig: NextConfig = {
+const config = (DATABASE_CONTENT: boolean): NextConfig => ({
   poweredByHeader: false,
   ...(DATABASE_CONTENT
     ? {
@@ -62,6 +74,4 @@ const nextConfig: NextConfig = {
     // (the localized 404 lives in app/(commerce)/[locale]/(missing)/not-found.tsx).
     globalNotFound: true,
   },
-};
-
-export default nextConfig;
+});

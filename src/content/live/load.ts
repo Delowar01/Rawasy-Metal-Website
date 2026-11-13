@@ -103,9 +103,18 @@ async function load(): Promise<void> {
   };
 }
 
+/** Whether Next.js uses the fail-closed page cache in this process (src/server/public/cache-handler.cjs marks it). */
+const pageCacheInUse = () => (globalThis as Record<symbol, unknown>)[Symbol.for("rawasy.public.pageCacheInUse")] === true;
+
 async function readCurrent(): Promise<Loaded> {
   // `next build` never reads the database: a route that reaches the content there is rendered per request instead.
   if (process.env.NEXT_PHASE === "phase-production-build") await connection();
+  // Never render database content that another cache could keep: Next.js's own cache stores pages with no generation
+  // check (stale after a publication, answered while the database is down). A9 fail-closed drill.
+  if (!pageCacheInUse()) {
+    console.error("content source: the fail-closed page cache is not in use; this release's configuration is not a database-content one");
+    throw new ContentUnavailableError();
+  }
   if (Date.now() < openUntil) throw new ContentUnavailableError();
   try {
     const { generation, epoch } = await readGenerationWithin(getPool());

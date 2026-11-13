@@ -25,6 +25,12 @@ const MAX_BYTES = 128 * 1024 * 1024;
 const BREAKER_FAILURES = 5;
 const BREAKER_OPEN_MS = 30_000;
 const POOL = Symbol.for("rawasy.public.cachePool");
+/**
+ * Set once Next.js has made this handler the page cache of the process (it constructs one per request, before the
+ * render). The live loader (src/content/live/load.ts) serves nothing without it: a database-content release whose page
+ * cache is anything else (Next.js's own file-system cache keeps pages with no generation check) fails closed instead.
+ */
+const IN_USE = Symbol.for("rawasy.public.pageCacheInUse");
 
 function pool() {
   const holder = globalThis;
@@ -81,6 +87,10 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, m
     entries.delete(key);
   };
   return class ContentCacheHandler {
+    constructor() {
+      globalThis[IN_USE] = true;
+    }
+
     async get(key) {
       // After repeated failures, fail at once for a while instead of queueing every request on a stalled database.
       if (Date.now() < openUntil) throw new Error("The page cache could not check the content's version.");
