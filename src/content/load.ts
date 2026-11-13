@@ -18,6 +18,12 @@ export async function ensureContent(page?: string): Promise<void> {
   void page;
 }
 
+/** The published redirect of an address no page answers (static source: none; A6's redirects resolve from A9). */
+export async function redirectFor(path: string): Promise<null> {
+  void path;
+  return null;
+}
+
 /** Whether a fixed page is published (static source: every page is the release's). */
 export function isLivePage(page: string): boolean {
   void page;

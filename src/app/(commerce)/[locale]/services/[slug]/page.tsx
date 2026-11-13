@@ -9,7 +9,7 @@ import { buildMetadata } from "@/lib/seo";
 import { getShellView } from "@/components/commerce/data";
 import { ServicePage as Service } from "@/components/commerce/services/ServicePage";
 import { PageShell } from "@/components/commerce/shell/PageShell";
-import { contentIsStatic, ensureContent } from "@/content/load";
+import { contentIsStatic, ensureContent, redirectFor } from "@/content/load";
 
 // Known slugs are prerendered; unknown ones render and call notFound(): the localized 404 of this design (not-found.tsx
 // beside this page), with a real 404 status.
@@ -39,6 +39,8 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
   await ensureContent();
   const { locale, slug } = await params;
   const content = await getServicePageContent(slug);
+  // An address no live service answers: its published redirect (database content, A9.5), else the 404.
+  if (isLocale(locale) && !content) await redirectFor(`/${locale}/services/${slug}`);
   if (!isLocale(locale) || !content) notFound();
   const shell = await getShellView(locale, { route: "service", path: path("service", { slug }) });
   return (

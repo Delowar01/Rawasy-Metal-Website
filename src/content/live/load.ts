@@ -17,7 +17,7 @@
  */
 import { cache } from "react";
 import { connection } from "next/server";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { staticContentSet, type ContentSet } from "../static-set.ts";
 import { company } from "@/content/company";
 import { serviceSlugs } from "@/content/services";
@@ -26,6 +26,7 @@ import { getPool, describeDbError } from "@/server/db/pool";
 import { dbFor } from "@/server/db/client";
 import { readGeneration, readPublicSnapshot } from "@/server/public/read-model";
 import { decodeContentSet } from "@/server/public/decode";
+import { resolvePublicRedirect, type LiveAddresses } from "@/server/public/redirects";
 
 export const contentIsStatic = false;
 
@@ -39,8 +40,7 @@ interface Loaded {
   generation: number;
   epoch: string;
   livePages: ReadonlySet<string>;
-  /** The live addresses (records by id → slug, fixed pages by id → key). */
-  addresses: { services: ReadonlySet<string>; projects: ReadonlySet<string>; serviceSlugs: ReadonlyMap<string, string>; projectSlugs: ReadonlyMap<string, string>; pageKeys: ReadonlyMap<string, string> };
+  addresses: LiveAddresses;
 }
 let loaded: Loaded | null = null;
 let loading: Promise<void> | null = null;
@@ -137,6 +137,20 @@ const current = cache(readCurrent);
 export async function ensureContent(page?: string): Promise<void> {
   const live = await current();
   if (page && !live.livePages.has(page)) notFound();
+}
+
+/** Follows the published redirect of an address no live page answers (`redirect` throws; nothing else returns). */
+export async function redirectFor(path: string): Promise<null> {
+  const live = await current();
+  let found: Awaited<ReturnType<typeof resolvePublicRedirect>>;
+  try {
+    found = await resolvePublicRedirect(dbFor(getPool()), path, live.addresses);
+  } catch (error) {
+    console.error(`content source: redirect lookup failed (${describeDbError(error)})`);
+    throw new ContentUnavailableError();
+  }
+  if (found) (found.permanent ? permanentRedirect : redirect)(found.location);
+  return null;
 }
 
 export function isLivePage(page: string): boolean {
