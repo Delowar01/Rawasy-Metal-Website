@@ -132,6 +132,12 @@ export interface BlockDefinition {
   recordIds?: readonly RecordIdPattern[];
   /** Anchors of the same page the approved component links to (warned about when they are hidden or missing). */
   linksTo?: readonly string[];
+  /**
+   * The in-page link points at the first of `linksTo` that is shown and is left out when none is (the service hero's
+   * "See the work": the gallery, else the projects; a service with neither — Laser Engraving — shows no link). A9: without
+   * it the structure check required every target shown, so Laser Engraving's approved page had no valid layout.
+   */
+  linksOptional?: boolean;
   /** May be kept as a reusable section. */
   reusable: boolean;
   /** False only for the library's "Insert a reusable section" entry (a linked section stores the reusable's own type). */

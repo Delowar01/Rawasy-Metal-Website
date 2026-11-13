@@ -201,7 +201,9 @@ export async function publicationIssues(tx: Db, type: AggregateType, id: string,
     issues.push(...sectionIssues(snapshot.texts, snapshot.blockType, "This reusable section"));
   } else if (type === "menu") {
     if (snapshot.setUp !== true) issues.push({ code: "setup", message: "This menu is not set up yet.", blocking: true });
-    const unlabelled = list(snapshot.items).filter((i) => i.isVisible === true && LOCALES.some((l) => emptyValue(asRecord(i.label)[l]))).length;
+    // A collection item (the Services menu's live services) is labelled by its records, never by the menu (A6). A9: the
+    // check counted it, so the seeded Services menu could never be published.
+    const unlabelled = list(snapshot.items).filter((i) => i.isVisible === true && i.linkType !== "collection" && LOCALES.some((l) => emptyValue(asRecord(i.label)[l]))).length;
     if (unlabelled) issues.push({ code: "menu.labels", message: `${unlabelled} visible item${unlabelled === 1 ? " needs" : "s need"} a label in both languages.`, blocking: true });
   } else if (type === "site_settings" || type === "form") {
     if (snapshot.setUp !== true) issues.push({ code: "setup", message: `The ${AGGREGATES[type].one} ${type === "form" ? "is" : "are"} not set up yet.`, blocking: true });

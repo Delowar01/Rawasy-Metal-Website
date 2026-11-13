@@ -300,7 +300,7 @@ export const projectSpec: KindSpec = {
   rootId: projects.id,
   ...TRANSLATED.project,
   rootShape: {
-    galleryRef: z.preprocess(empty, z.string().max(T.galleryRef).regex(/^[A-Za-z0-9. -]+$/, "Letters, digits, dots and spaces, e.g. 04 or p.3.").optional()),
+    galleryRef: z.preprocess(empty, z.string().max(T.galleryRef).regex(/^[A-Za-z0-9. \u2013-]+$/, "Letters, digits, dots, spaces and dashes, e.g. 04, p.3 or 07\u201308.").optional()),
     year: z.preprocess(
       empty,
       z.coerce

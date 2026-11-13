@@ -67,6 +67,7 @@ export const SERVICE_BLOCKS: BlockDefinition[] = [
     anchor: "none",
     renderedIds: ["page-title"],
     linksTo: ["gallery", "projects"],
+    linksOptional: true,
     structure: FIXED,
     settings: {
       visual: choice(

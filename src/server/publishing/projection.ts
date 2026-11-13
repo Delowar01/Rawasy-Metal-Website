@@ -1,6 +1,6 @@
 /**
  * The public projection (A8.2, A1-PUBLISHING-VERSIONS §1): what of a published version the public site may read — the
- * snapshot without admin-only fields (provenance, flags, a certificate's expiry date, a form's notification addresses
+ * snapshot without admin-only fields (the source note, flags, a certificate's expiry date, a form's notification addresses
  * and retention), language states, hidden sections, hidden menu items or phones. Media stay ids: the public renderer
  * shows an item only while A4's `public_media` holds it, so a later restriction withdraws it at once without a
  * republish. Pure.
@@ -8,7 +8,12 @@
 import { CONTENT_AGGREGATES, PROJECTION_SCHEMA_VERSION, type AggregateType } from "./registry.ts";
 import type { Snapshot } from "./snapshot.ts";
 
-const ADMIN_ONLY_ROOT = new Set(["sourceBasis", "sourcePages", "sourceNote", "expiresOn"]);
+/**
+ * A9: a record's source basis and pages stay public — the approved pages print them ("Company profile · p.7" on
+ * Capabilities, the profile / website grouping on Industries and the service pages). The source note (internal remarks,
+ * the held-back photos' reasons) and a certificate's expiry date stay admin-only.
+ */
+const ADMIN_ONLY_ROOT = new Set(["sourceNote", "expiresOn"]);
 const ADMIN_ONLY_FORM_SETTINGS = new Set(["notificationEmails", "retentionDays"]);
 
 const asRecord = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});

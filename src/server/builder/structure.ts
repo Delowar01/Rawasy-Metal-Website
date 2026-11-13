@@ -482,7 +482,7 @@ export function layoutIssues(kind: OwnerKind, sections: readonly LayoutSection[]
   }
   sections.forEach((section, i) => {
     const def = defs[i];
-    if (!def?.linksTo || !requiredBlocks(kind).includes(def.key)) return;
+    if (!def?.linksTo || def.linksOptional || !requiredBlocks(kind).includes(def.key)) return;
     for (const anchor of def.linksTo) {
       const target = sections.find((s) => s.anchor === anchor);
       if (target && !shownEverywhere(target)) issues.push({ sectionId: target.id, message: `“${def.label}” links to this section (#${anchor}); it can't be hidden.` });
