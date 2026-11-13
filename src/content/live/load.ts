@@ -121,7 +121,9 @@ async function readCurrent(): Promise<Loaded> {
     return loaded!;
   } catch (error) {
     if (error instanceof ContentUnavailableError) throw error;
-    failures += 1;
+    // The pool's own queue being full is load on this process, not the database failing: never opens the breaker.
+    const local = error instanceof Error && /Queue limit reached/i.test(error.message);
+    if (!local) failures += 1;
     if (failures >= BREAKER_FAILURES) {
       openUntil = Date.now() + BREAKER_OPEN_MS;
       failures = 0;

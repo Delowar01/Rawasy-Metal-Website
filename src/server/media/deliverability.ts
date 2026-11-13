@@ -14,6 +14,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Db } from "../db/client.ts";
 import { mediaAssets, mediaFiles, mediaFlags, mediaTranslations, mediaVariants, publicMedia } from "../db/schema-media.ts";
 import { isBlockingMediaFlag, mediaFlagLabel, USAGE_STATUS_LABELS, type MediaKind, type UsageStatus, type Visibility } from "./registry.ts";
+import { recordInvalidations } from "../publishing/cache.ts";
 
 export interface DeliverabilityInput {
   visibility: Visibility;
@@ -79,6 +80,8 @@ export async function syncPublicMedia(tx: Db, mediaId: string, now: Date): Promi
   if (!verdict.deliverable || !file) {
     if (!existing) return { deliverable: false, changed: false };
     await tx.delete(publicMedia).where(eq(publicMedia.mediaId, mediaId));
+    // A9: the public pages of a database-content release show the item until the generation moves (security review M1).
+    await recordInvalidations(tx, [`media:${mediaId}`], null, now);
     return { deliverable: false, changed: true };
   }
   const translations = await tx.select({ locale: mediaTranslations.locale, altText: mediaTranslations.altText }).from(mediaTranslations).where(eq(mediaTranslations.mediaId, mediaId));
@@ -111,5 +114,7 @@ export async function syncPublicMedia(tx: Db, mediaId: string, now: Date): Promi
     updatedAt: now,
   };
   await tx.insert(publicMedia).values({ mediaId, ...row }).onDuplicateKeyUpdate({ set: row });
-  return { deliverable: true, changed: !existing || existing.fileId !== file.id || existing.src !== src };
+  const changed = !existing || existing.fileId !== file.id || existing.src !== src;
+  if (changed) await recordInvalidations(tx, [`media:${mediaId}`], null, now);
+  return { deliverable: true, changed };
 }

@@ -108,6 +108,18 @@ export class ImportRefused extends Error {
   }
 }
 
+/**
+ * The release files the static website holds back (the 13 of A1-MIGRATION-PLAN §7): the withheld photos, every photo
+ * of a project awaiting authorship or product confirmation, and Laser Engraving's three images (the asset inventory's
+ * item 12; `HELD_BACK_MEDIA` of scripts/package-namecheap.mjs).
+ */
+export function heldBackMedia(set: ContentSet): string[] {
+  const out = new Set<string>(set.withheldMedia);
+  for (const p of set.projects) if ((p.flags ?? []).some((f) => f !== "ai-watermark")) for (const m of p.media) out.add(m);
+  for (const m of ["services/engraving-nameplates", "services/engraving-wood", "services/engraving-rotary"]) out.add(m);
+  return [...out].sort();
+}
+
 /** Ends a dry run: the report is kept, the transaction rolled back. */
 class DryRunDone extends ImportRefused {
   readonly report: ImportReport;
@@ -245,8 +257,13 @@ export class ImportRun implements ImportRefs {
     const keys = Object.keys(this.set.mediaRegistry);
     const missing = keys.filter((k) => !this.library.has(k));
     if (missing.length) throw new ImportRefused("preflight", "media", `${missing.length} release media are not in the media library: run the release media import first (npm run media:import-release).`, { missing: missing.slice(0, 20) });
+    // The static website's held-back photos (A1-MIGRATION-PLAN §7): must not be delivered by the library, or the import
+    // would publish them (security review L4). The library's restriction is what keeps them back from here on.
+    const held = heldBackMedia(this.set);
+    const delivered = held.filter((k) => this.library.get(k)?.deliverable);
+    if (delivered.length) throw new ImportRefused("preflight", "media", `${delivered.length} of the static website's held-back photos are delivered by the media library: restrict them again before importing.`, { delivered });
     const restricted = keys.filter((k) => this.library.get(k)?.status === "restricted");
-    if (restricted.length !== 13) this.report.notes.push(`The media library holds ${restricted.length} restricted release items (the static site holds back 13).`);
+    if (restricted.length !== held.length) this.report.notes.push(`The media library holds ${restricted.length} restricted release items (the static website holds back ${held.length}).`);
   }
 
   private remember(type: EntityType, slug: string, id: string) {
@@ -269,7 +286,7 @@ export class ImportRun implements ImportRefs {
     } else {
       const decided = await this.decideExisting(type, existing.id, fingerprint, table, "id");
       unit.outcome = decided;
-      publishIt = decided === "updated" || (decided === "unchanged" && !(await this.isLive(type, existing.id)));
+      publishIt = decided === "updated" || (decided === "unchanged" && (await this.neverPublished(type, existing.id)));
       if (decided === "updated") {
         const result = await updateItem(this.change, spec, existing.id, { ...form, lockVersion: String(await lockVersionOf(this.tx, table, "id", existing.id)) } as FormObject);
         if (result.kind !== "ok") throw new ImportRefused("records", `${type} ${slug}`, `The ${info.one} “${slug}” update was refused (${result.kind}).`, result);
@@ -285,9 +302,24 @@ export class ImportRun implements ImportRefs {
   async decideExisting(type: AggregateType, id: string, fingerprint: string, table: string, idColumn: string): Promise<Outcome> {
     const imported = await lastImport(this.tx, type, id);
     if (!imported) return "conflict";
+    // Archived or taken offline since its import: the Owner's decision, never undone by an import (security review M3).
+    const [status] = await rowsOf<{ s: string | null }>(this.tx, sql`SELECT ${sql.raw(table === "entity_orderings" || table === "menus" || table === "site_settings" || table === "forms" ? "NULL" : "publication_status")} AS s FROM ${sql.identifier(table)} WHERE ${sql.identifier(idColumn)} = ${id}`);
+    if (status?.s === "archived") return "edited_kept";
+    const [offline] = await rowsOf<{ n: number }>(this.tx, sql`SELECT COUNT(*) AS n FROM revisions WHERE entity_type = ${type} AND entity_id = ${id} AND kind IN ('unpublish', 'archive')`);
+    if (Number(offline?.n ?? 0) > 0) return "edited_kept";
     const current = await currentSha(this.tx, type, table, idColumn, id);
     if (!current || !current.equals(imported.sha)) return "edited_kept";
     return imported.fingerprint === fingerprint ? "unchanged" : "updated";
+  }
+
+  /**
+   * Imported but never published (a legal page waiting for its reviewer): the only case a later run publishes an
+   * unchanged aggregate. Anything published once and taken offline since is the Owner's decision and stays offline
+   * (security review M3).
+   */
+  async neverPublished(type: AggregateType, id: string): Promise<boolean> {
+    const [row] = await rowsOf<{ n: number }>(this.tx, sql`SELECT COUNT(*) AS n FROM revisions WHERE entity_type = ${type} AND entity_id = ${id} AND kind IN ('publish', 'unpublish', 'archive')`);
+    return Number(row?.n ?? 0) === 0 && !(await this.isLive(type, id));
   }
 
   /** Whether the aggregate has a published version. */
@@ -379,7 +411,7 @@ export class ImportRun implements ImportRefs {
         unit.outcome = await this.decideExisting("page", existing.id, fingerprint, "pages", "id");
         write = unit.outcome === "updated";
         // Imported earlier but never published (a legal page waiting for its reviewer): published now, as it is.
-        if (unit.outcome === "unchanged" && !(await this.isLive("page", existing.id))) publishLater = true;
+        if (unit.outcome === "unchanged" && (await this.neverPublished("page", existing.id))) publishLater = true;
         if (write) {
           const result = await updateItem(this.change, pageSpec, existing.id, { ...form, lockVersion: String(await lockVersionOf(this.tx, "pages", "id", existing.id)) } as FormObject, { pageTypeOf });
           if (result.kind !== "ok") throw new ImportRefused("pages", `page ${key}`, `The page “${key}” update was refused (${result.kind}).`, result);
@@ -478,7 +510,11 @@ export class ImportRun implements ImportRefs {
       const fingerprint = fingerprintOf({ ordering: key, order: (this.set as unknown as Record<string, { slug: string }[]>)[ORDERING_SOURCE[key] ?? key]?.map((x) => x.slug) ?? [] });
       const unit: UnitReport = { type: "ordering", key, outcome: "created", id: key, published: false, notes: [] };
       const imported = await lastImport(this.tx, "ordering", key);
-      let publishIt = true;
+      // A collection holding records the import did not write (or left as they were) is ordered by people: never
+      // published by the import (security review M3).
+      const foreign = this.report.units.some((u) => u.type === ORDERINGS[key as keyof typeof ORDERINGS] && (u.outcome === "conflict" || u.outcome === "edited_kept"));
+      let publishIt = !foreign;
+      if (foreign) unit.notes.push("the collection holds records the import did not write or left as they were: review its order and publish it in the admin");
       if (imported) {
         unit.outcome = await this.decideExisting("ordering", key, fingerprint, "entity_orderings", "key");
         publishIt = false;
@@ -614,7 +650,12 @@ export async function runContentImport(deps: AuthDeps, set: ContentSet, options:
       return run.report;
     });
   } catch (error) {
-    if (!(error instanceof ImportRefused) && !(error instanceof DryRunDone)) throw error;
+    if (!(error instanceof ImportRefused) && !(error instanceof DryRunDone)) {
+      // An error that is not a refusal (the database, say): nothing was written; the attempt is still audited (the
+      // session is closed by the finally below).
+      await recordAudit(deps.db, { requestId: meta.requestId, at: deps.clock(), actor: auditActorOf(actor), action: "content.import", entity: { type: "site", label: "Content import" }, outcome: "failed", summary: "Content import stopped by an error; nothing was written." }).catch(() => undefined);
+      throw error;
+    }
     if (error instanceof DryRunDone) report = error.report;
     else report = { ok: false, failure: { stage: error.stage, unit: error.unit, message: error.message, details: error.details }, units: [], leftOut: [], notes: [], reconciliation: [], missingReferences: [], dryRun: options.dryRun === true };
   } finally {

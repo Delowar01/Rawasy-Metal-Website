@@ -14,7 +14,9 @@
 import type { ContentSet } from "../../content/static-set.ts";
 import type { AggregateType } from "../publishing/registry.ts";
 import type { EntityType } from "../cms/registry.ts";
-import { decodeLayout, type DecodeRefs, type PublishedSection } from "../migration/layouts.ts";
+import { decodeLayout, PAGE_MAPS, type DecodeRefs, type PublishedSection } from "../migration/layouts.ts";
+import { REGISTRY } from "../builder/registry.ts";
+import { serviceLooks } from "../../components/commerce/services/looks.ts";
 
 // The documents are JSON; their shape is the A8 projection's (projection.ts).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -159,6 +161,18 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
     );
   });
 
+  // What the approved components cannot draw is left out, never drawn half (security review M2): a service without its
+  // code look (one added in the admin) or, unless its look shows no photograph, without its two photos; a machine
+  // without its main service or its photo; a client without its logo; an industry without its photo; a certificate
+  // without its thumbnail. Their pages answer 404 and every list leaves them out.
+  const drawable = (s: Any) => {
+    const look = (serviceLooks as Record<string, { hero: string } | undefined>)[s.slug];
+    return Boolean(look) && (look!.hero === "plate" || (Boolean(s.cover) && Boolean(s.supporting.media)));
+  };
+  out.services = out.services.filter(drawable).map((s: Any, i: number) => ({ ...s, index: pad(i + 1) }));
+  const liveServices = new Set(out.services.map((s: Any) => s.slug));
+  const keepServices = (slugs: string[]) => slugs.filter((x) => liveServices.has(x));
+
   out.machines = ordered("machine").map((d) => {
     const r = root(d);
     return withSource(
@@ -226,6 +240,14 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
     );
   });
 
+  out.machines = out.machines.filter((m: Any) => m.service && liveServices.has(m.service) && m.media);
+  const liveMachines = new Set(out.machines.map((m: Any) => m.slug));
+  for (const s of out.services) s.machines = s.machines.filter((x: string) => liveMachines.has(x));
+  out.clients = out.clients.filter((c: Any) => c.logo);
+  out.industries = out.industries.filter((i: Any) => i.media).map((i: Any) => ({ ...i, services: keepServices(i.services) }));
+  out.certificates = out.certificates.filter((c: Any) => c.thumb);
+  for (const p of out.projects) p.services = keepServices(p.services);
+
   // The site settings (A6): the company's facts, the site's name, the interface text.
   const settings = docsOf("site_settings").find((d) => d.id === "site");
   if (settings) {
@@ -284,6 +306,11 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
   const sectionsOf = (d: PublishedDoc): PublishedSection[] =>
     (Array.isArray(d.document.layout) ? (d.document.layout as Rec[]) : []).map((s) => {
       const linked = typeof s.reusableId === "string" ? reusables.get(s.reusableId) : undefined;
+      // A section stored at a block version this release does not read is never drawn from guesses (review I1).
+      const blockType = str(linked?.blockType ?? s.blockType);
+      const version = Number(linked?.schemaVersion ?? s.schemaVersion ?? 0);
+      const def = REGISTRY.get(blockType);
+      if (def && version !== def.version) throw new Error(`A published section of block ${blockType} is at version ${version}; this release reads version ${def.version}.`);
       return {
         id: s.id,
         blockType: str(linked?.blockType ?? s.blockType),
@@ -305,11 +332,9 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
       out.routeLabels[key] = { en: nav.en || T(d.document, "title").en, ar: nav.ar || T(d.document, "title").ar };
     }
     if (out.legalDocuments[key] && typeof r.effectiveDate === "string") out.legalDocuments[key].updated = r.effectiveDate.slice(0, 10);
-    try {
-      decodeLayout({ page: key }, sectionsOf(d), out, base, refs);
-    } catch {
-      // A page without a layout map (a generic page) is not one the static components draw.
-    }
+    // A generic page has no layout map: the static components do not draw it (the A9 report, item 13). Any other
+    // failure is the read model's and fails the load (never published copy mixed with the release's: review I1).
+    if (Object.hasOwn(PAGE_MAPS, key)) decodeLayout({ page: key }, sectionsOf(d), out, base, refs);
   }
 
   // The service pages: each service's details from its layout, its related services and section from its record.
@@ -318,7 +343,7 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
     const doc = docsOf("service").find((x) => x.slug === d.slug)!;
     if (!out.serviceDetails[d.slug]) out.serviceDetails[d.slug] = emptyDetail();
     decodeLayout({ service: d.slug }, sectionsOf(doc), out, base, refs);
-    out.serviceDetails[d.slug].related = slugList("service", rel(doc).relatedServices);
+    out.serviceDetails[d.slug].related = keepServices(slugList("service", rel(doc).relatedServices));
     out.serviceDetails[d.slug].section = root(doc).serviceGroup === "scaffolding" ? "scaffolding" : "metal";
     details[d.slug] = out.serviceDetails[d.slug];
   }

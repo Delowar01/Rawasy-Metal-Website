@@ -33,6 +33,7 @@ import { readRevision, readRootStatus, ROOTS, submitterOf, writeRevision } from 
 import { readSnapshot, sha256, canonicalJson } from "./snapshot.ts";
 import { applySlugRedirects, planSlugRedirects, type RoutableType } from "./slug-redirects.ts";
 import { publicationIssues, shownSnapshot, type PublishIssue } from "./validate.ts";
+import { compositionNeeds } from "./composition.ts";
 
 export interface PublishingChange {
   deps: CmsDeps;
@@ -409,6 +410,8 @@ export function unpublish(change: PublishingChange, type: AggregateType, id: str
     const locked = await begin(tx, change, now, type, id, "unpublish", "unpublish", expectedVersion);
     if (isResult(locked)) return locked;
     if (locked.publication !== "published") return refuse(tx, change, now, locked, "unpublish", "This item is not published.");
+    const needed = await compositionNeeds(tx, type, id);
+    if (needed) return refuse(tx, change, now, locked, "unpublish", needed);
     const impact = (await usedBy(tx, type, id)).filter((u) => u.scope === "published" && !(u.sourceType === type && u.sourceId === id));
     setIntent(tx, type, id, { kind: "unpublish" });
     await takeOffline(tx, type, id, now, change.meta.requestId);

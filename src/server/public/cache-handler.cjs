@@ -21,6 +21,9 @@
 const mysql = require("mysql2/promise");
 
 const MAX_ENTRIES = 400;
+const MAX_BYTES = 128 * 1024 * 1024;
+const BREAKER_FAILURES = 5;
+const BREAKER_OPEN_MS = 30_000;
 const POOL = Symbol.for("rawasy.public.cachePool");
 
 function pool() {
@@ -36,7 +39,9 @@ function pool() {
       password: env.DB_PASSWORD || "",
       database: env.DB_NAME,
       connectionLimit: 1,
+      queueLimit: 100,
       connectTimeout: 5000,
+      enableKeepAlive: true,
     });
   }
   return holder[POOL];
@@ -55,13 +60,41 @@ async function sharedState() {
   }
 }
 
+/** A cached response's size in bytes, roughly (its HTML and page data). */
+function sizeOf(data) {
+  let n = typeof data.html === "string" ? data.html.length : 0;
+  if (data.rscData && typeof data.rscData.length === "number") n += data.rscData.length;
+  if (data.segmentData && typeof data.segmentData.forEach === "function") data.segmentData.forEach((v) => (n += v && v.length ? v.length : 0));
+  return n + 1024;
+}
+
 /** The handler class over a way to read the shared state (the tests pass their own). */
-function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES) {
+function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, maxBytes = MAX_BYTES) {
   const entries = new Map();
   const pending = new Map();
+  let bytes = 0;
+  let failures = 0;
+  let openUntil = 0;
+  const drop = (key) => {
+    const e = entries.get(key);
+    if (e) bytes -= e.size;
+    entries.delete(key);
+  };
   return class ContentCacheHandler {
     async get(key) {
-      const state = await readState();
+      // After repeated failures, fail at once for a while instead of queueing every request on a stalled database.
+      if (Date.now() < openUntil) throw new Error("The page cache could not check the content's version.");
+      let state;
+      try {
+        state = await readState();
+        failures = 0;
+      } catch (error) {
+        if (++failures >= BREAKER_FAILURES) {
+          openUntil = Date.now() + BREAKER_OPEN_MS;
+          failures = 0;
+        }
+        throw error;
+      }
       const entry = entries.get(key);
       if (entry && entry.generation === state.generation && entry.epoch === state.epoch) {
         // Most recently used last (the bound evicts the oldest).
@@ -69,7 +102,7 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES) {
         entries.set(key, entry);
         return entry.value;
       }
-      if (entry) entries.delete(key);
+      if (entry) drop(key);
       // The render that follows is stamped with this state; overlapping renders keep the oldest.
       if (!pending.has(key)) pending.set(key, state);
       return null;
@@ -79,8 +112,14 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES) {
       const stamp = pending.get(key);
       pending.delete(key);
       if (!stamp || !data) return;
-      entries.set(key, { generation: stamp.generation, epoch: stamp.epoch, value: { lastModified: Date.now(), value: data } });
-      while (entries.size > maxEntries) entries.delete(entries.keys().next().value);
+      // Only pages that answered 200: unknown addresses (404s) are drawn again, so they can never crowd out real pages.
+      if (data.status !== undefined && data.status !== 200) return;
+      const size = sizeOf(data);
+      if (size > maxBytes) return;
+      drop(key);
+      entries.set(key, { generation: stamp.generation, epoch: stamp.epoch, size, value: { lastModified: Date.now(), value: data } });
+      bytes += size;
+      while (entries.size > maxEntries || bytes > maxBytes) drop(entries.keys().next().value);
     }
 
     async revalidateTag() {}

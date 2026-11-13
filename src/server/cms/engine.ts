@@ -1105,6 +1105,12 @@ export async function setItemArchived(
       return { kind: "stale" } as const;
     }
     if ((state.publicationStatus === "archived") === archived) return { kind: "unchanged" } as const;
+    // A9 (security review M2): what the approved composition needs live is never archived.
+    const needed = archived ? await (await import("../publishing/composition.ts")).compositionNeeds(tx, spec.type, id) : null;
+    if (needed) {
+      await audit("failed", `Refused: ${needed}`);
+      return { kind: "refused", message: needed } as const;
+    }
     const block = archived ? options.blockArchive : options.blockRestore;
     if (block) {
       const reason = await block(tx, id);

@@ -38,7 +38,12 @@ const nextConfig: NextConfig = {
   // The admin's MariaDB driver stays a Node.js dependency (not bundled); @node-rs/argon2 is external by default.
   serverExternalPackages: ["mysql2"],
   async headers() {
-    return ["/api/admin/:path*", "/api/internal/:path*"].map((source) => ({ source, headers: API_HEADERS }));
+    const api = ["/api/admin/:path*", "/api/internal/:path*"].map((source) => ({ source, headers: API_HEADERS }));
+    if (!DATABASE_CONTENT) return api;
+    // A database-content release (A9 security review L1): its pages change without a new release, so no shared cache
+    // (LiteSpeed's, a CDN's) may keep them; Next.js would otherwise send `s-maxage` of a year with a cached page.
+    const pages = ["/en", "/ar", "/en/:path*", "/ar/:path*", "/sitemap.xml"].map((source) => ({ source, headers: [{ key: "Cache-Control", value: "private, no-cache" }] }));
+    return [...api, ...pages];
   },
   images: {
     qualities: [75, 85],

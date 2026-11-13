@@ -20,6 +20,7 @@ import type { MediaId } from "../../content/media.generated.ts";
 import type { EntityType } from "../cms/registry.ts";
 import { serviceLooks } from "../../components/commerce/services/looks.ts";
 import { serviceTone } from "../../components/commerce/tones.ts";
+import { COMPOSITION_RECORDS } from "../publishing/composition.ts";
 
 export type Loc = "en" | "ar";
 export const LOCALES: readonly Loc[] = ["en", "ar"];
@@ -203,8 +204,8 @@ const slugsBack = (type: EntityType, key: string, path: string, single = false) 
 
 // The approved page's own choices in code (A1: "the same data"; the public page keeps them in its component).
 const HOME_PROJECTS = ["tulip-roundabout-sculpture", "clock-tower-landmark", "geometric-lanterns", "wave-form-sculpture", "suspended-lantern", "palm-leaf-shade-canopies"];
-const PROJECTS_COLLAGE = ["tulip-roundabout-sculpture", "clock-tower-landmark", "suspended-lantern"];
-const INDUSTRIES_STRIP = ["construction", "industrial", "public-realm", "architecture", "street-furniture"];
+const PROJECTS_COLLAGE = COMPOSITION_RECORDS.project;
+const INDUSTRIES_STRIP = COMPOSITION_RECORDS.industry;
 const METRICS = (slugs: readonly string[]): ItemsMap => ({
   list: { get: (s) => slugs.map((slug) => s.metrics.find((m: Any) => m.slug === slug)) },
   id: bySlug,
