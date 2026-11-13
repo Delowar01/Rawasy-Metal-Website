@@ -629,6 +629,31 @@ website keeps showing today's approved content.
   fingerprint to record, restore drills into an empty database and folder, key escrow). Never into Git, the release
   folder or `public_html` (refused).
 
+**11. The content import and the database-backed website (A9).** Local and staging rehearsal only until the Owner
+authorizes a cutover: [`docs/admin/A9-CUTOVER-RUNBOOK.md`](docs/admin/A9-CUTOVER-RUNBOOK.md) (hosting checklist,
+staging rehearsal, the deployment package, cutover and rollback — for approval only).
+
+- **The import** (operator tool, never run by the app): after the migrations and `npm run media:import-release`, as an
+  existing active Owner account, `npm run content:import -- --owner=<email>` writes today's website (`src/content`,
+  the interface text) into the CMS through the editors' own services and publishes it through the workflow above, all
+  in one transaction (a refusal writes nothing). `--dry-run` shows the reconciliation and writes nothing;
+  `--legal-reviewer="<name>"` also publishes the legal pages (otherwise they wait, unpublished); `--report=<file>`
+  writes the full report. Running it again changes nothing that was not changed in the static source, and never
+  overwrites an edit made in the admin (it lists it). Media: only the items the library delivers (the 13 held back
+  never).
+- **The content source** is chosen when the release is built: `CONTENT_SOURCE=static` (the default: today's static
+  website, the rollback) or `CONTENT_SOURCE=database` with `NEXT_PUBLIC_SITE_URL` set — the same pages, rendered per
+  request from the published documents (nothing is prerendered from the database), kept by a page cache that serves a
+  page only while the published content is the one it was rendered from; the database unreachable makes the pages fail
+  (500), never shows an old page. The release needs the same `DB_*` settings as the admin at run time.
+
+  ```bash
+  CONTENT_SOURCE=database NEXT_PUBLIC_SITE_URL=https://www.example.com npm run build
+  DB_HOST=… DB_USER=… DB_PASSWORD=… DB_NAME=… NODE_ENV=production node server.js
+  ```
+
+  `node scripts/package-namecheap.mjs` packs either build and says which content source it has.
+
 **Tests** (each creates and drops its own databases; a production build is needed for the browser tests):
 
 ```bash
