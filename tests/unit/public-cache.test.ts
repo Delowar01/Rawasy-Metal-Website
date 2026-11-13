@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { describe, test } from "node:test";
+import { readFileSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 type State = { generation: number; epoch: string };
@@ -160,12 +161,64 @@ describe("A9: a server takes the content source its build was made with (the fai
     assert.equal(contentSourceFor(SERVER_PHASE, "database", () => null), "database");
   });
 
-  test("Next.js constructing the handler marks the fail-closed page cache as in use (the live loader requires the mark)", () => {
-    const mark = Symbol.for("rawasy.public.pageCacheInUse");
-    delete (globalThis as Record<symbol, unknown>)[mark];
-    const Handler = createHandlerClass(async () => ({ generation: 1, epoch: "E" }));
-    assert.equal((globalThis as Record<symbol, unknown>)[mark], undefined, "loading the module alone marks nothing");
-    new Handler();
-    assert.equal((globalThis as Record<symbol, unknown>)[mark], true);
+  test("the configuration that installs the fail-closed page cache marks this process (the live loader requires the mark)", () => {
+    const { markPageCacheConfigured, PAGE_CACHE_CONFIGURED } = require("../../src/server/public/release-source.cjs") as { markPageCacheConfigured: () => void; PAGE_CACHE_CONFIGURED: symbol };
+    assert.equal(PAGE_CACHE_CONFIGURED, Symbol.for("rawasy.public.pageCacheConfigured"));
+    delete (globalThis as Record<symbol, unknown>)[PAGE_CACHE_CONFIGURED];
+    // Constructing the handler is no proof: Next.js also builds one from the bundle's own configuration (the guard drill).
+    new (createHandlerClass(async () => ({ generation: 1, epoch: "E" })))();
+    assert.equal((globalThis as Record<symbol, unknown>)[PAGE_CACHE_CONFIGURED], undefined);
+    markPageCacheConfigured();
+    assert.equal((globalThis as Record<symbol, unknown>)[PAGE_CACHE_CONFIGURED], true);
+    // The live loader reads the same mark.
+    const loader = readFileSync(new URL("../../src/content/live/load.ts", import.meta.url), "utf8");
+    assert.match(loader, /Symbol\.for\("rawasy\.public\.pageCacheConfigured"\)/);
+    const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
+    assert.match(config, /if \(DATABASE_CONTENT\) markPageCacheConfigured\(\);/);
+  });
+});
+
+describe("A9: a stalled database fails each read in time (the fail-closed drill: requests waited behind a held connection)", () => {
+  type FakePool = { query: () => Promise<unknown>; end: () => Promise<void> };
+  const { sharedStateFrom } = require("../../src/server/public/cache-handler.cjs") as {
+    sharedStateFrom: (getPool: () => FakePool, dropPool: (p: FakePool) => void, ms?: number) => () => Promise<{ generation: number; epoch: string }>;
+  };
+  const stalled = (): FakePool => ({ query: () => new Promise(() => undefined), end: async () => undefined });
+
+  test("the page cache's read gives up within its limit, even waiting for a connection, and drops the pool for a fresh one", async () => {
+    const pools: FakePool[] = [];
+    const dropped: FakePool[] = [];
+    const read = sharedStateFrom(
+      () => {
+        pools.push(stalled());
+        return pools.at(-1)!;
+      },
+      (p) => dropped.push(p),
+      50,
+    );
+    const started = Date.now();
+    await assert.rejects(read(), /could not check the content's version/);
+    assert.ok(Date.now() - started < 1000, "failed within the limit");
+    assert.deepEqual(dropped, [pools[0]], "the pool that did not answer is dropped");
+    await assert.rejects(read());
+    assert.equal(pools.length, 2, "the next read asks for a pool again");
+  });
+
+  test("an answering pool is kept, and its state read as numbers and text", async () => {
+    const dropped: FakePool[] = [];
+    const ok: FakePool = { query: async () => [[{ value: "7", epoch: "E1" }]], end: async () => undefined };
+    const read = sharedStateFrom(() => ok, (p) => dropped.push(p), 50);
+    assert.deepEqual(await read(), { generation: 7, epoch: "E1" });
+    assert.deepEqual(dropped, []);
+  });
+
+  test("the live loader's generation read gives up within its limit too", async () => {
+    const { readGenerationWithin } = await import("../../src/server/public/read-model.ts");
+    const started = Date.now();
+    await assert.rejects(
+      readGenerationWithin(stalled() as unknown as Parameters<typeof readGenerationWithin>[0], 50),
+      (error: Error & { code?: string }) => error.code === "PUBLIC_READ_TIMEOUT",
+    );
+    assert.ok(Date.now() - started < 1000);
   });
 });
