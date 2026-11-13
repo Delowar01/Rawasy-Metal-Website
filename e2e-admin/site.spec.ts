@@ -73,9 +73,19 @@ async function open(page: Page, path: string) {
   await page.locator("main :is(h1, h2)").first().waitFor();
 }
 
-/** Waits for the screen a change opens again (`?…&v=<version>`): the stored version, never the router's cache. */
-async function savedTo(page: Page, path: string, query: Record<string, string> = {}) {
-  await page.waitForURL((url) => url.pathname === path && url.searchParams.has("v") && Object.entries(query).every(([k, v]) => url.searchParams.get(k) === v));
+/**
+ * Waits for the screen a change opens again (`?…&v=<version>`): the stored version, never the router's cache. When the
+ * page already shows such an address (a second save on one screen), pass the version it showed: the wait then ends only
+ * at the new one (A9: the interface-text test read the database while the address still named the set-up's version).
+ */
+async function savedTo(page: Page, path: string, query: Record<string, string> = {}, shownVersion?: string | null) {
+  await page.waitForURL(
+    (url) =>
+      url.pathname === path &&
+      url.searchParams.has("v") &&
+      (shownVersion === undefined || url.searchParams.get("v") !== shownVersion) &&
+      Object.entries(query).every(([k, v]) => url.searchParams.get(k) === v),
+  );
   await page.locator("main :is(h1, h2)").first().waitFor();
 }
 
@@ -121,6 +131,9 @@ const PUBLIC_PAGES = ["/en", "/ar", "/en/contact", "/ar/contact", "/en/about"] a
 const publicShell = async (page: Page, path: string) => {
   await page.goto(path);
   await page.locator("footer.a2-footer").waitFor();
+  // Read once hydrated: the theme switch's pressed state is set then (the server writes none pressed), so a read before
+  // and a read after hydration differ by that alone (A9: one run compared the two moments).
+  await page.locator('header.a2-header button[aria-pressed="true"]').first().waitFor({ state: "attached" });
   return page.evaluate(() => [...document.querySelectorAll("header.a2-header, footer.a2-footer")].map((e) => e.outerHTML).join("\n"));
 };
 const publicBefore: Record<string, string> = {};
@@ -602,8 +615,9 @@ test.describe("interface text", () => {
     const todayQuote = ((await main(admin).locator("#ui-controls-getQuote-ar-today span").textContent()) ?? "").trim();
     await main(admin).locator("#ui-controls-getQuote-ar").fill("");
     await expect(main(admin).locator("#ui-controls-getQuote-ar-count")).toContainText("empty: today's text shows");
+    const shownVersion = new URL(admin.url()).searchParams.get("v");
     await admin.getByRole("button", { name: "Save interface text" }).click();
-    await savedTo(admin, "/admin/interface-text", { saved: "1" });
+    await savedTo(admin, "/admin/interface-text", { saved: "1" }, shownVersion);
     await expect(main(admin).locator("#ui-common-backToTop-en")).toHaveValue("Test back to top");
     await expect(main(admin).locator("#ui-controls-getQuote-ar")).toHaveValue("");
     expect(await queryTestDb("SELECT 1 FROM ui_string_translations WHERE string_key = 'controls.getQuote' AND locale = 'ar'")).toEqual([]);
