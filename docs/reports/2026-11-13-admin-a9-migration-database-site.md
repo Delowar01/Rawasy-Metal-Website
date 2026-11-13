@@ -163,7 +163,94 @@ npm run content:import -- --owner=<an active Owner's email> [--dry-run] [--legal
 
 ## 4. Import reconciliation
 
-{{RECONCILIATION}}
+### 4.1 The drill
+
+**Setup.** The drill database was `rawasy_e2e_a9d0c0de`, a disposable local MariaDB 11.4.13 database built from the
+fresh clone of `c9d9121` with the real CLIs, exactly as the staging procedure runs them (runbook §3):
+
+1. `db-migrate up`: 13 migration files.
+2. `media:import-release`: 143 release files registered — 108 approved, 22 pending review, 13 restricted. 108 are
+   delivered (`public_media`).
+3. An Owner account.
+
+**Runs** (each with a `--report` file, mode 0600):
+
+| Run | Exit | Result |
+|---|---|---|
+| `--owner=<unknown address>` | **2** | "Refused at preflight (owner): The account named to run the import is not an active user. Nothing was written." |
+| `--dry-run` | 0 | the full reconciliation below; `published_documents` afterwards: **0 rows** (rolled back) |
+| real run, no legal reviewer | 0 | 113 created; 111 published; Privacy and Terms imported as working copies only |
+| `--legal-reviewer="A9 local parity drill (not a legal review)"` | 0 | 0 created, 0 updated, **2 published** (Privacy and Terms; no new revision) |
+| the same again | 0 | 0 created, 0 updated, 0 published: **every row unchanged** |
+
+### 4.2 Reconciliation of the real run
+
+The importer's own table, checked against the drill database:
+
+| Type | Source | Created | Updated | Unchanged | Left as they are | Published by the run | Live |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| project categories | 9 | 9 | 0 | 0 | 0 | 9 | 9 |
+| services | 6 | 6 | 0 | 0 | 0 | 6 | 6 |
+| machines | 6 | 6 | 0 | 0 | 0 | 6 | 6 |
+| projects | 34 | 34 | 0 | 0 | 0 | 34 | 34 |
+| industries | 8 | 8 | 0 | 0 | 0 | 8 | 8 |
+| clients | 21 | 21 | 0 | 0 | 0 | 21 | 21 |
+| certificates | 3 | 3 | 0 | 0 | 0 | 3 | 3 |
+| pages (13 fixed, with their layouts) | 13 | 13 | 0 | 0 | 0 | 11 (+2 with the reviewer) | 11 → 13 |
+| orderings | 7 | 7 | 0 | 0 | 0 | 7 | 7 |
+| menus | 4 | 4 | 0 | 0 | 0 | 4 | 4 |
+| site settings (with interface text) | 1 | 1 | 0 | 0 | 0 | 1 | 1 |
+| quote form | 1 | 1 | 0 | 0 | 0 | 1 | 1 |
+| **Total** | **113** | **113** | 0 | 0 | 0 | **111 (+2)** | **113** |
+
+### 4.3 Checks of the outcome
+
+- **Layouts and published documents.** 19 layouts were set up: the 13 pages and the 6 service pages.
+  `published_documents` holds exactly 113 rows, one per aggregate.
+- **Revisions.** There are 226: one `import` and one `publish` revision per aggregate. The cache generation moved from 0 (the
+  seed) to 110.
+- **References.** `missingReferences` is empty: every relation and media reference in a published document resolves to
+  a live record or a delivered item.
+- **Audit.** Four `content.import` events (actor `cli`): the dry run, the real run, the reviewer run and the repeat. Each
+  record has its create and publish events.
+- **The refused run** was not audited. It names no active account to attribute the event to; the CLI reports it (exit 2)
+  and writes nothing. The Owner may want it logged; it is noted in item 11.
+- **Found here and corrected** (`5b770ee`, with a test that fails on the code before): the dry run's event read like a
+  real import. It now says "Content import dry run (nothing was written): …".
+- **The A8 publish checks warned 43 times** that a linked record was not yet live. Records link each other, so some
+  publish before the others. The importer checked at the end that **none remains unpublished**.
+
+### 4.4 Left out on purpose (listed by the report)
+
+**33 release files that today's content names are not referenced** by any published document:
+
+- **12 of the 13 held back**, restricted in the library:
+  - `services/engraving-nameplates`, `engraving-wood`;
+  - the photos of the five flagged projects (`lattice-cubes-1`, `laser-cut-bench-1`, `seed-sculpture-1`,
+    `litter-bins-1/2/3`, `canopy-tree-1`);
+  - the withheld photos `wheat-monument-1`, `stainless-landmark-1`, `billboard-structure-1`.
+
+  The thirteenth, `services/engraving-rotary`, is not named by today's content at all.
+- **The 21 monochrome client logos** (`clients/*-mono`). They are pending review, not delivered, and no page draws them:
+  the wall uses the colour files under a CSS greyscale.
+
+The five flagged projects keep their flag as a note on the record and on each photo (restricted), not as a blocking A3
+flag. Their pages show no photo, exactly as today.
+
+### 4.5 Values the published documents do not hold (code-owned, by design)
+
+These are the approved composition's own choices, which stay in code:
+
+- the homepage's project order and the six showcase machines;
+- the Projects collage and the Industries strip;
+- the service looks and colour roles;
+- the profile's figures;
+- the quote form's validation;
+- the composed "Company profile · p.N" line;
+- the previous design's unused homepage copy.
+
+Every other visible text comes from a published document: the marker drill (item 6.4) measures this on the rendered
+pages. `tests/unit/migration-layouts.test.ts` lists each such text by name (`NOT_IN_LAYOUTS`).
 
 ## 5. Database publishing and cache verification
 
