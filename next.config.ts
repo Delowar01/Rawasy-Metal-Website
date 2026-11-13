@@ -16,9 +16,10 @@ const API_HEADERS = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- a CommonJS helper Next.js loads with this file at every start.
-const { builtSource, contentSourceFor } = require("./src/server/public/release-source.cjs") as {
+const { builtSource, contentSourceFor, markPageCacheConfigured } = require("./src/server/public/release-source.cjs") as {
   builtSource: (distDir: string) => "static" | "database" | null;
   contentSourceFor: (phase: string, asked: string | undefined, readBuilt: () => "static" | "database" | null) => "static" | "database";
+  markPageCacheConfigured: () => void;
 };
 
 /**
@@ -34,6 +35,8 @@ export default function nextConfig(phase: string): NextConfig {
   const DATABASE_CONTENT = contentSourceFor(phase, process.env.CONTENT_SOURCE, () => builtSource(join(__dirname, ".next"))) === "database";
   // Needed when building (Next.js writes NEXT_PUBLIC_* into the bundles then), not when a server starts.
   if (DATABASE_CONTENT && phase === "phase-production-build" && !process.env.NEXT_PUBLIC_SITE_URL) throw new Error("A database-content build needs NEXT_PUBLIC_SITE_URL.");
+  // This process's pages are kept by the fail-closed cache: the live loader requires the mark.
+  if (DATABASE_CONTENT) markPageCacheConfigured();
   return config(DATABASE_CONTENT);
 }
 

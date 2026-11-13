@@ -103,8 +103,11 @@ async function load(): Promise<void> {
   };
 }
 
-/** Whether Next.js uses the fail-closed page cache in this process (src/server/public/cache-handler.cjs marks it). */
-const pageCacheInUse = () => (globalThis as Record<symbol, unknown>)[Symbol.for("rawasy.public.pageCacheInUse")] === true;
+/**
+ * Whether this process's Next.js configuration keeps pages in the fail-closed cache (next.config.ts marks it through
+ * src/server/public/release-source.cjs when it installs the handler; the response cache follows that configuration).
+ */
+const pageCacheInUse = () => (globalThis as Record<symbol, unknown>)[Symbol.for("rawasy.public.pageCacheConfigured")] === true;
 
 async function readCurrent(): Promise<Loaded> {
   // `next build` never reads the database: a route that reaches the content there is rendered per request instead.

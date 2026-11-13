@@ -52,4 +52,16 @@ function contentSourceFor(phase, asked, readBuilt) {
   return built;
 }
 
-module.exports = { builtSource, contentSourceFor, SERVER_PHASE };
+/**
+ * Set in the process whose Next.js configuration installs the fail-closed page cache (next.config.ts calls it when it
+ * returns the database configuration). That configuration is the one the response cache follows — the cache that keeps
+ * and serves rendered pages — so the live loader (src/content/live/load.ts) serves nothing without this mark. A mark set
+ * by the handler itself would prove nothing: Next.js also builds a cache from the configuration embedded in the bundle at
+ * build, and that one constructs the handler whatever the server's own configuration says (the A9 guard drill).
+ */
+const PAGE_CACHE_CONFIGURED = Symbol.for("rawasy.public.pageCacheConfigured");
+function markPageCacheConfigured() {
+  globalThis[PAGE_CACHE_CONFIGURED] = true;
+}
+
+module.exports = { builtSource, contentSourceFor, markPageCacheConfigured, SERVER_PHASE, PAGE_CACHE_CONFIGURED };

@@ -24,7 +24,9 @@ export const PUBLIC_READ_LIMITS = { generationMs: 5_000, snapshotMs: 15_000 } as
 
 /** The generation, read on the pool with a time limit (the request path: one small query per request). */
 export async function readGenerationWithin(pool: Pool, ms: number = PUBLIC_READ_LIMITS.generationMs): Promise<{ generation: number; epoch: string }> {
-  const [rows] = await pool.query({ sql: "SELECT value AS generation, epoch FROM cache_generation WHERE id = 1", timeout: ms });
+  // Both limits: mysql2's `timeout` starts only once the query is sent, so a request waiting for a pooled connection (one
+  // held by a stalled database) is limited by `within` (the A9 fail-closed drill).
+  const [rows] = await within(pool.query({ sql: "SELECT value AS generation, epoch FROM cache_generation WHERE id = 1", timeout: ms }), ms, "Reading the cache generation");
   const row = (rows as { generation: number | string; epoch: string }[])[0];
   if (!row) throw new Error("The cache generation row is missing.");
   return { generation: Number(row.generation), epoch: String(row.epoch) };

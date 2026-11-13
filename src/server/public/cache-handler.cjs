@@ -25,12 +25,6 @@ const MAX_BYTES = 128 * 1024 * 1024;
 const BREAKER_FAILURES = 5;
 const BREAKER_OPEN_MS = 30_000;
 const POOL = Symbol.for("rawasy.public.cachePool");
-/**
- * Set once Next.js has made this handler the page cache of the process (it constructs one per request, before the
- * render). The live loader (src/content/live/load.ts) serves nothing without it: a database-content release whose page
- * cache is anything else (Next.js's own file-system cache keeps pages with no generation check) fails closed instead.
- */
-const IN_USE = Symbol.for("rawasy.public.pageCacheInUse");
 
 function pool() {
   const holder = globalThis;
@@ -53,18 +47,49 @@ function pool() {
   return holder[POOL];
 }
 
-async function sharedState() {
-  try {
-    // A time limit: a database that stalls fails the lookup (and the request) instead of holding it.
-    const [rows] = await pool().query({ sql: "SELECT value, epoch FROM cache_generation WHERE id = 1", timeout: 5000 });
-    const row = rows[0];
-    if (!row) throw Object.assign(new Error("no generation row"), { code: "NO_GENERATION" });
-    return { generation: Number(row.value), epoch: String(row.epoch) };
-  } catch (error) {
-    console.error(`page cache: the shared generation could not be read (${(error && error.code) || "error"})`);
-    throw new Error("The page cache could not check the content's version.");
-  }
+const READ_LIMIT_MS = 5000;
+
+/** Rejects when `work` takes longer than `ms`, waiting for a connection included (mysql2's own `timeout` starts only once the query is sent). */
+function withLimit(work, ms) {
+  let timer;
+  const limit = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error(`no answer within ${ms} ms`), { code: "PAGE_CACHE_READ_TIMEOUT" })), ms);
+  });
+  return Promise.race([work, limit]).finally(() => clearTimeout(timer));
 }
+
+/**
+ * The reader of the shared state over a pool (`getPool`, `dropPool`: the tests pass their own). A read that fails or does
+ * not answer in time may leave the pool's one connection waiting on the database (a database that stalls rather than
+ * refusing: the A9 fail-closed drill saw every later request wait behind it), so the pool is dropped and the next read
+ * opens a fresh one.
+ */
+function sharedStateFrom(getPool, dropPool, ms = READ_LIMIT_MS) {
+  return async function sharedState() {
+    let current;
+    try {
+      current = getPool();
+      // A time limit: a database that stalls fails the lookup (and the request) instead of holding it.
+      const [rows] = await withLimit(current.query({ sql: "SELECT value, epoch FROM cache_generation WHERE id = 1", timeout: ms }), ms);
+      const row = rows[0];
+      if (!row) throw Object.assign(new Error("no generation row"), { code: "NO_GENERATION" });
+      return { generation: Number(row.value), epoch: String(row.epoch) };
+    } catch (error) {
+      if (current) dropPool(current);
+      console.error(`page cache: the shared generation could not be read (${(error && error.code) || "error"})`);
+      throw new Error("The page cache could not check the content's version.");
+    }
+  };
+}
+
+function dropSharedPool(current) {
+  const holder = globalThis;
+  if (holder[POOL] !== current) return;
+  holder[POOL] = undefined;
+  current.end().catch(() => undefined);
+}
+
+const sharedState = sharedStateFrom(pool, dropSharedPool);
 
 /** A cached response's size in bytes, roughly (its HTML and page data). */
 function sizeOf(data) {
@@ -87,10 +112,6 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, m
     entries.delete(key);
   };
   return class ContentCacheHandler {
-    constructor() {
-      globalThis[IN_USE] = true;
-    }
-
     async get(key) {
       // After repeated failures, fail at once for a while instead of queueing every request on a stalled database.
       if (Date.now() < openUntil) throw new Error("The page cache could not check the content's version.");
@@ -140,3 +161,4 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, m
 
 module.exports = createHandlerClass();
 module.exports.createHandlerClass = createHandlerClass;
+module.exports.sharedStateFrom = sharedStateFrom;
