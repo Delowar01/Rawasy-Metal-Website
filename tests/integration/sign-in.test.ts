@@ -69,8 +69,10 @@ describe("password sign-in", () => {
       wrong.push(await time(user.email));
     }
     const median = (xs: number[]) => xs.sort((a, b) => a - b)[1];
-    // Both paths verify one Argon2id hash (tens of milliseconds); the difference is a few database writes.
-    assert.ok(median(unknown) > 15, `unknown-email path too fast: ${median(unknown).toFixed(1)} ms`);
+    // Both paths verify one Argon2id hash; the difference is a few database writes. A9: compared with the wrong-password
+    // path rather than a fixed 15 ms, which a fast machine went under (4–5 failures in 8 runs alone, on the A8 baseline
+    // as on A9): an unknown email that skipped the dummy hash would take a small fraction of a real verification.
+    assert.ok(median(unknown) > median(wrong) * 0.4, `unknown-email path too fast: ${median(unknown).toFixed(1)} ms against ${median(wrong).toFixed(1)} ms`);
     assert.ok(Math.abs(median(unknown) - median(wrong)) < Math.max(median(wrong), median(unknown)) * 0.6);
   });
 });
