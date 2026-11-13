@@ -76,7 +76,11 @@ Staging is a separate cPanel Node app with its **own** database and data folder;
     visible HTML of all 102 sitemap addresses and the 404s, the HTTP answers, the browser's files, the public E2E suite
     against the staging address (`E2E_BASE_URL`), the pixel comparison — and the smoke checks of §6.
 11. **Fail-closed check:** with the database user's password changed (or the database stopped) for a minute, pages
-    answer 500 (never an old page); restored, they answer again after at most 60 s (the breaker).
+    answer 500 (never an old page), each within about 5 s, then at once while the breakers are open; restored, they
+    answer again after at most 60 s (the page cache's breaker opens for 30 s, the content loader's for 60 s). Locally
+    (A9 report, item 5): every page 500 within 5 s while the database was paused, back 31 s after it resumed. Also check
+    the server's log: no "the fail-closed page cache is not in use" line (that line, with every page 500, means the
+    release's configuration is not a database-content one).
 12. **Record H5–H8** during the warm-up and the E2E run. Staging content is test content: it is not imported into
     production (A9 Owner default).
 
@@ -86,7 +90,10 @@ Staging is a separate cPanel Node app with its **own** database and data folder;
   by `scripts/package-namecheap.mjs` from a fresh clone's build; both keep the 13 held-back files out.
 - The archive holds `.next` secrets (Server Actions key, preview id): handle it as secret (CLAUDE.md gotchas).
 - The database release also needs, at run time: `DB_*` (the app pool and the page cache handler use the same
-  variables), and the same `NEXT_PUBLIC_SITE_URL` it was built with. `CONTENT_SOURCE` itself matters only at build.
+  variables). `CONTENT_SOURCE` and `NEXT_PUBLIC_SITE_URL` matter only at build: a server takes the content source its
+  build was made with, from the build's own record (`src/server/public/release-source.cjs`), and refuses to start if
+  its environment names the other one. Never leave `CONTENT_SOURCE` set in the cPanel environment of the other
+  release (a rollback to the static archive with `CONTENT_SOURCE=database` still set would not start).
 
 ## 5. Production cutover — for approval only
 
@@ -117,7 +124,10 @@ and H12 verified; the legal pages' reviewer named (or the Owner's explicit decis
 ## 7. Rollback — for approval only
 
 1. Redeploy the **static release archive** (README "Rollback"): upload, extract over the app folder, restart. The public
-   site serves the static content again at once; no database step.
+   site serves the static content again at once; no database step. If `CONTENT_SOURCE` was set in the app's environment,
+   remove it first: the static release refuses to start with `CONTENT_SOURCE=database` (it never serves a source it was
+   not built with). Measured locally (item 5 of the A9 report): the static release kept answering while the database
+   release was stopped and the database paused, and the published documents, revisions and generation were unchanged.
 2. Leave the database as it is. Edits made after the cutover stay there; a later import leaves every aggregate edited
    since its import revision untouched and lists it.
 3. If the database itself must go back: restore the pre-import backup into an empty database (A8-BACKUP-RESTORE.md),

@@ -1368,11 +1368,16 @@
   (`docs/admin/A9-CUTOVER-RUNBOOK.md`: hosting checklist H1–H14, staging rehearsal, package, cutover and rollback —
   for approval only). **Nothing was deployed; no staging or production database was touched; `main` unchanged.** The
   enquiry handoff is unchanged (A7's submission service is still reachable by no route).
-- **The switch:** `CONTENT_SOURCE` (`static` default = the rollback | `database`), read by `next.config.ts` at build
-  only. `database` aliases `@/content/load` → `src/content/live/load.ts` (`turbopack.resolveAlias`), sets the page cache
+- **The switch:** `CONTENT_SOURCE` (`static` default = the rollback | `database`), fixed at build. `next.config.ts` is a
+  function of the phase: `next build` reads `CONTENT_SOURCE`; a server running a build (`next start`, `server.js`, which
+  evaluate the config again at every start) takes the source the build was made with from the build's
+  `required-server-files.json` (only a database build sets `cacheHandler`; `src/server/public/release-source.cjs`) and
+  refuses to start when its environment names the other source. Before `f2f3ddf` a database build served without
+  `CONTENT_SOURCE` got the static configuration at run time and Next.js's own cache kept its pages (stale and fail-open:
+  found by the drill). `database` aliases `@/content/load` → `src/content/live/load.ts` (`turbopack.resolveAlias`), sets the page cache
   handler (`src/server/public/cache-handler.cjs`, `cacheMaxMemorySize: 0`), sends `Cache-Control: private, no-cache` on
   `/en`, `/ar`, their pages and `/sitemap.xml` (Next.js would send `s-maxage` of a year), and requires
-  `NEXT_PUBLIC_SITE_URL`. `src/content/load.ts` (static) exports `contentIsStatic = true`, a no-op
+  `NEXT_PUBLIC_SITE_URL` at build. `src/content/load.ts` (static) exports `contentIsStatic = true`, a no-op
   `ensureContent(page?)`, `redirectFor(path)` → null, `isLivePage` → true. Every public entry awaits `ensureContent`
   first (the layout's metadata, each page and its metadata with its system key, the 404s, the sitemap, the admin
   preview); root and slug `generateStaticParams` return `[]` when `!contentIsStatic`; the services / projects slug pages
@@ -1384,7 +1389,11 @@
   `decodeContentSet(snapshot, BASE)` (BASE = a clone of today's static set taken at module load). Per request (React
   `cache`): the generation read with a 5 s query timeout; another generation or epoch → reload (the snapshot within
   15 s, three attempts), never another generation's content; failure → `ContentUnavailableError` (500); breaker 5 → 60 s
-  (the pool's own full queue is not counted); logs name codes only. `connection()` is called only during `next build`
+  (the pool's own full queue is not counted); logs name codes only. It serves nothing unless this process's Next.js
+  configuration installed the fail-closed page cache (`markPageCacheConfigured()` in `next.config.ts`, the mark
+  `Symbol.for("rawasy.public.pageCacheConfigured")`). A mark set by the handler itself proves nothing: Next.js also builds
+  a cache from the configuration embedded in the bundle, which constructs the handler whatever the server's
+  configuration says, while the response cache (the one that keeps and serves pages) follows the server's. `connection()` is called only during `next build`
   (at run time it throws DYNAMIC_SERVER_USAGE on these SSG-shaped routes). Module-scope values derived from content must
   refresh after a swap (`refreshMapLinks()` in `src/lib/maps.ts`; `serviceSlugs` spliced): never add one without that.
 - **The read model** (`src/server/public/`): `read-model.ts` (one snapshot of `published_documents` + `public_media` +
@@ -1395,8 +1404,9 @@
   code look or photos, a machine without a live main service or photo, a client / industry / certificate without its
   picture — and dangling relations dropped; a section at a block version this release does not read fails the load),
   `redirects.ts` (pages win; one lookup; the target must be live and not the source; 308 / 307), `cache-handler.cjs`
-  (the generation read on every lookup and stamped before the render, oldest stamp kept, epoch, 200 answers only, 400
-  entries and 128 MiB, breaker 5 → 30 s; plain CommonJS with its own one-connection mysql2 pool, so the connection
+  (the generation read on every lookup — a hard 5 s limit that covers waiting for its pooled connection; a failed read
+  drops the pool — and stamped before the render, oldest stamp kept, epoch, 200 answers only, 400 entries and 128 MiB,
+  breaker 5 → 30 s; plain CommonJS with its own one-connection mysql2 pool, so the connection
   budget is `P × (L + 1) + R ≤ U`).
 - **The generation moves on everything the public reads:** A8's publications, plus (A9 review M1) every change of
   `public_media` (`syncPublicMedia` → `recordInvalidations(["media:<id>"])`) and every redirect save or (de)activation.
@@ -1429,7 +1439,9 @@
 - Corrections found by A9 (each with a test): A3 a gallery reference takes an en dash; A5 `linksOptional` (the service
   hero's "See the work"); A8 a menu's collection item needs no label; A8 the projection keeps the public source fields;
   A9.4 read time limits; A2's sign-in timing test compares the two paths; A6's site spec waits for the saved version and
-  for hydration.
+  for hydration; the importer's dry-run audit says so (`5b770ee`); the server follows its build's content source
+  (`f2f3ddf`); stalled reads fail in time and the in-use mark follows the server's configuration (`4404741`); a comment's
+  bare "static" no longer adds `.static` to the public stylesheet (`1eb7a30`).
 - Tests: `tests/unit/migration-layouts.test.ts`, `public-cache.test.ts`, `tests/integration/migration-import.test.ts`
   (A9's security tests among them, each failing on `83a1892`). Database-mode parity is proven with scratch tools (the
   report, item 6), not a committed suite: rebuild them from the report if needed.
@@ -3036,3 +3048,21 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   `/ar` (the labels are Arabic there).
 - A `/proc` loop that stops servers by command line matches its own shell when the pattern (e.g. `server.js`) appears in
   that command: match `case "$cmdline" in "node server.js"*)` (a command line that starts with it) and the server's cwd.
+- **`next start` and `server.js` evaluate `next.config.ts` again at every start, in an environment that usually lacks
+  build settings.** A config that switches on a build-time variable (`CONTENT_SOURCE`) gave the server the other
+  configuration: a database build ran without its `cacheHandler`, so Next.js's own memory and file-system cache
+  (`.next/server/route-cache/APP_PAGE/…`, written at run time) kept every page — stale after a publication, answered with
+  the database down. Settings a server must share with its build are read from the build's record
+  (`.next/required-server-files.json`), never from the server's environment (A9 `release-source.cjs`). A sign to look
+  for: route-cache files in a database build's `.next` (there must be none; `NEXT_PRIVATE_DEBUG_CACHE=1` logs which
+  handler each incremental cache uses).
+- Next.js 16.4 builds more than one incremental cache per request: the response cache follows the server's own
+  configuration, while another is built from the configuration embedded in the bundle at build. A custom cache handler
+  is therefore constructed even where the server's configuration names none: never take a handler's constructor (or its
+  module loading) as proof that it keeps the pages. A9 marks the process from `next.config.ts` instead.
+- mysql2's per-query `timeout` starts only once the query is sent: a request waiting for a pooled connection that a
+  stalled database holds (`docker pause`) waits with no limit (`curl -m 40` got no answer). Put a hard timer around the
+  whole call (`within()`, `withLimit()`), and drop a small pool after a failed read so the next one connects afresh.
+- Comment words in route files under `src/app/(commerce)` are Tailwind utilities too: "The static source has none." in
+  the catch-all added `.static{position:static}` to every public page's stylesheet (A9; the freeze proof's CSS rule
+  comparison caught it; no element used it). Grep A9-style comments for the utility words before a public build.

@@ -645,7 +645,9 @@ staging rehearsal, the deployment package, cutover and rollback — for approval
   website, the rollback) or `CONTENT_SOURCE=database` with `NEXT_PUBLIC_SITE_URL` set — the same pages, rendered per
   request from the published documents (nothing is prerendered from the database), kept by a page cache that serves a
   page only while the published content is the one it was rendered from; the database unreachable makes the pages fail
-  (500), never shows an old page. The release needs the same `DB_*` settings as the admin at run time.
+  (500), never shows an old page. The release needs the same `DB_*` settings as the admin at run time. A server takes
+  the content source its build was made with (the build's own record): `CONTENT_SOURCE` need not be set where it runs,
+  and a server whose environment names the other source refuses to start.
 
   ```bash
   CONTENT_SOURCE=database NEXT_PUBLIC_SITE_URL=https://www.example.com npm run build
