@@ -314,9 +314,56 @@ does not read, fails the load. Only a page without a layout map is skipped.
 - **The restricted release files in `public/media` of a checkout:** a server run straight from a checkout serves them.
   The deployment archive leaves the 13 out for both releases (the packaging check).
 - **A blocking flag or a withdrawn photo on a fixed spot of the composition** fails that page closed instead of drawing
-  it without the photo. It recovers once the photo is approved again or replaced.
+  it without the photo. It recovers once the photo is approved again or replaced. Measured in item 5:
+  - the collage's photos withdrawn → both Projects overviews answered 500;
+  - the project's own page drew without photos, as a flagged project's does;
+  - the other pages were unaffected;
+  - with the photos restored, all answered 200.
 
-### 7.2 The brief's §6 checks
+  A4 never refuses a safety-increasing change (restricting, flagging), so the guard cannot refuse the withdrawal
+  itself. Whether the overview should instead draw the collage without that print is a design decision for the Owner
+  (item 11).
+
+### 7.2 Found by the drills after the review (each corrected, with tests failing on the code before)
+
+The independent review read the code. The drills ran it, as a deployment would, and found four more defects:
+
+**D1 — High: the database release was neither fail-closed nor current at run time** (`f2f3ddf`).
+- *Cause.* Next.js evaluates `next.config.ts` again when a server starts. The server's environment had no
+  `CONTENT_SOURCE`, so the database build ran with the static configuration: no page cache handler, Next.js's own
+  memory and file-system cache instead.
+- *Measured on `c9d9121`:*
+  - after a publication, the old pages were still served: the marker drill found 0 of 17,688 text nodes from the
+    marked documents;
+  - with the database paused, pages answered 200 in 3–4 ms;
+  - 764 route-cache files were written into `.next`.
+- *Fixed.* A server takes the source its build was made with, from the build's own record, and refuses to start when its
+  environment names the other one.
+- *Earlier evidence.* The parity evidence gathered before the fix (item 6) compared content that was rendered from the
+  database on each first request; only its caching was wrong. Every check was taken again on the final commit.
+
+**D2 — Medium: a stalled database held requests open** (`4404741`).
+- *Measured.* After the first 500 (5 s), further page requests got no answer within 40 s. The page cache's one pooled
+  connection stayed held, and mysql2's per-query timeout starts only once a query is sent.
+- *Fixed.* Hard limits that cover waiting for a connection (5 s), and the page cache's pool is dropped after a failed
+  read.
+- *After the fix.* Every page answered 500 within 5 s.
+
+**D3 — Medium: the in-use guard added with D1 proved nothing** (`4404741`).
+- *Measured.* Its negative control — a database build whose record was edited to the static configuration — still
+  answered 200 from Next.js's file-system cache. Next.js also builds a cache from the configuration embedded in the
+  bundle, and that one constructs the handler regardless.
+- *Fixed.* The mark is now set where the server's configuration installs the handler.
+- *After the fix.* The control answers 500 on every page and logs the reason.
+
+**D4 — Low: the public stylesheet gained a rule** (`1eb7a30`).
+- *Measured.* A comment's bare word "static" added `.static{position:static}` to the public stylesheet. No element used
+  it.
+- *Fixed.* The comment is reworded; the stylesheets are A8's again, byte for byte.
+
+**Also found and corrected:** the dry run's audit event read like a real import (`5b770ee`, item 4).
+
+### 7.3 The brief's §6 checks
 
 | Check | Evidence |
 |---|---|
@@ -397,9 +444,15 @@ Nothing in A9 decides or activates any of these.
 3. **The public structure stays code** (item 12, condition). Sections of a system page that are hidden, moved or added
    in the page builder show in the admin preview only. The Owner should accept this as A9's limit, or ask for a later
    phase that lets the layouts drive the public structure.
-4. **The admin in production** (`ADMIN_ENABLED=1`). Without it, the published content cannot be changed after the
+4. **A withdrawn photo on a fixed spot** (item 7.1). Today the page that needs the photo fails closed: withdrawing the
+   Projects collage's photo makes both Projects overviews answer 500 until it is restored. The alternative — the
+   component drawing its collage without that print — would change approved public code. Owner's choice.
+5. **Logging a refused import.** An import refused because the named account is not an active Owner writes no audit
+   event (there is no account to attribute it to); the CLI reports it and writes nothing. Should it be logged as a
+   system event?
+6. **The admin in production** (`ADMIN_ENABLED=1`). Without it, the published content cannot be changed after the
    cutover.
-5. **Carried from A8 item 12, undecided:**
+7. **Carried from A8 item 12, undecided:**
    - reference warnings vs blocks;
    - revision retention;
    - scheduled publication;
@@ -409,23 +462,23 @@ Nothing in A9 decides or activates any of these.
    - who unpublishes;
    - slug rollback;
    - the A5 Low items.
-6. **Still gated:** visitor enquiry collection, SMTP and real email, stored attachments, a retention period, consent
+8. **Still gated:** visitor enquiry collection, SMTP and real email, stored attachments, a retention period, consent
    wording.
-7. **Public CSS waiting for the Owner:**
+9. **Public CSS waiting for the Owner:**
    - the Owner-approved reduced-motion press fix (`scale: none`);
    - the homepage showcase's hydration race, tracked (item 6.7);
    - the header blur.
-8. **Dev-only advisories.** `npm audit` lists 12 moderate dev-only entries (the lint and drizzle-kit toolchains; the
+10. **Dev-only advisories.** `npm audit` lists 12 moderate dev-only entries (the lint and drizzle-kit toolchains; the
    production audit is 0). A fix exists only as a breaking downgrade.
 
 **Infrastructure (the Owner / hosting):**
 
-9. H1–H14 unverified on the account (item 9). In particular, the connection budget and memory of a database release
+11. H1–H14 unverified on the account (item 9). In particular, the connection budget and memory of a database release
    are unmeasured there.
-10. No staging environment.
-11. No off-site backup location, retention or key custody. No escrowed `AUTH_ENCRYPTION_KEY`.
-12. Domain, DNS and SSL: untouched. They need the Owner's explicit go-ahead.
-13. `main` is not fast-forwarded. Every phase since 1J lives on `claude/new-session-5eijs6`.
+12. No staging environment.
+13. No off-site backup location, retention or key custody. No escrowed `AUTH_ENCRYPTION_KEY`.
+14. Domain, DNS and SSL: untouched. They need the Owner's explicit go-ahead.
+15. `main` is not fast-forwarded. Every phase since 1J lives on `claude/new-session-5eijs6`.
 
 ## 12. A9 acceptance recommendation
 
