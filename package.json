@@ -21,6 +21,7 @@
     "db:check": "drizzle-kit check && node scripts/db-migrate.mjs check && node scripts/generate-access-seed.mjs --check",
     "db:migrate": "node scripts/db-migrate.mjs up",
     "db:status": "node scripts/db-migrate.mjs status",
+    "content:import": "node scripts/content-import.mjs",
     "media:import-release": "node scripts/media-import-release.mjs",
     "media:baseline": "node scripts/media-release-baseline.mjs",
     "media:maintenance": "node scripts/media-maintenance.mjs",

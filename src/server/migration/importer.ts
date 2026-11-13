@@ -89,7 +89,7 @@ export interface ImportReport {
   /** Notes for the Owner (decisions the import had to take, warnings A8 raised). */
   notes: string[];
   /** Source → imported → published, by type (A9 brief §3.2 reconciliation). */
-  reconciliation: { type: string; source: number; imported: number; published: number; leftAsTheyAre: number }[];
+  reconciliation: { type: string; source: number; created: number; updated: number; unchanged: number; leftAsTheyAre: number; publishedNow: number; live: number }[];
   /** Published documents naming a record that is not published (none once an import completes). */
   missingReferences: { from: string; to: string }[];
   dryRun: boolean;
@@ -269,7 +269,7 @@ export class ImportRun implements ImportRefs {
     } else {
       const decided = await this.decideExisting(type, existing.id, fingerprint, table, "id");
       unit.outcome = decided;
-      publishIt = decided === "updated";
+      publishIt = decided === "updated" || (decided === "unchanged" && !(await this.isLive(type, existing.id)));
       if (decided === "updated") {
         const result = await updateItem(this.change, spec, existing.id, { ...form, lockVersion: String(await lockVersionOf(this.tx, table, "id", existing.id)) } as FormObject);
         if (result.kind !== "ok") throw new ImportRefused("records", `${type} ${slug}`, `The ${info.one} “${slug}” update was refused (${result.kind}).`, result);
@@ -288,6 +288,12 @@ export class ImportRun implements ImportRefs {
     const current = await currentSha(this.tx, type, table, idColumn, id);
     if (!current || !current.equals(imported.sha)) return "edited_kept";
     return imported.fingerprint === fingerprint ? "unchanged" : "updated";
+  }
+
+  /** Whether the aggregate has a published version. */
+  async isLive(type: AggregateType, id: string): Promise<boolean> {
+    const [row] = await rowsOf<{ n: number }>(this.tx, sql`SELECT COUNT(*) AS n FROM published_documents WHERE entity_type = ${type} AND entity_id = ${id}`);
+    return Number(row?.n ?? 0) > 0;
   }
 
   /** Adds a non-blocking static flag (the AI-watermark note) to a project created by this run. */
@@ -364,6 +370,7 @@ export class ImportRun implements ImportRefs {
       const [existing] = await rowsOf<{ id: string }>(this.tx, sql`SELECT id FROM pages WHERE system_key = ${key} AND deleted_at IS NULL`);
       const unit: UnitReport = { type: "page", key, outcome: "created", id: existing?.id ?? null, published: false, notes: [] };
       let write = true;
+      let publishLater = false;
       if (!existing) {
         const result = await createPage(this.change, { kind: "system", key }, form as FormObject);
         if (result.kind !== "ok") throw new ImportRefused("pages", `page ${key}`, `The page “${key}” was refused (${result.kind}).`, result);
@@ -371,6 +378,8 @@ export class ImportRun implements ImportRefs {
       } else {
         unit.outcome = await this.decideExisting("page", existing.id, fingerprint, "pages", "id");
         write = unit.outcome === "updated";
+        // Imported earlier but never published (a legal page waiting for its reviewer): published now, as it is.
+        if (unit.outcome === "unchanged" && !(await this.isLive("page", existing.id))) publishLater = true;
         if (write) {
           const result = await updateItem(this.change, pageSpec, existing.id, { ...form, lockVersion: String(await lockVersionOf(this.tx, "pages", "id", existing.id)) } as FormObject, { pageTypeOf });
           if (result.kind !== "ok") throw new ImportRefused("pages", `page ${key}`, `The page “${key}” update was refused (${result.kind}).`, result);
@@ -378,7 +387,7 @@ export class ImportRun implements ImportRefs {
       }
       if (write) await this.layOut({ type: "page", id: unit.id! }, owner);
       this.report.units.push(unit);
-      this.pending.push({ unit, publish: write, fingerprint, table: "pages", idColumn: "id" });
+      this.pending.push({ unit, publish: write || publishLater, fingerprint, table: "pages", idColumn: "id" });
     }
   }
 
@@ -493,11 +502,13 @@ export class ImportRun implements ImportRefs {
     for (const p of ordered) {
       if (!p.publish || !p.unit.id) continue;
       const type = p.unit.type;
-      const message = `${IMPORT_MESSAGE} Source fingerprint ${p.fingerprint}.`;
-      const written = await writeRevision(this.tx, { type, id: p.unit.id, kind: "import", actorId: this.change.actor.user.id, now, force: true, message, created: p.unit.outcome === "created" });
-      if (!written) throw new ImportRefused("revisions", `${type} ${p.unit.key}`, "The import revision could not be written.");
       const version = await lockVersionOf(this.tx, p.table, p.idColumn, p.unit.id);
-      markRecorded(this.tx, type, p.unit.id, version);
+      if (p.unit.outcome !== "unchanged") {
+        const message = `${IMPORT_MESSAGE} Source fingerprint ${p.fingerprint}.`;
+        const written = await writeRevision(this.tx, { type, id: p.unit.id, kind: "import", actorId: this.change.actor.user.id, now, force: true, message, created: p.unit.outcome === "created" });
+        if (!written) throw new ImportRefused("revisions", `${type} ${p.unit.key}`, "The import revision could not be written.");
+        markRecorded(this.tx, type, p.unit.id, version);
+      }
       if (this.skipPublish(p)) continue;
       const result = await publish(this.change, type, p.unit.id, version, { message: IMPORT_MESSAGE, legalReviewer: this.options.legalReviewer ?? undefined });
       if (result.kind !== "ok") throw new ImportRefused("publication", `${type} ${p.unit.key}`, `Publishing “${p.unit.key}” was refused (${result.kind}).`, result);
@@ -528,18 +539,22 @@ export class ImportRun implements ImportRefs {
       site_settings: 1,
       form: 1,
     };
+    const docs = await rowsOf<{ entity_type: string; entity_id: string; document: unknown }>(this.tx, sql`SELECT entity_type, entity_id, document FROM published_documents`);
+    const live = new Set(docs.map((d) => `${d.entity_type}:${d.entity_id}`));
     for (const [type, source] of Object.entries(sources)) {
       const units = this.report.units.filter((u) => u.type === type);
+      const count = (...outcomes: Outcome[]) => units.filter((u) => outcomes.includes(u.outcome)).length;
       this.report.reconciliation.push({
         type,
         source,
-        imported: units.filter((u) => u.outcome === "created" || u.outcome === "updated" || u.outcome === "unchanged").length,
-        published: units.filter((u) => u.published).length,
-        leftAsTheyAre: units.filter((u) => u.outcome === "edited_kept" || u.outcome === "conflict").length,
+        created: count("created"),
+        updated: count("updated"),
+        unchanged: count("unchanged"),
+        leftAsTheyAre: count("edited_kept", "conflict"),
+        publishedNow: units.filter((u) => u.published).length,
+        live: units.filter((u) => u.id && live.has(`${type}:${u.id}`)).length,
       });
     }
-    const docs = await rowsOf<{ entity_type: string; entity_id: string; document: unknown }>(this.tx, sql`SELECT entity_type, entity_id, document FROM published_documents`);
-    const live = new Set(docs.map((d) => `${d.entity_type}:${d.entity_id}`));
     const RELATION_TYPES: Record<string, string> = { machines: "machine", relatedServices: "service", featuredProjects: "project", categories: "project_category", services: "service", projects: "project" };
     for (const d of docs) {
       const doc = (typeof d.document === "string" ? JSON.parse(d.document) : d.document) as { relations?: Record<string, unknown> };
@@ -571,7 +586,14 @@ export class ImportRun implements ImportRefs {
 
 /** Runs the whole import as one transaction; a refusal returns the report with nothing written. */
 export async function runContentImport(deps: AuthDeps, set: ContentSet, options: ImportOptions): Promise<ImportReport> {
-  const { actor, end } = await openImportActor(deps, options);
+  let opened: Awaited<ReturnType<typeof openImportActor>>;
+  try {
+    opened = await openImportActor(deps, options);
+  } catch (error) {
+    if (!(error instanceof ImportRefused)) throw error;
+    return { ok: false, failure: { stage: error.stage, unit: error.unit, message: error.message }, units: [], leftOut: [], notes: [], reconciliation: [], missingReferences: [], dryRun: options.dryRun === true };
+  }
+  const { actor, end } = opened;
   const meta: RequestMeta = { requestId: options.requestId, ip: null, userAgent: `content-import (${options.operator})` };
   const change: ChangeContext = { deps, actor, meta };
   let report: ImportReport;
