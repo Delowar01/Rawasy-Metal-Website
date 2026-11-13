@@ -24,7 +24,7 @@ import { serviceSlugs } from "@/content/services";
 import { refreshMapLinks } from "@/lib/maps";
 import { getPool, describeDbError } from "@/server/db/pool";
 import { dbFor } from "@/server/db/client";
-import { readGeneration, readPublicSnapshot } from "@/server/public/read-model";
+import { PUBLIC_READ_LIMITS, readGenerationWithin, readPublicSnapshot, within } from "@/server/public/read-model";
 import { decodeContentSet } from "@/server/public/decode";
 import { resolvePublicRedirect, type LiveAddresses } from "@/server/public/redirects";
 
@@ -83,7 +83,7 @@ function swap(next: ContentSet) {
 }
 
 async function load(): Promise<void> {
-  const snapshot = await readPublicSnapshot(getPool());
+  const snapshot = await within(readPublicSnapshot(getPool()), PUBLIC_READ_LIMITS.snapshotMs, "Reading the published content");
   const { set, livePages } = decodeContentSet(snapshot, BASE);
   const ids = (type: string) => new Map(snapshot.docs.filter((d) => d.type === type && d.slug).map((d) => [d.id, d.slug as string]));
   const serviceIds = ids("service");
@@ -108,7 +108,7 @@ async function readCurrent(): Promise<Loaded> {
   if (process.env.NEXT_PHASE === "phase-production-build") await connection();
   if (Date.now() < openUntil) throw new ContentUnavailableError();
   try {
-    const { generation, epoch } = await readGeneration(dbFor(getPool()));
+    const { generation, epoch } = await readGenerationWithin(getPool());
     // Load until this request's generation (or a newer one of the same epoch) is in: a load that started for an older
     // generation may finish first. Content of another epoch (before a restore) is never served.
     const stale = () => !loaded || loaded.epoch !== epoch || loaded.generation < generation;

@@ -19,6 +19,30 @@ export async function readGeneration(db: Db): Promise<{ generation: number; epoc
   return { generation: Number(row.generation), epoch: String(row.epoch) };
 }
 
+/** Time limits of the public reads: a database that stalls fails the request instead of holding it (fail-closed). */
+export const PUBLIC_READ_LIMITS = { generationMs: 5_000, snapshotMs: 15_000 } as const;
+
+/** The generation, read on the pool with a time limit (the request path: one small query per request). */
+export async function readGenerationWithin(pool: Pool, ms: number = PUBLIC_READ_LIMITS.generationMs): Promise<{ generation: number; epoch: string }> {
+  const [rows] = await pool.query({ sql: "SELECT value AS generation, epoch FROM cache_generation WHERE id = 1", timeout: ms });
+  const row = (rows as { generation: number | string; epoch: string }[])[0];
+  if (!row) throw new Error("The cache generation row is missing.");
+  return { generation: Number(row.generation), epoch: String(row.epoch) };
+}
+
+/** Rejects when `work` takes longer than `ms` (its query may still finish; its answer is never used). */
+export async function within<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error(`${what} took longer than ${ms} ms.`), { code: "PUBLIC_READ_TIMEOUT" })), ms);
+  });
+  try {
+    return await Promise.race([work, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export interface PublicSnapshot extends PublishedInput {
   generation: number;
   epoch: string;

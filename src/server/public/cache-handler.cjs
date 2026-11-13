@@ -44,7 +44,8 @@ function pool() {
 
 async function sharedState() {
   try {
-    const [rows] = await pool().query("SELECT value, epoch FROM cache_generation WHERE id = 1");
+    // A time limit: a database that stalls fails the lookup (and the request) instead of holding it.
+    const [rows] = await pool().query({ sql: "SELECT value, epoch FROM cache_generation WHERE id = 1", timeout: 5000 });
     const row = rows[0];
     if (!row) throw Object.assign(new Error("no generation row"), { code: "NO_GENERATION" });
     return { generation: Number(row.value), epoch: String(row.epoch) };
