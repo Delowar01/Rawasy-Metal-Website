@@ -43,8 +43,19 @@ email, no real customer data, no live cutover. Every drill ran on disposable loc
 | `a53cc85` | The A9 security review's corrections (3 Medium, 4 Low, 2 Info) |
 | `d9dbe64` | Tests: the review's findings, each failing on the code before |
 | `c9d9121` | Tests: A6's site spec waits for the saved version and for hydration (two read races, item 8) |
+| `5b770ee` | A9 correction: a dry run's audit event says it was a dry run (item 4) |
+| `f2f3ddf` | A9.4 correction (High, found by the drill): a server takes the content source its build was made with |
+| `f37d048` | Tests: the content source follows the build |
+| `4404741` | A9.4 correction: reads of a stalled database fail in time; the in-use check follows the server's configuration |
+| `879c39c` | Tests: stalled reads fail within their limit; the configuration's in-use mark |
+| `1eb7a30` | A9 correction: the public stylesheet gains no utility (a comment's bare word) |
+| `4a6a539` | Tests: A6's redirect search waits for the streamed list before counting (item 8) |
 
-- **Final code commit:** `c9d9121` (QA, drills and parity proofs ran on a fresh clone of it).
+- **Final code commit:** `1eb7a30` (the last commit that changes what is built). `4a6a539` after it changes one
+  test file only. QA, drills and parity proofs ran on a fresh clone of `1eb7a30`, and the admin suite again at
+  `4a6a539` on the same build.
+- **Docs commits** in between (`0506203`, `718fd49`, `62f8203`, `93877bc`, …) carry the drafts of this report, the
+  README, the runbook and the project memory.
 - **Final commit:** {{FINAL_SHA}} (this report and the project memory; docs only).
 
 ## 3. A9 features
@@ -314,7 +325,24 @@ folder but not relied on.
 
 The A8 closure build (`babf932` = `preserve/pre-admin-a9`) was compared with the A9 static build:
 
-{{FREEZE}}
+- **Sources.** A9 changes no approved component, page stylesheet or content value. Its public-side changes:
+  - the route files await `ensureContent` (a no-op in a static build), and three slug and catch-all routes call
+    `redirectFor` (returns null);
+  - `maps.ts` exports live bindings (`refreshMapLinks`, never called in a static build);
+  - three image builders carry `unoptimized` through a conditional spread (static data never sets it).
+- **Visible HTML** of the 102 sitemap addresses and 6 error addresses: **108 / 108 identical**.
+- **HTTP answers** (status, type, robots, location, `Cache-Control`, body hash): **224 / 224 identical**.
+- **The browser's files:** 98 / 98.
+  - The **9 stylesheets are byte-identical**. That holds since `1eb7a30`; the `c9d9121` build had one extra rule, item
+    7.2 D4.
+  - 16 scripts differ in name. All 16 are admin chunks (Server Action references), equal once the per-build action ids
+    and the minifier's local names are normalised. No public page loads any of them.
+- **Pixels:** every sitemap page and the two 404s, at 1440 / 834 / 390, light and dark: **624 / 624 identical**, 623 at
+  the first capture. The one recapture was the Arabic Projects page (desktop, light): the gallery's photo-size choice
+  depends on timing. Its second capture was identical.
+- **The image optimizer:** both releases warmed 1,484 / 1,484 sizes.
+
+The static release of A9 is therefore the A8 website, and it stays the rollback.
 
 ### 6.2 Static vs database: HTML, HTTP and the browser's files
 
