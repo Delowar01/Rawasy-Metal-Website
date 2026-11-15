@@ -109,6 +109,3 @@ export interface RedirectFormModel {
   note: string;
 }
 
-/** Shown on every A6 screen: nothing reaches visitors before publishing (A8) and the switch to the database (A9). */
-export const SITE_WORKING_NOTE =
-  "Working copy: the public website keeps today's settings, menus and text until the content cutover (A9); publishing makes each part's live version in the database. The admin preview shows the working copy.";

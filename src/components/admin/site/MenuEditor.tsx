@@ -12,7 +12,7 @@ import { saveMenuAction } from "@/server/admin/actions/site";
 import type { MenuFormModel, MenuItemFormModel } from "@/server/admin/actions/site-model";
 import { SaveAlert, useSiteSave } from "./useSiteSave";
 
-export function MenuEditor({ model, routes, canEdit }: { model: MenuFormModel; routes: { key: string; name: string }[]; canEdit: boolean }) {
+export function MenuEditor({ model, routes, canEdit, servicesHint }: { model: MenuFormModel; routes: { key: string; name: string }[]; canEdit: boolean; servicesHint: string }) {
   const [items, setItems] = useState<MenuItemFormModel[]>(() => model.items.map((i) => ({ ...i, label: i.label ? { ...i.label } : null })));
   const { pending, state, submit, reload, issue } = useSiteSave(saveMenuAction, `/admin/navigation?saved=${model.key}`);
   const dirty = JSON.stringify(items) !== JSON.stringify(model.items);
@@ -60,7 +60,7 @@ export function MenuEditor({ model, routes, canEdit }: { model: MenuFormModel; r
             return (
               <li key={item.id} className="adm-site-row">
                 <strong>The live services</strong>
-                <p className="adm-hint">Each service with its own name and tagline, in the services&apos; order (the six services of today&apos;s website until publishing, A8, and the switch, A9).</p>
+                <p className="adm-hint">{servicesHint}</p>
               </li>
             );
           }

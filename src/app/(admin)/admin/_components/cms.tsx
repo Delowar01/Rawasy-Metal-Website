@@ -43,6 +43,7 @@ import { PublishingPanel } from "./publishing";
 import { usedBy } from "@/server/publishing/references";
 import { displayedState } from "@/server/publishing/registry";
 import { Forbidden, formatTime, PageHeader, RIYADH_NOTE } from "./parts";
+import { PUBLIC_EFFECT } from "./public-effect";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -59,7 +60,7 @@ export function StateBadge({ locale, state }: { locale: "en" | "ar"; state: CmsL
 
 /** The A3 boundary, said once on every content screen: drafts only, nothing public. */
 export function DraftNote() {
-  return <p className="adm-hint">Working records: publishing fills the database&apos;s public read model; the public website keeps today&apos;s content until the content cutover (A9).</p>;
+  return <p className="adm-hint">{PUBLIC_EFFECT.draftNote}</p>;
 }
 
 // --- Lists -------------------------------------------------------------------------------------------------------------
@@ -446,7 +447,7 @@ export async function ContentEdit({ type, id, searchParams }: { type: EntityType
           <dt>Working state</dt>
           <dd>{item.archived ? "Archived (read-only, restorable)" : displayedState(String(root.publicationStatus), String(root.draftStatus))}</dd>
           <dt>Public website</dt>
-          <dd>Unchanged until the content cutover (A9): publishing fills the database&apos;s public read model only.</dd>
+          <dd>{PUBLIC_EFFECT.statusPublic}</dd>
           <dt>Created</dt>
           <dd>
             {formatTime(item.createdAt)}
@@ -668,7 +669,7 @@ export async function ContentOrder({ type }: { type: EntityType }) {
       <PageHeader
         title={`Order of ${info.many.toLowerCase()}`}
         crumbs={[{ label: info.many, href: info.path }, { label: "Order" }]}
-        lead="The order the public site uses once it is published (read from the content cutover, A9). Archived items keep their place and are stepped over."
+        lead={PUBLIC_EFFECT.orderLead}
       />
       {!canMove ? <p className="adm-alert is-info">Your roles let you view this order, not change it.</p> : null}
       <section className="adm-card" aria-label={`Order of ${info.many.toLowerCase()}`}>

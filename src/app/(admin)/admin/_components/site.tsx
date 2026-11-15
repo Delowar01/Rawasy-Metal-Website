@@ -17,7 +17,7 @@ import { ThemeReset } from "@/components/admin/site/ThemeReset";
 import { UiTextEditor } from "@/components/admin/site/UiTextEditor";
 import { authDeps, guarded } from "@/server/admin/context";
 import { requireActor } from "@/server/admin/guards";
-import { SITE_WORKING_NOTE, type MenuFormModel, type RedirectFormModel, type SettingsFormModel, type UiGroupFormModel } from "@/server/admin/actions/site-model";
+import { type MenuFormModel, type RedirectFormModel, type SettingsFormModel, type UiGroupFormModel } from "@/server/admin/actions/site-model";
 import { mediaCards } from "@/server/media/cards";
 import { readMenus, routeChoices } from "@/server/site/menus";
 import { readablePath } from "@/server/site/paths";
@@ -28,6 +28,7 @@ import { readTheme } from "@/server/site/theme";
 import { readUiText } from "@/server/site/ui-text";
 import type { SearchParams } from "./cms";
 import { Forbidden, formatTime, PageHeader } from "./parts";
+import { PUBLIC_EFFECT } from "./public-effect";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -81,7 +82,7 @@ export async function SettingsScreen({ searchParams }: { searchParams: SearchPar
   return (
     <>
       <PageHeader title="Company & website" lead="The company's identity and contact details, the address and map, the social link and the global SEO defaults, in English and Arabic." actions={<PreviewLinks show={canPreview && settings.setUp} />} />
-      <p className="adm-hint">{SITE_WORKING_NOTE}</p>
+      <p className="adm-hint">{PUBLIC_EFFECT.siteNote}</p>
       <Saved show={one(query.saved) === "1"} text="Saved. The preview shows the working copy; visitors still see today's website." />
       {settings.setUp ? (
         <>
@@ -128,12 +129,12 @@ export async function NavigationScreen({ searchParams }: { searchParams: SearchP
   return (
     <>
       <PageHeader title="Navigation" lead="The header's pages and Services menu, and the footer's company and legal links: order, visibility and labels in English and Arabic." actions={<PreviewLinks show={actor.permissions.has("preview.use") && setUp} />} />
-      <p className="adm-hint">{SITE_WORKING_NOTE}</p>
+      <p className="adm-hint">{PUBLIC_EFFECT.siteNote}</p>
       <Saved show={Boolean(saved && menus.some((m) => m.key === saved))} text="Saved. The preview shows the working copy; visitors still see today's website." />
       {setUp ? (
         models.map((model) => (
           <Fragment key={`${model.key}:${model.lockVersion}`}>
-            <MenuEditor model={model} routes={routeChoices()} canEdit={canEdit} />
+            <MenuEditor model={model} routes={routeChoices()} canEdit={canEdit} servicesHint={PUBLIC_EFFECT.menuServicesHint} />
             <PublishingPanel type="menu" id={model.key} actor={actor} label={model.name} anchor={`publishing-${model.key}`} compact />
           </Fragment>
         ))
@@ -176,7 +177,7 @@ export async function InterfaceTextScreen({ searchParams }: { searchParams: Sear
   return (
     <>
       <PageHeader title="Interface text" lead="The labels of the website's shell — skip link, menus, controls, contact actions, footer titles, page not found — in English and Arabic." actions={<PreviewLinks show={actor.permissions.has("preview.use") && ui.setUp} />} />
-      <p className="adm-hint">{SITE_WORKING_NOTE}</p>
+      <p className="adm-hint">{PUBLIC_EFFECT.siteNote}</p>
       <Saved show={one(query.saved) === "1"} text="Saved. The preview shows the working copy; visitors still see today's website." />
       {ui.setUp ? (
         <UiTextEditor key={ui.lockVersion} groups={groups} lockVersion={ui.lockVersion} canEdit={canEdit} />

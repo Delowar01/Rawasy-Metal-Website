@@ -26,6 +26,7 @@ import { readSnapshot, type Snapshot } from "@/server/publishing/snapshot";
 import { readPublishing } from "@/server/publishing/workflow";
 import { RevisionButtons, WorkflowButtons } from "@/components/admin/publishing/Workflow";
 import { Forbidden, formatTime, PageHeader, RIYADH_NOTE } from "./parts";
+import { PUBLIC_EFFECT } from "./public-effect";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -112,7 +113,7 @@ export async function PublishingPanel({
           <dt>Live version</dt>
           <dd>{live ? `Revision ${live.number}, published ${formatTime(live.liveFrom ?? live.createdAt)}${live.createdByName ? ` by ${live.createdByName}` : ""}` : "None"}</dd>
           <dt>Public website</dt>
-          <dd>Unchanged: the public pages keep reading today&apos;s approved content until the content cutover (A9).</dd>
+          <dd>{PUBLIC_EFFECT.panelPublic}</dd>
         </dl>
         {state.comments.filter((c) => c.status === "open").length ? (
           <div className="adm-alert is-warning" role="note">
@@ -166,6 +167,7 @@ export async function PublishingPanel({
           review={info.review}
           linkedFrom={linkedFrom}
           can={state.can}
+          publicNote={PUBLIC_EFFECT.publishDialog}
         />
         <p className="adm-hint">
           <Link href={historyHref(type, id)}>Version history ({history.total})</Link>

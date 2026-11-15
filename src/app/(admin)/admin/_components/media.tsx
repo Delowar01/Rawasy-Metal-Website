@@ -25,6 +25,7 @@ import { folderTree } from "@/server/media/folders";
 import { libraryHref, listMedia, PAGE_SIZES, parseLibraryQuery, uploaders, type LibraryQuery } from "@/server/media/list";
 import { MEDIA_FLAG_KEYS, MEDIA_FLAGS, USAGE_STATUS_LABELS } from "@/server/media/registry";
 import { Forbidden, formatTime, PageHeader, RIYADH_NOTE } from "./parts";
+import { PUBLIC_EFFECT } from "./public-effect";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -205,7 +206,7 @@ export async function MediaLibrary({ searchParams }: { searchParams: SearchParam
     <>
       <PageHeader
         title={query.trash ? "Media Trash" : "Media library"}
-        lead="Uploads start as pending review. Nothing here changes the public website: today's site keeps its own files until the cutover (A9)."
+        lead={PUBLIC_EFFECT.mediaLead}
         actions={
           <Link className="adm-btn" href="/admin/media/folders">
             Folders
@@ -215,7 +216,7 @@ export async function MediaLibrary({ searchParams }: { searchParams: SearchParam
       {mayUploadPublic(actor.permissions) && !query.trash ? (
         <section className="adm-card" aria-labelledby="upload-title">
           <h2 id="upload-title">Upload</h2>
-          <LibraryUpload folderId={query.folder && query.folder !== "none" ? query.folder : undefined} />
+          <LibraryUpload folderId={query.folder && query.folder !== "none" ? query.folder : undefined} hint={PUBLIC_EFFECT.uploadHint} />
         </section>
       ) : null}
       <LibraryFilters query={query} seePrivate={seePrivate} folders={folders} people={people} />

@@ -20,6 +20,8 @@ export interface WorkflowProps {
   review: boolean;
   linkedFrom: number;
   can: { submit: boolean; review: boolean; publish: boolean; unpublish: boolean; edit: boolean; withdraw: boolean };
+  /** What publishing does to the public website in this release (src/server/admin/public-effect.ts). */
+  publicNote: string;
 }
 
 const NOTE_MAX = 500;
@@ -69,8 +71,8 @@ export function WorkflowButtons(props: WorkflowProps) {
     buttons.push(
       <ConfirmAction key="publish" action={workflowAction} label={verb} title={`${verb} “${label}”?`} confirmLabel={verb} fields={{ ...base, step: "publish" }}>
         <p>
-          This version becomes the live version in the database&apos;s public read model. The public website keeps showing today&apos;s approved pages until the
-          content cutover (A9){draft === "in_review" ? "" : "; publishing without review is recorded in the audit log"}.
+          {props.publicNote}
+          {draft === "in_review" ? "" : "; publishing without review is recorded in the audit log"}.
         </p>
         {props.blocking ? (
           <p className="adm-hint">

@@ -36,7 +36,7 @@ type SaveView =
   | { status: "error"; message: string; issues: Issue[] };
 
 /** `viewer`: the id of the person this editor was opened for (its saves name them; its kept copy is theirs). */
-export function ReusableEditor({ model, viewer }: { model: ReusableEditorModel; viewer: string }) {
+export function ReusableEditor({ model, viewer, publicNote }: { model: ReusableEditorModel; viewer: string; publicNote: string }) {
   const router = useRouter();
   const id = useId();
   const openedData = model.data && model.block ? fillLanguages(model.block, model.data) : null;
@@ -218,7 +218,7 @@ export function ReusableEditor({ model, viewer }: { model: ReusableEditorModel; 
               <strong>
                 Used by {model.uses.length} section{model.uses.length === 1 ? "" : "s"}.
               </strong>{" "}
-              Saving changes the working preview of every page and service that links it; its live version changes only when someone publishes it, and no visitor sees any of it before the content cutover (A9).
+              {publicNote}
             </p>
             {model.uses.length ? (
               <ul>

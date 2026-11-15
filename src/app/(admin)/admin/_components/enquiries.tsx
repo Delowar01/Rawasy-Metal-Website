@@ -26,10 +26,11 @@ import { listForms, readForm } from "@/server/forms/forms";
 import { ATTACHMENT_EXTENSIONS, DELIVERY_LABELS, ENQUIRY_STATUSES, FORM_LIMITS, STATUS_LABELS, TRANSITIONS, type EnquiryStatus } from "@/server/forms/registry";
 import type { SearchParams } from "./cms";
 import { Forbidden, formatTime, PageHeader, RIYADH_NOTE, StepUpGate } from "./parts";
+import { PUBLIC_EFFECT } from "./public-effect";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const FORM_NAMES: Record<string, string> = { quote: "Quote request form" };
-const WORKING_NOTE = "A working copy for the admin and its preview: the website's quote form stays today's handoff form — the visitor sends the prepared email or WhatsApp message — until the approved cutover.";
+const WORKING_NOTE = PUBLIC_EFFECT.formNote;
 
 function Done({ show, text }: { show: boolean; text: string }) {
   return show ? (
@@ -143,7 +144,7 @@ export async function FormEditScreen({ id, searchParams }: { id: string; searchP
           <p className="adm-muted">
             {DELIVERY_LABELS[form.settings.deliveryMode]} · last changed {formatTime(form.updatedAt)} · version {form.lockVersion}
           </p>
-          <FormEditor key={form.lockVersion} model={model} />
+          <FormEditor key={form.lockVersion} model={model} deliveryHint={PUBLIC_EFFECT.formEditorHint} />
           <PublishingPanel type="form" id={form.id} actor={actor} label={title} compact />
         </>
       ) : (

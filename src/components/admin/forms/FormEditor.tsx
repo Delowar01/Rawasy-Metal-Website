@@ -136,7 +136,7 @@ const draftOf = (model: FormEditorModel): Draft => ({
 
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
-export function FormEditor({ model }: { model: FormEditorModel }) {
+export function FormEditor({ model, deliveryHint }: { model: FormEditorModel; deliveryHint: string }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => draftOf(model));
   const [otherUnaffected, setOtherUnaffected] = useState(false);
@@ -268,7 +268,7 @@ export function FormEditor({ model }: { model: FormEditorModel }) {
         <div className="adm-card-head">
           <h2 id="form-delivery-title">Delivery and protection</h2>
         </div>
-        <p className="adm-hint">The website&apos;s form stays today&apos;s handoff form whatever is chosen here: nothing reaches the website&apos;s visitors before the approved cutover. The delivery mode, stored attachments, the consent box and the retention period are the Owner&apos;s decisions.</p>
+        <p className="adm-hint">{deliveryHint}</p>
         <fieldset className="adm-subset">
           <legend className="adm-label">Delivery</legend>
           {DELIVERY.map((d) => (

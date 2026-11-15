@@ -17,6 +17,7 @@ import { mediaStore } from "@/server/media/storage";
 import { enquirySummary } from "@/server/enquiries/enquiries";
 import { formatBytes } from "../_components/media";
 import { formatTime, PageHeader, RIYADH_NOTE, RoleBadges } from "../_components/parts";
+import { PUBLIC_EFFECT } from "../_components/public-effect";
 
 /** The content areas whose real counts the dashboard shows (A3 brief §16), in the navigation's order. */
 const COUNTED: EntityType[] = ["page", "service", "project", "project_category", "machine", "industry", "client", "certificate"];
@@ -111,7 +112,7 @@ function MediaFacts({ stats, report, integrity }: { stats: MediaStats; report: M
     <section className="adm-card" aria-labelledby="dash-media">
       <div className="adm-card-head">
         <h2 id="dash-media">Media</h2>
-        <span className="adm-hint">The library only; today&apos;s public site keeps its own files until the cutover (A9).</span>
+        <span className="adm-hint">{PUBLIC_EFFECT.dashMedia}</span>
       </div>
       <div className="adm-grid">
         <dl className="adm-dl">

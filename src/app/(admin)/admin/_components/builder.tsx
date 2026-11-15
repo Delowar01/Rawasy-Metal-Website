@@ -14,6 +14,7 @@ import { loadBuilder, loadReusableEditor } from "@/server/builder/editor";
 import { listReusables, reusableBlockTypes } from "@/server/builder/reusable";
 import type { SearchParams } from "./cms";
 import { Forbidden, formatTime, PageHeader } from "./parts";
+import { PUBLIC_EFFECT } from "./public-effect";
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : undefined);
@@ -27,7 +28,7 @@ const DONE: Record<string, string> = {
   linked: "Created the reusable section; the section now shows it.",
 };
 
-const WORKING_NOTE = "Working layout: the public website does not use it before the content cutover (A9); publishing makes it the live version in the database.";
+const WORKING_NOTE = PUBLIC_EFFECT.layoutNote;
 
 /** The layout builder of a page or a service. */
 export async function BuilderScreen({ type, id, searchParams }: { type: "page" | "service"; id: string; searchParams: SearchParams }) {
@@ -176,7 +177,7 @@ export async function ReusableEdit({ id, searchParams }: { id: string; searchPar
           <p>Saved. Every page and service that links it shows the change in its preview; its live version changes only when someone publishes it.</p>
         </div>
       ) : null}
-      <ReusableEditor key={`${model.id}:${model.lockVersion}`} model={model} viewer={actor.user.id} />
+      <ReusableEditor key={`${model.id}:${model.lockVersion}`} model={model} viewer={actor.user.id} publicNote={PUBLIC_EFFECT.reusableNote} />
       <PublishingPanel type="reusable_section" id={model.id} actor={actor} label={model.name} references={false} />
     </>
   );
