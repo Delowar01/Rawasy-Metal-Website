@@ -75,7 +75,7 @@ const DATABASE: PublicEffectTexts = {
     "Working layout: publishing makes its texts live on the public website at the next request. Which sections a site page shows, and in what order, stay as approved: a section hidden, moved or added here shows in the preview only (a service page's optional sections follow their visibility).",
   dashMedia: "The public pages show approved, delivered items only; withdrawing one changes them at the next request.",
   mediaLead:
-    "Uploads start as pending review. The public pages show approved items only: approving an item, or restricting, archiving or trashing one they show, changes them at the next request. A photo on a fixed part of the approved design (such as the Projects collage) takes that page offline while it is withdrawn.",
+    "Uploads start as pending review. The public pages show approved items only: approving an item, or restricting, archiving or trashing one they show, changes them at the next request. Some photos are required by the approved design — on the homepage, the Projects, Industries and Certificates pages and the service pages: withdrawing one takes that page offline in both languages until it is delivered again.",
   uploadHint:
     "JPEG, PNG, WebP, AVIF or PDF; at most 20 MB and 40 megapixels. The file's real type is checked, not its name. It starts as pending review: a version that uses it can be published only once an Owner or Admin approves it.",
   publishDialog: "This version becomes the live version: the public website shows it from the next request",
