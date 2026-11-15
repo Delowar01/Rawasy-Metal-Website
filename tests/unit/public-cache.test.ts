@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 type State = { generation: number; epoch: string };
 type Handler = { get(key: string): Promise<{ value: unknown } | null>; set(key: string, data: unknown): Promise<void> };
 const { createHandlerClass } = require("../../src/server/public/cache-handler.cjs") as {
-  createHandlerClass: (read: () => Promise<State>, max?: number, maxBytes?: number) => new () => Handler;
+  createHandlerClass: (read: () => Promise<State>, max?: number, maxBytes?: number, maxPending?: number) => new () => Handler;
 };
 
 function shared(initial: State) {
@@ -106,6 +106,24 @@ describe("A9: the fail-closed page cache", () => {
     }
     assert.equal(await cache.get("/x1"), null, "the oldest left to stay within the bytes");
     assert.ok(await cache.get("/x3"));
+  });
+
+  test("the stamps of renders that never store are bounded: the oldest is dropped, and its late render is not kept (A9 acceptance L-2)", async () => {
+    const s = shared({ generation: 1, epoch: "E1" });
+    const cache = new (createHandlerClass(s.read, 400, 10_000_000, 3))();
+    // Four misses whose renders fail (no set): only the newest three stamps stay.
+    for (const key of ["/p1", "/p2", "/p3", "/p4"]) assert.equal(await cache.get(key), null);
+    await cache.set("/p1", page("late"));
+    assert.equal(await cache.get("/p1"), null, "its stamp was dropped: nothing stored without one");
+    await cache.set("/p4", page("p4"));
+    assert.deepEqual((await cache.get("/p4"))?.value, page("p4"), "a kept stamp still stores");
+    // By default the bound is four times the entries' (1,600 for 400): a long run of failing renders stays bounded.
+    const big = new (createHandlerClass(s.read, 2, 10_000_000))();
+    for (let i = 0; i < 20; i++) await big.get(`/q${i}`);
+    await big.set("/q0", page("late"));
+    assert.equal(await big.get("/q0"), null);
+    await big.set("/q19", page("q19"));
+    assert.ok(await big.get("/q19"));
   });
 
   test("after five failed reads in a row the cache fails at once, without waiting on the database (security review L2)", async () => {

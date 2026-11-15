@@ -111,7 +111,7 @@ function sizeOf(data) {
 }
 
 /** The handler class over a way to read the shared state (the tests pass their own). */
-function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, maxBytes = MAX_BYTES) {
+function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, maxBytes = MAX_BYTES, maxPending = 4 * maxEntries) {
   const entries = new Map();
   const pending = new Map();
   let bytes = 0;
@@ -149,6 +149,9 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, m
       if (entry) drop(key);
       // The render that follows is stamped with this state; overlapping renders keep the oldest.
       if (!pending.has(key)) pending.set(key, state);
+      // A render that fails never stores (no set), so its stamp would stay for the life of the process: keep the newest
+      // ones only (A9 acceptance L-2). A dropped stamp only means that render is not kept (a set without one stores nothing).
+      while (pending.size > maxPending) pending.delete(pending.keys().next().value);
       return null;
     }
 
