@@ -1441,7 +1441,14 @@
   A9.4 read time limits; A2's sign-in timing test compares the two paths; A6's site spec waits for the saved version and
   for hydration; the importer's dry-run audit says so (`5b770ee`); the server follows its build's content source
   (`f2f3ddf`); stalled reads fail in time and the in-use mark follows the server's configuration (`4404741`); a comment's
-  bare "static" no longer adds `.static` to the public stylesheet (`1eb7a30`).
+  bare "static" no longer adds `.static` to the public stylesheet (`1eb7a30`); the second independent review's
+  corrections (the A9 report, item 7.3): a full local queue never drops the page cache's pool or opens its breaker
+  (M1); every public read — generation, snapshot, redirect lookup, `/media/u` — runs through `withPublicDb`
+  (`read-model.ts`: its own connection, a hard limit that covers waiting for it, the connection destroyed when the limit
+  passes; M2, L3); a fixed composition record keeps its live slug (`slug.fixed` at publication, the guard reads the
+  live slug; L5); media and redirect invalidations are deferred to the end of a content transaction (L6); an older
+  block version is upcast through `REGISTRY.read`, an unknown block type fails the load (I7); one held-back list,
+  `src/content/held-back.ts` (I8); a blank `CONTENT_SOURCE` is unset (I9).
 - Tests: `tests/unit/migration-layouts.test.ts`, `public-cache.test.ts`, `tests/integration/migration-import.test.ts`
   (A9's security tests among them, each failing on `83a1892`). Database-mode parity is proven with scratch tools (the
   report, item 6), not a committed suite: rebuild them from the report if needed.

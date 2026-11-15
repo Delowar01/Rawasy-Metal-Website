@@ -572,7 +572,62 @@ The independent review read the code. The drills ran it, as a deployment would, 
 
 **Also found and corrected:** the dry run's audit event read like a real import (`5b770ee`, item 4).
 
-### 7.3 The brief's §6 checks
+### 7.3 A second independent review, of everything after the first
+
+A separate reviewer read `83a1892..1eb7a30` read-only (the first review's corrections and D1–D4), without my
+conclusions. It found **no High finding: 2 Medium, 4 Low, 3 Info.**
+- *Areas it checked and found sound:* whether a page can be served without a current generation check, the
+  build-detection's fail-open cases, unhandled rejections, logs, the importer's audit, and whether test changes weaken
+  assertions.
+- *Corrected:* everything except L4 and the release importer's part of L6 (documented). The correction commit and its
+  tests are named in item 2; each new test fails on `1eb7a30`.
+
+**M1 — a burst of requests could take the whole site down for 30 s.**
+- *Cause.* About 101 concurrent requests to different unknown addresses overflowed the page cache's local queue. The
+  pool was then dropped, which rejected every queued lookup ("Pool is closed"), and the breaker opened.
+- *Corrected.*
+  - The pool is dropped only after a timeout or a fatal connection error.
+  - A dropped pool closes only after its queued lookups have had their own limit.
+  - The local "queue full" and "pool closed" errors never count towards the breaker.
+
+**M2 — two public reads had no time limit.**
+- *Which.* `/media/u` delivery and the catch-all's redirect lookup.
+- *Corrected.* Both now run through `withPublicDb`, which has a 5 s limit: a stalled database answers 503 (media) or
+  500.
+
+**L3 — after a stall the app pool could stay wedged.**
+- *Cause.* A timed-out read left its connection busy.
+- *Corrected.* `withPublicDb` runs each public read on its own connection and destroys it when the limit passes. A
+  connection that arrives late goes straight back to the pool. The generation read, the snapshot load, the redirect
+  lookup and media delivery all use it.
+
+**L4 — requests that join an in-flight render share its result** (Next.js's response cache coalesces them). Such a
+request gets a page that was current when the first request read the generation; it may be up to one render-time old.
+**Documented, not changed:** it is never cached past a publication, and the window is one render (tens of
+milliseconds normally, at most the 5 s and 15 s read limits).
+
+**L5 — a fixed record's working slug could be changed and unpublished, or published at a new address.**
+- *Cause.* The composition guard read the working copy's slug only.
+- *Corrected.* It checks the live slug too, and publication refuses a new address for a record the fixed composition
+  finds by its address (`slug.fixed`).
+
+**L6 — media and redirect changes recorded their invalidation mid-transaction.**
+- *Corrected.* Inside a content transaction they now defer it to the end, A8's rule.
+- *Left.* The release media importer (a CLI run by hand before go-live) still records per item in its one transaction.
+  It holds the generation row for its few seconds; documented.
+
+**I7 — older block versions were not upcast.** A future block-version bump would have failed every page until
+republication.
+- *Corrected.* An older version is now upcast through the registry, exactly as the builder reads it. A newer version, a
+  version with no upgrade step, or an unknown block type fails closed.
+
+**I8 — the held-back list was written twice.** It is now one list (`src/content/held-back.ts`), read by both the import
+and the packaging script.
+
+**I9 — a blank `CONTENT_SOURCE=` in cPanel stopped the static rollback from starting.** An empty value now counts as
+unset.
+
+### 7.4 The brief's §6 checks
 
 | Check | Evidence |
 |---|---|

@@ -78,9 +78,10 @@ Staging is a separate cPanel Node app with its **own** database and data folder;
 11. **Fail-closed check:** with the database user's password changed (or the database stopped) for a minute, pages
     answer 500 (never an old page), each within about 5 s, then at once while the breakers are open; restored, they
     answer again after at most 60 s (the page cache's breaker opens for 30 s, the content loader's for 60 s). Locally
-    (A9 report, item 5): every page 500 within 5 s while the database was paused, back 31 s after it resumed. Also check
-    the server's log: no "the fail-closed page cache is not in use" line (that line, with every page 500, means the
-    release's configuration is not a database-content one).
+    (A9 report, item 5): every page 500 within 5 s while the database was paused, back 31 s after it resumed. Uploaded
+    media (`/media/u/…`) answer 503 within about 5 s meanwhile; the release's own files (`/media/<group>/…`) keep
+    answering. Also check the server's log: no "the fail-closed page cache is not in use" line (that line, with every
+    page 500, means the release's configuration is not a database-content one).
 12. **Record H5–H8** during the warm-up and the E2E run. Staging content is test content: it is not imported into
     production (A9 Owner default).
 
@@ -93,7 +94,8 @@ Staging is a separate cPanel Node app with its **own** database and data folder;
   variables). `CONTENT_SOURCE` and `NEXT_PUBLIC_SITE_URL` matter only at build: a server takes the content source its
   build was made with, from the build's own record (`src/server/public/release-source.cjs`), and refuses to start if
   its environment names the other one. Never leave `CONTENT_SOURCE` set in the cPanel environment of the other
-  release (a rollback to the static archive with `CONTENT_SOURCE=database` still set would not start).
+  release (a rollback to the static archive with `CONTENT_SOURCE=database` still set would not start). A variable left
+  blank (`CONTENT_SOURCE=`) counts as unset.
 
 ## 5. Production cutover — for approval only
 
