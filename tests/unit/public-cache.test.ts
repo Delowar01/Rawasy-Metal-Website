@@ -212,13 +212,89 @@ describe("A9: a stalled database fails each read in time (the fail-closed drill:
     assert.deepEqual(dropped, []);
   });
 
-  test("the live loader's generation read gives up within its limit too", async () => {
+  /** A pool whose connections never answer: it records which connections were destroyed or released. */
+  const stalledConnections = () => {
+    const destroyed: number[] = [];
+    const released: number[] = [];
+    let n = 0;
+    return {
+      destroyed,
+      released,
+      pool: {
+        getConnection: async () => {
+          const id = ++n;
+          const never = () => new Promise(() => undefined);
+          return { query: never, execute: never, destroy: () => destroyed.push(id), release: () => released.push(id) };
+        },
+      },
+    };
+  };
+
+  test("the live loader's generation read gives up within its limit too, and destroys the connection it was waiting on (second review L3)", async () => {
     const { readGenerationWithin } = await import("../../src/server/public/read-model.ts");
+    const fake = stalledConnections();
     const started = Date.now();
     await assert.rejects(
-      readGenerationWithin(stalled() as unknown as Parameters<typeof readGenerationWithin>[0], 50),
+      readGenerationWithin(fake.pool as unknown as Parameters<typeof readGenerationWithin>[0], 50),
       (error: Error & { code?: string }) => error.code === "PUBLIC_READ_TIMEOUT",
     );
     assert.ok(Date.now() - started < 1000);
+    assert.deepEqual(fake.destroyed, [1], "the stalled connection leaves the pool");
+    assert.deepEqual(fake.released, [], "it is never handed back to the pool");
+  });
+
+  test("a public read waiting for a connection gives up in time; a connection that arrives later goes straight back (second review M2, L3)", async () => {
+    const { withPublicDb } = await import("../../src/server/public/read-model.ts");
+    const released: string[] = [];
+    let arrive: (c: unknown) => void = () => undefined;
+    const pool = { getConnection: () => new Promise((resolve) => (arrive = resolve)) };
+    await assert.rejects(
+      withPublicDb(pool as unknown as Parameters<typeof withPublicDb>[0], 50, "Reading a public media item", async () => "never"),
+      (error: Error & { code?: string }) => error.code === "PUBLIC_READ_TIMEOUT",
+    );
+    arrive({ release: () => released.push("late"), destroy: () => released.push("destroyed") });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(released, ["late"]);
+    // An answering read releases its connection.
+    const done: string[] = [];
+    const ok = { getConnection: async () => ({ release: () => done.push("released"), destroy: () => done.push("destroyed") }) };
+    assert.equal(await withPublicDb(ok as unknown as Parameters<typeof withPublicDb>[0], 50, "Reading", async () => "answer"), "answer");
+    assert.deepEqual(done, ["released"]);
+  });
+
+  test("a full local queue drops no pool and never opens the breaker; a timeout still does (second review M1)", async () => {
+    const dropped: FakePool[] = [];
+    const busy: FakePool = { query: async () => Promise.reject(new Error("Queue limit reached.")), end: async () => undefined };
+    const read = sharedStateFrom(() => busy, (p) => dropped.push(p), 50);
+    await assert.rejects(read(), (error: Error & { local?: boolean }) => error.local === true);
+    assert.equal(dropped.length, 0, "the pool is kept");
+    // Counted by the handler: fifty local failures in a row never open the breaker (a burst of requests can't take the
+    // website down), while five real ones do.
+    let calls = 0;
+    const local = new (createHandlerClass(async () => {
+      calls++;
+      throw Object.assign(new Error("The page cache could not check the content's version."), { local: true });
+    }))();
+    for (let i = 0; i < 50; i++) await assert.rejects(local.get("/en/x" + i));
+    assert.equal(calls, 50, "every lookup still read: no breaker");
+    const closed: FakePool = { query: async () => Promise.reject(new Error("Pool is closed.")), end: async () => undefined };
+    await assert.rejects(sharedStateFrom(() => closed, (p) => dropped.push(p), 50)(), (error: Error & { local?: boolean }) => error.local === true);
+    assert.equal(dropped.length, 0);
+    const lost: FakePool = { query: async () => Promise.reject(Object.assign(new Error("Connection lost"), { code: "PROTOCOL_CONNECTION_LOST", fatal: true })), end: async () => undefined };
+    await assert.rejects(sharedStateFrom(() => lost, (p) => dropped.push(p), 50)());
+    assert.deepEqual(dropped, [lost], "a lost connection drops its pool");
+  });
+});
+
+describe("A9: an empty CONTENT_SOURCE is no setting (second review I9)", () => {
+  test("the static rollback starts with CONTENT_SOURCE left blank; a database build still follows its build", () => {
+    const { contentSourceFor, SERVER_PHASE } = require("../../src/server/public/release-source.cjs") as {
+      contentSourceFor: (phase: string, asked: string | undefined, readBuilt: () => "static" | "database" | null) => "static" | "database";
+      SERVER_PHASE: string;
+    };
+    assert.equal(contentSourceFor(SERVER_PHASE, "", () => "static"), "static");
+    assert.equal(contentSourceFor(SERVER_PHASE, "  ", () => "static"), "static");
+    assert.equal(contentSourceFor(SERVER_PHASE, "", () => "database"), "database");
+    assert.equal(contentSourceFor("phase-production-build", "", () => null), "static");
   });
 });

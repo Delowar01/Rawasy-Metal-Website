@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { createHash } from "node:crypto";
+import { HELD_BACK_MEDIA } from "../../src/content/held-back.ts";
 import { importRelease, parseBaseline, type Baseline } from "../../src/server/media/release.ts";
 import { MEDIA_FLAGS } from "../../src/server/media/registry.ts";
 import { ulid } from "../../src/server/security/ids.ts";
@@ -73,7 +74,9 @@ describe("the baseline (derived from the repository)", () => {
 
   test("the same 13 files the packaging script holds back (its own exclusion list)", () => {
     const packaging = readFileSync(join(ROOT, "scripts/package-namecheap.mjs"), "utf8");
-    const explicit = JSON.parse(/const HELD_BACK_MEDIA = (\[[^\]]*\]);/.exec(packaging)![1]) as string[];
+    // Since A9 (second review I8) the script reads the one list the content import reads too.
+    assert.match(packaging, /const \{ HELD_BACK_MEDIA \} = await import\("\.\.\/src\/content\/held-back\.ts"\);/);
+    const explicit: readonly string[] = HELD_BACK_MEDIA;
     const restricted = baseline.items.filter((i) => i.status === "restricted").map((i) => i.legacyKey);
     for (const id of explicit) assert.ok(restricted.includes(id), id);
     assert.equal(restricted.length, 13);

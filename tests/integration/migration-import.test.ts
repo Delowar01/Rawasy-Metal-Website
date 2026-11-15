@@ -23,12 +23,12 @@ import { readPublicSnapshot } from "../../src/server/public/read-model.ts";
 import { decodeContentSet } from "../../src/server/public/decode.ts";
 import { resolvePublicRedirect, type LiveAddresses } from "../../src/server/public/redirects.ts";
 import { updateItem } from "../../src/server/cms/engine.ts";
-import { serviceSpec } from "../../src/server/cms/kinds.ts";
-import { unpublish } from "../../src/server/publishing/workflow.ts";
+import { projectSpec, serviceSpec } from "../../src/server/cms/kinds.ts";
+import { publish, unpublish } from "../../src/server/publishing/workflow.ts";
 import { restrictMedia } from "../../src/server/media/service.ts";
 import { saveRedirect } from "../../src/server/site/redirects.ts";
 import { ulid } from "../../src/server/security/ids.ts";
-import { serviceForm, type ImportRefs } from "../../src/server/migration/records.ts";
+import { projectForm, serviceForm, type ImportRefs } from "../../src/server/migration/records.ts";
 import { ctxOf, query } from "./cms-helpers.ts";
 import { mctx, setupMediaEnv, type MediaEnv } from "./media-helpers.ts";
 import { siteChange } from "./site-helpers.ts";
@@ -225,11 +225,33 @@ describe("A9 security review: the website's composition, and what an import may 
     assert.match(JSON.stringify(await unpublish(owner, "service", fabrication.id, Number(fabrication.lock_version))), /live machine names it as their main service/);
     const tower = await row("projects", "clock-tower-landmark");
     const { setItemArchived } = await import("../../src/server/cms/engine.ts");
-    const { projectSpec } = await import("../../src/server/cms/kinds.ts");
     assert.equal((await setItemArchived(owner, projectSpec, tower.id, true, Number(tower.lock_version))).kind, "refused");
     const [settings] = await query<{ lock_version: number }>(env, "SELECT lock_version FROM site_settings WHERE id = 'site'");
     assert.equal((await unpublish(owner, "site_settings", "site", Number(settings.lock_version))).kind, "refused");
     assert.equal(await count(env, "SELECT COUNT(*) AS n FROM published_documents WHERE entity_type = 'service' AND entity_id = '" + laser.id + "'"), 1, "still live");
+  });
+
+  test("a fixed record keeps its live address: renamed in its working copy, it still can't be unpublished, and the new address can't be published (second review L5)", async () => {
+    const owner = ctxOf(env, env.team.owner);
+    const version = async (id: string) => Number((await query<{ lock_version: number }>(env, "SELECT lock_version FROM projects WHERE id = ?", [id]))[0].lock_version);
+    const [tower] = await query<{ id: string }>(env, "SELECT id FROM projects WHERE slug = 'clock-tower-landmark'");
+    const record = STATIC.projects.find((p) => p.slug === "clock-tower-landmark")!;
+    // Renamed through the editor's own save (a working-copy revision), as a person would.
+    const rename = async (slug: string) =>
+      updateItem(ctxOf(env, env.team.admin), projectSpec, tower.id, { ...projectForm({ ...record, slug } as Any, await refsOf(env)), lockVersion: String(await version(tower.id)) } as Any);
+    const renamed = await rename("clock-tower-renamed");
+    assert.equal(renamed.kind, "ok", JSON.stringify(renamed));
+    try {
+      const refused = await unpublish(owner, "project", tower.id, await version(tower.id));
+      assert.equal(refused.kind, "refused");
+      assert.match(JSON.stringify(refused), /fixed place/);
+      const published = await publish(owner, "project", tower.id, await version(tower.id));
+      assert.notEqual(published.kind, "ok");
+      assert.match(JSON.stringify(published), /keeps that address/);
+      assert.equal(await count(env, `SELECT COUNT(*) AS n FROM published_documents WHERE entity_type = 'project' AND entity_id = '${tower.id}' AND slug = 'clock-tower-landmark'`), 1, "still live at its address");
+    } finally {
+      assert.equal((await rename("clock-tower-landmark")).kind, "ok");
+    }
   });
 
   test("a later import never republishes what was taken offline after its import (M3)", async () => {
@@ -299,7 +321,7 @@ describe("A9.2: all or nothing", () => {
 async function refsOf(e: MediaEnv): Promise<ImportRefs> {
   const media = new Map((await query<{ k: string; id: string }>(e, "SELECT a.legacy_key AS k, a.id FROM media_assets a JOIN public_media p ON p.media_id = a.id WHERE a.legacy_key IS NOT NULL")).map((r) => [r.k, r.id]));
   const ids = new Map<string, string>();
-  for (const [type, table] of [["service", "services"], ["machine", "machines"], ["project", "projects"]])
+  for (const [type, table] of [["service", "services"], ["machine", "machines"], ["project", "projects"], ["project_category", "project_categories"]])
     for (const r of await query<{ id: string; slug: string }>(e, `SELECT id, slug FROM ${table}`)) ids.set(`${type}:${r.slug}`, r.id);
   return { media: (k) => media.get(k) ?? null, id: (t, slug) => ids.get(`${t}:${slug}`)!, leftOut: () => undefined };
 }

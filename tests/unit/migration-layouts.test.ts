@@ -232,6 +232,14 @@ describe("A9 corrections found by the import", () => {
     const { decodeContentSet } = await import("../../src/server/public/decode.ts");
     const docs = [{ type: "page", id: "01M4FTT600000000000000000A", slug: null, document: { root: { systemKey: "about" }, texts: {}, layout: [{ id: "s1", blockType: "about.overview", schemaVersion: 2, settings: {}, content: { en: {}, ar: {} } }] } }];
     assert.throws(() => decodeContentSet({ docs: docs as Any, media: [] }, S), /version 2/);
+    // Second review I7: an older version goes through the registry's read (its upgrade steps; none is registered
+    // today, so it fails closed, naming why), and a block type this release does not know fails the load too.
+    const older = structuredClone(docs);
+    older[0].document.layout[0].schemaVersion = 0;
+    assert.throws(() => decodeContentSet({ docs: older as Any, media: [] }, S), /version 0 cannot be read by this release \(/);
+    const unknown = structuredClone(docs);
+    unknown[0].document.layout[0] = { ...unknown[0].document.layout[0], blockType: "future.block", schemaVersion: 1 };
+    assert.throws(() => decodeContentSet({ docs: unknown as Any, media: [] }, S), /does not know \(future\.block\)/);
   });
 });
 
