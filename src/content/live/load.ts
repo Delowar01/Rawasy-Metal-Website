@@ -139,7 +139,8 @@ async function readCurrent(): Promise<Loaded> {
       openUntil = Date.now() + BREAKER_OPEN_MS;
       failures = 0;
     }
-    console.error(`content source: database read failed (${describeDbError(error)})`);
+    // Named as the page cache names it: on the host, "local queue" means more requests at once than the pool takes.
+    console.error(`content source: database read failed (${local ? "local queue" : describeDbError(error)})`);
     throw new ContentUnavailableError();
   }
 }
