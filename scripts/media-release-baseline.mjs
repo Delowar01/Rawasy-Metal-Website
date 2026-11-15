@@ -11,7 +11,7 @@
  * prerendered page or page data names its address), and its alt text per language as the built pages give it — one
  * consistent value across every use (a description, or "" where every use is decorative), else null: never invented.
  * Held back (the 13 files the packaging script excludes, by the same rules: `withheldMedia`, the photos
- * `projectDetailMedia` leaves out, and HELD_BACK_MEDIA of scripts/package-namecheap.mjs): restricted, with flags only
+ * `projectDetailMedia` leaves out, and the packaging script's HELD_BACK_MEDIA, src/content/held-back.ts): restricted, with flags only
  * from their documented reasons (docs/ASSET_INVENTORY.md items 3, 4 and 12; the project records' flags). Used and not
  * held back: approved (the baseline of the approved public site, not a rights claim). Otherwise: pending review.
  * Needs Node 22.18 or later (the content modules are TypeScript, read with Node's type stripping).
@@ -46,13 +46,8 @@ if (ids.length !== EXPECTED_COUNT) {
 
 // --- The held-back files, by the packaging script's own rules --------------------------------------------------------
 
-const packaging = readFileSync(join(root, "scripts/package-namecheap.mjs"), "utf8");
-const heldMatch = /const HELD_BACK_MEDIA = (\[[^\]]*\]);/.exec(packaging);
-if (!heldMatch) {
-  console.error("scripts/package-namecheap.mjs no longer declares HELD_BACK_MEDIA as expected. STOP.");
-  process.exit(1);
-}
-const HELD_BACK_MEDIA = JSON.parse(heldMatch[1]);
+// The packaging script's own list (since A9, the one list in src/content/held-back.ts, which it imports).
+const { HELD_BACK_MEDIA } = await import("../src/content/held-back.ts");
 
 /** Asset inventory item 12 (Laser Engraving): the documented reason of each file HELD_BACK_MEDIA names. */
 const ITEM_12 = {

@@ -306,17 +306,27 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
   const sectionsOf = (d: PublishedDoc): PublishedSection[] =>
     (Array.isArray(d.document.layout) ? (d.document.layout as Rec[]) : []).map((s) => {
       const linked = typeof s.reusableId === "string" ? reusables.get(s.reusableId) : undefined;
-      // A section stored at a block version this release does not read is never drawn from guesses (review I1).
+      // A section is never drawn from guesses (review I1): an unknown block type, a newer block version or a version
+      // with no upgrade step fails the load; an older version is upcast through the registry, as the builder reads it
+      // (second review I7: a release that bumps a block version must not take the website down until republication).
       const blockType = str(linked?.blockType ?? s.blockType);
       const version = Number(linked?.schemaVersion ?? s.schemaVersion ?? 0);
       const def = REGISTRY.get(blockType);
-      if (def && version !== def.version) throw new Error(`A published section of block ${blockType} is at version ${version}; this release reads version ${def.version}.`);
+      if (!def) throw new Error(`A published section has a block type this release does not know (${blockType}).`);
+      let settings = asRec(linked ? linked.settings : s.settings);
+      let content = asRec(linked ? linked.content : s.content) as PublishedSection["content"];
+      if (version !== def.version) {
+        const read = REGISTRY.read(blockType, version, settings, content as Partial<Record<"en" | "ar", unknown>>);
+        if (read.state !== "ok") throw new Error(`A published section of block ${blockType} at version ${version} cannot be read by this release (${read.state}).`);
+        settings = read.settings as Rec;
+        content = read.content as PublishedSection["content"];
+      }
       return {
         id: s.id,
-        blockType: str(linked?.blockType ?? s.blockType),
+        blockType,
         anchor: typeof s.anchor === "string" ? s.anchor : null,
-        settings: asRec(linked ? linked.settings : s.settings),
-        content: asRec(linked ? linked.content : s.content) as PublishedSection["content"],
+        settings,
+        content,
       };
     });
   const refs: DecodeRefs = { mediaKey: keyOf, slugOf };

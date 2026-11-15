@@ -55,6 +55,7 @@ import { readForm, setUpForm } from "../forms/forms.ts";
 import { FORM_IDS } from "../forms/registry.ts";
 import { categoryForm, certificateForm, clientForm, industryForm, machineForm, projectForm, serviceForm, type Form, type ImportRefs } from "./records.ts";
 import { layoutOwners, planLayout, type OwnerKey, type SectionPlan } from "./layouts.ts";
+import { HELD_BACK_MEDIA } from "../../content/held-back.ts";
 
 export interface ImportOptions {
   /** The active Owner account the import acts as (its email). */
@@ -111,12 +112,12 @@ export class ImportRefused extends Error {
 /**
  * The release files the static website holds back (the 13 of A1-MIGRATION-PLAN §7): the withheld photos, every photo
  * of a project awaiting authorship or product confirmation, and Laser Engraving's three images (the asset inventory's
- * item 12; `HELD_BACK_MEDIA` of scripts/package-namecheap.mjs).
+ * item 12; `HELD_BACK_MEDIA`, src/content/held-back.ts, which the packaging script reads too).
  */
 export function heldBackMedia(set: ContentSet): string[] {
   const out = new Set<string>(set.withheldMedia);
   for (const p of set.projects) if ((p.flags ?? []).some((f) => f !== "ai-watermark")) for (const m of p.media) out.add(m);
-  for (const m of ["services/engraving-nameplates", "services/engraving-wood", "services/engraving-rotary"]) out.add(m);
+  for (const m of HELD_BACK_MEDIA) out.add(m);
   return [...out].sort();
 }
 

@@ -46,14 +46,11 @@ const INCLUDE = ["server.js", "package.json", "package-lock.json", "next.config.
 /** Left behind: the build cache (the host fills its own) and the route cache a server writes into `.next` as it runs. */
 const SKIP = [".next/cache", ".next/server/route-cache"];
 /**
- * Media the asset inventory keeps off every page that no content rule derives (docs/ASSET_INVENTORY.md, open question
- * 12; decision D6): the Laser Engraving images. `services/engraving-nameplates` shows third-party (HITACHI) branding with
- * legible part and serial numbers and awaits RAWASY's permission; `services/engraving-wood` and
- * `services/engraving-rotary` are renders. The Laser Engraving page and the services overview draw an engraved plate
- * instead. Media IDs, mapped to files through the registry like the project photos; take an ID out only once RAWASY
- * approves showing that image.
+ * Media the asset inventory keeps off every page that no content rule derives: the Laser Engraving images
+ * (src/content/held-back.ts, the one list the content import reads too). Media IDs, mapped to files through the
+ * registry like the project photos.
  */
-const HELD_BACK_MEDIA = ["services/engraving-nameplates", "services/engraving-wood", "services/engraving-rotary"];
+const { HELD_BACK_MEDIA } = await import("../src/content/held-back.ts");
 /** Never in an archive for the host. */
 const FORBIDDEN =
   /^(?:node_modules|\.git|\.next\/cache|\.next\/server\/route-cache|e2e|docs|scripts|test-results|playwright-report)(?:\/|$)|(?:^|\/)\.env(?:\.|$)/;
