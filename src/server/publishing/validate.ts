@@ -23,6 +23,7 @@ import { CONTENT_AGGREGATES, AGGREGATES, type AggregateType } from "./registry.t
 import { referencesOfSnapshot } from "./references.ts";
 import { sourceLabel } from "./references.ts";
 import type { Snapshot } from "./snapshot.ts";
+import { COMPOSITION_RECORDS } from "./composition.ts";
 
 export interface PublishIssue {
   code: string;
@@ -196,6 +197,14 @@ export async function publicationIssues(tx: Db, type: AggregateType, id: string,
       // a gap lock two first publications both held, then both inserted into — a deadlock; A8 review L3).
       const [taken] = await rowsOf<{ entity_id: string }>(tx, sql`SELECT entity_id FROM published_documents WHERE entity_type = ${type} AND slug = ${slug} AND entity_id <> ${id}`);
       if (taken) issues.push({ code: "slug.live", message: `Another live ${AGGREGATES[type].one} already uses the address “${slug}”.`, blocking: true });
+    }
+    // A9 review L5: a record the approved composition finds by its address (the Projects collage, the Industries strip,
+    // the homepage's two services) keeps that address while it is live, or the page that draws it could not be drawn.
+    const fixed = (COMPOSITION_RECORDS as Partial<Record<AggregateType, readonly string[]>>)[type];
+    if (fixed) {
+      const [live] = await rowsOf<{ slug: string | null }>(tx, sql`SELECT slug FROM published_documents WHERE entity_type = ${type} AND entity_id = ${id}`);
+      if (live?.slug && fixed.includes(live.slug) && live.slug !== slug)
+        issues.push({ code: "slug.fixed", message: `The website's approved composition shows this ${AGGREGATES[type].one} in a fixed place by its address “${live.slug}”: it keeps that address.`, blocking: true });
     }
   } else if (type === "reusable_section") {
     issues.push(...sectionIssues(snapshot.texts, snapshot.blockType, "This reusable section"));

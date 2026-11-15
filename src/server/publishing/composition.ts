@@ -32,7 +32,9 @@ export async function compositionNeeds(tx: Db, type: AggregateType, id: string):
   const fixed = (COMPOSITION_RECORDS as Partial<Record<AggregateType, readonly string[]>>)[type];
   if (fixed) {
     const [row] = await rowsOf<{ slug: string | null }>(tx, sql`SELECT slug FROM ${sql.identifier(type === "service" ? "services" : type === "project" ? "projects" : "industries")} WHERE id = ${id}`);
-    if (row?.slug && fixed.includes(row.slug)) return "The website's approved composition shows it in a fixed place (the homepage's services, the Projects collage or the Industries strip): it stays live.";
+    // The live address too: the working copy's may have been edited since (A9 review L5).
+    const [live] = await rowsOf<{ slug: string | null }>(tx, sql`SELECT slug FROM published_documents WHERE entity_type = ${type} AND entity_id = ${id}`);
+    if ([row?.slug, live?.slug].some((slug) => slug && fixed.includes(slug))) return "The website's approved composition shows it in a fixed place (the homepage's services, the Projects collage or the Industries strip): it stays live.";
   }
   if (type === "service") {
     const [row] = await rowsOf<{ n: number }>(
