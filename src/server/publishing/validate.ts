@@ -24,6 +24,7 @@ import { referencesOfSnapshot } from "./references.ts";
 import { sourceLabel } from "./references.ts";
 import type { Snapshot } from "./snapshot.ts";
 import { COMPOSITION_RECORDS } from "./composition.ts";
+import { certificateDrawProblem, clientDrawProblem, collageDrawProblem, industryDrawProblem, machineDrawProblem, serviceDrawProblem } from "../public/drawable.ts";
 
 export interface PublishIssue {
   code: string;
@@ -90,6 +91,40 @@ async function mediaIssues(tx: Db, type: AggregateType, snapshot: Snapshot): Pro
   return missing
     ? [{ code: "media", message: `${missing} media item${missing === 1 ? " is" : "s are"} not deliverable to the public site (pending review, restricted, flagged, private, archived or in the Trash). Approve ${missing === 1 ? "it" : "them"} in the media library or choose another.`, blocking: true }]
     : [];
+}
+
+/**
+ * A9 acceptance review M-1: a version the approved public components can't draw is left out of a database-content
+ * release (`../public/drawable.ts`, the read model's own rules). Where the approved composition shows the record in a
+ * fixed place — the homepage's two laser services, the Projects collage, the Industries strip — that page could not be
+ * drawn at all (500, in both languages), so the version is refused; any other record is a warning.
+ */
+function drawIssues(type: AggregateType, snapshot: Snapshot): PublishIssue[] {
+  const root = asRecord(snapshot.root);
+  const has = (key: string) => typeof root[key] === "string" && root[key] !== "";
+  const count = (key: string) => list(asRecord(snapshot.mediaLists)[key]).filter((x) => typeof x.media === "string" && x.media !== "").length;
+  const slug = typeof root.slug === "string" ? root.slug : "";
+  const fixedIn = (slugs: readonly string[]) => slugs.includes(slug);
+  let problem: string | null = null;
+  let fixed = false;
+  if (type === "service") {
+    problem = serviceDrawProblem(slug, { cover: has("coverMediaId"), supporting: has("supportingMediaId") });
+    fixed = fixedIn(COMPOSITION_RECORDS.service);
+  } else if (type === "machine") problem = machineDrawProblem({ photo: has("mediaId") });
+  else if (type === "client") problem = clientDrawProblem({ logo: has("logoMediaId") });
+  else if (type === "industry") {
+    problem = industryDrawProblem({ photo: has("mediaId") });
+    fixed = fixedIn(COMPOSITION_RECORDS.industry);
+  } else if (type === "certificate") problem = certificateDrawProblem({ thumb: has("thumbMediaId"), previews: count("previews") });
+  else if (type === "project" && fixedIn(COMPOSITION_RECORDS.project)) {
+    problem = collageDrawProblem({ photos: count("photos") });
+    fixed = true;
+  }
+  if (!problem) return [];
+  const one = AGGREGATES[type].one;
+  return fixed
+    ? [{ code: "composition.drawable", message: `The website's approved composition shows this ${one} in a fixed place, and this version can't be drawn there: ${problem}. Published, that page could not be shown at all, in either language.`, blocking: true }]
+    : [{ code: "drawable", message: `The public pages can't draw this version: ${problem}. A database-content release leaves this ${one} out (no page of its own, no place in any list) until a version that can be drawn is published.`, blocking: false }];
 }
 
 async function referenceWarnings(tx: Db, type: AggregateType, id: string, snapshot: Snapshot): Promise<PublishIssue[]> {
@@ -206,6 +241,7 @@ export async function publicationIssues(tx: Db, type: AggregateType, id: string,
       if (live?.slug && fixed.includes(live.slug) && live.slug !== slug)
         issues.push({ code: "slug.fixed", message: `The website's approved composition shows this ${AGGREGATES[type].one} in a fixed place by its address “${live.slug}”: it keeps that address.`, blocking: true });
     }
+    issues.push(...drawIssues(type, snapshot));
   } else if (type === "reusable_section") {
     issues.push(...sectionIssues(snapshot.texts, snapshot.blockType, "This reusable section"));
   } else if (type === "menu") {

@@ -16,7 +16,7 @@ import type { AggregateType } from "../publishing/registry.ts";
 import type { EntityType } from "../cms/registry.ts";
 import { decodeLayout, PAGE_MAPS, type DecodeRefs, type PublishedSection } from "../migration/layouts.ts";
 import { REGISTRY } from "../builder/registry.ts";
-import { serviceLooks } from "../../components/commerce/services/looks.ts";
+import { certificateDrawProblem, clientDrawProblem, industryDrawProblem, machineDrawProblem, serviceDrawProblem } from "./drawable.ts";
 
 // The documents are JSON; their shape is the A8 projection's (projection.ts).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,11 +164,9 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
   // What the approved components cannot draw is left out, never drawn half (security review M2): a service without its
   // code look (one added in the admin) or, unless its look shows no photograph, without its two photos; a machine
   // without its main service or its photo; a client without its logo; an industry without its photo; a certificate
-  // without its thumbnail. Their pages answer 404 and every list leaves them out.
-  const drawable = (s: Any) => {
-    const look = (serviceLooks as Record<string, { hero: string } | undefined>)[s.slug];
-    return Boolean(look) && (look!.hero === "plate" || (Boolean(s.cover) && Boolean(s.supporting.media)));
-  };
+  // without its thumbnail or a redacted preview (A9 acceptance M-1: its card read the first preview). Their pages answer
+  // 404 and every list leaves them out. The rules live in drawable.ts, which publication reads too.
+  const drawable = (s: Any) => serviceDrawProblem(s.slug, { cover: Boolean(s.cover), supporting: Boolean(s.supporting.media) }) === null;
   out.services = out.services.filter(drawable).map((s: Any, i: number) => ({ ...s, index: pad(i + 1) }));
   const liveServices = new Set(out.services.map((s: Any) => s.slug));
   const keepServices = (slugs: string[]) => slugs.filter((x) => liveServices.has(x));
@@ -240,12 +238,14 @@ export function decodeContentSet(input: PublishedInput, base: ContentSet): LiveC
     );
   });
 
-  out.machines = out.machines.filter((m: Any) => m.service && liveServices.has(m.service) && m.media);
+  out.machines = out.machines.filter((m: Any) => m.service && liveServices.has(m.service) && machineDrawProblem({ photo: Boolean(m.media) }) === null);
   const liveMachines = new Set(out.machines.map((m: Any) => m.slug));
   for (const s of out.services) s.machines = s.machines.filter((x: string) => liveMachines.has(x));
-  out.clients = out.clients.filter((c: Any) => c.logo);
-  out.industries = out.industries.filter((i: Any) => i.media).map((i: Any) => ({ ...i, services: keepServices(i.services) }));
-  out.certificates = out.certificates.filter((c: Any) => c.thumb);
+  out.clients = out.clients.filter((c: Any) => clientDrawProblem({ logo: Boolean(c.logo) }) === null);
+  out.industries = out.industries
+    .filter((i: Any) => industryDrawProblem({ photo: Boolean(i.media) }) === null)
+    .map((i: Any) => ({ ...i, services: keepServices(i.services) }));
+  out.certificates = out.certificates.filter((c: Any) => certificateDrawProblem({ thumb: Boolean(c.thumb), previews: c.previews.length }) === null);
   for (const p of out.projects) p.services = keepServices(p.services);
 
   // The site settings (A6): the company's facts, the site's name, the interface text.
