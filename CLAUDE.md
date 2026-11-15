@@ -459,7 +459,7 @@
   2 Medium, 4 Low, 3 Info) in `0eb0dcb`, `0f330dc`, `7e8d490`, `cdcfa18` + tests `d72413a`. QA on a clone of `d72413a`,
   every suite in its first run: audit `--omit=dev` 0 (all: 12 moderate, dev-only), lint, typecheck, static and
   database builds (no warning), `db:check` (13 files), the release baseline check, packaging of both builds (13 held
-  back), unit 422 / 422, integration 593 / 593, admin {{ADMIN}}, public {{PUBLIC}}. Drills (disposable local databases
+  back), unit 422 / 422, integration 593 / 593, admin 176 / 176, public 612 / 612 on the static release and 601 passed + 11 skipped on the database release (the 11 fallback-404 checks, which skip against an outside server, 11 / 11 from the build's folder). Drills (disposable local databases
   only): the import through the real CLIs (113 created, 111 published; the legal pages only with a named reviewer; a
   repeat changes nothing), fail-closed (every page 500 within 5 s while the database is paused, back 31 s after),
   marker (15,074 of 17,690 text nodes from published documents, the rest the 86 code-owned texts), fixed spot, guard,

@@ -62,7 +62,8 @@ email, no real customer data, no live cutover. Every drill ran on disposable loc
   and parity proofs are kept in items 5, 6 and 8.2, and compared with `d72413a`'s where it matters.
 - **Docs commits** in between (`0506203`, `718fd49`, `62f8203`, `93877bc`, …) carry the drafts of this report, the
   README, the runbook and the project memory.
-- **Final commit:** {{FINAL_SHA}} (this report and the project memory; docs only).
+- **Final commit:** the docs commit that adds this final report and the project memory, right after the drafts on top of
+  `d72413a` (docs only) (this report and the project memory; docs only).
 
 ## 3. A9 features
 
@@ -320,7 +321,7 @@ code, `d72413a`, with the second review's checks added.
 | Marker drill | **15,074 of 17,690** text nodes carried the change on the next request; the other 2,616 are the same 86 code-owned or unmarkable texts (item 6.4). Nothing old served |
 | Database paused | Every page **500 within 5.01 s** (an unknown address 10.02 s); then 500 at once (breaker). Never a cached page. A release file still 200. Logs: codes only (`PUBLIC_READ_TIMEOUT`, `PAGE_CACHE_READ_TIMEOUT`, `ETIMEDOUT`) |
 | Database resumed | Back after **31 s** (the page cache's 30 s breaker), as on `1eb7a30` |
-| `/media/u` while paused (M2) | {{R2B_MEDIA}} |
+| `/media/u` while paused (M2) | Two valid addresses, a delivered item's and an unknown item's: **503 within 5.01 s** on `d72413a`. On `1eb7a30`, in the same pause, the delivered item's address got **no answer in 40 s** (the client gave up), and the unknown one 503 after 10 s. A release file answered 200 throughout. After the resume: 404 again (the variant name was made up) |
 | A burst (M1): 120 and then 300 concurrent unknown addresses with 40 concurrent homepage requests, on `d72413a` and, as the control, on `1eb7a30` | After each burst the homepage answered **200 at once and for the next 40 s on both builds**: the breaker never opened. The HTTP burst did **not** reproduce M1 on `1eb7a30` either. The unit test does, and it fails on `1eb7a30` (item 7.3). Under the 300-address burst most unknown addresses answered **500 on both builds** (248 / 300 on `d72413a`, 207 / 300 on `1eb7a30`; 2 / 120 and 8 / 120 under the smaller one). The cause is the app pool's queue (2 connections, 50 waiting) shedding the per-request content check of pages that cannot be cached. The loader correctly never counts this towards its breaker. The homepage requests in the same burst, served from the page cache, all answered 200. Observation for the staging measurements (item 9) |
 | Fixed-spot drill | Collage photos withdrawn → both Projects overviews 500, the project page 200 without them, the rest 200; restored → all 200 |
 | The other source named at start | Refused (exit 1) |
@@ -420,7 +421,8 @@ This suite covers, against the database release:
 marker (U+2063) appended, and the cache generation moved. Every page of the database release was then read, and each
 visible text node without the marker listed.
 
-**Result:** on 104 pages, **15,073 of 17,689 text nodes** carried the mark. The same drill in drill 4 (its own database copy, the server it started) gave 15,072 of 17,688. The other 2,616 are 86 distinct texts.
+**Result:** on 104 pages, **15,073 of 17,689 text nodes** carried the mark. The same drill in drill 4 (its own database
+copy, the server it started) gave 15,072 of 17,688. The other 2,616 are 86 distinct texts.
 
 **What carries no mark, and why** (86 distinct texts):
 - **Code-owned by design.** Numbering (01–32, A–D) and punctuation. The language switch's codes ("EN", "عربي", "ع")
@@ -510,12 +512,18 @@ Measured on a clone of `d72413a`:
 - **Database against static, on `d72413a`.**
   - **Visible HTML: 105 / 108 identical.** All 102 sitemap pages are identical. The 3 that differ are 404 documents
     (`/en/not-a-page`, `/ar/no/such/page`, `/en/admin`), where the database release streamed the title and meta tags
-    into the body, as described in 6.2. {{R2B_STREAM}}
+    into the body, as described in 6.2. Over 12 requests to each of the three, `d72413a`'s database release streamed
+    them every time (12 of 12), and also for a crawler's user agent (Googlebot). `1eb7a30`'s did 1, 8 and 10 times of
+    12, and 9 of 12 for the crawler. I did not trace the cause further. Most likely it is timing: a 404 now waits for
+    the redirect lookup on a connection of its own, with its limit. The browser shows the same page (React moves the
+    tags into `<head>`); the status is 404, so the page is never indexed. The static release never streams them.
   - **HTTP, 224 answers.** Status, type, robots and location are identical on all 224. `Cache-Control` differs on 210,
     as intended. 5 bodies differ: those three 404s, and the two Next.js 404s of 6.2.
   - **Browser files: 98 / 98.** 82 are identical; the 16 admin chunks are equal once re-mangled. The 9 stylesheets are
     identical.
-- **The public browser suite:** {{PUB_RESULTS}}
+- **The public browser suite:** the static release **612 / 612**. The database release: **601 passed, 11 skipped, 0
+  failed**. The 11 skipped (the fallback 404's checks) passed **11 / 11** from the database build's own folder.
+  Next.js's route cache held **0 files** after the run.
 - **Pixels were not captured again on `d72413a`.** The corrections change no public code. The static release's
   browser files are `1eb7a30`'s. The database release's visible HTML equals the static release's on every sitemap page.
   On those grounds the 624 / 624 of 6.5 (`1eb7a30`) is carried over, not re-measured.
@@ -688,7 +696,7 @@ unset.
 | **Private media stays private** | Private items never get a `public_media` row (A4). `/media/u/<unknown or private>` answers 404 in both releases (item 6.2). Integration tests: "no held-back, restricted, pending or private item is referenced by any published document"; "a photo restricted in the library leaves the public site at once". |
 | **Restricted certificates stay protected** | Certificate copy passes A8's guard at publication. The redacted files are the same bytes. The public certificate suite (hashes, the digit guard over the page) passes against the database release (item 8). Private originals are never public-class. |
 | **Publish and unpublish update the projections** | Integration tests: "an unpublished record leaves the public site, and every published list that named it"; "a repeated import … publishes the legal pages". The marker drill: a changed generation is served on the next request. |
-| **Cache invalidation fails closed** | Unit tests (`public-cache.test.ts`, 8). The fail-closed drill (item 5): with the database paused, the warm database release answered errors, never a cached page. |
+| **Cache invalidation fails closed** | Unit tests (`public-cache.test.ts`, 17). The fail-closed drill (item 5): with the database paused, the warm database release answered errors, never a cached page. |
 | **A failed migration leaves no partial public content** | One transaction. Integration test "a refused import and a dry run write nothing at all". The held-back preflight. A failed run in the drill (unknown owner) wrote nothing (item 4). |
 | **Rollback to static loses no CMS data** | The rollback drill (item 5): the database server stopped, the static release served, the published documents, revisions and generation unchanged. |
 | **No customer or legal information is invented** | The importer copies `src/content/*` and the dictionaries only, and leaves unknown fields empty. `migration-layouts.test.ts` proves decode(encode(today)) = today, and lists every text no layout carries. No enquiry is created. Legal pages publish only with a named reviewer. |
@@ -715,9 +723,9 @@ from the earlier fresh `npm ci` (the lockfile is unchanged since).
 | packaging check, static · database | PASS · PASS ("Content source of this build: database"; 13 held back) | — |
 | unit | **422 / 422** (A9 adds 30) | 392 / 392 |
 | integration | **593 / 593** (A9 adds 15) | 578 / 578 |
-| admin | {{ADMIN_R2}} | 176 / 176 |
-| public, static release | {{PUB_STATIC}} | 612 / 612 (second run) |
-| public, database release | {{PUB_DB}} | — |
+| admin | **176 / 176** (30.7 min) | 176 / 176 |
+| public, static release | **612 / 612** (16.9 min; after the image warm-up, 1,484 / 1,484) | 612 / 612 (second run) |
+| public, database release | **601 passed, 11 skipped, 0 failed** (17.0 min; warm-up 1,484 / 1,484). The 11 skipped, run from the build's own folder: 11 / 11 | — |
 
 No suite retries a failed test: the Playwright configurations set no `retries`, and `node --test` has none.
 
@@ -772,7 +780,8 @@ No suite retries a failed test: the Playwright configurations set no `retries`, 
      fails on `1eb7a30`'s validation.
    - That file passed 10 / 10, and `migration-import.test.ts` 15 / 15. Then the clone of `d72413a`: 593 / 593 in its
      first run (8.1).
-8. **The final code's own runs (8.1):** {{R2_FAILURES}}
+8. **The final code's own runs (8.1):** no test failed and none was retried. The only skips are the 11 fallback-404
+checks of the database run, which skip themselves against an outside server; run separately, they passed 11 / 11.
 
 ### 8.4 Drills (disposable local databases only)
 
@@ -895,7 +904,8 @@ A9 is not self-approved.
 - The importer brings in every static content type through the editors' own services and A8's publication, repeatably
   and never overwriting an edit. The 13 held-back files are never referenced (item 4).
 - A database release draws the same website. The visible HTML of all 102 sitemap pages is identical to the static
-  release's; the pixel comparison (on `1eb7a30`) and the public suite pass against it. The marker drill shows every published text comes from a published
+  release's; the pixel comparison (on `1eb7a30`) and the public suite pass against it. The marker drill shows every
+  published text comes from a published
   document (item 6).
 - It fails closed: a stalled or stopped database gives 500 within 5 s, never an old page. A release whose page cache is
   not the fail-closed one serves nothing. A server never serves another content source than its build's (items 5, 7).
