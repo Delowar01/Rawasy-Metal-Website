@@ -29,6 +29,7 @@ import { answeredBy, isLiveAddress, normalizeSitePath, type LiveSlugs } from "./
 import { isSiteRoute, routePath, SITE_ROUTES, type Locale, type SiteRouteKey } from "./registry.ts";
 import { staticProjectSlugs, staticServiceSlugs } from "./static-source.ts";
 import { recordInvalidations } from "../publishing/cache.ts";
+import { deferInvalidations } from "../cms/changes.ts";
 
 export type TargetType = "path" | "page" | "service" | "project";
 
@@ -257,7 +258,7 @@ export async function saveRedirect(change: SiteChange, raw: unknown): Promise<Si
     });
     // A9: a database-content release answers unknown addresses from its page cache; a redirect change moves the
     // generation so they are answered again (security review M1).
-    await recordInvalidations(tx, ["redirects"], change.meta.requestId, now);
+    if (!deferInvalidations(tx, ["redirects"], change.meta.requestId)) await recordInvalidations(tx, ["redirects"], change.meta.requestId, now);
     return { kind: "ok", id, lockVersion: creating ? 0 : lockVersion + 1, summary: creating ? "Created. It takes effect when the website switches to the database (A9)." : "Saved." };
   });
 }
@@ -291,7 +292,7 @@ export async function setRedirectActive(change: SiteChange, raw: { id: unknown; 
       .set({ isActive: raw.active, lockVersion: sql`${redirects.lockVersion} + 1`, updatedAt: now, updatedBy: actor.user.id })
       .where(and(eq(redirects.id, id)));
     await siteAudit(tx, change, now, { ...event, summary: `${raw.active ? "Reactivated" : "Deactivated"} the redirect ${String(row.source_path)}.` });
-    await recordInvalidations(tx, ["redirects"], change.meta.requestId, now);
+    if (!deferInvalidations(tx, ["redirects"], change.meta.requestId)) await recordInvalidations(tx, ["redirects"], change.meta.requestId, now);
     return { kind: "ok", id, lockVersion: lockVersion + 1, summary: raw.active ? "Active again." : "Deactivated: it will not be used." };
   });
 }
