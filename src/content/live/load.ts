@@ -23,8 +23,7 @@ import { company } from "@/content/company";
 import { serviceSlugs } from "@/content/services";
 import { refreshMapLinks } from "@/lib/maps";
 import { getPool, describeDbError } from "@/server/db/pool";
-import { dbFor } from "@/server/db/client";
-import { PUBLIC_READ_LIMITS, readGenerationWithin, readPublicSnapshot, within } from "@/server/public/read-model";
+import { PUBLIC_READ_LIMITS, readGenerationWithin, readPublicSnapshot, withPublicDb } from "@/server/public/read-model";
 import { decodeContentSet } from "@/server/public/decode";
 import { resolvePublicRedirect, type LiveAddresses } from "@/server/public/redirects";
 
@@ -83,7 +82,7 @@ function swap(next: ContentSet) {
 }
 
 async function load(): Promise<void> {
-  const snapshot = await within(readPublicSnapshot(getPool()), PUBLIC_READ_LIMITS.snapshotMs, "Reading the published content");
+  const snapshot = await readPublicSnapshot(getPool(), PUBLIC_READ_LIMITS.snapshotMs);
   const { set, livePages } = decodeContentSet(snapshot, BASE);
   const ids = (type: string) => new Map(snapshot.docs.filter((d) => d.type === type && d.slug).map((d) => [d.id, d.slug as string]));
   const serviceIds = ids("service");
@@ -158,7 +157,8 @@ export async function redirectFor(path: string): Promise<null> {
   const live = await current();
   let found: Awaited<ReturnType<typeof resolvePublicRedirect>>;
   try {
-    found = await resolvePublicRedirect(dbFor(getPool()), path, live.addresses);
+    // Time-limited like every public read (A9 review: a stalled database must fail the request, not hold it).
+    found = await withPublicDb(getPool(), PUBLIC_READ_LIMITS.generationMs, "Looking up a redirect", (db) => resolvePublicRedirect(db, path, live.addresses));
   } catch (error) {
     console.error(`content source: redirect lookup failed (${describeDbError(error)})`);
     throw new ContentUnavailableError();

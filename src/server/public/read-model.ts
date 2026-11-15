@@ -4,8 +4,9 @@
  * either wholly in or wholly out. Nothing else is read: no working copy, no user, no private media.
  */
 import { sql } from "drizzle-orm";
-import { inTransaction, type Db } from "../db/client.ts";
-import type { Pool } from "mysql2/promise";
+import { drizzle } from "drizzle-orm/mysql2";
+import type { Db } from "../db/client.ts";
+import type { Pool, PoolConnection } from "mysql2/promise";
 import { rowsOf } from "../cms/store.ts";
 import type { AggregateType } from "../publishing/registry.ts";
 import type { DeliveredMedia, PublishedDoc, PublishedInput } from "./decode.ts";
@@ -24,12 +25,40 @@ export const PUBLIC_READ_LIMITS = { generationMs: 5_000, snapshotMs: 15_000 } as
 
 /** The generation, read on the pool with a time limit (the request path: one small query per request). */
 export async function readGenerationWithin(pool: Pool, ms: number = PUBLIC_READ_LIMITS.generationMs): Promise<{ generation: number; epoch: string }> {
-  // Both limits: mysql2's `timeout` starts only once the query is sent, so a request waiting for a pooled connection (one
-  // held by a stalled database) is limited by `within` (the A9 fail-closed drill).
-  const [rows] = await within(pool.query({ sql: "SELECT value AS generation, epoch FROM cache_generation WHERE id = 1", timeout: ms }), ms, "Reading the cache generation");
-  const row = (rows as { generation: number | string; epoch: string }[])[0];
-  if (!row) throw new Error("The cache generation row is missing.");
-  return { generation: Number(row.generation), epoch: String(row.epoch) };
+  return withPublicDb(pool, ms, "Reading the cache generation", (db) => readGeneration(db));
+}
+
+/**
+ * Runs a public read on a connection of its own, within `ms` — waiting for the connection included (mysql2's own
+ * query `timeout` starts only once a query is sent). When the limit passes, that connection is destroyed rather than
+ * returned: a database that stalled, or a connection the network dropped silently, would otherwise keep it busy and the
+ * pool would never recover (A9 review L3). A connection that arrives after the limit goes straight back to the pool.
+ */
+export async function withPublicDb<T>(pool: Pool, ms: number, what: string, read: (db: Db) => Promise<T>): Promise<T> {
+  let connection: PoolConnection | null = null;
+  let abandoned = false;
+  const work = (async () => {
+    const c = await pool.getConnection();
+    if (abandoned) {
+      c.release();
+      throw new Error(`${what}: the connection arrived after the limit.`);
+    }
+    connection = c;
+    try {
+      return await read(drizzle(c) as unknown as Db);
+    } finally {
+      if (!abandoned) c.release();
+    }
+  })();
+  try {
+    return await within(work, ms, what);
+  } catch (error) {
+    if ((error as { code?: string }).code === "PUBLIC_READ_TIMEOUT") {
+      abandoned = true;
+      (connection as PoolConnection | null)?.destroy();
+    }
+    throw error;
+  }
 }
 
 /** Rejects when `work` takes longer than `ms` (its query may still finish; its answer is never used). */
@@ -50,9 +79,9 @@ export interface PublicSnapshot extends PublishedInput {
   epoch: string;
 }
 
-/** Everything the public site may read, at one point in time. */
-export async function readPublicSnapshot(pool: Pool): Promise<PublicSnapshot> {
-  return inTransaction(pool, async (tx) => {
+/** Everything the public site may read, at one point in time (one transaction on its own connection, within `ms`). */
+export async function readPublicSnapshot(pool: Pool, ms: number = PUBLIC_READ_LIMITS.snapshotMs): Promise<PublicSnapshot> {
+  return withPublicDb(pool, ms, "Reading the published content", (db) => db.transaction(async (tx) => {
     const { generation, epoch } = await readGeneration(tx);
     const docs = await rowsOf<{ entity_type: string; entity_id: string; slug: string | null; document: unknown }>(
       tx,
@@ -68,5 +97,5 @@ export async function readPublicSnapshot(pool: Pool): Promise<PublicSnapshot> {
       docs: docs.map((d): PublishedDoc => ({ type: d.entity_type as AggregateType, id: d.entity_id, slug: d.slug, document: json(d.document) as Record<string, unknown> })),
       media: media.map((m): DeliveredMedia => ({ id: m.media_id, legacyKey: m.legacy_key, kind: m.kind, src: m.src, width: m.width === null ? null : Number(m.width), height: m.height === null ? null : Number(m.height), blurDataUrl: m.blur_data_url })),
     };
-  });
+  }));
 }

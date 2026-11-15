@@ -17,6 +17,7 @@ import { getPool } from "@/server/db/pool";
 import { defaultReleaseDir } from "@/server/media/presence";
 import { answerPublic, notFoundAnswer, type PublicAnswer } from "@/server/media/public-delivery";
 import { mediaStore } from "@/server/media/storage";
+import { PUBLIC_READ_LIMITS, withPublicDb } from "@/server/public/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ async function serve(request: Request, params: Promise<{ id: string; name: strin
   return toResponse(
     await answerPublic({
       db: () => dbFor(getPool()),
+      withDb: (read) => withPublicDb(getPool(), PUBLIC_READ_LIMITS.generationMs, "Reading a public media item", read),
       store: () => mediaStore(),
       releaseDir: defaultReleaseDir(),
       id,

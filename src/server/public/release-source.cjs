@@ -43,6 +43,8 @@ function builtSource(distDir) {
  * build's own source (builtSource) or null.
  */
 function contentSourceFor(phase, asked, readBuilt) {
+  // An empty setting (a cPanel variable left blank) is no setting: the static rollback must still start (review I9).
+  if (typeof asked === "string" && asked.trim() === "") asked = undefined;
   if (asked !== undefined && !SOURCES.includes(asked)) throw new Error('CONTENT_SOURCE must be "static" or "database".');
   if (phase !== SERVER_PHASE) return asked ?? "static";
   const built = readBuilt();

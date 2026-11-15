@@ -36,6 +36,8 @@ export function deliveryHeaders(target: DeliveryTarget, size: number): Record<st
 
 export async function answerPublic(input: {
   db: () => Db;
+  /** Runs the lookup with a time limit of its own (the public route; A9 review): a stalled database answers 503. */
+  withDb?: <T>(read: (db: Db) => Promise<T>) => Promise<T>;
   store: () => Promise<MediaStore | null>;
   releaseDir: string;
   id: string;
@@ -46,7 +48,7 @@ export async function answerPublic(input: {
   if (!publicAddressValid(input.id, input.name)) return notFoundAnswer();
   let target: DeliveryTarget | null;
   try {
-    target = await resolvePublic(input.db(), input.id, input.name);
+    target = input.withDb ? await input.withDb((db) => resolvePublic(db, input.id, input.name)) : await resolvePublic(input.db(), input.id, input.name);
   } catch {
     return unavailable();
   }

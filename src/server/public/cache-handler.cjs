@@ -58,11 +58,18 @@ function withLimit(work, ms) {
   return Promise.race([work, limit]).finally(() => clearTimeout(timer));
 }
 
+/** Errors of this process's own pool (its queue full, a pool being closed): load here, not the database failing. */
+const LOCAL = /Queue limit reached|Pool is closed/i;
+/** Errors after which the pool's connection may be wedged or gone: a fresh pool is opened for the next read. */
+const DROP_CODES = new Set(["PAGE_CACHE_READ_TIMEOUT", "PROTOCOL_SEQUENCE_TIMEOUT", "PROTOCOL_CONNECTION_LOST", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EPIPE", "EHOSTUNREACH", "ENOTFOUND"]);
+
 /**
- * The reader of the shared state over a pool (`getPool`, `dropPool`: the tests pass their own). A read that fails or does
- * not answer in time may leave the pool's one connection waiting on the database (a database that stalls rather than
- * refusing: the A9 fail-closed drill saw every later request wait behind it), so the pool is dropped and the next read
- * opens a fresh one.
+ * The reader of the shared state over a pool (`getPool`, `dropPool`: the tests pass their own). A read that does not
+ * answer in time, or fails on the connection itself, may leave the pool's one connection waiting on the database (a
+ * database that stalls rather than refusing: the A9 fail-closed drill saw every later request wait behind it), so that
+ * pool is dropped and the next read opens a fresh one. Its own queue being full is not such a failure (review M1: a
+ * burst of requests must not drop the pool, reject every queued lookup and open the breaker); its errors are marked
+ * `local`, and the handler never counts them towards its breaker.
  */
 function sharedStateFrom(getPool, dropPool, ms = READ_LIMIT_MS) {
   return async function sharedState() {
@@ -75,18 +82,22 @@ function sharedStateFrom(getPool, dropPool, ms = READ_LIMIT_MS) {
       if (!row) throw Object.assign(new Error("no generation row"), { code: "NO_GENERATION" });
       return { generation: Number(row.value), epoch: String(row.epoch) };
     } catch (error) {
-      if (current) dropPool(current);
-      console.error(`page cache: the shared generation could not be read (${(error && error.code) || "error"})`);
-      throw new Error("The page cache could not check the content's version.");
+      const code = (error && error.code) || "error";
+      const local = Boolean(error && LOCAL.test(String(error.message)));
+      if (current && !local && (DROP_CODES.has(code) || (error && error.fatal))) dropPool(current);
+      console.error(`page cache: the shared generation could not be read (${local ? "local queue" : code})`);
+      throw Object.assign(new Error("The page cache could not check the content's version."), { local });
     }
   };
 }
 
+/** The dropped pool closes once its queued lookups have had their own limit (closing at once would fail them all). */
 function dropSharedPool(current) {
   const holder = globalThis;
   if (holder[POOL] !== current) return;
   holder[POOL] = undefined;
-  current.end().catch(() => undefined);
+  const timer = setTimeout(() => current.end().catch(() => undefined), 2 * READ_LIMIT_MS);
+  if (timer.unref) timer.unref();
 }
 
 const sharedState = sharedStateFrom(pool, dropSharedPool);
@@ -120,6 +131,8 @@ function createHandlerClass(readState = sharedState, maxEntries = MAX_ENTRIES, m
         state = await readState();
         failures = 0;
       } catch (error) {
+        // The process's own queue being full is load here, not the database failing: it never opens the breaker.
+        if (error && error.local) throw error;
         if (++failures >= BREAKER_FAILURES) {
           openUntil = Date.now() + BREAKER_OPEN_MS;
           failures = 0;
