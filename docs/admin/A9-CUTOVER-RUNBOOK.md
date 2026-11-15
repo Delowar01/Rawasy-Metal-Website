@@ -54,6 +54,13 @@ have no named legal reviewer (they stay unpublished in a database release until 
 
 Staging is a separate cPanel Node app with its **own** database and data folder; never the production database.
 
+**The executable procedure is `A9-STAGING-PACKAGE.md`** (A9 acceptance review): the exact H1–H14 checks, the
+environment, preflight, backups and key escrow, the commands in order, the smoke, performance and recovery tests, the
+rollback and the GO / NO-GO criteria. The steps below are its outline. **The deployment archive carries no `scripts/`
+and no `drizzle/`**, so the CLIs of steps 3–7 (migrations, release media, the Owner bootstrap, the import, backups) do
+not run from the deployed app folder: they run from a fresh clone of the same commit, through an SSH tunnel to the
+account's MariaDB, or from an operations folder on the host (the package's §6).
+
 1. **Prepare the database.** Create the staging database with `utf8mb4` / `utf8mb4_unicode_520_ci`; record H4.
 2. **Configure** (cPanel environment, never in Git): `DB_*`, `DB_POOL_LIMIT=2`, `APP_ENV=staging`, `AUTH_ENCRYPTION_KEY`
    (staging's own, escrowed as A1-SECURITY-RBAC §12 says), `NEXT_PUBLIC_SITE_URL=<staging address>`,
@@ -105,7 +112,8 @@ and H12 verified; the legal pages' reviewer named (or the Owner's explicit decis
 
 1. **Back up** the production database (A8-BACKUP-RESTORE.md: encrypted with the Owner's public key, verified, copied
    off the account) — before the migrations and again before the import.
-2. **Migrate** (`db-migrate up`), **register the release media**, **bootstrap the Owner** if not done.
+2. **Migrate** (`db-migrate up`), **register the release media**, **bootstrap the Owner** if not done — from a fresh
+   clone of the same commit, as on staging (`A9-STAGING-PACKAGE.md` §6–§8).
 3. **Import** with `--dry-run`, read the reconciliation with the Owner, then for real (`--report`, `--legal-reviewer`
    as the Owner decided). Keep the report with the cutover record.
 4. **Deploy the database release** (same commit as the live static release), restart the app, warm up (§3 step 9).
@@ -144,6 +152,16 @@ and H12 verified; the legal pages' reviewer named (or the Owner's explicit decis
 - **Code-owned values** (listed in the A9 report, item 4): the approved composition's own choices (the homepage's
   project order, the collage, the industries strip, service looks and colour roles, the profile's figures), the quote
   form's validation, the composed "Company profile · p.N" line.
+- **A release photo withdrawn after the import** (A9 acceptance review M-2; A1-MEDIA-STORAGE §12, the relocation of
+  T7 not adopted): it leaves every page at the next request, but its own file address and its optimized copies answer
+  until a release leaves the file out. Every database archive made after an import is packed with the list of release
+  files the library does not deliver (`media:maintenance -- --release-withheld=<file>`, then
+  `package-namecheap.mjs --withhold=<file>`); between releases, the emergency step removes the file and the image cache
+  and restarts the app (A9-STAGING-PACKAGE.md §10.1).
+- **A fixed place's photos** (the A9 acceptance report, item 3): a version that leaves a record in the approved
+  composition (the homepage's two laser services, the Projects collage, the Industries strip) without what its place
+  draws is refused at publication; a withdrawal of one of those photos in the library is not refused (it is
+  safety-increasing) and takes that page offline (500, both languages) until it is delivered again.
 - **Per-request rendering on a miss.** Every page renders once per process after a publication (about 10–60 ms each
   locally); measure on the account (H8).
 - **A render that overlaps a publication** may mix the old and new content for that one response; the cache never keeps
