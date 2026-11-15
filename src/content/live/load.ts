@@ -25,7 +25,8 @@ import { refreshMapLinks } from "@/lib/maps";
 import { getPool, describeDbError } from "@/server/db/pool";
 import { PUBLIC_READ_LIMITS, readGenerationWithin, readPublicSnapshot, withPublicDb } from "@/server/public/read-model";
 import { decodeContentSet } from "@/server/public/decode";
-import { resolvePublicRedirect, type LiveAddresses } from "@/server/public/redirects";
+import { createBreaker } from "@/server/public/breaker";
+import { liveAddressesOf, resolvePublicRedirect, type LiveAddresses } from "@/server/public/redirects";
 
 export const contentIsStatic = false;
 
@@ -46,8 +47,7 @@ let loading: Promise<void> | null = null;
 
 const BREAKER_FAILURES = 5;
 const BREAKER_OPEN_MS = 60_000;
-let failures = 0;
-let openUntil = 0;
+const breaker = createBreaker(BREAKER_FAILURES, BREAKER_OPEN_MS);
 
 export class ContentUnavailableError extends Error {
   constructor() {
@@ -83,23 +83,11 @@ function swap(next: ContentSet) {
 
 async function load(): Promise<void> {
   const snapshot = await readPublicSnapshot(getPool(), PUBLIC_READ_LIMITS.snapshotMs);
-  const { set, livePages } = decodeContentSet(snapshot, BASE);
-  const ids = (type: string) => new Map(snapshot.docs.filter((d) => d.type === type && d.slug).map((d) => [d.id, d.slug as string]));
-  const serviceIds = ids("service");
-  const projectIds = ids("project");
-  const pageKeys = new Map(
-    snapshot.docs
-      .filter((d) => d.type === "page")
-      .map((d) => [d.id, String((d.document.root as Record<string, unknown> | undefined)?.systemKey ?? "")] as const)
-      .filter(([, key]) => key),
-  );
-  swap(set);
-  loaded = {
-    generation: snapshot.generation,
-    epoch: snapshot.epoch,
-    livePages,
-    addresses: { services: new Set(serviceIds.values()), projects: new Set(projectIds.values()), serviceSlugs: serviceIds, projectSlugs: projectIds, pageKeys },
-  };
+  const decoded = decodeContentSet(snapshot, BASE);
+  // Read before the swap: what a live page answers is what the read model draws (A9 acceptance L-3).
+  const addresses = liveAddressesOf(snapshot, decoded);
+  swap(decoded.set);
+  loaded = { generation: snapshot.generation, epoch: snapshot.epoch, livePages: decoded.livePages, addresses };
 }
 
 /**
@@ -117,7 +105,7 @@ async function readCurrent(): Promise<Loaded> {
     console.error("content source: the fail-closed page cache is not in use; this release's configuration is not a database-content one");
     throw new ContentUnavailableError();
   }
-  if (Date.now() < openUntil) throw new ContentUnavailableError();
+  if (breaker.isOpen()) throw new ContentUnavailableError();
   try {
     const { generation, epoch } = await readGenerationWithin(getPool());
     // Load until this request's generation (or a newer one of the same epoch) is in: a load that started for an older
@@ -128,17 +116,14 @@ async function readCurrent(): Promise<Loaded> {
       await loading;
     }
     if (stale()) throw new ContentUnavailableError();
-    failures = 0;
+    breaker.succeeded();
     return loaded!;
   } catch (error) {
     if (error instanceof ContentUnavailableError) throw error;
     // The pool's own queue being full is load on this process, not the database failing: never opens the breaker.
     const local = error instanceof Error && /Queue limit reached/i.test(error.message);
-    if (!local) failures += 1;
-    if (failures >= BREAKER_FAILURES) {
-      openUntil = Date.now() + BREAKER_OPEN_MS;
-      failures = 0;
-    }
+    // Counted once per failed read: requests that waited on one shared load receive its one error (A9 acceptance L-1).
+    breaker.failed(error, local);
     // Named as the page cache names it: on the host, "local queue" means more requests at once than the pool takes.
     console.error(`content source: database read failed (${local ? "local queue" : describeDbError(error)})`);
     throw new ContentUnavailableError();

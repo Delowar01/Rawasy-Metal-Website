@@ -21,14 +21,14 @@ import { runContentImport, type ImportReport } from "../../src/server/migration/
 import { importRelease, parseBaseline } from "../../src/server/media/release.ts";
 import { readPublicSnapshot } from "../../src/server/public/read-model.ts";
 import { decodeContentSet } from "../../src/server/public/decode.ts";
-import { resolvePublicRedirect, type LiveAddresses } from "../../src/server/public/redirects.ts";
+import { liveAddressesOf, resolvePublicRedirect, type LiveAddresses } from "../../src/server/public/redirects.ts";
 import { updateItem } from "../../src/server/cms/engine.ts";
-import { projectSpec, serviceSpec } from "../../src/server/cms/kinds.ts";
+import { certificateSpec, industrySpec, projectSpec, serviceSpec } from "../../src/server/cms/kinds.ts";
 import { publish, unpublish } from "../../src/server/publishing/workflow.ts";
 import { restrictMedia } from "../../src/server/media/service.ts";
 import { saveRedirect } from "../../src/server/site/redirects.ts";
 import { ulid } from "../../src/server/security/ids.ts";
-import { projectForm, serviceForm, type ImportRefs } from "../../src/server/migration/records.ts";
+import { certificateForm, industryForm, projectForm, serviceForm, type ImportRefs } from "../../src/server/migration/records.ts";
 import { ctxOf, query } from "./cms-helpers.ts";
 import { mctx, setupMediaEnv, type MediaEnv } from "./media-helpers.ts";
 import { siteChange } from "./site-helpers.ts";
@@ -49,11 +49,10 @@ const run = (env: MediaEnv, options: { set?: ContentSet; legalReviewer?: string 
 
 const count = async (env: MediaEnv, sql: string) => Number((await query<{ n: number }>(env, sql))[0].n);
 const decoded = async (env: MediaEnv) => decodeContentSet(await readPublicSnapshot(env.pool), STATIC);
+// What the public loader serves redirects from (src/content/live/load.ts): what a live page answers in the read model.
 const live = async (env: MediaEnv): Promise<LiveAddresses> => {
   const s = await readPublicSnapshot(env.pool);
-  const ids = (t: string) => new Map(s.docs.filter((d) => d.type === t && d.slug).map((d) => [d.id, d.slug as string]));
-  const pageKeys = new Map(s.docs.filter((d) => d.type === "page").map((d) => [d.id, String((d.document.root as Any)?.systemKey ?? "")]));
-  return { services: new Set(ids("service").values()), projects: new Set(ids("project").values()), serviceSlugs: ids("service"), projectSlugs: ids("project"), pageKeys };
+  return liveAddressesOf(s, decodeContentSet(s, STATIC));
 };
 
 /** Differences between the rebuilt content and today's that are the point (each with its reason in the A9 report). */
@@ -314,6 +313,132 @@ describe("A9.2: all or nothing", () => {
     } finally {
       await fresh.closeMedia();
     }
+  });
+});
+
+describe("A9 acceptance review: versions the public pages can't draw (M-1), and redirects to what a live page answers (L-3)", () => {
+  const owner = () => ctxOf(env, env.team.owner);
+  const admin = () => ctxOf(env, env.team.admin);
+  const idOf = async (table: string, slug: string) => (await query<{ id: string }>(env, `SELECT id FROM ${table} WHERE slug = ?`, [slug]))[0].id;
+  const version = async (table: string, id: string) => Number((await query<{ lock_version: number }>(env, `SELECT lock_version FROM ${table} WHERE id = ?`, [id]))[0].lock_version);
+  // Saved through the editor's own save (a working-copy revision), as a person would.
+  const saveService = async (record: Any) => {
+    const id = await idOf("services", record.slug);
+    return updateItem(admin(), serviceSpec, id, { ...serviceForm(record, await refsOf(env), true, STATIC.serviceDetails[record.slug as "laser-cutting"].related), lockVersion: String(await version("services", id)) } as Any);
+  };
+  const serviceOf = (slug: string) => structuredClone(STATIC.services.find((x) => x.slug === slug)!) as Any;
+
+  test("a record in a fixed place can't be published in a version its page can't draw; the live version stays", async () => {
+    const cases: [string, string, () => Promise<Any>, () => Promise<Any>][] = [];
+    // The homepage's Laser Cutting card without its cover photo.
+    cases.push(["service", "laser-cutting", () => saveService({ ...serviceOf("laser-cutting"), cover: undefined }), () => saveService(serviceOf("laser-cutting"))]);
+    // The Projects collage's lantern without its photos.
+    const lantern = STATIC.projects.find((p) => p.slug === "suspended-lantern")!;
+    const saveProject = async (record: Any) => {
+      const id = await idOf("projects", record.slug);
+      return updateItem(admin(), projectSpec, id, { ...projectForm(record, await refsOf(env)), lockVersion: String(await version("projects", id)) } as Any);
+    };
+    cases.push(["project", "suspended-lantern", () => saveProject({ ...lantern, media: [] }), () => saveProject(lantern)]);
+    // The Industries strip's construction sector without its photo.
+    const construction = STATIC.industries.find((i) => i.slug === "construction")!;
+    const saveIndustry = async (record: Any) => {
+      const id = await idOf("industries", record.slug);
+      return updateItem(admin(), industrySpec, id, { ...industryForm(record, await refsOf(env)), lockVersion: String(await version("industries", id)) } as Any);
+    };
+    cases.push(["industry", "construction", () => saveIndustry({ ...construction, media: undefined }), () => saveIndustry(construction)]);
+    const table = { service: "services", project: "projects", industry: "industries" } as Record<string, string>;
+    for (const [type, slug, edit, restore] of cases) {
+      const id = await idOf(table[type], slug);
+      const edited = await edit();
+      assert.equal(edited.kind, "ok", JSON.stringify(edited));
+      try {
+        const refused = await publish(owner(), type as Any, id, await version(table[type], id));
+        assert.equal(refused.kind, "refused", `${slug}: ${JSON.stringify(refused)}`);
+        assert.match(JSON.stringify(refused), /composition\.drawable/);
+        assert.match(JSON.stringify(refused), /can't be drawn there/);
+      } finally {
+        assert.equal((await restore()).kind, "ok");
+      }
+    }
+    const { set } = await decoded(env);
+    assert.ok(set.services.find((s) => s.slug === "laser-cutting")?.cover, "the live Laser Cutting still draws");
+    assert.ok(set.projects.find((p) => p.slug === "suspended-lantern")?.media.length, "the live lantern keeps its photo");
+    assert.ok(set.industries.find((i) => i.slug === "construction")?.media, "the live sector keeps its photo");
+  });
+
+  test("any other record may be published in such a version, with a warning: the read model leaves it out, and a redirect to it no longer follows (L-3)", async () => {
+    const scaffolding = await idOf("services", "scaffolding");
+    const saved = await saveRedirect(siteChange(env, env.team.admin), { id: "", expectedVersion: 0, sourcePath: "/en/old-scaffolding", targetType: "service", targetPath: "", targetId: scaffolding, statusCode: 308, note: "" });
+    assert.equal(saved.kind, "ok", JSON.stringify(saved));
+    const db = env.deps.db;
+    assert.deepEqual(await resolvePublicRedirect(db, "/en/old-scaffolding", await live(env)), { location: "/en/services/scaffolding", permanent: true });
+    assert.equal((await saveService({ ...serviceOf("scaffolding"), supporting: { ...serviceOf("scaffolding").supporting, media: undefined } })).kind, "ok");
+    try {
+      const published = await publish(owner(), "service", scaffolding, await version("services", scaffolding));
+      assert.equal(published.kind, "ok", JSON.stringify(published));
+      assert.match(JSON.stringify(published), /The public pages can't draw this version/);
+      const { set } = await decoded(env);
+      assert.equal(set.services.some((s) => s.slug === "scaffolding"), false, "left out, never drawn half");
+      assert.equal(await resolvePublicRedirect(db, "/en/old-scaffolding", await live(env)), null, "a published service the read model leaves out is no target");
+    } finally {
+      assert.equal((await saveService(serviceOf("scaffolding"))).kind, "ok");
+      assert.equal((await publish(owner(), "service", scaffolding, await version("services", scaffolding))).kind, "ok");
+    }
+    assert.ok((await decoded(env)).set.services.some((s) => s.slug === "scaffolding"));
+    assert.deepEqual(await resolvePublicRedirect(db, "/en/old-scaffolding", await live(env)), { location: "/en/services/scaffolding", permanent: true });
+  });
+
+  test("a certificate without a redacted preview is left out, not drawn half (its card read the first preview: a 500 for the page)", async () => {
+    const record = STATIC.certificates.find((c) => c.slug === "vat-registration")!;
+    const id = await idOf("certificates", record.slug);
+    const save = async (r: Any) => updateItem(admin(), certificateSpec, id, { ...certificateForm(r, await refsOf(env)), lockVersion: String(await version("certificates", id)) } as Any);
+    assert.equal((await save({ ...record, previews: [] })).kind, "ok");
+    try {
+      const published = await publish(owner(), "certificate", id, await version("certificates", id));
+      assert.equal(published.kind, "ok", JSON.stringify(published));
+      assert.match(JSON.stringify(published), /first redacted preview/);
+      const { set } = await decoded(env);
+      assert.equal(set.certificates.some((c) => c.slug === record.slug), false);
+      assert.ok(set.certificates.every((c) => c.previews.length > 0));
+    } finally {
+      assert.equal((await save(record)).kind, "ok");
+      assert.equal((await publish(owner(), "certificate", id, await version("certificates", id))).kind, "ok");
+    }
+    assert.ok((await decoded(env)).set.certificates.some((c) => c.slug === record.slug));
+  });
+
+  test("the release files the library does not deliver are listed for the next database-content archive (M-2)", async () => {
+    const { releaseFilesNotDelivered } = await import("../../src/server/media/maintenance.ts");
+    const { HELD_BACK_MEDIA } = await import("../../src/content/held-back.ts");
+    const listed = await releaseFilesNotDelivered(env.deps.db);
+    const all = await count(env, "SELECT COUNT(*) AS n FROM media_files WHERE storage_area = 'release'");
+    const delivered = await query<{ k: string }>(
+      env,
+      "SELECT f.storage_key AS k FROM public_media p JOIN media_assets a ON a.id = p.media_id JOIN media_files f ON f.id = a.current_file_id WHERE f.storage_area = 'release'",
+    );
+    assert.equal(listed.length, all - delivered.length, "every release file but the delivered ones");
+    assert.ok(delivered.every((d) => !listed.includes(d.k)), "nothing delivered is listed");
+    const [press] = await query<{ k: string }>(env, "SELECT f.storage_key AS k FROM media_assets a JOIN media_files f ON f.id = a.current_file_id WHERE a.legacy_key = 'machines/press-brake'");
+    assert.ok(listed.includes(press.k), "a photo restricted after the import");
+    for (const id of HELD_BACK_MEDIA) assert.ok(listed.includes((STATIC.mediaRegistry as Any)[id].src), id);
+    assert.ok(listed.every((f) => /^\/media\/[a-z0-9]/.test(f)), "addresses of release files only");
+  });
+
+  test("a redirect to a fixed page's address follows only while that page is published (L-3)", async () => {
+    const saved = await saveRedirect(siteChange(env, env.team.admin), { id: "", expectedVersion: 0, sourcePath: "/en/old-clients-wall", targetType: "path", targetPath: "/en/clients", targetId: "", statusCode: 308, note: "" });
+    assert.equal(saved.kind, "ok", JSON.stringify(saved));
+    const db = env.deps.db;
+    assert.deepEqual(await resolvePublicRedirect(db, "/en/old-clients-wall", await live(env)), { location: "/en/clients", permanent: true });
+    const [clients] = await query<{ id: string; lock_version: number }>(env, "SELECT id, lock_version FROM pages WHERE system_key = 'clients'");
+    const off = await unpublish(owner(), "page", clients.id, Number(clients.lock_version));
+    assert.equal(off.kind, "ok", JSON.stringify(off));
+    try {
+      assert.equal(await resolvePublicRedirect(db, "/en/old-clients-wall", await live(env)), null, "no redirect into a 404");
+    } finally {
+      const back = await publish(owner(), "page", clients.id, Number((await query<{ lock_version: number }>(env, "SELECT lock_version FROM pages WHERE id = ?", [clients.id]))[0].lock_version));
+      assert.equal(back.kind, "ok", JSON.stringify(back));
+    }
+    assert.deepEqual(await resolvePublicRedirect(db, "/en/old-clients-wall", await live(env)), { location: "/en/clients", permanent: true });
   });
 });
 
