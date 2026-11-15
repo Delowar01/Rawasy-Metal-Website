@@ -84,10 +84,10 @@ account's MariaDB, or from an operations folder on the host (the package's §6).
     against the staging address (`E2E_BASE_URL`), the pixel comparison — and the smoke checks of §6.
 11. **Fail-closed check:** with the database user's password changed (or the database stopped) for a minute, pages
     answer 500 (never an old page), each within about 5 s, then at once while the breakers are open; restored, they
-    answer again after at most 60 s (the page cache's breaker opens for 30 s, the content loader's for 60 s). Locally
-    (A9 report, item 5): every page 500 within 5 s while the database was paused, back 31 s after it resumed. Uploaded
-    media (`/media/u/…`) answer 503 within about 5 s meanwhile; the release's own files (`/media/<group>/…`) keep
-    answering. Also check the server's log: no "the fail-closed page cache is not in use" line (that line, with every
+    answer again within about 60 s (the page cache's breaker opens for 30 s, the content loader's for 60 s; pass rule:
+    65 s). Locally (A9 report, item 5): every page 500 within 5 s while the database was paused, back 31 s after it
+    resumed. Uploaded media (`/media/u/…`) answer 503 within about 5 s meanwhile; the release's own files
+    (`/media/<group>/…`) keep answering. Also check the server's log: no "the fail-closed page cache is not in use" line (that line, with every
     page 500, means the release's configuration is not a database-content one).
 12. **Record H5–H8** during the warm-up and the E2E run. Staging content is test content: it is not imported into
     production (A9 Owner default).

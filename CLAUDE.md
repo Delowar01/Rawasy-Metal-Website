@@ -10,11 +10,15 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-11-13-admin-a9-migration-database-site.md` (Admin / CMS program, Phase A9 — the
-  static content import, publication through A8, the database-content website behind `CONTENT_SOURCE`, public media and
-  redirects in database mode, local implementation only; the A8 closure; the security review; the static-vs-database
-  parity proof; the drills; the hosting checklist and the cutover runbook for approval)
-  (earlier: `2026-11-06-admin-a8-publishing-revisions-audit-backup.md` (Phase A8 — publishing, revisions, the reference
+- Latest report: `docs/reports/2026-11-15-admin-a9-final-acceptance-staging-readiness.md` (Admin / CMS program, A9 final
+  acceptance review and staging readiness — the independent review's findings corrected, the database-mode publishing
+  E2E, the five investigations, the fresh-clone regression and parity, the hosting checklist, the staging execution
+  package `docs/admin/A9-STAGING-PACKAGE.md`, the Owner decisions O1–O9, READY for staging / BLOCKED for production)
+  (earlier: `2026-11-13-admin-a9-migration-database-site.md` (Phase A9 — the static content import, publication through
+  A8, the database-content website behind `CONTENT_SOURCE`, public media and redirects in database mode, local
+  implementation only; the A8 closure; the security review; the static-vs-database parity proof; the drills; the hosting
+  checklist and the cutover runbook for approval),
+  `2026-11-06-admin-a8-publishing-revisions-audit-backup.md` (Phase A8 — publishing, revisions, the reference
   index, slug redirects, the audit log viewer, backup and restore tools, carried hardening; the restore drill),
   `2026-11-06-admin-a7-forms-enquiries.md` (Phase A7 — forms and enquiries; its last section, "A7 FINAL
   CORRECTION AND CLOSURE": the inbox search kept out of every address, the keyboard walkthrough, the closure QA and
@@ -469,6 +473,17 @@
   byte-identical, HTML and HTTP equal): it stays the rollback. **Do not deploy, stage, import into a real database or cut
   over** without the Owner's authorization for that environment (report items 10–13; runbook
   `docs/admin/A9-CUTOVER-RUNBOOK.md`).
+  **The A9 final acceptance review is done — local only** (the user's "A9 FINAL ACCEPTANCE REVIEW & STAGING READINESS"
+  brief; report `2026-11-15-admin-a9-final-acceptance-staging-readiness.md`; started at `94662c9`) and awaits the Owner —
+  not self-approved: recommendation **READY for a staging rehearsal, BLOCKED for production** (its items 8–10). Commits:
+  `cec9404` (A-1: the admin's public-website texts by release kind, `src/server/admin/public-effect.ts`), `4ea9744` (the
+  database-mode publishing E2E `npm run test:dbmode`), `fc31364` (the loader logs "local queue"), `a77582c` (the media
+  library's database text), `da06ba5` (review M-1 + A-2: `src/server/public/drawable.ts`), `2398bc2` (M-2: the release
+  files the library no longer delivers, `--withhold`), `2c4cb3c` (L-1 `breaker.ts`, L-3 `liveAddressesOf`), `4601919`
+  (L-2: bounded pending stamps), `0de9452` and `038906d` (the staging package). Fresh-clone QA of `0de9452`: unit 431,
+  integration 598, admin 176, dbmode 9, public 612 (static) and 601 + 11 (database), pixels 624 / 624, every suite in its
+  first run. See "From the A9 final acceptance review" under
+  "Phase A9 implementation". **Do not start staging** without the Owner's separate authorization (O1, O2).
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -1474,6 +1489,32 @@
 - Tests: `tests/unit/migration-layouts.test.ts`, `public-cache.test.ts`, `tests/integration/migration-import.test.ts`
   (A9's security tests among them, each failing on `83a1892`). Database-mode parity is proven with scratch tools (the
   report, item 6), not a committed suite: rebuild them from the report if needed.
+- From the A9 final acceptance review (keep them; each has a test that fails on the code before):
+  - The admin's claims about the public website live only in `src/server/admin/public-effect.ts`, two sets picked by
+    the build's content source (`_components/public-effect.ts`: `PUBLIC_EFFECT = publicEffectTexts(!contentIsStatic)`;
+    client components get the text as a prop). The static set is the A8 text word for word; never write "until the
+    content cutover" or "nothing here changes the public website" on a screen elsewhere (`tests/unit/public-effect.test.ts`
+    fails on it).
+  - What the approved components can draw is one definition, `src/server/public/drawable.ts`, read by `decode.ts` (what
+    can't be drawn is left out; a certificate also needs a redacted preview) and by `publicationIssues`
+    (`composition.drawable`, blocking, for a record in a fixed place — the homepage's two laser services, the collage,
+    the strip; a warning for any other record). A new component that needs a record's media adds its rule there.
+  - The loader's breaker counts a failed read once (`src/server/public/breaker.ts`: requests waiting on one shared load
+    get one error object); the page cache keeps at most `4 × maxEntries` pending stamps (a set without a stamp stores
+    nothing).
+  - Redirects resolve against `liveAddressesOf(snapshot, decoded)` (`redirects.ts`): a fixed page only while published,
+    a service or project only while the read model draws it.
+  - A release photo withdrawn after the import stays at its own address until a release leaves it out: every database
+    archive after an import is packed with `node scripts/package-namecheap.mjs --withhold=<file>` from
+    `npm run media:maintenance -- --release-withheld=<file>` on the target environment (the staging package §4); the
+    emergency step deletes the file and `.next/cache/images` and restarts (§10.1). Never pass a list to the static
+    archive.
+  - `npm run test:dbmode` (`playwright.dbmode.config.ts`, `e2e-dbmode/`): the publishing path through the admin's screens
+    on a database build (`DBMODE_DIR` names another folder); `e2e-dbmode/server.mjs` refuses a static build, makes a
+    `rawasy_e2e_*` database, runs the CLIs (migrate, release media, an import Owner, the content import) and writes
+    `e2e-admin/helpers.ts`'s state file, so run it never alongside the admin suite.
+  - The deployment archive carries no `scripts/` or `drizzle/`: the operations CLIs run from a clean clone of the same
+    commit through an SSH tunnel (the staging package §6).
 
 ## Rules from the brief
 
@@ -1586,7 +1627,9 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   photo `projectDetailMedia` leaves out, and `HELD_BACK_MEDIA` (`src/content/held-back.ts` since A9), the three Laser Engraving images of the asset
   inventory's item 12; media IDs mapped to files through `mediaRegistry`; thirteen today) and checks the
   archive (none held back, every public file the build refers to, every sitemap page's HTML / page data / public
-  files, nothing else missing or added; a failed check deletes it; `--check=<archive>` re-checks one).
+  files, nothing else missing or added; a failed check deletes it; `--check=<archive>` re-checks one; since the A9
+  acceptance review `--withhold=<file>` also leaves out the release files a `media:maintenance --release-withheld` list
+  names — database archives only).
   `scripts/warm-images.mjs <address>` warms the image cache: every `/_next/image` size the sitemap's pages offer,
   `--concurrency` 2 by default (1–4, never more), each answer read to its end, never cancelled early, stops on 429 /
   503 / 508, 5 problems in a row or 10 in all, writes `warm-images-report.json`, `--retry=<report>` for exactly what
@@ -3104,6 +3147,10 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   name before moving it.
 - `/media/u` variant names are `w<width>-<hash8>.webp` (`WIDTH_NAME` in `src/server/media/delivery.ts`); an address
   that fails the grammar answers 404 before any database access, so a stall probe must use a valid name.
+- `tsc --noEmit` alone fails in a fresh worktree or clone (Next's route types are generated): check a commit with
+  `npm run typecheck` (`next typegen && tsc --noEmit`).
+- One database-release process takes 52 uncached requests at once (2 pool connections + 50 queued); more are answered
+  500 at once ("local queue" in the log, never counted by the breakers). Cached pages took 400 at once.
 - Comparing the admin chunks of two builds: Server Action ids are made per build and the minifier picks other local names
   (even swapping two). Rename by first appearance and you also rename words inside strings. Re-minify both with one
   mangler instead (`next/dist/compiled/terser`, `mangle: { toplevel: true }`, no compress) after normalising the action

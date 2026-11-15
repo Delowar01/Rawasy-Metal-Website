@@ -426,8 +426,9 @@ Never load-test beyond these steps (shared hosting); stop at the first 429, 503 
    connections and 50 waiting — before shedding the rest with 500; the platform's 30 entry processes stay below that.)
 4. Database outage (staging only, Owner's approval for this step): the hosting operator changes the staging database
    user's password in cPanel for one minute, then puts the panel's value back. **Pass:** during the minute every page
-   answers 500 within about 5 s (never an old page), release files (`/media/site/…`) still 200; within 60 s of the
-   password's return every page answers 200 again (the page cache's breaker is 30 s, the content loader's 60 s); the
+   answers 500 within about 5 s (never an old page), release files (`/media/site/…`) still 200; within 65 s of the
+   password's return every page answers 200 again (the page cache's breaker is 30 s, the content loader's 60 s; locally
+   cached pages returned after 29 s and a fresh render after 60 s); the
    app's `stderr.log` names error codes only, no SQL, value or address.
 5. A restart (Setup Node.js App → Restart) → the first request is slower, then normal; nothing else changes.
 
@@ -460,7 +461,7 @@ The static release of the same commit is the rollback. **[server]** / panel:
 **GO for the staging rehearsal's acceptance (the step before any production request)** — all of:
 1. §7: migrations exit 0; the import's repeat reads "unchanged" on every row; the backups verified by the Owner.
 2. §10: every public check passes; the publishing path passes all eight steps.
-3. §11: H5–H8 within their pass rules; the outage test fails closed and recovers within 60 s; no 429/503/508.
+3. §11: H5–H8 within their pass rules; the outage test fails closed and recovers within 65 s; no 429/503/508.
 4. §12: a rollback to the static release rehearsed and timed (≤ 5 minutes), CMS data unchanged.
 5. H10 and H14.3 passed if the admin runs on staging.
 
