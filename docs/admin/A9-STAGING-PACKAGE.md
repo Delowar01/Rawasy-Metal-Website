@@ -388,6 +388,9 @@ on a project that is not part of the fixed composition (for example `gateway-wel
 6. An Admin unpublishes the test project → its pages answer 404 and it leaves the gallery and the sitemap; Publish →
    back.
 7. Audit log: each step with its actor.
+8. An Admin removes Laser Cutting's cover photo in its editor (Services → Laser Cutting), saves and presses Publish →
+   refused ("can't be drawn there"; the homepage would answer 500 otherwise); the public homepage stays 200. Put the
+   photo back and save (the working copy then equals the live version again).
 
 ### 10.1 A release photo withdrawn between releases (the emergency step) *(Owner, Hosting operator)*
 
@@ -456,7 +459,7 @@ The static release of the same commit is the rollback. **[server]** / panel:
 
 **GO for the staging rehearsal's acceptance (the step before any production request)** — all of:
 1. §7: migrations exit 0; the import's repeat reads "unchanged" on every row; the backups verified by the Owner.
-2. §10: every public check passes; the publishing path passes all seven steps.
+2. §10: every public check passes; the publishing path passes all eight steps.
 3. §11: H5–H8 within their pass rules; the outage test fails closed and recovers within 60 s; no 429/503/508.
 4. §12: a rollback to the static release rehearsed and timed (≤ 5 minutes), CMS data unchanged.
 5. H10 and H14.3 passed if the admin runs on staging.
