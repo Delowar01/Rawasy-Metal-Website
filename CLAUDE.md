@@ -447,6 +447,28 @@
   approval before production; stored enquiries, SMTP, attachments and automated retention off; staging content is not
   imported into the final website without an explicit Owner decision. A9 may not deploy, merge into `main`, touch
   hosting, DNS, staging or production databases, enable SMTP or cut over.
+  **Phase A9 (static-to-CMS migration and the database-backed public website) is built — local implementation only**
+  (that brief; report `2026-11-13-admin-a9-migration-database-site.md`; rollback checkpoint `preserve/pre-admin-a9` at
+  `babf932`) and awaits the Owner's review — not self-approved: see "Phase A9 implementation" below. Commits: `d4c5dec`
+  (earlier phases' defects found by the import), `f49898b` importer, `c20540a` database content source and page cache,
+  `ccce85e` media, `bcae91f` redirects, `f59e19f` import CLI, `17f4c7b` tests, `25b3c13` packaging, `2f668d5` read
+  limits, `83a1892` A2's timing test, `1daf089` docs; the first independent review (3 Medium, 4 Low, 2 Info) in
+  `a53cc85` + tests `d9dbe64`; `c9d9121` and `4a6a539` admin test races; `5b770ee` the dry run's audit; found by the
+  drills: `f2f3ddf` + `f37d048` (High: a server takes its build's content source), `4404741` + `879c39c` (stalled reads
+  fail in time; the in-use mark), `1eb7a30` (a comment's `.static` utility); the second independent review (no High;
+  2 Medium, 4 Low, 3 Info) in `0eb0dcb`, `0f330dc`, `7e8d490`, `cdcfa18` + tests `d72413a`. QA on a clone of `d72413a`,
+  every suite in its first run: audit `--omit=dev` 0 (all: 12 moderate, dev-only), lint, typecheck, static and
+  database builds (no warning), `db:check` (13 files), the release baseline check, packaging of both builds (13 held
+  back), unit 422 / 422, integration 593 / 593, admin {{ADMIN}}, public {{PUBLIC}}. Drills (disposable local databases
+  only): the import through the real CLIs (113 created, 111 published; the legal pages only with a named reviewer; a
+  repeat changes nothing), fail-closed (every page 500 within 5 s while the database is paused, back 31 s after),
+  marker (15,074 of 17,690 text nodes from published documents, the rest the 86 code-owned texts), fixed spot, guard,
+  mismatch, blank `CONTENT_SOURCE`, burst. Parity: visible HTML 102 / 102 sitemap pages (three 404s stream their
+  metadata), HTTP 224 (status, type, robots, location equal; `Cache-Control` as intended), browser files (the 16 admin
+  chunks equal once re-mangled), pixels 624 / 624 (on `1eb7a30`). The static release is A8's (stylesheets
+  byte-identical, HTML and HTTP equal): it stays the rollback. **Do not deploy, stage, import into a real database or cut
+  over** without the Owner's authorization for that environment (report items 10–13; runbook
+  `docs/admin/A9-CUTOVER-RUNBOOK.md`).
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -1561,7 +1583,7 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - Deployment scripts (Namecheap Correction 1; deployment only: never imported by the site, not in `package.json`, not
   in the archive, never run at app start): `scripts/package-namecheap.mjs` packs the build into `../rawasy-app.tar.gz`
   without `.next/cache`, the route cache (`.next/server/route-cache`) and the held-back media (`withheldMedia`, every
-  photo `projectDetailMedia` leaves out, and `HELD_BACK_MEDIA`, the three Laser Engraving images of the asset
+  photo `projectDetailMedia` leaves out, and `HELD_BACK_MEDIA` (`src/content/held-back.ts` since A9), the three Laser Engraving images of the asset
   inventory's item 12; media IDs mapped to files through `mediaRegistry`; thirteen today) and checks the
   archive (none held back, every public file the build refers to, every sitemap page's HTML / page data / public
   files, nothing else missing or added; a failed check deletes it; `--check=<archive>` re-checks one).
@@ -3073,3 +3095,16 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
 - Comment words in route files under `src/app/(commerce)` are Tailwind utilities too: "The static source has none." in
   the catch-all added `.static{position:static}` to every public page's stylesheet (A9; the freeze proof's CSS rule
   comparison caught it; no element used it). Grep A9-style comments for the utility words before a public build.
+- A change written by raw SQL (`UPDATE projects SET slug = …`) writes no revision, so A8's `publish` answers "Nothing to
+  publish: the working copy is already the live version" before any publication check runs. A test of a publication rule
+  edits through the save service (`updateItem` with the importer's form builders, `projectForm` etc.; its refs must name
+  every relation type the form uses, project categories included).
+- Two scripts and a test used to parse `HELD_BACK_MEDIA` out of `scripts/package-namecheap.mjs`'s source; since A9 the
+  list lives in `src/content/held-back.ts` and every reader imports it. Grep `scripts/` and `tests/` for a constant's
+  name before moving it.
+- `/media/u` variant names are `w<width>-<hash8>.webp` (`WIDTH_NAME` in `src/server/media/delivery.ts`); an address
+  that fails the grammar answers 404 before any database access, so a stall probe must use a valid name.
+- Comparing the admin chunks of two builds: Server Action ids are made per build and the minifier picks other local names
+  (even swapping two). Rename by first appearance and you also rename words inside strings. Re-minify both with one
+  mangler instead (`next/dist/compiled/terser`, `mangle: { toplevel: true }`, no compress) after normalising the action
+  ids and chunk names, and keep a one-token negative control.

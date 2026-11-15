@@ -50,10 +50,16 @@ email, no real customer data, no live cutover. Every drill ran on disposable loc
 | `879c39c` | Tests: stalled reads fail within their limit; the configuration's in-use mark |
 | `1eb7a30` | A9 correction: the public stylesheet gains no utility (a comment's bare word) |
 | `4a6a539` | Tests: A6's redirect search waits for the streamed list before counting (item 8) |
+| `0eb0dcb` | A9 second review: every public read time-limited on its own connection; the page cache's pool kept under load (M1, M2, L3, I9) |
+| `0f330dc` | A9 second review: a fixed composition record keeps its live address (L5) |
+| `7e8d490` | A9 second review: media and redirect invalidations deferred to the end of a content transaction (L6) |
+| `cdcfa18` | A9 second review: older block versions upcast, unknown types fail the load; one held-back list (I7, I8) |
+| `d72413a` | Tests: the second review's findings, each failing on the code before; A4's held-back test reads the one list |
 
-- **Final code commit:** `1eb7a30` (the last commit that changes what is built). `4a6a539` after it changes one
-  test file only. QA, drills and parity proofs ran on a fresh clone of `1eb7a30`, and the admin suite again at
-  `4a6a539` on the same build.
+- **Final code commit:** `d72413a`. Every check, suite and drill ran again on a clone of it (item 8.1), before the
+  docs commits that follow it.
+- **The earlier round:** `1eb7a30` was the final code before the second review (item 7.3). Its fresh-clone QA, drills
+  and parity proofs are kept in items 5, 6 and 8.2, and compared with `d72413a`'s where it matters.
 - **Docs commits** in between (`0506203`, `718fd49`, `62f8203`, `93877bc`, …) carry the drafts of this report, the
   README, the runbook and the project memory.
 - **Final commit:** {{FINAL_SHA}} (this report and the project memory; docs only).
@@ -265,7 +271,8 @@ pages. `tests/unit/migration-layouts.test.ts` lists each such text by name (`NOT
 
 ## 5. Database publishing and cache verification
 
-All on the final code (`1eb7a30`), on disposable copies of the imported drill database.
+On disposable copies of the imported drill database. The drills of 5.2 ran on `1eb7a30`; 5.3 repeats them on the final
+code, `d72413a`, with the second review's checks added.
 
 ### 5.1 In the code (tests that run in every QA)
 
@@ -280,13 +287,15 @@ All on the final code (`1eb7a30`), on disposable copies of the imported drill da
   - The composition guard refuses to unpublish or archive what the approved pages need (M2).
   - A later import never republishes what was taken offline (M3).
   - Redirects resolve to live pages only.
-- **The page cache's unit tests (14).**
+- **The page cache's unit tests (17).**
   - An entry serves only while the generation read before its render holds; a publication during a render, overlapping
     renders and a restore's epoch are covered.
   - The state unreadable fails the lookup.
   - Only 200 answers are kept, within entry and byte bounds.
   - The breaker opens after five failed reads.
-  - A stalled read fails within its limit and drops its pool.
+  - A stalled read fails within its limit and drops its pool; its connection is destroyed, a late one goes back.
+  - The pool's own queue being full is load, not a database failure: it never drops the pool or opens the breaker
+    (second review M1).
   - The server's configuration follows its build and marks the process.
 
 ### 5.2 On a running database release (the drills)
@@ -302,6 +311,21 @@ All on the final code (`1eb7a30`), on disposable copies of the imported drill da
 | Negative control: the server's environment names the other source | The server refuses to start (exit 1): "This release was built with CONTENT_SOURCE=database, but the server's environment sets CONTENT_SOURCE=static …" |
 | Negative control: a database build with another page cache (its record edited to the static configuration) | Every page **500**, logged "the fail-closed page cache is not in use" (before D3's correction, 200 from Next.js's cache) |
 | Rollback to the static release | The database releases stopped. The static release served `/en`, `/ar`, `/en/about`, `/en/privacy`, `/ar/terms` and a project page (200). The published documents, revisions and generation were unchanged (counts equal before and after) |
+
+### 5.3 The same drills on the final code (`d72413a`)
+
+| Drill | Result on `d72413a` |
+|---|---|
+| Rendering and caching | First renders 53–365 ms, cached 8–11 ms; Next.js's route cache **0 files** (also 0 after the full public suite) |
+| Marker drill | **15,074 of 17,690** text nodes carried the change on the next request; the other 2,616 are the same 86 code-owned or unmarkable texts (item 6.4). Nothing old served |
+| Database paused | Every page **500 within 5.01 s** (an unknown address 10.02 s); then 500 at once (breaker). Never a cached page. A release file still 200. Logs: codes only (`PUBLIC_READ_TIMEOUT`, `PAGE_CACHE_READ_TIMEOUT`, `ETIMEDOUT`) |
+| Database resumed | Back after **31 s** (the page cache's 30 s breaker), as on `1eb7a30` |
+| `/media/u` while paused (M2) | {{R2B_MEDIA}} |
+| A burst (M1): 120 and then 300 concurrent unknown addresses with 40 concurrent homepage requests, on `d72413a` and, as the control, on `1eb7a30` | After each burst the homepage answered **200 at once and for the next 40 s on both builds**: the breaker never opened. The HTTP burst did **not** reproduce M1 on `1eb7a30` either. The unit test does, and it fails on `1eb7a30` (item 7.3). Under the 300-address burst most unknown addresses answered **500 on both builds** (248 / 300 on `d72413a`, 207 / 300 on `1eb7a30`; 2 / 120 and 8 / 120 under the smaller one). The cause is the app pool's queue (2 connections, 50 waiting) shedding the per-request content check of pages that cannot be cached. The loader correctly never counts this towards its breaker. The homepage requests in the same burst, served from the page cache, all answered 200. Observation for the staging measurements (item 9) |
+| Fixed-spot drill | Collage photos withdrawn → both Projects overviews 500, the project page 200 without them, the rest 200; restored → all 200 |
+| The other source named at start | Refused (exit 1) |
+| `CONTENT_SOURCE` left blank (I9) | The static release starts and serves (`/en` 200); the database release starts as a database release (`/en` 200, route cache 0 files) |
+| Another page cache (guard control) | Every page **500**, 7 × "the fail-closed page cache is not in use". The only route-cache files written are `robots.txt`'s (a static file the readiness probe asked for), never a page |
 
 **Not exercised end to end:** a publication made through the admin's **browser screens** while a database release
 serves. Its two halves are proven:
@@ -469,6 +493,33 @@ release). **The database release is not worse than the static one.**
   Either is the Owner's decision: the first changes frozen public code, the second only how the race is tested. Nothing
   was hidden by reruns. Every failure is counted above, and no test was retried, skipped or changed for it.
 
+### 6.8 The re-check on the final code (`d72413a`)
+
+The second review's corrections changed server modules (`src/server/**`, the `/media/u` route,
+`src/content/live/load.ts`, which only a database build uses), one data module no page imports
+(`src/content/held-back.ts`), two scripts and tests. They changed no component, page, stylesheet or content value.
+Measured on a clone of `d72413a`:
+
+- **The static release is still the A8 website.**
+  - Its browser files against `1eb7a30`'s static build (itself proven equal to A8's in 6.1): **98 / 98**.
+  - **82** are identical in name and bytes, the **9 stylesheets** among them.
+  - **The other 16** are admin chunks, named differently. They are equal once both builds are re-minified by one
+    mangler (Next's own terser, with Server Action ids and chunk names normalised). A one-token change in one chunk is
+    caught (negative control).
+  - None of the 710 public prerendered files refers to any of the 16.
+- **Database against static, on `d72413a`.**
+  - **Visible HTML: 105 / 108 identical.** All 102 sitemap pages are identical. The 3 that differ are 404 documents
+    (`/en/not-a-page`, `/ar/no/such/page`, `/en/admin`), where the database release streamed the title and meta tags
+    into the body, as described in 6.2. {{R2B_STREAM}}
+  - **HTTP, 224 answers.** Status, type, robots and location are identical on all 224. `Cache-Control` differs on 210,
+    as intended. 5 bodies differ: those three 404s, and the two Next.js 404s of 6.2.
+  - **Browser files: 98 / 98.** 82 are identical; the 16 admin chunks are equal once re-mangled. The 9 stylesheets are
+    identical.
+- **The public browser suite:** {{PUB_RESULTS}}
+- **Pixels were not captured again on `d72413a`.** The corrections change no public code. The static release's
+  browser files are `1eb7a30`'s. The database release's visible HTML equals the static release's on every sitemap page.
+  On those grounds the 624 / 624 of 6.5 (`1eb7a30`) is carried over, not re-measured.
+
 ## 7. Security review
 
 ### 7.1 The independent review
@@ -579,8 +630,9 @@ conclusions. It found **no High finding: 2 Medium, 4 Low, 3 Info.**
 - *Areas it checked and found sound:* whether a page can be served without a current generation check, the
   build-detection's fail-open cases, unhandled rejections, logs, the importer's audit, and whether test changes weaken
   assertions.
-- *Corrected:* everything except L4 and the release importer's part of L6 (documented). The correction commit and its
-  tests are named in item 2; each new test fails on `1eb7a30`.
+- *Corrected:* everything except L4 and the release importer's part of L6 (documented), in `0eb0dcb`, `0f330dc`,
+  `7e8d490` and `cdcfa18`, with the tests in `d72413a`. Each new test fails on `1eb7a30`; each of the five commits
+  typechecks and lints on its own.
 
 **M1 — a burst of requests could take the whole site down for 30 s.**
 - *Cause.* About 101 concurrent requests to different unknown addresses overflowed the page cache's local queue. The
@@ -621,8 +673,9 @@ republication.
 - *Corrected.* An older version is now upcast through the registry, exactly as the builder reads it. A newer version, a
   version with no upgrade step, or an unknown block type fails closed.
 
-**I8 — the held-back list was written twice.** It is now one list (`src/content/held-back.ts`), read by both the import
-and the packaging script.
+**I8 — the held-back list was written twice.** It is now one list (`src/content/held-back.ts`), read by the import,
+the packaging script and the release baseline script (`scripts/media-release-baseline.mjs`, which had read the list out
+of the packaging script's source; its `--check` passes on `d72413a`). A4's test of the same rule now reads that list.
 
 **I9 — a blank `CONTENT_SOURCE=` in cPanel stopped the static rollback from starting.** An empty value now counts as
 unset.
@@ -645,7 +698,30 @@ an audited `cli` actor.
 
 ## 8. Test results
 
-### 8.1 The final code (`1eb7a30`) on a fresh clone from GitHub — every suite in its first run
+### 8.1 The final code (`d72413a`) on a clone — every suite in its first run
+
+Cloned from the session's repository at `d72413a` (the commit as pushed; the same tree as GitHub's), dependencies linked
+from the earlier fresh `npm ci` (the lockfile is unchanged since).
+
+| Check | Result | Baseline (A8) |
+|---|---|---|
+| each of the five commits after `4a6a539`, on its own | typecheck 0 · lint 0 (all five) | — |
+| `npm audit --omit=dev` | **0** | 0 |
+| `npm audit` (all) | 12 moderate, dev-only (unchanged) | 12 moderate |
+| lint · typecheck | 0 · 0 | — |
+| static build · database build | ok · ok, no warning | — |
+| `db:check` | ok (13 migration files) | 13 |
+| release baseline `--check` | ok (unchanged) | — |
+| packaging check, static · database | PASS · PASS ("Content source of this build: database"; 13 held back) | — |
+| unit | **422 / 422** (A9 adds 30) | 392 / 392 |
+| integration | **593 / 593** (A9 adds 15) | 578 / 578 |
+| admin | {{ADMIN_R2}} | 176 / 176 |
+| public, static release | {{PUB_STATIC}} | 612 / 612 (second run) |
+| public, database release | {{PUB_DB}} | — |
+
+No suite retries a failed test: the Playwright configurations set no `retries`, and `node --test` has none.
+
+### 8.2 The earlier round: `1eb7a30` on a fresh clone from GitHub — every suite in its first run
 
 | Check | Result | Baseline (A8) |
 |---|---|---|
@@ -658,12 +734,10 @@ an audited `cli` actor.
 | packaging check | ok (13 held back; 111 / 111 referenced public files; 102 sitemap pages with their HTML and page data) | — |
 | unit | **419 / 419** (A9 adds 27) | 392 / 392 |
 | integration | **592 / 592** (A9 adds 14) | 578 / 578 |
-| admin | **166 passed, 1 failed, 9 did not run** (item 8.2, no. 4) — then {{ADMIN_RERUN}} | 176 / 176 |
+| admin | **166 passed, 1 failed, 9 did not run** (item 8.3, no. 4) — then **176 / 176** at `4a6a539` on the same build | 176 / 176 |
 | public | **612 / 612** (after the image warm-up, 1,484 / 1,484) | 612 / 612 (second run) |
 
-No suite retries a failed test: the Playwright configurations set no `retries`, and `node --test` has none.
-
-### 8.2 Every failure, retry and skip in A9's runs, in order
+### 8.3 Every failure, retry and skip in A9's runs, in order
 
 1. **Integration on the working tree, before `83a1892`: 588 / 589.** A2's sign-in timing test asserted an absolute
    15 ms floor. It failed 5 of 8 runs alone on the A8 baseline (`babf932`) and 4 of 8 on A9: pre-existing, machine
@@ -687,8 +761,20 @@ No suite retries a failed test: the Playwright configurations set no `retries`, 
    which skip themselves against an external server (they read the checkout's build output). Run from the database
    build's folder: 11 / 11.
 6. **The homepage showcase's hydration race:** static 4 / 240, database 2 / 240 (item 6.7). Counted, not rerun away.
+7. **Integration on the working tree with the second review's corrections, before they were committed: 591 / 593.**
+   Both failures were in tests, not in the corrections.
+   - A4's "the same 13 files the packaging script holds back" read the list out of the packaging script's source. I8
+     moved it to `src/content/held-back.ts`. The test now reads that list and checks that the script imports it; its
+     rule is unchanged. The same parsing was in `scripts/media-release-baseline.mjs`, which would have stopped; it now
+     imports the list too (`cdcfa18`).
+   - The new L5 test renamed the record with raw SQL, which writes no revision. Publish therefore answered "nothing to
+     publish" before reaching the check. It now renames through the editor's own save (`updateItem`), passes, and still
+     fails on `1eb7a30`'s validation.
+   - That file passed 10 / 10, and `migration-import.test.ts` 15 / 15. Then the clone of `d72413a`: 593 / 593 in its
+     first run (8.1).
+8. **The final code's own runs (8.1):** {{R2_FAILURES}}
 
-### 8.3 Drills (disposable local databases only)
+### 8.4 Drills (disposable local databases only)
 
 The import drill (item 4), the publishing and cache drills (item 5), the parity proofs (item 6) and the static freeze
 (item 6.1). None touched staging or production; every drill database was a `rawasy_e2e_*` copy on the session's local
@@ -716,6 +802,14 @@ What a database release needs from the host, beyond the static release:
 
 Found while preparing the drills and corrected: a database that *stalls* (rather than refusing) would have held every
 public request open; reads now have time limits (`2f668d5`, item 5). The cutover runbook's §2 has the full checklist.
+
+**Observed locally, for H5–H8 (item 5.3).** Every page that is not already in the page cache reads the cache generation
+on the app pool: `DB_POOL_LIMIT` connections (2 by default, at most 4), 50 waiting. A burst of several hundred
+concurrent requests for addresses that cannot be cached (unknown addresses) fills that queue, and the excess answer 500
+at once. This happened on `1eb7a30` and `d72413a` alike: 248 and 207 of 300. Meanwhile cached pages kept answering 200
+and no breaker opened. On the account, LiteSpeed and Passenger's process count decide how many requests reach one process
+at once. Measure on staging whether `DB_POOL_LIMIT` or the process count should change, within the connection budget
+above.
 
 ## 10. Staging-readiness checklist
 
@@ -784,8 +878,8 @@ Nothing in A9 decides or activates any of these.
 
 **Infrastructure (the Owner / hosting):**
 
-11. H1–H14 unverified on the account (item 9). In particular, the connection budget and memory of a database release
-   are unmeasured there.
+11. H1–H14 unverified on the account (item 9). In particular, the connection budget, memory and burst behaviour of a
+   database release are unmeasured there (item 9: uncached requests beyond the app pool's queue answer 500).
 12. No staging environment.
 13. No off-site backup location, retention or key custody. No escrowed `AUTH_ENCRYPTION_KEY`.
 14. Domain, DNS and SSL: untouched. They need the Owner's explicit go-ahead.
@@ -793,7 +887,42 @@ Nothing in A9 decides or activates any of these.
 
 ## 12. A9 acceptance recommendation
 
-{{RECOMMENDATION}}
+**Recommendation: accept A9 as a local implementation, with conditions. It is ready for a staging rehearsal once the
+Owner authorizes staging. It is NOT ready for a production cutover.** This is my recommendation, not an approval:
+A9 is not self-approved.
+
+**Why it is ready for staging:**
+- The importer brings in every static content type through the editors' own services and A8's publication, repeatably
+  and never overwriting an edit. The 13 held-back files are never referenced (item 4).
+- A database release draws the same website. The visible HTML of all 102 sitemap pages is identical to the static
+  release's; the pixel comparison (on `1eb7a30`) and the public suite pass against it. The marker drill shows every published text comes from a published
+  document (item 6).
+- It fails closed: a stalled or stopped database gives 500 within 5 s, never an old page. A release whose page cache is
+  not the fail-closed one serves nothing. A server never serves another content source than its build's (items 5, 7).
+- The static release is unchanged, byte for byte where it matters, and stays the rollback (items 6.1, 6.8).
+- Two independent reviews' findings are corrected, each with a test that fails on the code before. No High or Medium
+  finding is open (item 7).
+- Every suite and drill passed on the final code `d72413a` (item 8.1), and each failure on the way is reported (8.3).
+
+**Conditions before staging** (item 10): a staging app with its own database and data folder (S3); H1–H5 and H9
+verified on the account (S4); staging's own escrowed `AUTH_ENCRYPTION_KEY` (S5); the Owner's decisions on the legal
+pages' reviewer (S7) and on running the admin there (S8).
+
+**Before production, beyond a passed staging rehearsal on the same commit** (item 11):
+- H1–H8 and H12 verified; the burst behaviour and connection budget measured (item 9);
+- the legal pages reviewed and their pending notes resolved (they block launch in either release);
+- RAWASY's asset confirmations;
+- an off-site backup location, retention and key custody;
+- the Owner's acceptance of A9's limits: the public structure stays code; a photo withdrawn from a fixed spot fails
+  that page closed; L4's one-render window;
+- the admin in production decided (`ADMIN_ENABLED`);
+- the explicit go-ahead for the domain, DNS, SSL and the cutover itself.
+
+**Open, tracked, not blocking staging:**
+- the homepage showcase's hydration race: low risk, the same on both releases (item 6.7); its fix is the Owner's call;
+- a publication through the admin's browser screens while a database release serves: not exercised end to end; its
+  two halves are proven, and the staging smoke check covers it (item 5);
+- the Low / Info items left documented (L4, part of L6).
 
 ## 13. Production cutover and rollback runbook (for approval only)
 
