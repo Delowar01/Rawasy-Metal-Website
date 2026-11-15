@@ -7,6 +7,9 @@
  *   node scripts/package-namecheap.mjs                     writes ../rawasy-app.tar.gz and checks it
  *   node scripts/package-namecheap.mjs --out=<file>        writes the archive there instead
  *   node scripts/package-namecheap.mjs --check=<archive>   only checks an archive made from this folder's build
+ *   … --withhold=<file>                                   also leaves out the release files a list names: for a
+ *                                                         database-content archive, the files the library does not
+ *                                                         deliver (`media:maintenance -- --release-withheld=<file>`)
  *
  * The archive holds what the host needs to run the build with `node server.js` (the README's "Namecheap Stellar Plus
  * deployment"), less the media RAWASY has held back: from src/content/projects.ts, `withheldMedia` and every photo of a
@@ -59,8 +62,8 @@ const args = process.argv.slice(2);
 const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const checkOnly = option("check");
 const out = resolve(checkOnly ?? option("out") ?? join(root, "..", "rawasy-app.tar.gz"));
-if (args.some((a) => !/^--(?:out|check)=./.test(a))) {
-  console.error("Usage: node scripts/package-namecheap.mjs [--out=<archive> | --check=<archive>]");
+if (args.some((a) => !/^--(?:out|check|withhold)=./.test(a))) {
+  console.error("Usage: node scripts/package-namecheap.mjs [--out=<archive> | --check=<archive>] [--withhold=<file>]");
   process.exit(2);
 }
 if (!existsSync(join(root, ".next/BUILD_ID"))) {
@@ -95,7 +98,37 @@ const held = heldIds.map((id) => {
   return `public${src}`;
 });
 
-console.log(`Held back (${held.length} files, through the media registry):`);
+// A9 acceptance review M-2: in a database-content release, a release file the library no longer delivers (restricted,
+// archived, in the Trash, replaced …) is no longer named by any page, but the build would still serve it at its own
+// address. The list comes from the target environment's library; every entry must be a release file of this checkout.
+const withhold = option("withhold");
+if (withhold) {
+  let listed;
+  try {
+    listed = JSON.parse(readFileSync(resolve(withhold), "utf8")).files;
+  } catch {
+    listed = null;
+  }
+  const bad = Array.isArray(listed) ? listed.filter((f) => typeof f !== "string" || !/^\/media\/[a-z0-9][a-z0-9_-]*(?:\/[a-z0-9][a-z0-9_.-]*)+$/.test(f) || f.includes("..")) : null;
+  if (!bad || bad.length) {
+    console.error(`${withhold}: not a list of release files ({ "files": ["/media/…"] })${bad?.length ? `: ${bad.slice(0, 3).join(", ")}` : ""}. FAIL: nothing was packed.`);
+    process.exit(2);
+  }
+  for (const file of listed) {
+    if (!existsSync(join(root, "public", file))) {
+      console.error(`${file}: public${file} does not exist. FAIL: nothing was packed.`);
+      process.exit(1);
+    }
+    const path = `public${file}`;
+    if (!held.includes(path)) {
+      held.push(path);
+      heldIds.push(file);
+      heldFrom.set(file, "not delivered by the library (--withhold)");
+    }
+  }
+}
+
+console.log(`Held back (${held.length} files, through the media registry${withhold ? " and the --withhold list" : ""}):`);
 const width = Math.max(...held.map((f) => f.length));
 held.forEach((file, i) => console.log(`  ${file.padEnd(width)}  ${heldFrom.get(heldIds[i])}`));
 

@@ -145,6 +145,25 @@ export async function scanMedia(ctx: MaintenanceContext): Promise<MaintenanceRep
  * it, A4 brief §16): entries about private items, the private area and the enquiries area are left out, and so are
  * their failures.
  */
+/**
+ * The release files (the photos that came with the website, served from the release's own `public/media`) that the
+ * library does not deliver now (A9 acceptance review M-2): their item is pending review, restricted, flagged, archived or
+ * in the Trash, or a newer version replaced the file. In a database-content release no page names them, but Next.js still
+ * serves every file of the release at its own address, and its image optimizer from it (A1-MEDIA-STORAGE §12, "if the
+ * relocation is not adopted"): the next database-content archive leaves them out (`scripts/package-namecheap.mjs
+ * --withhold=<file>`, which this list is written for). Addresses (`/media/…`), sorted.
+ */
+export async function releaseFilesNotDelivered(db: Db): Promise<string[]> {
+  const rows = await rowsOf<{ k: string }>(
+    db,
+    sql`SELECT f.storage_key AS k FROM media_files f JOIN media_assets a ON a.id = f.media_id
+        WHERE f.storage_area = 'release'
+          AND NOT (a.current_file_id = f.id AND EXISTS (SELECT 1 FROM public_media p WHERE p.media_id = a.id))
+        ORDER BY f.storage_key`,
+  );
+  return rows.map((r) => r.k);
+}
+
 export function publicView(report: MaintenanceReport, privateIds: ReadonlySet<string>): MaintenanceReport {
   const isPublic = (entry: { mediaId: string }) => !privateIds.has(entry.mediaId);
   return {

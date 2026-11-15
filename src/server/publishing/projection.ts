@@ -2,8 +2,9 @@
  * The public projection (A8.2, A1-PUBLISHING-VERSIONS §1): what of a published version the public site may read — the
  * snapshot without admin-only fields (the source note, flags, a certificate's expiry date, a form's notification addresses
  * and retention), language states, hidden sections, hidden menu items or phones. Media stay ids: the public renderer
- * shows an item only while A4's `public_media` holds it, so a later restriction withdraws it at once without a
- * republish. Pure.
+ * shows an item only while A4's `public_media` holds it, so a later restriction withdraws it from every page at once
+ * without a republish. (A file that came with the release stays reachable at its own address until a release leaves it
+ * out: A1-MEDIA-STORAGE §12, `package-namecheap.mjs --withhold`; A9 acceptance review M-2.) Pure.
  */
 import { CONTENT_AGGREGATES, PROJECTION_SCHEMA_VERSION, type AggregateType } from "./registry.ts";
 import type { Snapshot } from "./snapshot.ts";

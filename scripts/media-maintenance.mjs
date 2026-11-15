@@ -10,6 +10,10 @@
  *   npm run media:maintenance -- --rebuild-public     rebuild public_media for every item
  *   npm run media:maintenance -- --purge-dry-run      list old versions past the 30-day retention (purging is
  *                                                     disabled in A4: nothing is ever deleted by this tool)
+ *   npm run media:maintenance -- --release-withheld=<file>
+ *                                                     also write the release files the library does not deliver
+ *                                                     now, for `package-namecheap.mjs --withhold=<file>` (A9: a
+ *                                                     database-content archive leaves them out)
  *
  * Files on disk without a record are reported, never deleted. Prints ids, counts and areas — never a server path.
  * Exit codes: 0 nothing to look at · 1 usage or configuration · 2 the report lists problems · 3 database error.
@@ -29,7 +33,7 @@ const { isUlid } = await import("../src/server/security/ids.ts");
 let args;
 try {
   args = parseArgs(process.argv.slice(2), {
-    values: ["regenerate"],
+    values: ["regenerate", "release-withheld"],
     flags: ["clean-tmp", "fail-stuck", "regenerate-all", "rebuild-public", "purge-dry-run"],
     multi: ["regenerate"],
   });
@@ -83,6 +87,12 @@ try {
   console.log(`  public_media disagreeing with the deliverability rule: ${report.publicMediaDrift.length}`);
   console.log(`  old versions past the 30-day retention (purge candidates; never purged in A4): ${report.purgeCandidates.length}`);
   if (args["purge-dry-run"]) for (const p of report.purgeCandidates) console.log(`    media ${p.mediaId} version ${p.version}: ${p.byteSize} bytes, replaced ${p.supersededAt}`);
+  if (args["release-withheld"]) {
+    const files = await maintenance.releaseFilesNotDelivered(context.deps.db);
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(args["release-withheld"], `${JSON.stringify({ note: "Release files the library does not deliver: package-namecheap.mjs --withhold=<this file>", at: report.at, files }, null, 1)}\n`);
+    console.log(`  release files not delivered now (written for the next database-content archive): ${files.length}`);
+  }
   if (maintenance.reportHasProblems(report)) code = 2;
 } catch (error) {
   console.error(cliDbError(error));
