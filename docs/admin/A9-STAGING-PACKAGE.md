@@ -27,6 +27,17 @@ RAWASY account is unverified until a step here records it.
 Steps marked **Owner** or **Hosting operator** cannot be done from a development session: they need the account, the
 keys or a decision only those people hold.
 
+### 0.1 Proposed staging defaults *(the staging preflight brief; each needs the Owner's approval)*
+
+| Default | How it is set |
+|---|---|
+| Staging host `staging.rawasymetal.com` (a proposal: the Owner names the host) | H13 (a DNS record: the Owner's authorization) |
+| The admin on, only behind the staging access control | `ADMIN_ENABLED=1` (§3) and H14.2's address allowlist; 2FA required for Owner and Admin (A2) |
+| Privacy and Terms unpublished until reviewed | the import without `--legal-reviewer` (§7.6); both pages answer 404 on staging, with Next.js's bare English 404 page, not the localized one (finding F-1 of the staging preflight report); the sitemap lists 98 addresses, and the footer's two legal links lead to that page (§10.2) |
+| No real visitor enquiries, no SMTP, no external notification | the quote form stays a handoff form (nothing stores an enquiry); `MAIL_TRANSPORT` unset |
+| No production data or credentials | staging's own database, data folder, `AUTH_ENCRYPTION_KEY` and backup key pair; test users named "Test …" |
+| Not indexed | H14.2: the allowlist (crawlers get 403) and the `X-Robots-Tag: noindex, nofollow` header |
+
 ## 1. Hosting verification H1–H14 (exact procedure)
 
 Record every answer in the record sheet (§14). A row passes only on its recorded evidence.
@@ -41,7 +52,15 @@ Record every answer in the record sheet (§14). A row passes only on its recorde
    `source /home/<cpanel user>/nodevenv/rawasy-staging/22/bin/activate && cd /home/<cpanel user>/rawasy-staging`.
    **[server]** Run it, then `node -v && npm -v`.
 3. **Pass:** `node -v` prints **v22.18.0 or later** (tested on 22.22.2). Earlier 22.x releases cannot run the
-   operations CLIs (they read the TypeScript sources through Node's type stripping, 22.18+).
+   operations CLIs (they read the TypeScript sources through Node's type stripping, 22.18+). Record the exact version:
+   `package.json` pins `engines` to 22.22.2, so another 22.x patch makes Run NPM Install print an `EBADENGINE` warning
+   (a warning, not a failure: npm's `engine-strict` is off by default); every recorded QA ran on 22.22.2.
+4. The release is **not** a Next.js `output: "standalone"` build: Passenger starts the CommonJS `server.js` (Next's own
+   request handler, as `next start` uses it) over the archive's full `.next`, with the production dependencies Run NPM
+   Install puts in the app's virtual environment (Next.js, React, `sharp`, `mysql2`, …; about 460 MB, watch H9).
+   **[server]** after the first Run NPM Install, inside the virtual environment: `ls -ld ~/rawasy-staging/node_modules`
+   (record whether it is a link into `~/nodevenv/…`: §12 depends on it) and
+   `node -e "require('next'); require('mysql2'); console.log('ok')"` → `ok`.
 
 ### H2 — glibc for sharp *(Hosting operator, Terminal)*
 
@@ -93,6 +112,16 @@ SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE USER = SUBSTRING_INDEX
 
 **Pass:** the peak stays at or below `U − R`. Record `P`, `U` and the peak.
 
+| Processes `P` | Connections needed `P × (2 + 1) + 5` | If `U` is smaller |
+|---|---|---|
+| 1 | 8 | — |
+| 2 | 11 | `DB_POOL_LIMIT=1`: 9 |
+| 3 | 14 | `DB_POOL_LIMIT=1`: 11 |
+| 4 | 17 | `DB_POOL_LIMIT=1`: 13 |
+
+With `DB_POOL_LIMIT=1` a process renders one uncached page at a time (1 connection + 50 waiting, so first renders queue
+longer); change it only from these numbers, and record it.
+
 ### H6 — Processes and their lifecycle *(Hosting operator, during §11)*
 
 **[server]** `ps -u $USER -o pid,etimes,rss,args | grep -E '[s]erver\.js'` — during the warm-up, then after 10, 30
@@ -102,10 +131,13 @@ and 60 idle minutes; then **Restart** in Setup Node.js App and list again. Recor
 
 ### H7 — Memory *(Hosting operator)*
 
-cPanel → Metrics → **Resource Usage**: the limits (physical memory — 2 GB on Stellar Plus —, entry processes — 30 —,
-number of processes, I/O) and the current use, during and after §11. Also H6's `rss` column (kilobytes per process).
+cPanel → Metrics → **Resource Usage**: the limits (physical memory — 2 GB on Stellar Plus —, CPU (the LVE speed
+limit; the platform pages disagree on its figure), entry processes — 30 —, number of processes, I/O) and the current
+use, during and after §11. Also H6's `rss` column (kilobytes per process).
 Locally a warmed database-release process was about 560 MB. **Pass:** `P × peak RSS` stays under the memory limit with
-at least 25 % headroom, and Resource Usage reports no limit hit (no "faults").
+at least 25 % headroom, and Resource Usage reports no limit hit (no "faults"). With 2 GB and 560 MB a process, that is
+`P ≤ 2` (1.12 GB; three would need 1.68 GB, above 1.5 GB): if H6 shows more processes, record their real RSS before
+the rehearsal goes on.
 
 ### H8 — Response times *(Release engineer, against staging)*
 
@@ -170,7 +202,19 @@ cPanel → Advanced → **Cron Jobs** exists and shows the shortest allowed inte
    </IfModule>
    ```
 
-   It keeps §9's warm-up and §11's scripts working (they send no credentials). Alternative: HTTP basic authentication
+   Below it, the same file also marks every answer as not for indexing, whatever reaches it (*writes*):
+
+   ```apache
+   <IfModule mod_headers.c>
+     Header always set X-Robots-Tag "noindex, nofollow"
+   </IfModule>
+   ```
+
+   **[engineer]** from an allowed address: `curl -sI https://<staging host>/en | grep -i '^x-robots-tag'` →
+   `noindex, nofollow` (the app itself sends none on public pages: they are published as indexable). The parity proof of
+   §10.2 then reads this header as an expected difference on every answer.
+
+   The allowlist keeps §9's warm-up and §11's scripts working (they send no credentials). Alternative: HTTP basic authentication
    (cPanel → Files → **Directory Privacy**); the warm-up tool cannot send credentials, so the image cache then warms
    on first visits instead. **[engineer]** from an address not on the list (a phone's mobile data, for example)
    `curl -s -o /dev/null -w '%{http_code}\n' https://<staging host>/en` → **403** (401 with basic authentication); from
@@ -373,7 +417,7 @@ curl -s $B/sitemap.xml | grep -c '<loc>'                                        
 ```
 
 **Pass:** `/` redirects (307) to a language; the pages answer 200 (Privacy and Terms 404 while their reviewer is not
-named — S7); held-back files 404; database pages send `private, no-cache`; the quote form on `/en/contact` prepares its
+named — S7; that 404 is Next.js's bare page, F-1); held-back files 404; database pages send `private, no-cache`; the quote form on `/en/contact` prepares its
 email and WhatsApp text exactly as the static release does (nothing is stored or sent).
 
 **The publishing path** — the steps `npm run test:dbmode` proves locally, done by hand once on staging with test text
@@ -411,6 +455,64 @@ Locally on a database build (drill `r4.sh`): before the step, the withdrawn logo
 `/en/clients` no longer named it; after it, both 404, the page 200, the other logos 200. To put a rehearsal's logo back:
 lift the restriction in the admin, extract that one file from the archive into the same place, restart.
 
+### 10.2 Parity on staging, and what differs while the legal pages wait *(Release engineer)*
+
+The staging rehearsal is accepted against the static release **of the same commit**, never against production.
+
+1. **[engineer]** On the engineer's machine, extract the static archive (§4), built with the same
+   `NEXT_PUBLIC_SITE_URL`, and start it: `NODE_ENV=production PORT=3400 node server.js`.
+2. Compare it with staging, both from the allowed address:
+   - every sitemap page's visible HTML (scripts removed, `/_next/static` paths and the build id normalised);
+   - every page's HTTP answer (status, type, `X-Robots-Tag` and robots meta, `Location`; the bodies of non-HTML
+     answers);
+   - the public suite against staging: `E2E_BASE_URL=https://<staging host> npx playwright test --trace off`, about
+     17 minutes at 3 workers (decision D7).
+3. The comparison tools of the A9 parity proof are session scratch tools, not in the repository. The A9 report's
+   item 6 describes them; committing them under `scripts/qa/` is offered to the Owner, not done.
+
+**Expected differences, and nothing else:**
+- `Cache-Control`: `private, no-cache` on the database release's documents and sitemap.
+- `X-Robots-Tag: noindex, nofollow` on every staging answer (H14.2, set by `.htaccess`).
+- The three unknown-address 404s stream their metadata elsewhere in the document (A9).
+- Next.js's own 404 bodies differ (A9).
+
+**While the legal pages wait for their reviewer (S7, the proposed default)** — measured locally on the final database
+build, imported without `--legal-reviewer`:
+- **Import:** 113 created and 111 published; Privacy and Terms kept as working copies.
+- **Legal addresses:** `/en/privacy`, `/ar/privacy`, `/en/terms` and `/ar/terms` answer **404** (200 on the static
+  release).
+- **Sitemap:** lists **98** addresses instead of 102.
+- **Footer:** every page's footer still links both legal pages, unchanged from the approved design.
+- **What those links reach (finding F-1):** Next.js's own "404: This page could not be found." page. It is English and
+  unstyled, has no `lang`, no header and no way back, and is blank without JavaScript. It is not the localized 404:
+  - the fixed routes call `notFound()` when their page is not live, and only `(missing)`, `services/[slug]` and
+    `projects/[slug]` have a not-found boundary;
+  - it is the same for any of the 11 fixed pages taken offline.
+  This is acceptable on an access-controlled staging only, never in production (decision O10).
+- **HTML and HTTP:** these four documents and the sitemap body are the only further differences, out of 102 sitemap
+  pages and 224 answers.
+- **The public suite** (612 tests): 572 passed, 11 skipped (A9's fallback-404 checks, which skip against an outside
+  server) and **29 failed**: exactly the 29 that open Privacy or Terms or count the sitemap (601 passed on the A9
+  database run with the legal pages published, so nothing else changed). The expected list, by spec:
+  - `commerce-anchors.spec.ts` (6): the four `cold load with delayed fonts: legal` cells (`/en/privacy#contact`,
+    `/ar/terms#contact`, desktop and phone); `after the page has settled › with reduced motion …` and `without
+    JavaScript › a direct address with an #anchor …` (both open `/ar/terms#contact`).
+  - `commerce-fonts.spec.ts` (1): `Arabic pages preload the Arabic files …` (it opens `/en/privacy`).
+  - `commerce-inner.spec.ts` (12): `legal pages ›` its four content checks, `the shell …`, `the contents mark the
+    section …`, `anchor jumps land every heading …`, `phone › the contents are a disclosure …`, `without JavaScript ›
+    the contents are open …`; `localized 404 ›` `real HTTP status codes …` (it counts the legal pages as known pages),
+    `phone menu › on a page with an address of its own …`, `the sitemap and robots: the legal pages are listed …`.
+  - `commerce-polish.spec.ts` (1): `the inner pages' hero › without its script …` (its pages include both).
+  - `commerce-projects.spec.ts` (1): `decision D4 across the site › only the overview's gallery cards link …` (its
+    sweep opens `/privacy`).
+  - `site.spec.ts` (2): `internal links … resolve` (the footer's four legal links answer 404) and `the sitemap lists
+    every page … 102 addresses …`.
+  - `stage-1c.spec.ts` (6): `routes, language and SEO ›` the four legal routes and `the sitemap lists every published
+    page …`; `inner pages without JavaScript › all content is rendered and visible` (`INNER_PAGES` includes both).
+
+  Any other failure on staging is a finding, not an expected difference. Once the legal pages are published (a named
+  reviewer, the Owner's decision), the suite must pass whole (601 + 11 skipped).
+
 ## 11. Performance and recovery tests *(Release engineer and Hosting operator)*
 
 Never load-test beyond these steps (shared hosting); stop at the first 429, 503 or 508 and record it.
@@ -437,11 +539,17 @@ Never load-test beyond these steps (shared hosting); stop at the first 429, 503 
 The static release of the same commit is the rollback. **[server]** / panel:
 
 1. Setup Node.js App → **Stop App**.
-2. *(writes)* `cd ~ && mv rawasy-staging rawasy-staging-database-<sha> && mkdir rawasy-staging && tar -xzf ~/rawasy-static-<sha>.tar.gz -C rawasy-staging`
+2. *(writes)* in place, as the README's update does, keeping the database release's build aside for a roll-forward:
+   `cd ~/rawasy-staging && mkdir ~/rawasy-staging-database-<sha> && mv .next public src ~/rawasy-staging-database-<sha>/ && tar -xzf ~/rawasy-static-<sha>.tar.gz -C ~/rawasy-staging`
+   (the app folder and its installed dependencies stay, and so does the document root's `.htaccess` (H14.2); both
+   archives come from one commit, so `package.json` and `package-lock.json` are the same files:
+   `sha256sum ~/rawasy-staging/package-lock.json` before and after is unchanged).
 3. Environment: remove `CONTENT_SOURCE` if anyone set it (a release refuses to start when it names the other source);
    leave the rest.
-4. **Run NPM Install**, **Start App**, then §10's public checks: every page 200 with `Cache-Control: s-maxage=…` (the
-   static release), and `node scripts/warm-images.mjs https://<staging host>`.
+4. **Run NPM Install** (it finds nothing to change for the same lockfile; record how long it takes), **Start App**, then
+   §10's public checks: every page 200 with `Cache-Control: s-maxage=…` (the static release), and
+   `node scripts/warm-images.mjs https://<staging host>` (the warm-up is not part of the 5 minutes: pages serve before
+   it).
 5. The database is left as it is (edits stay for the next attempt). Only if the database itself must go back: restore
    the pre-import backup into a **new, empty** database (`backup.mjs restore … --database <new db>`), point the app at
    it, and start a new cache epoch (the restore does).
@@ -450,6 +558,9 @@ The static release of the same commit is the rollback. **[server]** / panel:
 `published_documents`, `revisions` and `cache_generation` equal before and after).
 
 ## 13. GO / NO-GO
+
+The staging preflight report (`docs/reports/2026-11-16-admin-a9-staging-preflight.md`, item 7) restates these gates as
+the brief's 13 items, each with its pass rule here.
 
 **GO for staging deployment (§9)** — all of:
 1. The Owner's written authorization for staging, naming the staging host.

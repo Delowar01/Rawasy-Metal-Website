@@ -10,11 +10,16 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-11-15-admin-a9-final-acceptance-staging-readiness.md` (Admin / CMS program, A9 final
+- Latest report: `docs/reports/2026-11-16-admin-a9-staging-preflight.md` (Admin / CMS program, A9 acceptance and
+  Namecheap staging preflight, read-only — H1–H14 all UNVERIFIED (no account access), the proposed staging configuration,
+  the Owner decisions D1–D8, the phase A read-only operator commands, the 13-item staging GO/NO-GO, the legal pages
+  unpublished rehearsed locally (29 expected public-test failures, all on the legal pages); new finding F-1, a fixed page
+  that is not live gets Next.js's bare 404; staging NOT yet authorizable, phase A is)
+  (earlier: `2026-11-15-admin-a9-final-acceptance-staging-readiness.md` (Admin / CMS program, A9 final
   acceptance review and staging readiness — the independent review's findings corrected, the database-mode publishing
   E2E, the five investigations, the fresh-clone regression and parity, the hosting checklist, the staging execution
-  package `docs/admin/A9-STAGING-PACKAGE.md`, the Owner decisions O1–O9, READY for staging / BLOCKED for production)
-  (earlier: `2026-11-13-admin-a9-migration-database-site.md` (Phase A9 — the static content import, publication through
+  package `docs/admin/A9-STAGING-PACKAGE.md`, the Owner decisions O1–O9, READY for staging / BLOCKED for production),
+  `2026-11-13-admin-a9-migration-database-site.md` (Phase A9 — the static content import, publication through
   A8, the database-content website behind `CONTENT_SOURCE`, public media and redirects in database mode, local
   implementation only; the A8 closure; the security review; the static-vs-database parity proof; the drills; the hosting
   checklist and the cutover runbook for approval),
@@ -484,6 +489,25 @@
   integration 598, admin 176, dbmode 9, public 612 (static) and 601 + 11 (database), pixels 624 / 624, every suite in its
   first run. See "From the A9 final acceptance review" under
   "Phase A9 implementation". **Do not start staging** without the Owner's separate authorization (O1, O2).
+  **The A9 acceptance and Namecheap staging preflight is done — read-only** (the user's "A9 ACCEPTANCE & NAMECHEAP
+  STAGING PREFLIGHT" brief, which accepts A9's local implementation as technically ready for staging; report
+  `2026-11-16-admin-a9-staging-preflight.md`; docs only, on `19494ce`). H1–H14 are all UNVERIFIED: no session has the
+  account, and Namecheap's pages are blocked here; never mark one passing without the operator's recorded output. The
+  staging package gained §0.1 (proposed staging defaults, each the Owner's: host `staging.rawasymetal.com` as a proposal,
+  admin only behind the allowlist, Privacy and Terms unpublished, no enquiries / SMTP / notifications, no production data,
+  `X-Robots-Tag: noindex, nofollow` from `.htaccess` — the app itself sends none on public pages and `robots.ts` allows
+  all), H1's Node-patch and not-standalone notes, H5 / H7's budget (`P ≤ 2` by memory), §10.2 (parity on staging and
+  the measured differences while the legal pages wait: 4 legal 404s, sitemap 98, footer links into the 404, the public
+  tests that open them) and §12's in-place rollback. Owner decisions D1–D8 (report item 5): D1 phase A (read-only checks)
+  is the only thing authorizable now; a staging deployment needs D2–D7 and the written D8 after phase A passes.
+  **Finding F-1 (new, not fixed):** in a database release, a fixed page that is not live answers 404 with Next.js's
+  bare default page ("404: This page could not be found.", English, no `lang`, no shell; blank without JavaScript), not
+  the localized 404. The 11 fixed routes call `notFound()` through `ensureContent(page)`, and only `(missing)`,
+  `services/[slug]` and `projects/[slug]` have a not-found boundary (kept out on purpose: a boundary rides in every
+  page's payload). It hits the legal pages until reviewed and any fixed page unpublished or archived (nothing refuses
+  that; the composition guard covers records only). It blocks production: Owner decision O10 (refuse offline, a
+  localized boundary with a freeze proof, or both). Production decisions O3–O10 stay open. No staging, DNS, SSL,
+  cPanel or hosting database action without D8.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -594,7 +618,7 @@
 - Open questions for RAWASY (photos, image rights, AI-watermarked images, licence renewal, registration
   numbers and so on) are listed in `docs/ASSET_INVENTORY.md`.
 
-## Admin / CMS program (A1 specification; A2–A9 implemented locally, A8 closed; A9 awaits the Owner's review)
+## Admin / CMS program (A1 specification; A2–A9 implemented locally, A8 closed; A9 accepted as ready for staging, not deployed)
 
 - Documents: `docs/admin/A1-ARCHITECTURE.md` (start here), `A1-DATABASE-SCHEMA.md` (84 tables since Correction 1;
   catalogue and Mermaid ERDs were generated from a spec in a session scratch folder, which is not in the repository —
