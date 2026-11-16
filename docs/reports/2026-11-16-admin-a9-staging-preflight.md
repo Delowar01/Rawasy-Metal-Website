@@ -134,10 +134,12 @@ The final database build ran on a fresh local database: the CLIs, then the impor
   - Every one of the 29 opens Privacy or Terms, or counts the sitemap's 102 pages:
     - `commerce-anchors` 6, `commerce-fonts` 1, `commerce-inner` 12, `commerce-polish` 1, `commerce-projects` 1,
       `site` 2, `stage-1c` 6.
-    - 22 name Privacy, Terms or the legal pages' sitemap entries in their titles.
-    - The other seven had their errors read and their page lists checked in the specs. Five open a legal page:
-      `/en/privacy` (fonts, projects) or `/ar/terms#contact` (two anchor tests); polish's and stage-1c's page lists
-      include both. The seventh, `site`, got the footer's four legal links answering 404.
+    - 18 name Privacy, Terms or the legal pages in their titles.
+    - The other 11 had their errors read, and their page lists checked in the specs where needed:
+      - eight open a legal page: `/en/privacy` (fonts, projects, the 404 status matrix, the phone-menu test),
+        `/ar/terms#contact` (two anchor tests), or both through their page lists (polish, stage-1c without JavaScript);
+      - three count the sitemap or follow its links: `site`'s link check (the footer's four legal links answer 404),
+        `site`'s sitemap test (98, not 102) and stage-1c's sitemap test (no `/en/privacy`).
   - With the legal pages published, the same database build had passed 601 + 11 skipped in the A9 acceptance QA. So
     601 − 572 = 29: nothing else changed.
   - The list, test by test, is now the expected-differences list of the package's §10.2. Any other failure on staging
