@@ -517,6 +517,16 @@
   send back, what never to share or click); H1–H14 stay UNVERIFIED until the Owner's evidence arrives. Still not
   authorized: staging or production deployment, DNS, a migration on hosting, merging into `main`. O10 (protecting the
   homepage from being taken offline) is the Owner's decision, not implemented.
+  **Phase A (read-only hosting verification) is authorized and in progress** (the user's "AUTHORIZE NAMECHEAP PHASE A"
+  brief; evidence log `docs/reports/2026-11-16-admin-a9-phase-a-hosting-assessment.md`, updated per round of evidence:
+  round 0 = A14 by the engineer, 1 = A1–A3, 2 = A4–A5, 3 = A6–A13). Mark each H row PASS / FAIL / UNVERIFIED only
+  from the account's recorded evidence, per §1A's status rules; never ask for or record a credential. A14 found
+  (P-1) that the live domain answers HTTPS with the server's shared `*.web-hosting.com` certificate (no certificate for
+  `rawasymetal.com`: a production SSL matter for the Owner, a risk to H14), the zone on the hosting nameservers (a
+  cPanel subdomain adds its DNS record), mail on the account, and an `envoy` edge on port 80. The live site is an
+  earlier static Next.js export (Nov 2025), not this repository's release. Still not authorized: any hosting, DNS, SSL
+  or security change, creating an app or database, a deployment, merging into `main`, and phase B without the Owner's
+  separate written authorization.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -3207,3 +3217,8 @@ geometry (`src/components/home/hero/plate-geometry.ts`), the signature geometry
   (even swapping two). Rename by first appearance and you also rename words inside strings. Re-minify both with one
   mangler instead (`next/dist/compiled/terser`, `mangle: { toplevel: true }`, no compress) after normalising the action
   ids and chunk names, and keep a one-token negative control.
+- The cloud session's network proxy allows only the hosts its environment lists: `rawasymetal.com`,
+  `www.rawasymetal.com`, `staging.rawasymetal.com` and `dns.google` were added for phase A's A14 (Owner-approved). There
+  is no `dig`: query `https://dns.google/resolve?name=<name>&type=<type>`. The proxy relays HTTPS tunnels only, so a
+  plain-HTTP check needs `curl -p -x "$HTTPS_PROXY" http://…`. The live domain's certificate does not match its name
+  (phase A P-1): read it with `openssl s_client -proxy <host:port> -servername <name>`, never with `curl -k`.
