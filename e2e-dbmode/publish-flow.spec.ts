@@ -8,6 +8,8 @@
  * imported version from the history; the public pages follow. A fixed record of the approved composition can't be
  * unpublished (refused in the dialog, the page stays). The Admin unpublishes the project; its pages answer 404 and the
  * gallery and the sitemap drop it; publishing it again brings it back. The audit log holds each step with its actor.
+ * A fixed page taken offline (About, the homepage, the privacy policy) answers the website's localized 404 in its own
+ * language, never Next.js's bare page (A9 F-1), and returns when published again.
  * Nothing is faked: every step goes through the pages and Server Actions; the public answers are plain requests (no
  * cookie) and a browser page. Test data only.
  */
@@ -27,9 +29,10 @@ const ORIGINAL = { en: "Gateway Welcome Signs", ar: "لوحات مداخل ال�
 const SAYS = publicEffectTexts(true);
 const EDITED = { en: "Test Gateway Signs, edited in the admin", ar: "لوحات المداخل، نص اختبار من لوحة التحكم" };
 
-const ROLES = ["admin", "editor", "reviewer"] as const;
+const ROLES = ["admin", "editor", "reviewer", "owner"] as const;
 type Role = (typeof ROLES)[number];
 const USERS: Record<Role, { email: string; name: string; password: string; mfa: boolean }> = {
+  owner: { email: "flow.owner@example.test", name: "Test Flow Owner", password: "database flow owner phrase lantern", mfa: true },
   admin: { email: "flow.admin@example.test", name: "Test Flow Admin", password: "database flow admin phrase harbour", mfa: true },
   editor: { email: "flow.editor@example.test", name: "Test Flow Editor", password: "database flow editor phrase willow", mfa: false },
   reviewer: { email: "flow.reviewer@example.test", name: "Test Flow Reviewer", password: "database flow reviewer phrase quarry", mfa: false },
@@ -242,4 +245,144 @@ test("the media library tells an editor that withdrawing a photo changes the pub
   await open(editor, "/admin/media");
   await expect(editor.locator("main")).toContainText(SAYS.mediaLead);
   await expect(editor.locator("main")).not.toContainText("Nothing here changes the public website");
+});
+
+// A9 F-1 (the staging preflight): a fixed page that is not live answers the website's own localized 404 — its language,
+// its header and footer, a way home, "Page not found" and noindex — never Next.js's bare English page, and nothing of the
+// page that went offline. A live page carries none of it.
+const LOCALES = ["en", "ar"] as const;
+type Locale = (typeof LOCALES)[number];
+const NOT_FOUND = {
+  en: { title: "Page not found | RAWASY", h1: "Outside the blueprint", lang: "en", dir: "ltr" },
+  ar: { title: "الصفحة غير موجودة | رواسي", h1: "خارج المخطط", lang: "ar-SA", dir: "rtl" },
+} as const;
+const pageId = async (key: string) => (await queryTestDb<{ id: string }>("SELECT id FROM pages WHERE system_key = ?", [key]))[0].id;
+
+/** A fixed address as a visitor gets it: the plain answer (no cookie) and what a browser draws there. */
+async function visit(browser: Browser, path: string, colorScheme: "light" | "dark" = "light") {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, colorScheme });
+  try {
+    const plain = await context.request.get(path, { maxRedirects: 0 });
+    const html = await plain.text();
+    const page = await context.newPage();
+    const response = await page.goto(path);
+    await page.locator("main h1").first().waitFor();
+    const drawn = await page.evaluate(() => ({
+      lang: document.documentElement.lang,
+      dir: document.documentElement.dir,
+      theme: document.documentElement.dataset.theme ?? "",
+      title: document.title,
+      h1: [...document.querySelectorAll("main h1")].map((h) => (h.textContent ?? "").replace(/\s+/g, " ").trim()),
+      header: document.querySelectorAll("header.a2-header").length,
+      footer: document.querySelectorAll("footer").length,
+      home: [...document.querySelectorAll("main a")].some((a) => /^\/(en|ar)\/?$/.test(a.getAttribute("href") ?? "")),
+      text: document.body.innerText,
+    }));
+    return { status: plain.status(), browserStatus: response?.status(), bytes: Buffer.byteLength(html), html, ...drawn };
+  } finally {
+    await context.close();
+  }
+}
+
+/** The website's localized 404 at a fixed page's address, with nothing of the page that is offline. */
+function expectLocalized404(result: Awaited<ReturnType<typeof visit>>, locale: Locale, offlineHeading: string, theme: "light" | "dark") {
+  const want = NOT_FOUND[locale];
+  expect(result.status).toBe(404);
+  expect(result.browserStatus).toBe(404);
+  expect(result.html).toMatch(/<meta name="robots" content="noindex"/);
+  expect(result.html).toContain(`<title>${want.title}</title>`);
+  expect({ lang: result.lang, dir: result.dir, theme: result.theme, title: result.title, h1: result.h1 }).toEqual({ lang: want.lang, dir: want.dir, theme, title: want.title, h1: [want.h1] });
+  expect(result.header, "the website's header").toBe(1);
+  expect(result.footer, "the website's footer").toBeGreaterThanOrEqual(1);
+  expect(result.home, "a way home from the 404").toBe(true);
+  expect(result.text).not.toMatch(/This page could not be found/);
+  expect(result.text, "nothing of the page that is offline").not.toContain(offlineHeading);
+  expect(result.html, "nothing of the page that is offline").not.toContain(offlineHeading);
+}
+
+const sitemapPaths = async (browser: Browser) => {
+  const context = await browser.newContext();
+  const xml = await (await context.request.get("/sitemap.xml")).text();
+  await context.close();
+  return [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+};
+
+test("A9 F-1: About taken offline answers the website's localized 404 in each language; published again, it returns", async ({ browser }) => {
+  const id = await pageId("about");
+  const live = { en: await visit(browser, "/en/about"), ar: await visit(browser, "/ar/about", "dark") };
+  for (const locale of LOCALES) {
+    expect(live[locale].status).toBe(200);
+    expect(live[locale].html, "a live page carries no 404").not.toContain(NOT_FOUND[locale].h1);
+  }
+  const heading = { en: live.en.h1[0], ar: live.ar.h1[0] };
+  const admin = await as(browser, "admin");
+  await open(admin, `/admin/pages/${id}`);
+  await step(admin, "Unpublish");
+  expectLocalized404(await visit(browser, "/en/about"), "en", heading.en, "light");
+  expectLocalized404(await visit(browser, "/ar/about", "dark"), "ar", heading.ar, "dark");
+  const offline = await sitemapPaths(browser);
+  expect(offline).not.toContain("/en/about");
+  expect(offline).toContain("/en/contact");
+  await open(admin, `/admin/pages/${id}`);
+  await step(admin, "Publish");
+  for (const locale of LOCALES) {
+    const back = await visit(browser, `/${locale}/about`);
+    expect({ status: back.status, h1: back.h1 }).toEqual({ status: 200, h1: [heading[locale]] });
+  }
+  expect(await sitemapPaths(browser)).toContain("/en/about");
+});
+
+test("A9 F-1: the homepage taken offline answers the localized 404; the other pages stay; published again, it returns", async ({ browser }) => {
+  const id = await pageId("home");
+  const live = { en: await visit(browser, "/en"), ar: await visit(browser, "/ar") };
+  const contactBefore = await visit(browser, "/en/contact");
+  for (const locale of LOCALES) expect(live[locale].html, "a live page carries no 404").not.toContain(NOT_FOUND[locale].h1);
+  expect(contactBefore.html, "a live page carries no 404").not.toContain(NOT_FOUND.en.h1);
+  const admin = await as(browser, "admin");
+  await open(admin, `/admin/pages/${id}`);
+  await step(admin, "Unpublish");
+  expectLocalized404(await visit(browser, "/en"), "en", live.en.h1[0], "light");
+  expectLocalized404(await visit(browser, "/ar", "dark"), "ar", live.ar.h1[0], "dark");
+  const contact = await visit(browser, "/en/contact");
+  expect({ status: contact.status, h1: contact.h1 }).toEqual({ status: 200, h1: contactBefore.h1 });
+  // Measured for the report: while the homepage is offline its boundary (beside the website's root layout) draws the 404
+  // into every page's data; once it is live again, nothing.
+  console.log(`F-1 bytes /en/contact: homepage live ${contactBefore.bytes}, homepage offline ${contact.bytes}`);
+  await open(admin, `/admin/pages/${id}`);
+  await step(admin, "Publish");
+  for (const locale of LOCALES) {
+    const back = await visit(browser, `/${locale}`);
+    expect({ status: back.status, h1: back.h1 }).toEqual({ status: 200, h1: live[locale].h1 });
+  }
+  const after = await visit(browser, "/en/contact");
+  expect(after.bytes, "nothing of the 404 left in a live page").toBe(contactBefore.bytes);
+});
+
+test("A9 F-1: the privacy policy taken offline by the Owner answers the localized 404; published again with a reviewer, it returns", async ({ browser }) => {
+  const id = await pageId("privacy");
+  // The policy's own words (its title is also the footer's link label, which the 404 keeps).
+  const policy = { en: "Information you share with us", ar: "المعلومات التي تشاركها معنا" };
+  const live = { en: await visit(browser, "/en/privacy"), ar: await visit(browser, "/ar/privacy", "dark") };
+  for (const locale of LOCALES) {
+    expect(live[locale].status).toBe(200);
+    expect(live[locale].text).toContain(policy[locale]);
+  }
+  const owner = await as(browser, "owner");
+  await open(owner, `/admin/pages/${id}`);
+  await step(owner, "Unpublish");
+  expectLocalized404(await visit(browser, "/en/privacy"), "en", policy.en, "light");
+  expectLocalized404(await visit(browser, "/ar/privacy", "dark"), "ar", policy.ar, "dark");
+  expect(await sitemapPaths(browser)).not.toContain("/en/privacy");
+  // A legal page is published again only with a named reviewer (A8); test data, not a legal review.
+  await open(owner, `/admin/pages/${id}`);
+  await panel(owner).getByRole("button", { name: "Publish", exact: true }).click();
+  const dialog = owner.getByRole("dialog");
+  await dialog.getByLabel("The legal text has been reviewed by").fill("Database-mode E2E test (not a legal review)");
+  await dialog.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+  for (const locale of LOCALES) {
+    const back = await visit(browser, `/${locale}/privacy`);
+    expect({ status: back.status, h1: back.h1 }).toEqual({ status: 200, h1: live[locale].h1 });
+  }
+  expect(await sitemapPaths(browser)).toContain("/en/privacy");
 });
