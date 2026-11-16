@@ -10,12 +10,14 @@
   something failed or was skipped), items needing RAWASY's confirmation, known limitations, how to
   run, and next steps.
 - Also save the report as `docs/reports/YYYY-MM-DD-<topic>.md`, then commit and push it with the work.
-- Latest report: `docs/reports/2026-11-16-admin-a9-staging-preflight.md` (Admin / CMS program, A9 acceptance and
-  Namecheap staging preflight, read-only — H1–H14 all UNVERIFIED (no account access), the proposed staging configuration,
-  the Owner decisions D1–D8, the phase A read-only operator commands, the 13-item staging GO/NO-GO, the legal pages
-  unpublished rehearsed locally (29 expected public-test failures, all on the legal pages); new finding F-1, a fixed page
-  that is not live gets Next.js's bare 404; staging NOT yet authorizable, phase A is)
-  (earlier: `2026-11-15-admin-a9-final-acceptance-staging-readiness.md` (Admin / CMS program, A9 final
+- Latest report: `docs/reports/2026-11-16-admin-a9-f1-correction-hosting-preflight.md` (Admin / CMS program, A9 F-1
+  correction and Namecheap preflight assistance — a fixed page that is not live gets the localized 404 in database
+  releases, the static release byte-identical; the read-only phase A checklist `A9-STAGING-PACKAGE.md` §1A; H1–H14 still
+  UNVERIFIED pending the account's evidence; staging NOT yet authorizable, phase A is; production BLOCKED)
+  (earlier: `2026-11-16-admin-a9-staging-preflight.md` (A9 acceptance and Namecheap staging preflight, read-only — H1–H14
+  all UNVERIFIED, the proposed staging configuration, the Owner decisions D1–D8, the 13-item staging GO/NO-GO, the legal
+  pages unpublished rehearsed locally; finding F-1),
+  `2026-11-15-admin-a9-final-acceptance-staging-readiness.md` (Admin / CMS program, A9 final
   acceptance review and staging readiness — the independent review's findings corrected, the database-mode publishing
   E2E, the five investigations, the fresh-clone regression and parity, the hosting checklist, the staging execution
   package `docs/admin/A9-STAGING-PACKAGE.md`, the Owner decisions O1–O9, READY for staging / BLOCKED for production),
@@ -508,6 +510,13 @@
   that; the composition guard covers records only). It blocks production: Owner decision O10 (refuse offline, a
   localized boundary with a freeze proof, or both). Production decisions O3–O10 stay open. No staging, DNS, SSL,
   cPanel or hosting database action without D8.
+  **F-1 is corrected — local only** (the user's "A9 F-1 CORRECTION & STAGING PREFLIGHT ASSISTANCE" brief, which
+  approves A9 for staging-readiness purposes only; report `2026-11-16-admin-a9-f1-correction-hosting-preflight.md`;
+  commits `117478b` correction, `2813ccc` tests): see "From the F-1 correction" under "Phase A9 implementation". The
+  staging package gained §1A, the read-only phase A pass on the real account in order (A1–A14: what to open, what to
+  send back, what never to share or click); H1–H14 stay UNVERIFIED until the Owner's evidence arrives. Still not
+  authorized: staging or production deployment, DNS, a migration on hosting, merging into `main`. O10 (protecting the
+  homepage from being taken offline) is the Owner's decision, not implemented.
   **Recorded for later, not done in A5** (the A5 brief): A9 must decouple public uploaded-media delivery (`/media/u/**`)
   from `ADMIN_ENABLED` before public content uses it — the gate is unchanged; the Owner-approved fix for the
   reduced-motion press is `scale: none` for pressed `.btn` in the reduced-motion rule — the public stylesheet is frozen
@@ -1539,6 +1548,25 @@
     `e2e-admin/helpers.ts`'s state file, so run it never alongside the admin suite.
   - The deployment archive carries no `scripts/` or `drizzle/`: the operations CLIs run from a clean clone of the same
     commit through an SSH tunnel (the staging package §6).
+- From the F-1 correction (keep them; each has a test that fails on `0812a98`):
+  - A fixed page that is not live in a database release (the legal pages until a legal reviewer is named, any fixed page
+    unpublished) answers the website's localized 404, not Next.js's bare page. Each fixed route has a not-found boundary
+    `not-found.db.tsx` (the homepage's beside the root layout), built from `fixedPageBoundary(<page key>)` in
+    `src/content/live/fixed-not-found.tsx`: it draws the `(missing)` group's 404 unchanged only while
+    `isLiveForRequest(page)` (`src/content/live/load.ts`: the request's own `current()`, the read the page decides on) is
+    false, and `null` otherwise — a live page's data gains two `null` rows, nothing else.
+  - Only a database build reads `.db.tsx`: `pageExtensions` (`["tsx", "ts", "jsx", "js", "db.tsx"]`) is set in
+    `next.config.ts`'s database branch alone. Next.js takes a convention file's extension from its first dot
+    (`getConventionFileBaseName`), so a static build never sees these files: the static release stayed byte-identical
+    (686 public page files, the 36 files they name). Never use `.db.tsx` for anything else (`tests/unit/fixed-not-found.test.ts`
+    pins the list), and a new fixed page (`ensureContent("<key>")` in its page) needs its boundary (the same test).
+  - Keep words out of the boundary files: they sit in Tailwind's scanned route group (every word can become a public
+    utility); the explanation lives in `fixed-not-found.tsx` (not scanned).
+  - While the homepage itself is offline, its boundary (beside the root layout) draws the 404 into every page's data
+    (+50,596 bytes on `/en/contact`); published again, nothing. Refusing to take the homepage offline is the Owner's O10.
+  - Tests: the unit test above; `e2e-dbmode/publish-flow.spec.ts`'s three "A9 F-1" tests (About, the homepage, the privacy
+    policy by the Owner: offline → the localized 404 in EN/AR, light/dark, `noindex`, header, footer, a way home,
+    nothing of the offline page; published again → 200). The suite seeds an Owner too (`flow.owner@example.test`).
 
 ## Rules from the brief
 

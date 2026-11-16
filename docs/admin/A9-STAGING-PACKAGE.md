@@ -33,14 +33,106 @@ keys or a decision only those people hold.
 |---|---|
 | Staging host `staging.rawasymetal.com` (a proposal: the Owner names the host) | H13 (a DNS record: the Owner's authorization) |
 | The admin on, only behind the staging access control | `ADMIN_ENABLED=1` (§3) and H14.2's address allowlist; 2FA required for Owner and Admin (A2) |
-| Privacy and Terms unpublished until reviewed | the import without `--legal-reviewer` (§7.6); both pages answer 404 on staging, with Next.js's bare English 404 page, not the localized one (finding F-1 of the staging preflight report); the sitemap lists 98 addresses, and the footer's two legal links lead to that page (§10.2) |
+| Privacy and Terms unpublished until reviewed | the import without `--legal-reviewer` (§7.6); both pages answer 404 on staging with the website's localized 404 in their language (finding F-1 of the staging preflight, corrected: `not-found.db.tsx`); the sitemap lists 98 addresses, and the footer's two legal links lead to that 404 (§10.2) |
 | No real visitor enquiries, no SMTP, no external notification | the quote form stays a handoff form (nothing stores an enquiry); `MAIL_TRANSPORT` unset |
 | No production data or credentials | staging's own database, data folder, `AUTH_ENCRYPTION_KEY` and backup key pair; test users named "Test …" |
 | Not indexed | H14.2: the allowlist (crawlers get 403) and the `X-Robots-Tag: noindex, nofollow` header |
 
+## 1A. Phase A: read-only checks on the RAWASY account, in this order *(Owner or Hosting operator)*
+
+The first pass on the real account. It **changes nothing**: it only opens pages and runs commands that read. It
+needs only the Owner's go-ahead for phase A (decision D1 of the staging preflight report), not the staging
+authorization.
+
+**What to send back for review:**
+- a screenshot of each panel named below;
+- the Terminal output, pasted as text.
+
+**What must never be shared** (in a screenshot, a paste or a message): no password, no 2FA code, no API token, no
+private key, no `~/.my.cnf`, no database dump. Blank anything like that before sharing. None of the steps below shows
+one.
+
+**Status rules.** Each step's evidence goes into the record sheet (§14).
+- A row of §1 becomes **PASS** only when all its evidence is recorded, and most rows also need phase B (§1, the steps
+  marked *writes*, after the staging authorization D8). So phase A can confirm a row's account facts, or find a
+  **FAIL**. It never makes a row pass on a platform page's word.
+- A **FAIL** on A1–A5 for H1, H2, H4 (version) or H9 stops the plan before any write.
+
+**Do not click, in any panel:**
+- Create / Add / Save / Run / Generate / Download a backup / Enable / Disable;
+- "Run AutoSSL";
+- "Manage" (SSH keys);
+- "Create Application" followed by Save.
+
+Viewing a page, a list or a dropdown is fine.
+
+| Step | Where | What to record (send a screenshot) | Feeds | Pass in phase A |
+|---|---|---|---|---|
+| A1 | cPanel home → right column **General Information**, then **Server Information** | hosting package, server name, cPanel version, web server (LiteSpeed) version, MySQL/MariaDB version, architecture, operating system, kernel | H1, H2, H4, H14 | MariaDB 10.11 or later; LiteSpeed named; Linux x86-64 |
+| A2 | cPanel → Metrics → **Resource Usage** (the overview and "Current Usage" / limits; the last 24 hours and 7 days) | the limits: CPU (speed), physical memory, entry processes, number of processes, I/O, IOPS; any "faults" | H6, H7 | memory limit recorded (Stellar Plus: 2 GB); entry processes recorded (30); faults noted |
+| A3 | cPanel left column (Statistics): **Disk Usage**, **File Usage**, **MySQL Databases** count, **MySQL Disk Usage** | used / limit of each | H9 | at least 5 GB and at least 60,000 inodes free |
+| A4 | cPanel → Advanced → **Terminal** (opening it is read-only), then the command block below | the whole output, pasted | H1, H2, H3, H6, H9, H11 | Terminal opens; glibc 2.28 or later; a Node.js 22 of 22.18 or later is installed |
+| A5 | cPanel → Databases → **phpMyAdmin**: the home page's "Database server" panel; then the **SQL** tab, the read-only query below, **Go** | server version, server charset; the query's one row | H4, H5 | MariaDB 10.11 or later; `max_user_connections` (`U`) recorded |
+| A6 | cPanel → Software → **Setup Node.js App** | the list of applications (none expected for staging yet); do not create one | H1, H6 | the page opens |
+| A7 | cPanel → Security → **ModSecurity** | on / off for each domain | H10 | recorded (the upload test is phase B) |
+| A8 | cPanel → Advanced → **Cron Jobs** | the page opens; the existing jobs (none should be needed) | H11 | **H11 can pass here**: available, nothing created |
+| A9 | cPanel → Files → **Backup** (and **JetBackup** or **Backup Wizard** if listed) | what exists: automatic backups, their schedule and retention as shown; do not generate or download one | H12 | recorded (the encrypted staging backup is phase B) |
+| A10 | cPanel → Security → **SSL/TLS Status** | the domains listed and their AutoSSL state; do not run AutoSSL | H14.1 | AutoSSL available on the account |
+| A11 | cPanel → Security → **SSH Access** | whether SSH is offered and the port shown; do not manage keys | H3 | SSH offered (the key and the tunnel are phase B) |
+| A12 | cPanel → Domains → **Domains**, and **Zone Editor** if listed (view only) | the domains and subdomains that exist; whether `rawasymetal.com`'s records are edited here | H13 | recorded; no `staging` subdomain created |
+| A13 | Namecheap dashboard → Domain List → `rawasymetal.com` → **Advanced DNS** (view only) | the nameservers in use (Namecheap BasicDNS, custom, or the hosting's) | H13 | recorded: tells where the staging record would be made |
+| A14 | **[engineer]** on any computer (public answers only) | the output of the command block below | H13, H14 | today's records captured; `staging.rawasymetal.com` resolves to nothing yet |
+
+**A4 — [server] the Terminal block** (every line reads; none writes, installs or starts anything):
+
+```bash
+echo "== identity"; whoami; echo "$HOME"; hostname
+echo "== system"; uname -m; grep -E '^(NAME|VERSION)=' /etc/os-release 2>/dev/null; ldd --version | head -1
+echo "== Node.js versions installed on the server"; ls -d /opt/alt/alt-nodejs*/ 2>/dev/null
+for v in 22 24; do n=/opt/alt/alt-nodejs$v/root/usr/bin/node; [ -x "$n" ] && echo "alt-nodejs$v: $("$n" -v) glibc $("$n" -p 'process.report.getReport().header.glibcVersionRuntime')"; done
+echo "== Node.js selector (a listing)"; cloudlinux-selector get --json --interpreter nodejs 2>/dev/null | head -c 3000; echo
+echo "== existing Node.js app environments"; ls ~/nodevenv 2>/dev/null || echo "none"
+echo "== database clients on the server"; command -v mariadb mysql mariadb-dump mysqldump; mariadb --version 2>/dev/null || mysql --version
+echo "== space"; df -h "$HOME" | tail -1; quota -s 2>/dev/null | tail -2
+echo "== limits this shell sees"; ulimit -a | grep -Ei 'processes|open files|virtual memory'
+echo "== this account's processes"; ps -u "$USER" -o pid,etimes,rss,args | head -20
+echo "== cron (listing only)"; crontab -l 2>/dev/null || echo "no crontab"
+echo "== what the main domain serves today (names only)"; ls -la ~/public_html | head -30
+```
+
+**A5 — phpMyAdmin, SQL tab** (a read-only query; it changes nothing):
+
+```sql
+SELECT VERSION() AS version, @@max_user_connections AS max_user_connections, @@max_connections AS max_connections,
+       @@wait_timeout AS wait_timeout, @@max_allowed_packet AS max_allowed_packet,
+       @@innodb_lock_wait_timeout AS innodb_lock_wait_timeout, @@character_set_server AS charset,
+       @@collation_server AS collation, @@sql_mode AS sql_mode, @@time_zone AS time_zone,
+       @@system_time_zone AS system_time_zone, CURRENT_USER() AS account;
+```
+
+`@@max_user_connections` read here is the value for the cPanel user phpMyAdmin connects as. The staging database user
+(phase B) is checked again in H4. A value of 0 means only `@@max_connections` limits a user.
+
+**A14 — [engineer] public answers only:**
+
+```bash
+dig +short NS rawasymetal.com; dig +short A rawasymetal.com; dig +short CNAME www.rawasymetal.com
+dig +short MX rawasymetal.com; dig +short TXT rawasymetal.com; dig +short TXT _dmarc.rawasymetal.com
+dig +short A staging.rawasymetal.com          # expected: nothing yet
+curl -sI https://www.rawasymetal.com/ | head -8; curl -sI https://rawasymetal.com/ | head -5
+```
+
+**After phase A.** The engineer reads the evidence and fills the record sheet (§14). Each H row then reads one of:
+- **FAIL** — the plan stops (see the status rules above);
+- **UNVERIFIED** — the account facts are confirmed and only the phase B steps remain;
+- **PASS** — H11, which phase A settles.
+
+Phase B (the steps of §1 marked *writes*, then §4–§12) starts only with the Owner's written staging authorization (D8).
+
 ## 1. Hosting verification H1–H14 (exact procedure)
 
-Record every answer in the record sheet (§14). A row passes only on its recorded evidence.
+Record every answer in the record sheet (§14). A row passes only on its recorded evidence. Phase A (§1A) covers every
+read-only part; the steps here marked *writes* are phase B (after the staging authorization).
 
 ### H1 — Node.js 22, Passenger start file *(Hosting operator, cPanel)*
 
@@ -417,7 +509,7 @@ curl -s $B/sitemap.xml | grep -c '<loc>'                                        
 ```
 
 **Pass:** `/` redirects (307) to a language; the pages answer 200 (Privacy and Terms 404 while their reviewer is not
-named — S7; that 404 is Next.js's bare page, F-1); held-back files 404; database pages send `private, no-cache`; the quote form on `/en/contact` prepares its
+named — S7; the website's localized 404 in each language since the F-1 correction); held-back files 404; database pages send `private, no-cache`; the quote form on `/en/contact` prepares its
 email and WhatsApp text exactly as the static release does (nothing is stored or sent).
 
 **The publishing path** — the steps `npm run test:dbmode` proves locally, done by hand once on staging with test text
@@ -477,34 +569,39 @@ The staging rehearsal is accepted against the static release **of the same commi
 - Next.js's own 404 bodies differ (A9).
 
 **While the legal pages wait for their reviewer (S7, the proposed default)** — measured locally on the final database
-build, imported without `--legal-reviewer`:
+build (`2813ccc`, with the F-1 correction), imported without `--legal-reviewer`:
 - **Import:** 113 created and 111 published; Privacy and Terms kept as working copies.
 - **Legal addresses:** `/en/privacy`, `/ar/privacy`, `/en/terms` and `/ar/terms` answer **404** (200 on the static
   release).
 - **Sitemap:** lists **98** addresses instead of 102.
 - **Footer:** every page's footer still links both legal pages, unchanged from the approved design.
-- **What those links reach (finding F-1):** Next.js's own "404: This page could not be found." page. It is English and
-  unstyled, has no `lang`, no header and no way back, and is blank without JavaScript. It is not the localized 404:
-  - the fixed routes call `notFound()` when their page is not live, and only `(missing)`, `services/[slug]` and
-    `projects/[slug]` have a not-found boundary;
-  - it is the same for any of the 11 fixed pages taken offline.
-  This is acceptable on an access-controlled staging only, never in production (decision O10).
+- **What those links reach:** the website's own localized 404 in the page's language (`en` / `ar-SA`, light and dark):
+  - header and footer, a link home, "Page not found" and `noindex`, as at any unknown address;
+  - without JavaScript a blank body under the right title, as every 404 of this design (TM-2.1).
+
+  Before the F-1 correction they reached Next.js's bare English page (the staging preflight report, F-1). The same
+  localized 404 answers for any of the 11 fixed pages taken offline.
 - **HTML and HTTP:** these four documents and the sitemap body are the only further differences, out of 102 sitemap
   pages and 224 answers.
-- **The public suite** (612 tests): 572 passed, 11 skipped (A9's fallback-404 checks, which skip against an outside
-  server) and **29 failed**: exactly the 29 that open Privacy or Terms or count the sitemap (601 passed on the A9
-  database run with the legal pages published, so nothing else changed). The expected list, by spec:
+- **The public suite** (612 tests): 573 passed, 11 skipped (A9's fallback-404 checks, which skip against an outside
+  server) and **28 failed**.
+  - They are exactly the 28 that open Privacy or Terms as pages, or count the sitemap's 102 addresses. 601 pass on the
+    database release with the legal pages published, so nothing else changed.
+  - Before the F-1 correction it was 29: the D4 sweep (`commerce-projects.spec.ts`), which requires the design's
+    `body.mc` on `/privacy`, passes now.
+
+  The expected list, by spec:
   - `commerce-anchors.spec.ts` (6): the four `cold load with delayed fonts: legal` cells (`/en/privacy#contact`,
     `/ar/terms#contact`, desktop and phone); `after the page has settled › with reduced motion …` and `without
     JavaScript › a direct address with an #anchor …` (both open `/ar/terms#contact`).
   - `commerce-fonts.spec.ts` (1): `Arabic pages preload the Arabic files …` (it opens `/en/privacy`).
-  - `commerce-inner.spec.ts` (12): `legal pages ›` its four content checks, `the shell …`, `the contents mark the
-    section …`, `anchor jumps land every heading …`, `phone › the contents are a disclosure …`, `without JavaScript ›
-    the contents are open …`; `localized 404 ›` `real HTTP status codes …` (it counts the legal pages as known pages),
-    `phone menu › on a page with an address of its own …`, `the sitemap and robots: the legal pages are listed …`.
+  - `commerce-inner.spec.ts` (12):
+    - `legal pages ›`: its four content checks, `the shell …`, `the contents mark the section …`, `anchor jumps land
+      every heading …`, `phone › the contents are a disclosure …`, `without JavaScript › the contents are open …`;
+    - `localized 404 ›`: `real HTTP status codes …` (it counts the legal pages as known pages), `phone menu › on a page
+      with an address of its own …` (it expects the privacy page's own language links), `the sitemap and robots: the
+      legal pages are listed …`.
   - `commerce-polish.spec.ts` (1): `the inner pages' hero › without its script …` (its pages include both).
-  - `commerce-projects.spec.ts` (1): `decision D4 across the site › only the overview's gallery cards link …` (its
-    sweep opens `/privacy`).
   - `site.spec.ts` (2): `internal links … resolve` (the footer's four legal links answer 404) and `the sitemap lists
     every page … 102 addresses …`.
   - `stage-1c.spec.ts` (6): `routes, language and SEO ›` the four legal routes and `the sitemap lists every published
@@ -593,6 +690,7 @@ fail.
 
 | Item | Recorded |
 |---|---|
+| Phase A (§1A): A1–A14 screenshots and outputs received; FAILs, if any | |
 | Approved commit; archive checksums (static, database) | |
 | H1 Node version · H2 glibc, sharp · H3 SSH port, forwarding · H4 version, settings, grants, `U` | |
 | H5 `P`, peak connections · H6 processes, idle lifetime · H7 RSS, Resource Usage · H8 timings | |
