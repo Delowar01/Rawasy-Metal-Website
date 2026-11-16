@@ -153,6 +153,14 @@ export async function redirectFor(path: string): Promise<null> {
   return null;
 }
 
+/**
+ * Whether a fixed page is live in this request's content: the same per-request read its page decides on, so the page's
+ * database-build not-found boundary (src/content/live/fixed-not-found.tsx, A9 F-1) and the page never disagree.
+ */
+export async function isLiveForRequest(page: string): Promise<boolean> {
+  return (await current()).livePages.has(page);
+}
+
 export function isLivePage(page: string): boolean {
   return loaded?.livePages.has(page) ?? false;
 }

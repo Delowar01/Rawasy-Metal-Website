@@ -45,6 +45,9 @@ const config = (DATABASE_CONTENT: boolean): NextConfig => ({
   ...(DATABASE_CONTENT
     ? {
         turbopack: { resolveAlias: { "@/content/load": "./src/content/live/load.ts" } },
+        // Each fixed route's not-found boundary (`not-found.db.tsx`, src/content/live/fixed-not-found.tsx): Next.js reads
+        // a convention file's extension from its first dot, so a static build never sees these files (A9 F-1).
+        pageExtensions: ["tsx", "ts", "jsx", "js", "db.tsx"],
         // The fail-closed page cache (src/server/public/cache-handler.cjs), and no second copy in Next's own memory.
         cacheHandler: require.resolve("./src/server/public/cache-handler.cjs"),
         cacheMaxMemorySize: 0,
